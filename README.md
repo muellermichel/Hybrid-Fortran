@@ -199,7 +199,7 @@ Current Restrictions
 
 * Hybrid Fortran maps your subroutines directly to CUDA Fortran subroutines, which leads to certain restrictions for subroutines calling, containing, or being called within GPU parallel regions:
 - subroutines being called within GPU parallel regions must reside in the same h90/H90 file as their caller.
-- subroutines containing or being called within GPU parallel regions must not contain DATA, SAVE, RECURSIVE, PURE or ELEMENTAL statements and must not be recursive.
+- subroutines containing or being called within GPU parallel regions must not contain `DATA`, `SAVE`, `RECURSIVE`, `PURE` or `ELEMENTAL` statements and must not be recursive.
 - subroutines may only contain one GPU parallel region.
 - subroutines containing or being called within GPU parallel regions may not call other subroutines containing parallel regions. This restriction, however, may soon be lifted because of recent improvements in CUDA 5.
 
@@ -207,7 +207,7 @@ Current Restrictions
 
 * All source files (h90, H90, f90 and F90) need to have distinctive filenames since they will be copied into flat build directories by the build system.
 
-* @domainDependant directives are required for all arrays in all subroutines called within parallel regions (the preprocessor operates only on local symbol information within each subroutine).
+* `@domainDependant` directives are required for all arrays in all subroutines called within parallel regions (the preprocessor operates only on local symbol information within each subroutine).
 
 For more details please refer to the documentation.
 
@@ -217,11 +217,11 @@ Commercial support as well as Consulting will be available from June 2013 throug
 
 Documentation and Results
 -------------------------
-Detailed Documentation is currently available in the form of my [master thesis from 2012](https://github.com/muellermichel/Hybrid-Fortran/blob/master/doc/Documentation_v089.pdf) (it has been updated with the changes since then, however). Chapter 3 and Appendix A will be most relevant for using the framework. This will be refactored into a more standard software documentation by v0.85.
+Detailed Documentation is currently available in the form of my [master thesis from 2012](https://github.com/muellermichel/Hybrid-Fortran/raw/master/doc/Documentation_v089.pdf) (it has been updated with the changes since then, however). Chapter 3 and Appendix A will be most relevant for using the framework. This will be refactored into a more standard software documentation by v0.85.
 
 The poster shown at GTC 2013 is available [here](http://on-demand.gputechconf.com/gtc/2013/poster/pdf/P0199_MichelMueller.pdf).
 
-The slides shown in Michel's talk at GTC 2013 are available [here](https://github.com/muellermichel/Hybrid-Fortran/raw/master/doc/Slides_GTC2013.pdf). I'm afraid they aren't very self explanatory, but you can see our current results with the Japan next generation radiation module (53 kernels, around 10k lines of code). The recording will be made available by NVIDIA until end of April 2013. We expect to publish some papers on this as soon as the implementation is done, however it's probably not going to be in time for SC 2013.
+The slides shown in Michel's talk at GTC 2013 are available [here](https://github.com/muellermichel/Hybrid-Fortran/raw/master/doc/Slides_GTC2013.pdf). I'm afraid they aren't very self explanatory, but you can see our current results with Japan's next generation radiation module (53 kernels, around 10k lines of code). The recording will be made available by NVIDIA until end of April 2013. We expect to publish some papers on this as soon as the implementation is done, however it's probably not going to be in time for SC 2013.
 
 Roadmap
 -------

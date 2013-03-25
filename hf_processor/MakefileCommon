@@ -1,0 +1,257 @@
+# Copyright (C) 2013 Michel Müller, Rikagaku Kenkyuujo (RIKEN)
+
+# This file is part of Hybrid Fortran.
+
+# Hybrid Fortran is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# Hybrid Fortran is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU Lesser General Public License for more details.
+
+# You should have received a copy of the GNU Lesser General Public License
+# along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
+
+#***************************************************************************#
+#  Makefile for Hybrid Fortran Build Interface                              #
+#                                                                           #
+#  Date             2013/03/04                                              #
+#  Author           Michel Müller (RIKEN)                                   #
+#                                                                           #
+#                                                                           #
+# USUALLY NOTHING HERE SHOULD BE CHANGED!                                   #
+# see the following files for changing build settings:                      #
+#    * ./config/MakesettingsGeneral (directory settings,                    #
+#                                      compilation exceptions )             #
+#    * ./config/MakesettingsCPU (compiler settings CPU)                     #
+#    * ./config/MakesettingsGPU (compiler settings GPU)                     #
+#    * ./config/Makefile (source dependencies)                              #
+#                                                                           #
+#***************************************************************************#
+SHELL=/bin/bash
+CONFIGDIR=./config/
+include ${CONFIGDIR}MakesettingsGeneral
+
+ifdef EMULATED
+
+#############################################################################
+# Emulated Mode settings.                                                   #
+#############################################################################
+GPU_IMPLEMENTATION=${GPU_IMPLEMENTATION_EMULATION}
+CPU_IMPLEMENTATION=${CPU_IMPLEMENTATION_DEBUG}
+BUILD_ARGS="EMULATED=1"
+H90_PREPROCESSOR_ARGS=
+DEBUG_OUTPUT=/dev/null
+#############################################################################
+
+else
+ifdef DEBUG
+
+#############################################################################
+# Debug Mode settings.                                                      #
+#############################################################################
+GPU_IMPLEMENTATION=${GPU_IMPLEMENTATION_DEBUG}
+CPU_IMPLEMENTATION=${CPU_IMPLEMENTATION_DEBUG}
+BUILD_ARGS="DEBUG=1"
+H90_PREPROCESSOR_ARGS="--debug"
+DEBUG_OUTPUT=&1
+#############################################################################
+
+else
+
+#############################################################################
+# Production Mode settings.                                                 #
+#############################################################################
+GPU_IMPLEMENTATION=${GPU_IMPLEMENTATION_PRODUCTION}
+CPU_IMPLEMENTATION=${CPU_IMPLEMENTATION_PRODUCTION}
+BUILD_ARGS=
+H90_PREPROCESSOR_ARGS=
+DEBUG_OUTPUT=/dev/null
+#############################################################################
+
+endif
+endif
+
+#############################################################################
+# Determine sources and directories                                         #
+#############################################################################
+SRC_DIR_HFPP=${BASEDIR}hf_preprocessed/
+DIR_CPU=${BASEDIR}cpu/
+DIR_GPU=${BASEDIR}gpu/
+CG_DIR=${BASEDIR}callgraphs/
+CPU_CALLGRAPH_FILE=CG_CPU.xml
+GPU_CALLGRAPH_FILE=CG_GPU.xml
+SRC_DIR_CPU=${DIR_CPU}source/
+SRC_DIR_GPU=${DIR_GPU}source/
+
+SRC_F90=$(shell ${CONFIGDIR}filterExceptions.sh $(shell find ${SRC_DIR_COMMON} -type f -name '*.f90'))
+SRC_F90PP=$(shell ${CONFIGDIR}filterExceptions.sh $(shell find ${SRC_DIR_COMMON} -type f -name '*.F90'))
+SRC_LIB_FORT=$(shell find ${LIBDIR} -type f -name '*.F90')
+SRC_LIB_H90=$(shell find ${LIBDIR} -type f -name '*.h90')
+SRC_FORT=${SRC_F90} ${SRC_F90PP} ${SRC_LIB_FORT}
+
+SRC_FORT_CPU=$(addprefix $(SRC_DIR_CPU),$(notdir ${SRC_FORT}))
+SRC_FORT_GPU=$(addprefix $(SRC_DIR_GPU),$(notdir ${SRC_FORT}))
+SRC_H90_WITHOUT_PP=$(shell find ${SRC_DIR_COMMON} -type f -name '*.h90')
+SRC_H90_WITH_PP=$(shell find ${SRC_DIR_COMMON} -type f -name '*.H90')
+SRC_H90_ALL=${SRC_H90_WITHOUT_PP} ${SRC_H90_WITH_PP} ${SRC_LIB_H90}
+SRC_H90TGT_HFPP_PRE=$(addprefix $(SRC_DIR_HFPP),$(notdir $(SRC_H90_ALL)))
+SRC_H90TGT_HFPP=$(SRC_H90TGT_HFPP_PRE:.H90=.h90)
+SRC_H90TGT_CPU_PRE=$(addprefix $(SRC_DIR_CPU),$(notdir $(SRC_H90TGT_HFPP)))
+SRC_H90TGT_CPU=$(SRC_H90TGT_CPU_PRE:.h90=.F90)
+SRC_H90TGT_GPU_PRE=$(addprefix $(SRC_DIR_GPU),$(notdir $(SRC_H90TGT_HFPP)))
+SRC_H90TGT_GPU=$(SRC_H90TGT_GPU_PRE:.h90=.F90)
+
+SRC_ALL_CPU=${SRC_FORT_CPU} ${SRC_H90TGT_CPU}
+SRC_ALL_GPU=${SRC_FORT_GPU} ${SRC_H90TGT_GPU}
+#############################################################################
+
+#############################################################################
+# Determine executables                                                     #
+#############################################################################
+EXECUTABLES_CPU=$(addprefix $(DIR_CPU),$(notdir ${EXECUTABLES}))
+EXECUTABLES_GPU=$(addprefix $(DIR_GPU),$(notdir ${EXECUTABLES}))
+EXECUTABLES_CPU_OUT=$(patsubst %,%.out,$(EXECUTABLES_CPU))
+EXECUTABLES_GPU_OUT=$(patsubst %,%.out,$(EXECUTABLES_GPU))
+INSTALLED_EXECUTABLES_CPU=$(foreach executable,$(EXECUTABLES),${TESTDIR}/${executable}/${executable}_cpu)
+INSTALLED_EXECUTABLES_GPU=$(foreach executable,$(EXECUTABLES),${TESTDIR}/${executable}/${executable}_gpu)
+#############################################################################
+
+
+SRC_FORT_COMMON_DIRS=$(dir $(SRC_FORT)) $(dir $(SRC_H90_ALL))
+
+vpath %.f90 $(SRC_FORT_COMMON_DIRS)
+vpath %.F90 $(SRC_FORT_COMMON_DIRS)
+vpath %.h90 $(SRC_FORT_COMMON_DIRS)
+vpath %.H90 $(SRC_FORT_COMMON_DIRS)
+
+.PHONY: all clean install install_cpu install_gpu graphs build_cpu build_gpu create_install_directories
+
+.SUFFIXES: .f90 .F90 .h90 .H90
+
+all: build_cpu build_gpu
+
+install: install_cpu install_gpu
+
+install_cpu: ${INSTALLED_EXECUTABLES_CPU}
+
+install_gpu: ${INSTALLED_EXECUTABLES_GPU}
+
+graphs: ${CG_DIR}CG_CPU.png ${CG_DIR}CG_GPU.png
+
+clean:
+	rm -rf ${BASEDIR}
+	rm -f ${INSTALLED_EXECUTABLES_CPU}
+	rm -f ${INSTALLED_EXECUTABLES_GPU}
+
+build_cpu: ${SRC_DIR_CPU}Makefile ${SRC_DIR_CPU}Makesettings ${SRC_DIR_CPU}MakesettingsGeneral ${SRC_ALL_CPU}
+	@echo "..cpu executable dependant on " ${SRC_DIR_CPU}Makefile ${SRC_DIR_CPU}Makesettings ${SRC_DIR_CPU}MakesettingsGeneral ${SRC_ALL_CPU} >${DEBUG_OUTPUT}
+	@cd ${SRC_DIR_CPU}; make ${BUILD_ARGS}
+
+build_gpu: ${SRC_DIR_GPU}Makefile ${SRC_DIR_GPU}Makesettings ${SRC_DIR_GPU}MakesettingsGeneral ${SRC_ALL_GPU}
+	@echo "..gpu executable dependant on " ${SRC_DIR_GPU}Makefile ${SRC_DIR_GPU}Makesettings ${SRC_DIR_GPU}MakesettingsGeneral ${SRC_ALL_GPU} >${DEBUG_OUTPUT}
+	@cd ${SRC_DIR_GPU}; make ${BUILD_ARGS}
+
+create_install_directories:
+	@echo "..creating install directories {$(dir ${INSTALLED_EXECUTABLES_CPU})}" >${DEBUG_OUTPUT}
+	@mkdir -p $(dir ${INSTALLED_EXECUTABLES_CPU})
+	@mkdir -p $(dir ${INSTALLED_EXECUTABLES_GPU})
+
+.SECONDEXPANSION:
+${TESTDIR}/%_cpu: $${DIR_CPU}$$(notdir %).out create_install_directories
+	@cp -fp $< $@
+
+.SECONDEXPANSION:
+${TESTDIR}/%_gpu: $${DIR_GPU}$$(notdir %).out create_install_directories
+	@cp -fp $< $@
+
+${CG_DIR}rawCG.xml: ${CG_DIR}touchedWhenUpdateNeeded
+	@echo "...........callgraph has changed, need to recompile all h90 files.............."
+	@mv ${CG_DIR}temp.xml $@
+
+${CG_DIR}touchedWhenUpdateNeeded: ${CG_DIR}temp.xml
+	@${TOOLSDIR}/testCG.sh ${CG_DIR} ${TOOLSDIR} ${H90_PREPROCESSOR_ARGS}
+
+${CG_DIR}temp.xml: ${SRC_H90TGT_HFPP}
+	@echo "...........h90 files have been modified => building and testing hybrid callgraph........"
+	@echo ..calling python ${TOOLSDIR}/annotatedCallGraphFromH90SourceDir.py -i ${SRC_DIR_COMMON} ${H90_PREPROCESSOR_ARGS} >${DEBUG_OUTPUT}
+	@mkdir -p ${CG_DIR}; python ${TOOLSDIR}/annotatedCallGraphFromH90SourceDir.py -i ${SRC_DIR_HFPP} ${H90_PREPROCESSOR_ARGS} > $@
+
+${CG_DIR}CG_CPU.xml: ${CG_DIR}rawCG.xml
+	@echo "...........building CPU callgraph.............."
+	@echo ..calling python ${TOOLSDIR}/loopAnalysisWithAnnotatedCallGraph.py -i $< ${H90_PREPROCESSOR_ARGS} -a CPU >${DEBUG_OUTPUT}
+	@mkdir -p ${CG_DIR}; python ${TOOLSDIR}/loopAnalysisWithAnnotatedCallGraph.py -i $< ${H90_PREPROCESSOR_ARGS} -a CPU > $@
+
+${CG_DIR}CG_GPU.xml: ${CG_DIR}rawCG.xml
+	@echo "...........building GPU callgraph.............."
+	@echo ..calling python ${TOOLSDIR}/loopAnalysisWithAnnotatedCallGraph.py -i $< ${H90_PREPROCESSOR_ARGS} -a GPU >${DEBUG_OUTPUT}
+	@mkdir -p ${CG_DIR}; python ${TOOLSDIR}/loopAnalysisWithAnnotatedCallGraph.py -i $< ${H90_PREPROCESSOR_ARGS} -a GPU > $@
+
+${CG_DIR}CG_CPU.png: ${CG_DIR}CG_CPU.xml
+	@echo ...creating $@ from $< >${DEBUG_OUTPUT}
+	@python ${TOOLSDIR}/graphVizGraphWithAnalyzedCallGraph.py -i $< ${H90_PREPROCESSOR_ARGS} -o $@
+
+${CG_DIR}CG_GPU.png: ${CG_DIR}CG_GPU.xml
+	@echo ...creating $@ from $< >${DEBUG_OUTPUT}
+	@python ${TOOLSDIR}/graphVizGraphWithAnalyzedCallGraph.py -i $< ${H90_PREPROCESSOR_ARGS} -o $@
+
+${SRC_DIR_CPU}Makefile:
+	@echo ...copying file into $@ >${DEBUG_OUTPUT}
+	@mkdir -p ${SRC_DIR_CPU}; cp -fp ${CONFIGDIR}Makefile $@
+
+${SRC_DIR_CPU}Makesettings:
+	@echo ...copying file into $@ >${DEBUG_OUTPUT}
+	@mkdir -p ${SRC_DIR_CPU}; cp -fp ${CONFIGDIR}MakesettingsCPU $@
+
+${SRC_DIR_CPU}MakesettingsGeneral:
+	@echo ...copying file into $@ >${DEBUG_OUTPUT}
+	@mkdir -p ${SRC_DIR_CPU}; cp -fp ${CONFIGDIR}MakesettingsGeneral $@
+
+${SRC_DIR_GPU}Makefile:
+	@echo ...copying file into $@ >${DEBUG_OUTPUT}
+	@mkdir -p ${SRC_DIR_GPU}; cp -fp ${CONFIGDIR}Makefile $@
+
+${SRC_DIR_GPU}Makesettings:
+	@echo ...copying file into $@ >${DEBUG_OUTPUT}
+	@mkdir -p ${SRC_DIR_GPU}; cp -fp ${CONFIGDIR}MakesettingsGPU $@
+
+${SRC_DIR_GPU}MakesettingsGeneral:
+	@echo ...copying file into $@ >${DEBUG_OUTPUT}
+	@mkdir -p ${SRC_DIR_GPU}; cp -fp ${CONFIGDIR}MakesettingsGeneral $@
+
+${SRC_DIR_CPU}%.f90: %.f90
+	@echo ...copying file into $@ >${DEBUG_OUTPUT}
+	@mkdir -p ${SRC_DIR_CPU}; cp -fp $< $@
+
+${SRC_DIR_CPU}%.F90: %.F90
+	@echo ...copying file into $@ >${DEBUG_OUTPUT}
+	@mkdir -p ${SRC_DIR_CPU}; cp -fp $< $@
+
+${SRC_DIR_GPU}%.f90: %.f90
+	@echo ...copying file into $@ >${DEBUG_OUTPUT}
+	@mkdir -p ${SRC_DIR_GPU}; cp -fp $< $@
+
+${SRC_DIR_GPU}%.F90: %.F90
+	@echo ...copying file into $@ >${DEBUG_OUTPUT}
+	@mkdir -p ${SRC_DIR_GPU}; cp -fp $< $@
+
+${SRC_DIR_HFPP}%.h90: %.h90
+	@echo ...copying file into $@ >${DEBUG_OUTPUT}
+	@mkdir -p ${SRC_DIR_HFPP}; cp -fp $< $@
+
+${SRC_DIR_CPU}%.F90: ${SRC_DIR_HFPP}%.h90 ${CG_DIR}${CPU_CALLGRAPH_FILE}
+	@echo ...........converting $< to $@ using ${CPU_CALLGRAPH_FILE} and ${CPU_IMPLEMENTATION}........
+	@echo ..calling generateF90fromH90AndAnalyzedCallGraph.py -i $< -c ${CG_DIR}${CPU_CALLGRAPH_FILE} --implementation ${CPU_IMPLEMENTATION} ${H90_PREPROCESSOR_ARGS} >${DEBUG_OUTPUT}
+	@python ${TOOLSDIR}/generateF90fromH90AndAnalyzedCallGraph.py -i $< -c ${CG_DIR}${CPU_CALLGRAPH_FILE} --implementation ${CPU_IMPLEMENTATION} ${H90_PREPROCESSOR_ARGS} > $@ ;\
+
+${SRC_DIR_GPU}%.F90: ${SRC_DIR_HFPP}%.h90 ${CG_DIR}${GPU_CALLGRAPH_FILE}
+	@echo ...........converting $< to $@ using ${GPU_CALLGRAPH_FILE} and ${GPU_IMPLEMENTATION}........
+	@echo ..calling generateF90fromH90AndAnalyzedCallGraph.py -i $< -c ${CG_DIR}${GPU_CALLGRAPH_FILE} --implementation ${GPU_IMPLEMENTATION} ${H90_PREPROCESSOR_ARGS} >${DEBUG_OUTPUT}
+	@python ${TOOLSDIR}/generateF90fromH90AndAnalyzedCallGraph.py -i $< -c ${CG_DIR}${GPU_CALLGRAPH_FILE} --implementation ${GPU_IMPLEMENTATION} ${H90_PREPROCESSOR_ARGS} > $@ ;\
+
+${SRC_DIR_HFPP}%.h90: %.H90
+	@echo ...........preprocessing file $@
+	@mkdir -p ${SRC_DIR_HFPP}; pgcc -E $< | tr "\`" '\n' > $@

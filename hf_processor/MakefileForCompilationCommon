@@ -1,0 +1,74 @@
+# Copyright (C) 2013 Michel Müller, Rikagaku Kenkyuujo (RIKEN)
+
+# This file is part of Hybrid Fortran.
+
+# Hybrid Fortran is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# Hybrid Fortran is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU Lesser General Public License for more details.
+
+# You should have received a copy of the GNU Lesser General Public License
+# along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
+
+#***************************************************************************#
+#  Makefile that gets copied into the individual build directories.         #
+#  Dependencies of your sources need to be specified here.                  #
+#                                                                           #
+#  Date             2013/02/01                                              #
+#  Author           Michel Müller (RIKEN)                                   #
+#***************************************************************************#
+include ./MakesettingsGeneral
+include ./Makesettings
+
+ifdef DEBUG
+DEBUG_OUTPUT=&1
+else
+DEBUG_OUTPUT=/dev/null
+endif
+
+SRC_FORT=$(wildcard ./*.f90)
+SRC_PP=$(wildcard ./*.F90)
+SRC=${SRC_FORT} ${SRC_PP}
+
+OBJ_PRE1=$(SRC:.f90=.o)
+OBJ=$(OBJ_PRE1:.F90=.o)
+
+EXECUTABLES_OUT=$(patsubst %,%.out,$(EXECUTABLES))
+
+USER_LIB=libpp.a
+
+.SUFFIXES : .o .f90 .il .F90
+
+VPATH=$OBJDIR
+
+all: ${EXECUTABLES_OUT}
+
+%.out: %.o
+	@echo ".........linking " $<
+	@echo ..calling @$(LD) -o ../$@ $(LDFLAGS) $< -L./ -lpp >${DEBUG_OUTPUT}
+	@$(LD) -o ../$@ $(LDFLAGS) $< -L./
+
+${USER_LIB}: $(OBJ)
+	@echo ".........building user library ${USER_LIB} from " $(OBJ)
+	@echo ..calling @$(AR) $(ARFLAGS) $@ $(OBJ) >${DEBUG_OUTPUT}
+	@$(AR) $(ARFLAGS) $@ $(OBJ)
+
+%.o: %.F90
+	@echo ..........compiling $< in $(CURDIR)
+	@echo ..calling $(FC) $(FFLAGS) -c $< -o $@ >${DEBUG_OUTPUT}
+	@$(FC) $(FFLAGS) -c $< -o $@
+
+%.o: %.f90
+	@echo ..........compiling $< in $(CURDIR)
+	@echo ..calling $(FC) $(FFLAGS) -c $< -o $@ >${DEBUG_OUTPUT}
+	@$(FC) $(FFLAGS) -c $< -o $@
+
+helper_functions.o: storage_order.F90
+helper_functions_gpu.o: storage_order.F90
+time_profiling.o: helper_functions.o
+

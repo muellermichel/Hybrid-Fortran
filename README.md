@@ -23,7 +23,7 @@ Table of Contents
 
 * [Version History](#version-history)
 * [What is Hybrid Fortran?](#what-is-hybrid-fortran)
-* [Wny Hybrid Fortran?](#why-hybrid-fortran)
+* [Why Hybrid Fortran?](#why-hybrid-fortran)
 * [Example](#example)
 * [Features](#features)
 * [Dependencies](#dependencies)
@@ -99,7 +99,7 @@ end subroutine
 
 subroutine add(a, b, c)
     real, intent(in), dimension(NZ) :: a, b, c
-integer :: z
+    integer :: z
     do z=1,NZ
         c(z) = a(z) + b(z)
     end do
@@ -269,7 +269,10 @@ Contact Information
 -------------------
 Michel Müller is the maintainer of this project. You can reach him here:
 
-michel /-\T typhooncomputing.com
+(please see my user profile for my E-Mail address)
+
 Binzmühlestrasse 56
+
 CH-8050 Zürich
+
 Switzerland

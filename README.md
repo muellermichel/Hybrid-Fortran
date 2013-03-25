@@ -219,9 +219,9 @@ Documentation and Results
 -------------------------
 Detailed Documentation is currently available in the form of my [master thesis from 2012](https://github.com/muellermichel/Hybrid-Fortran/blob/master/doc/Documentation_v089.pdf) (it has been updated with the changes since then, however). Chapter 3 and Appendix A will be most relevant for using the framework. This will be refactored into a more standard software documentation by v0.85.
 
-The poster shown at GTC 2013 is available [here](https://github.com/muellermichel/Hybrid-Fortran/blob/master/doc/Poster_GTC2013.pdf).
+The poster shown at GTC 2013 is available [here](http://on-demand.gputechconf.com/gtc/2013/poster/pdf/P0199_MichelMueller.pdf).
 
-The slides shown in Michel's talk at GTC 2013 are available [here](https://github.com/muellermichel/Hybrid-Fortran/blob/master/doc/Slides_GTC2013.pdf). I'm afraid they aren't very self explanatory, but you can see our current results with the Japan next generation radiation module (53 kernels, around 10k lines of code). The recording will be made available by NVIDIA until end of April 2013. We expect to publish some papers on this as soon as the implementation is done, however it's probably not going to be in time for SC 2013.
+The slides shown in Michel's talk at GTC 2013 are available [here](https://github.com/muellermichel/Hybrid-Fortran/raw/master/doc/Slides_GTC2013.pdf). I'm afraid they aren't very self explanatory, but you can see our current results with the Japan next generation radiation module (53 kernels, around 10k lines of code). The recording will be made available by NVIDIA until end of April 2013. We expect to publish some papers on this as soon as the implementation is done, however it's probably not going to be in time for SC 2013.
 
 Roadmap
 -------

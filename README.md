@@ -18,19 +18,36 @@ along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 Hybrid Fortran v0.8
 ===================
 
+Table of Contents
+-----------------
+
+* [Version History](#version-history)
+* [What is Hybrid Fortran?](#what-is-hybrid-fortran)
+* [Wny Hybrid Fortran?](#why-hybrid-fortran)
+* [Example](#example)
+* [Features](#features)
+* [Dependencies](#dependencies)
+* [Getting Started](#getting-started)
+* [Current Restrictions](#current-restrictions)
+* [Commercial Support and Consulting](#commercial-support-and-consulting)
+* [Documentation and Results](#documentation-and-results)
+* [Roadmap](#roadmap)
+* [Contact Information](#contact-information)
+
+
 Version History
 ---------------
 <table>
-	<tr>
-		<th>Version</th>
-		<th>Release Date</th>
-		<th>Comment</th>
-	</tr>
-	<tr>
-		<td>v0.8</td>
-		<td>2013-3-24</td>
-		<td>First public release. Intended for physical packages with data dependencies orthogonal to parallelized data dimensions (i.e. no halo regions).</td>
-	</tr>
+    <tr>
+        <th>Version</th>
+        <th>Release Date</th>
+        <th>Comment</th>
+    </tr>
+    <tr>
+        <td>v0.8</td>
+        <td>2013-3-24</td>
+        <td>First public release. Intended for physical packages with data dependencies orthogonal to parallelized data dimensions (i.e. no halo regions).</td>
+    </tr>
 </table>
 
 What is Hybrid Fortran?
@@ -66,56 +83,60 @@ Hybrid Fortran will speed up the porting of your physical packages massively. It
 Example
 -------
 
-The following sample code shows a wrapper subroutine and an add subroutine.
+The following sample code shows a wrapper subroutine and an add subroutine. Please note that storage order inefficiencies are ignored in this example (this would create an implicit copy of the arrays a, b, c)
 
-> module example
-> contains
-> subroutine wrapper(a, b, c, d)
-> 	real, intent(in), dimension(NX, NY, NZ) :: a, b
-> 	real, intent(out), dimension(NX, NY, NZ) :: c
-> 	integer(4) :: x, y
-> 	do y=1,NY do x=1,NX
-> 		call add(a(AT(x,y,:)), b(AT(x,y,:)), c(AT(x,y,:)))
-> 	end do
-> end subroutine
->
-> subroutine add(a, b, c)
-> 	real, intent(in), dimension(NZ) :: a, b, c
->	integer :: z
-> 	do z=1,NZ
-> 		c(z) = a(z) + b(z)
-> 	end do
-> end subroutine
-> end module example
+```Fortran
+module example
+contains
+subroutine wrapper(a, b, c)
+    real, intent(in), dimension(NX, NY, NZ) :: a, b
+    real, intent(out), dimension(NX, NY, NZ) :: c
+    integer(4) :: x, y
+    do y=1,NY do x=1,NX
+        call add(a(x,y,:), b(x,y,:), c(x,y,:))
+    end do
+end subroutine
+
+subroutine add(a, b, c)
+    real, intent(in), dimension(NZ) :: a, b, c
+integer :: z
+    do z=1,NZ
+        c(z) = a(z) + b(z)
+    end do
+end subroutine
+end module example
+```
 
 Here's what this code would look like in Hybrid Fortran, parallelizing the x and y dimensions on both CPU and GPU.
 
-> module example contains
-> subroutine wrapper(a, b, c, d)
-> 	real, dimension(NZ), intent(in) :: a, b
-> 	real, dimension(NZ), intent(out) :: c
-> 	@domainDependant{domName(x,y), domSize(NX,NY), attribute(autoDom)}
-> 	a, b, c
->	@end domainDependant
->	@parallelRegion{appliesTo(CPU), domName(x,y), domSize(NX, NY)}
->		call add(a, b, c)
->	@end parallelRegion
-> end subroutine
->
-> subroutine add(a, b, c)
-> 	real, dimension(NZ), intent(in) :: a, b
-> 	real, dimension(NZ), intent(out) :: c
-> 	integer :: z
-> 	@domainDependant{domName(x,y), domSize(NX,NY), attribute(autoDom)}
-> 	a, b, c
-> 	@end domainDependant
-> 	@parallelRegion{appliesTo(GPU), domName(x,y), domSize(NX, NY)}
->	do z=1,NZ
->		c(z) = a(z) + b(z)
->	end do
->	@end parallelRegion
-> end subroutine
-> end module example
+```Fortran
+module example contains
+subroutine wrapper(a, b, c)
+  real, dimension(NZ), intent(in) :: a, b
+  real, dimension(NZ), intent(out) :: c
+  @domainDependant{domName(x,y), domSize(NX,NY), attribute(autoDom)}
+  a, b, c
+  @end domainDependant
+  @parallelRegion{appliesTo(CPU), domName(x,y), domSize(NX, NY)}
+      call add(a, b, c)
+  @end parallelRegion
+end subroutine
+
+subroutine add(a, b, c)
+  real, dimension(NZ), intent(in) :: a, b
+  real, dimension(NZ), intent(out) :: c
+  integer :: z
+  @domainDependant{domName(x,y), domSize(NX,NY), attribute(autoDom)}
+  a, b, c
+  @end domainDependant
+  @parallelRegion{appliesTo(GPU), domName(x,y), domSize(NX, NY)}
+  do z=1,NZ
+      c(z) = a(z) + b(z)
+  end do
+  @end parallelRegion
+end subroutine
+end module example
+```
 
 Please note the following:
 * The x and y dimensions have been abstracted away, even in the wrapper. We don't need to privatize the add subroutine in x and y as we would need to in CUDA or OpenACC. The actual computational code in the add subroutine has been left untouched.
@@ -194,50 +215,54 @@ Commercial Support and Consulting
 ---------------------------------
 Commercial support as well as Consulting will be available from June 2013 through [Typhoon Computing](http://typhooncomputing.com) on a per-call basis. Please contact me as soon as possible if you're interested in this offering.
 
-Documentation
--------------
-Detailed Documentation is currently available in the form of my [master thesis from 2012](#) (it has been updated with the changes since then, however). Chapter 3 and Appendix A will be most relevant for using the framework. This will be refactored into a more standard software documentation by v0.85.
+Documentation and Results
+-------------------------
+Detailed Documentation is currently available in the form of my [master thesis from 2012](https://github.com/muellermichel/Hybrid-Fortran/blob/master/doc/Documentation_v089.pdf) (it has been updated with the changes since then, however). Chapter 3 and Appendix A will be most relevant for using the framework. This will be refactored into a more standard software documentation by v0.85.
+
+The poster shown at GTC 2013 is available [here](https://github.com/muellermichel/Hybrid-Fortran/blob/master/doc/Poster_GTC2013.pdf).
+
+The slides shown in Michel's talk at GTC 2013 are available [here](https://github.com/muellermichel/Hybrid-Fortran/blob/master/doc/Slides_GTC2013.pdf). I'm afraid they aren't very self explanatory, but you can see our current results with the Japan next generation radiation module (53 kernels, around 10k lines of code). The recording will be made available by NVIDIA until end of April 2013. We expect to publish some papers on this as soon as the implementation is done, however it's probably not going to be in time for SC 2013.
 
 Roadmap
 -------
 Please note: The time frames for this roadmap will depend on your demands (both non-commercial and commercial requests). For this reason I heavily recommend contacting me in case you're waiting on one of the specified features - I will need your feedback for deciding on what to prioritize.
 
 <table>
-	<tr>
-		<th>Version</th>
-		<th>Expected Time Frame</th>
-		<th>Comment</th>
-	</tr>
-	<tr>
-		<td>v0.85</td>
-		<td>End of April 2013</td>
-		<td>Same functionality as v0.85, but includes an OpenMP configuration optimized for Intel MIC. (Note: MIC should be compatible with the current 'CPU' build, however it is untested as of yet).</td>
-	</tr>
-	<tr>
-		<td>v0.9</td>
-		<td>Summer 2013</td>
-		<td>Support for Fortran functions (in addition to subroutines). Parallel region layouts may vary between CPU and GPU loop regions. GPU debugging improvements. Support for Fortran language version > Fortran 90.</td>
-	</tr>
-	<tr>
-		<td>v1.0</td>
-		<td>Early 2014</td>
-		<td>Functionality extended for dynamical packages with arbitrary stencil data accesses. Halo regions will need to be implemented manually using Hybrid Fortran syntax. In this version, the parallel regions will be required to be at the same place for both CPU and GPU implementation, if used for dynamical code with parallel region offset accesses.</td>
-	</tr>
-	<tr>
-		<td>v1.1</td>
-		<td>Summer 2014</td>
-		<td>Dynamical code supported with different parallel region places for CPU/GPU. Halo regions will be handled automatically for single node, however multinode halo communication will still remain a manual task.</td>
-	</tr>
-	<tr>
-		<td>v2.0</td>
-		<td>Summer 2015</td>
-		<td>New top level parallel region for multinode parallelism using message passing (up to 2.0, multinode support will need to be implemented manually, such as by using MPI). Automatic detection of domain dependant data (@domainDependant directives will only be needed at one place for any symbol, instead of at every subroutine).</td>
-	</tr>
-	<tr>
-		<td>v2.1</td>
-		<td>late 2015</td>
-		<td>Automatic implementation of halo communication for multinode support.</td>
-	</tr>
+    <tr>
+        <th>Version</th>
+        <th>Expected Time Frame</th>
+        <th>Comment</th>
+    </tr>
+    <tr>
+        <td>v0.85</td>
+        <td>End of April 2013</td>
+        <td>Same functionality as v0.85, but includes an OpenMP configuration optimized for Intel MIC. (Note: MIC should be compatible with the current 'CPU' build, however it is untested as of yet).</td>
+    </tr>
+    <tr>
+        <td>v0.9</td>
+        <td>Summer 2013</td>
+        <td>Support for Fortran functions (in addition to subroutines). Parallel region layouts may vary between CPU and GPU loop regions. GPU debugging improvements. Support for Fortran language version > Fortran 90.</td>
+    </tr>
+    <tr>
+        <td>v1.0</td>
+        <td>Early 2014</td>
+        <td>Functionality extended for dynamical packages with arbitrary stencil data accesses. Halo regions will need to be implemented manually using Hybrid Fortran syntax. In this version, the parallel regions will be required to be at the same place for both CPU and GPU implementation, if used for dynamical code with parallel region offset accesses.</td>
+    </tr>
+    <tr>
+        <td>v1.1</td>
+        <td>Summer 2014</td>
+        <td>Dynamical code supported with different parallel region places for CPU/GPU. Halo regions will be handled automatically for single node, however multinode halo communication will still remain a manual task.</td>
+    </tr>
+    <tr>
+        <td>v2.0</td>
+        <td>Summer 2015</td>
+        <td>New top level parallel region for multinode parallelism using message passing (up to 2.0, multinode support will need to be implemented manually, such as by using MPI). Automatic detection of domain dependant data (@domainDependant directives will only be needed at one place for any symbol, instead of at every subroutine).</td>
+    </tr>
+    <tr>
+        <td>v2.1</td>
+        <td>Late 2015</td>
+        <td>Automatic implementation of halo communication for multinode support.</td>
+    </tr>
 </table>
 
 Contact Information

@@ -82,7 +82,7 @@ Hybrid Fortran has the potential to speed up the portation of your physical pack
 Example
 -------
 
-The following sample code shows a wrapper subroutine and an add subroutine. Please note that storage order inefficiencies are ignored in this example (this would create an implicit copy of the arrays a, b, c)
+The following sample code shows a wrapper subroutine and an add subroutine. Please note that storage order inefficiencies are ignored in this example (this would create an implicit copy of the z-dimension in arrays a, b, c).
 
 ```Fortran
 module example

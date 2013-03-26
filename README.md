@@ -71,7 +71,7 @@ Hybrid Fortran then is part of a new approach for porting large legacy codebases
 
 2. Evaluate the required code changes as well as the performance of the approach and choose what gets you there the closest.
 
-3. Spend somewhere between 10%-30% of your time budget on a preprocessor and/or framework that automates as much of the required code changes as possible. Your user code should look as closely as possible to the original CPU optimized code, in order to decrease subsequent portation time and to keep the CPU version at the same performance.
+3. Spend somewhere between 10%-30% of your time budget on a preprocessor and/or framework that automates as much of the required code changes as possible. Your user code should resemble as closely as possible the original CPU optimized code, in order to decrease subsequent portation time and to keep the CPU version at the same performance.
 
 4. Port your codebase according to the syntax devised in (3).
 
@@ -204,7 +204,7 @@ Current Restrictions
 - subroutines may only contain one GPU parallel region.
 - subroutines containing or being called within GPU parallel regions may not call other subroutines containing parallel regions. This restriction, however, may soon be lifted because of recent improvements in CUDA 5.
 
-* Arrays that are declared as domain dependant using @domainDependant directives must be of integer or real type (however any byte length within the Fortran specification is allowed).
+* Arrays that are declared as domain dependant using `@domainDependant` directives must be of integer or real type (however any byte length within the Fortran specification is allowed).
 
 * All source files (h90, H90, f90 and F90) need to have distinctive filenames since they will be copied into flat build directories by the build system.
 
@@ -271,9 +271,8 @@ Contact Information
 Michel Müller is the maintainer of this project. You can reach him here:
 
 (please see my user profile for my E-Mail address)
-
-Binzmühlestrasse 56
-
-CH-8050 Zürich
-
-Switzerland
+http://typhooncomputing.com <br />
+Binzmühlestrasse 56 <br />
+CH-8050 Zürich <br />
+Switzerland <br />
++41 44 586 56 27

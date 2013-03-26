@@ -210,6 +210,8 @@ Current Restrictions
 
 * `@domainDependant` directives are required for all arrays in all subroutines called within parallel regions (the preprocessor operates only on local symbol information within each subroutine).
 
+* Currently, only Fortran Subroutines are supported by the Hybrid Fortran preprocessor (e.g. no Functions).
+
 For more details please refer to the documentation.
 
 Commercial Support and Consulting

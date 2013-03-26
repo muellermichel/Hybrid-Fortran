@@ -270,7 +270,6 @@ Contact Information
 -------------------
 Michel Müller is the maintainer of this project. You can reach him here:
 
-(please see my user profile for my E-Mail address)
 http://typhooncomputing.com <br />
 Binzmühlestrasse 56 <br />
 CH-8050 Zürich <br />

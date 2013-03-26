@@ -91,8 +91,10 @@ subroutine wrapper(a, b, c)
     real, intent(in), dimension(NX, NY, NZ) :: a, b
     real, intent(out), dimension(NX, NY, NZ) :: c
     integer(4) :: x, y
-    do y=1,NY do x=1,NX
+    do y=1,NY
+      do x=1,NX
         call add(a(x,y,:), b(x,y,:), c(x,y,:))
+      end do
     end do
 end subroutine
 
@@ -117,7 +119,7 @@ subroutine wrapper(a, b, c)
   a, b, c
   @end domainDependant
   @parallelRegion{appliesTo(CPU), domName(x,y), domSize(NX, NY)}
-      call add(a, b, c)
+  call add(a, b, c)
   @end parallelRegion
 end subroutine
 

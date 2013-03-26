@@ -216,7 +216,7 @@ Commercial support as well as Consulting will be available from June 2013 throug
 
 Documentation and Results
 -------------------------
-Detailed Documentation is currently available in the form of my [master thesis from 2012](https://github.com/muellermichel/Hybrid-Fortran/raw/master/doc/Documentation_v089.pdf) (it has been updated with the changes since then, however). Chapter 3 and Appendix A will be most relevant for using the framework. This will be refactored into a more standard software documentation by v0.85.
+Detailed Documentation is currently available in the form of my [master thesis from 2012](https://github.com/muellermichel/Hybrid-Fortran/raw/master/doc/Documentation_v080.pdf) (it has been updated with the changes since then, however). Chapter 3 and Appendix A will be most relevant for using the framework. This will be refactored into a more standard software documentation by v0.85.
 
 The poster shown at GTC 2013 is available [here](http://on-demand.gputechconf.com/gtc/2013/poster/pdf/P0199_MichelMueller.pdf).
 

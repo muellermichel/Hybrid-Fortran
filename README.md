@@ -34,7 +34,6 @@ Table of Contents
 * [Roadmap](#roadmap)
 * [Contact Information](#contact-information)
 
-
 Version History
 ---------------
 <table>
@@ -78,7 +77,7 @@ Hybrid Fortran then is part of a new approach for porting large legacy codebases
 
 5. Integrate your codebase into your production environment.
 
-Hybrid Fortran will speed up the porting of your physical packages massively. It allows you to profit from lots of work that has gone into porting Japan's next generation weather model. More precisely, it will remove much of your burden in step (1), (2), (3) and (5), allowing you to concentrate on the really interesting problems, such as carving out the last 30% of your super computers. Please note that it may make sense to still adapt the framework to your specific needs in step (3). At [Typhoon Computing](http://typhooncomputing.com) we have the kind of know-how that will make this whole process as smooth as possible for you. But of course we very much invite to adapt this framework with your in house team - and we're always glad about pull requests.
+Hybrid Fortran has the potential to speed up the portation of your physical packages massively. It allows you to profit from lots of work that has gone into porting Japan's next generation weather model. More precisely, it will remove much of your burden in step (1), (2), (3) and (5), allowing you to concentrate on the really interesting problems, such as carving out the last 30% of your super computers. Please note that it may still make sense to adapt the framework to your specific needs in step (3). At [Typhoon Computing](http://typhooncomputing.com) we have the kind of know-how that will make this whole process as smooth as possible for you. But of course we very much invite to adapt this framework with your in house team - and we're always glad about pull requests.
 
 Example
 -------
@@ -161,7 +160,7 @@ Features
 
 * Macro support for your codebase - a separate preprocessor stage is applied even before the hybrid fortran preprocessor comes in, in order to facilitate the DRY principle.
 
-* Automatic 'printf' based device debugging mode. Prints all input arrays, output arrays and temporary arrays at the end of each kernel run at a compile-time specified point in a nicely readable format. This output can then be manually validated against the CPU version (which should already produce correct results at that point). Please note: Since PGI's CUDA Fortran so far does not support real device debugging, Hybrid Fortran cannot support that either at this point. However, since the code runs on CPU as well, the class of bugs that are affected by this restriction is rather small (since computational code can be validated ) and the current debug mode has been proven to be sufficient for the time being. We have confirmation from PGI that
+* Automatic 'printf' based device debugging mode. Prints all input arrays, output arrays and temporary arrays at the end of each kernel run at a compile-time specified point in a nicely readable format. This output can then be manually validated against the CPU version (which should already produce correct results at that point). Please note: Since PGI's CUDA Fortran does not yet support real device debugging, Hybrid Fortran cannot support that either at this point. However, since the code runs on CPU as well, the class of bugs that are affected by this restriction is rather small (since computational code can be validated on the CPU first) and the current debug mode has been proven to be sufficient for the time being.
 
 * Automatic creation of your callgraph as a graphviz image, facilitating your code reasoning. Simply type `make graphs` in the command line in your project directory.
 

@@ -2,16 +2,9 @@ import re
 import sys
 from optparse import OptionParser
 
-def doesPathContain(path, name):
-  pattern = r'.*?(^|\W)+' + re.escape(name) + r'($|\W)+.*'
-  if re.match(pattern, path):
-    return True
-  else:
-    return False
-
 def filterExceptions(exceptions, paths):
   exceptionsPiped = '|'.join([re.escape(exception) for exception in exceptions])
-  pattern = re.compile(r'.*?(^|\W)+' + exceptionsPiped + r'($|\W)+.*')
+  pattern = re.compile(r'.*?(^|\W)+' + r'(' + exceptionsPiped + r')' + r'($|\W)+.*')
   return [path for path in paths if not pattern.match(path)]
 
 ##################### MAIN ##############################

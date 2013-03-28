@@ -44,7 +44,6 @@ OBJ_PRE1=$(SRC:.f90=.o)
 OBJ_PRE2=$(OBJ_PRE1:.F90=.o)
 OBJ_PRE3=$(patsubst ./%,%,${OBJ_PRE2})
 OBJ=$(filter-out $(EXECUTABLES_O),$(OBJ_PRE3))
-#$(warning Library objects ${OBJ})
 
 USER_LIB=libpp.a
 
@@ -56,12 +55,12 @@ all: ${EXECUTABLES_OUT}
 
 %.out: %.o
 	@echo ".........linking " $<
-	@echo ..calling @$(LD) -o ../$@ $(LDFLAGS) $< -L./ -lpp >${DEBUG_OUTPUT}
-	@$(LD) -o ../$@ $(LDFLAGS) $< -L./
+	@echo ..calling $(LD) -o ../$@ $< $(LDFLAGS) -L./ >${DEBUG_OUTPUT}
+	@$(LD) -o ../$@ $< $(LDFLAGS) -L./
 
 ${USER_LIB}: $(OBJ)
 	@echo ".........building user library ${USER_LIB} from " $(OBJ)
-	@echo ..calling @$(AR) $(ARFLAGS) $@ $(OBJ) >${DEBUG_OUTPUT}
+	@echo ..calling $(AR) $(ARFLAGS) $@ $(OBJ) >${DEBUG_OUTPUT}
 	@$(AR) $(ARFLAGS) $@ $(OBJ)
 
 %.o: %.F90

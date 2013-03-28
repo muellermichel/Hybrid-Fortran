@@ -87,16 +87,20 @@ GPU_CALLGRAPH_FILE=CG_GPU.xml
 SRC_DIR_CPU=${DIR_CPU}source/
 SRC_DIR_GPU=${DIR_GPU}source/
 
-SRC_F90=$(shell python ${TOOLSDIR}filterExceptions.py --paths '$(shell find ${SRC_DIR_COMMON} -type f -name '*.f90')' --exceptions '${EXCEPTIONS}')
-SRC_F90PP=$(shell python ${TOOLSDIR}filterExceptions.py --paths '$(shell find ${SRC_DIR_COMMON} -type f -name '*.F90')' --exceptions '${EXCEPTIONS}')
+SRC_F90_PRE='$(shell find ${SRC_DIR_COMMON} -type f -name '*.f90')'
+SRC_F90=$(shell python ${TOOLSDIR}filterExceptions.py --paths ${SRC_F90_PRE} --exceptions ${EXCEPTIONS})
+SRC_F90PP_PRE='$(shell find ${SRC_DIR_COMMON} -type f -name '*.F90')'
+SRC_F90PP=$(shell python ${TOOLSDIR}filterExceptions.py --paths ${SRC_F90PP_PRE} --exceptions ${EXCEPTIONS})
 SRC_LIB_FORT=$(shell find ${LIBDIR} -type f -name '*.F90')
 SRC_LIB_H90=$(shell find ${LIBDIR} -type f -name '*.h90')
 SRC_FORT=${SRC_F90} ${SRC_F90PP} ${SRC_LIB_FORT}
 
 SRC_FORT_CPU=$(addprefix $(SRC_DIR_CPU),$(notdir ${SRC_FORT}))
 SRC_FORT_GPU=$(addprefix $(SRC_DIR_GPU),$(notdir ${SRC_FORT}))
-SRC_H90_WITHOUT_PP=$(shell find ${SRC_DIR_COMMON} -type f -name '*.h90')
-SRC_H90_WITH_PP=$(shell find ${SRC_DIR_COMMON} -type f -name '*.H90')
+SRC_H90_WITHOUT_PP_PRE='$(shell find ${SRC_DIR_COMMON} -type f -name '*.h90')'
+SRC_H90_WITHOUT_PP=$(shell python ${TOOLSDIR}filterExceptions.py --paths ${SRC_H90_WITHOUT_PP_PRE} --exceptions ${EXCEPTIONS})
+SRC_H90_WITH_PP_PRE='$(shell find ${SRC_DIR_COMMON} -type f -name '*.H90')'
+SRC_H90_WITH_PP=$(shell python ${TOOLSDIR}filterExceptions.py --paths ${SRC_H90_WITH_PP_PRE} --exceptions ${EXCEPTIONS})
 SRC_H90_ALL=${SRC_H90_WITHOUT_PP} ${SRC_H90_WITH_PP} ${SRC_LIB_H90}
 SRC_H90TGT_HFPP_PRE=$(addprefix $(SRC_DIR_HFPP),$(notdir $(SRC_H90_ALL)))
 SRC_H90TGT_HFPP=$(SRC_H90TGT_HFPP_PRE:.H90=.h90)
@@ -129,7 +133,7 @@ vpath %.F90 $(SRC_FORT_COMMON_DIRS)
 vpath %.h90 $(SRC_FORT_COMMON_DIRS)
 vpath %.H90 $(SRC_FORT_COMMON_DIRS)
 
-.PHONY: all clean install install_cpu install_gpu graphs build_cpu build_gpu create_install_directories
+.PHONY: all clean install install_cpu install_gpu graphs build build_cpu build_gpu create_install_directories source source_cpu source_gpu
 
 .SUFFIXES: .f90 .F90 .h90 .H90
 
@@ -141,12 +145,20 @@ install_cpu: ${INSTALLED_EXECUTABLES_CPU}
 
 install_gpu: ${INSTALLED_EXECUTABLES_GPU}
 
+source: source_cpu source_gpu
+
+source_cpu: ${SRC_DIR_CPU}Makefile ${SRC_DIR_CPU}Makesettings ${SRC_DIR_CPU}MakesettingsGeneral ${SRC_ALL_CPU}
+
+source_gpu: ${SRC_DIR_GPU}Makefile ${SRC_DIR_GPU}Makesettings ${SRC_DIR_GPU}MakesettingsGeneral ${SRC_ALL_GPU}
+
 graphs: ${CG_DIR}CG_CPU.png ${CG_DIR}CG_GPU.png
 
 clean:
 	rm -rf ${BASEDIR}
 	rm -f ${INSTALLED_EXECUTABLES_CPU}
 	rm -f ${INSTALLED_EXECUTABLES_GPU}
+
+build: build_cpu build_gpu
 
 build_cpu: ${SRC_DIR_CPU}Makefile ${SRC_DIR_CPU}Makesettings ${SRC_DIR_CPU}MakesettingsGeneral ${SRC_ALL_CPU}
 	@echo "..cpu executable dependant on " ${SRC_DIR_CPU}Makefile ${SRC_DIR_CPU}Makesettings ${SRC_DIR_CPU}MakesettingsGeneral ${SRC_ALL_CPU} >${DEBUG_OUTPUT}
@@ -170,24 +182,24 @@ ${TESTDIR}/%_gpu: $${DIR_GPU}$$(notdir %).out create_install_directories
 	@cp -fp $< $@
 
 ${CG_DIR}rawCG.xml: ${CG_DIR}touchedWhenUpdateNeeded
-	@echo "...........callgraph has changed, need to recompile all h90 files.............."
+	@echo "...........callgraph has changed, need to recompile all h90 files"
 	@mv ${CG_DIR}temp.xml $@
 
 ${CG_DIR}touchedWhenUpdateNeeded: ${CG_DIR}temp.xml
 	@${TOOLSDIR}/testCG.sh ${CG_DIR} ${TOOLSDIR} ${H90_PREPROCESSOR_ARGS}
 
 ${CG_DIR}temp.xml: ${SRC_H90TGT_HFPP}
-	@echo "...........h90 files have been modified => building and testing hybrid callgraph........"
+	@echo "...........h90 files have been modified => building and testing hybrid callgraph"
 	@echo ..calling python ${TOOLSDIR}/annotatedCallGraphFromH90SourceDir.py -i ${SRC_DIR_COMMON} ${H90_PREPROCESSOR_ARGS} >${DEBUG_OUTPUT}
 	@mkdir -p ${CG_DIR}; python ${TOOLSDIR}/annotatedCallGraphFromH90SourceDir.py -i ${SRC_DIR_HFPP} ${H90_PREPROCESSOR_ARGS} > $@
 
 ${CG_DIR}CG_CPU.xml: ${CG_DIR}rawCG.xml
-	@echo "...........building CPU callgraph.............."
+	@echo "...........building CPU callgraph"
 	@echo ..calling python ${TOOLSDIR}/loopAnalysisWithAnnotatedCallGraph.py -i $< ${H90_PREPROCESSOR_ARGS} -a CPU >${DEBUG_OUTPUT}
 	@mkdir -p ${CG_DIR}; python ${TOOLSDIR}/loopAnalysisWithAnnotatedCallGraph.py -i $< ${H90_PREPROCESSOR_ARGS} -a CPU > $@
 
 ${CG_DIR}CG_GPU.xml: ${CG_DIR}rawCG.xml
-	@echo "...........building GPU callgraph.............."
+	@echo "...........building GPU callgraph"
 	@echo ..calling python ${TOOLSDIR}/loopAnalysisWithAnnotatedCallGraph.py -i $< ${H90_PREPROCESSOR_ARGS} -a GPU >${DEBUG_OUTPUT}
 	@mkdir -p ${CG_DIR}; python ${TOOLSDIR}/loopAnalysisWithAnnotatedCallGraph.py -i $< ${H90_PREPROCESSOR_ARGS} -a GPU > $@
 

@@ -15,7 +15,16 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
-EXECUTABLES=example
+#############################################################################
+# Executables in your project. Make sure to understand the following rules: #
+# 1) Multiple executables can be specified in this variable, separated by   #
+#    spaces.                                                                #
+# 2) For every executable you should have a h90,H90,f90 or F90 file that    #
+#    contains a main routine and whose filename matches exactly the name    #
+#    of the executable. These main files can be placed anywhere in your     #
+#    source directory or one of its subdirectories.                         #
+#############################################################################
+EXECUTABLES="example"
 
 #############################################################################
 # directories as seen from project directory.                               #
@@ -31,6 +40,10 @@ TESTDIR=./test
 
 #############################################################################
 # which names / directory names should be excluded from compilation?        #
+# this is useful in case you'd like to concentrate only on a subset of      #
+# your sources. All files / directories that do *not* match a name in       #
+# this list, will be compiled, even if there is not an explicit dependency  #
+# specified for them.                                                       #
 #############################################################################
 EXCEPTIONS=""
 

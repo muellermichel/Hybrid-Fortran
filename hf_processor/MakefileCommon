@@ -31,10 +31,10 @@
 #    * ./config/Makefile (source dependencies)                              #
 #                                                                           #
 #***************************************************************************#
-SHELL=/bin/bash
 CONFIGDIR=./config/
 include ${CONFIGDIR}MakesettingsGeneral
 
+SHELL=/bin/bash
 ifdef EMULATED
 
 #############################################################################
@@ -87,8 +87,8 @@ GPU_CALLGRAPH_FILE=CG_GPU.xml
 SRC_DIR_CPU=${DIR_CPU}source/
 SRC_DIR_GPU=${DIR_GPU}source/
 
-SRC_F90=$(shell ${CONFIGDIR}filterExceptions.sh $(shell find ${SRC_DIR_COMMON} -type f -name '*.f90'))
-SRC_F90PP=$(shell ${CONFIGDIR}filterExceptions.sh $(shell find ${SRC_DIR_COMMON} -type f -name '*.F90'))
+SRC_F90=$(shell python ${TOOLSDIR}filterExceptions.py --paths '$(shell find ${SRC_DIR_COMMON} -type f -name '*.f90')' --exceptions '${EXCEPTIONS}')
+SRC_F90PP=$(shell python ${TOOLSDIR}filterExceptions.py --paths '$(shell find ${SRC_DIR_COMMON} -type f -name '*.F90')' --exceptions '${EXCEPTIONS}')
 SRC_LIB_FORT=$(shell find ${LIBDIR} -type f -name '*.F90')
 SRC_LIB_H90=$(shell find ${LIBDIR} -type f -name '*.h90')
 SRC_FORT=${SRC_F90} ${SRC_F90PP} ${SRC_LIB_FORT}
@@ -112,12 +112,13 @@ SRC_ALL_GPU=${SRC_FORT_GPU} ${SRC_H90TGT_GPU}
 #############################################################################
 # Determine executables                                                     #
 #############################################################################
-EXECUTABLES_CPU=$(addprefix $(DIR_CPU),$(notdir ${EXECUTABLES}))
-EXECUTABLES_GPU=$(addprefix $(DIR_GPU),$(notdir ${EXECUTABLES}))
+EXECUTABLES_POST=$(subst ",,${EXECUTABLES})
+EXECUTABLES_CPU=$(addprefix $(DIR_CPU),$(notdir ${EXECUTABLES_POST}))
+EXECUTABLES_GPU=$(addprefix $(DIR_GPU),$(notdir ${EXECUTABLES_POST}))
 EXECUTABLES_CPU_OUT=$(patsubst %,%.out,$(EXECUTABLES_CPU))
 EXECUTABLES_GPU_OUT=$(patsubst %,%.out,$(EXECUTABLES_GPU))
-INSTALLED_EXECUTABLES_CPU=$(foreach executable,$(EXECUTABLES),${TESTDIR}/${executable}/${executable}_cpu)
-INSTALLED_EXECUTABLES_GPU=$(foreach executable,$(EXECUTABLES),${TESTDIR}/${executable}/${executable}_gpu)
+INSTALLED_EXECUTABLES_CPU=$(foreach executable,$(EXECUTABLES_POST),${TESTDIR}/${executable}/${executable}_cpu)
+INSTALLED_EXECUTABLES_GPU=$(foreach executable,$(EXECUTABLES_POST),${TESTDIR}/${executable}/${executable}_gpu)
 #############################################################################
 
 

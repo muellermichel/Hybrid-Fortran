@@ -21,6 +21,8 @@ $2/compareXMLs.py -i $1/temp.xml -r $1/rawCG.xml --ignoreAttributes="id" $3
 rc=$?
 if [[ $rc = 2 ]] ; then
 	touch $1/touchedWhenUpdateNeeded
-else
+elif [[ $rc = 1 ]] ; then
 	echo "...........callgraph has not changed => complete hybrid code recompilation not necessary.............."
+else
+	exit $rc
 fi

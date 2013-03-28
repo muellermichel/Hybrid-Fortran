@@ -41,10 +41,6 @@ example:
 	@if [ ! -e ${EXAMPLEDIR}Makefile ]; then \
 	    cp -f ${TOOLSDIR}MakefileForProjectTemplate ${EXAMPLEDIR}Makefile; \
 	fi; \
-	if [ ! -e ${EXAMPLEDIR_CONFIG}filterExceptions.sh ]; then \
-	    cp -p -f ${TOOLSDIR}filterExceptionsTemplate.sh ${EXAMPLEDIR_CONFIG}filterExceptions.sh; \
-	fi; \
-	chmod +x ${EXAMPLEDIR_CONFIG}filterExceptions.sh; \
 	if [ ! -e ${EXAMPLEDIR_CONFIG}MakesettingsGeneral ]; then \
 	    cp -f ${TOOLSDIR}MakesettingsGeneralTemplate ${EXAMPLEDIR_CONFIG}MakesettingsGeneral; \
 	fi; \

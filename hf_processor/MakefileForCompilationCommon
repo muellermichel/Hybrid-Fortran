@@ -35,14 +35,20 @@ SRC_FORT=$(wildcard ./*.f90)
 SRC_PP=$(wildcard ./*.F90)
 SRC=${SRC_FORT} ${SRC_PP}
 
-OBJ_PRE1=$(SRC:.f90=.o)
-OBJ=$(OBJ_PRE1:.F90=.o)
+EXECUTABLES_POST=$(subst ",,${EXECUTABLES})
+EXECUTABLES_OUT=$(patsubst %,%.out,${EXECUTABLES_POST})
+EXECUTABLES_O=$(patsubst %,%.o,${EXECUTABLES_POST})
+#$(warning Executable objects ${EXECUTABLES_O})
 
-EXECUTABLES_OUT=$(patsubst %,%.out,$(EXECUTABLES))
+OBJ_PRE1=$(SRC:.f90=.o)
+OBJ_PRE2=$(OBJ_PRE1:.F90=.o)
+OBJ_PRE3=$(patsubst ./%,%,${OBJ_PRE2})
+OBJ=$(filter-out $(EXECUTABLES_O),$(OBJ_PRE3))
+#$(warning Library objects ${OBJ})
 
 USER_LIB=libpp.a
 
-.SUFFIXES : .o .f90 .il .F90
+.SUFFIXES : .out .o .il .F90 .f90
 
 VPATH=$OBJDIR
 

@@ -166,6 +166,8 @@ Features
 
 * Automatic creation of your callgraph as a graphviz image, facilitating your code reasoning. Simply type `make graphs` in the command line in your project directory.
 
+* Automatic linking and installing of executables. Simply specify the executable names in the `MakesettingsGeneral` configuration file and use corresponding filenames for the main files (which can be placed anywhere in your source tree). The Hybrid Fortran build system will automatically generate the executables (each in CPU and GPU version) and install them in subdirectories of your test directory. The test directories are persistant, such that you can put your initialization files, validation scripts and performance test scripts there. All this happens simply through running `make; make install` in your project directory.
+
 Dependencies
 ------------
 * PGI CUDA Fortran compatible compiler, available in [PGI Accelerator Fortran products](http://www.pgroup.com/support/download_pgi2013.php?view=current).

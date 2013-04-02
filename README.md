@@ -43,6 +43,11 @@ Version History
         <th>Comment</th>
     </tr>
     <tr>
+        <td>v0.81</td>
+        <td>2013-4-2</td>
+        <td>First release of full Hybrid Fortran documentation. Added test scripts. Improvements in the build system for building multiple executables.</td>
+    </tr>
+    <tr>
         <td>v0.8</td>
         <td>2013-3-24</td>
         <td>First public release. Intended for physical packages with data dependencies orthogonal to parallelized data dimensions (i.e. no halo regions).</td>
@@ -51,13 +56,13 @@ Version History
 
 What is Hybrid Fortran?
 -----------------------
-Hybrid Fortran is a directive based extension of the Fortran language. It is intended for enabling GPGPU acceleration of physical packages[1] while keeping x86 CPU compatibility and performance[2]. In the backend, it automatically creates CUDA Fortran code for GPU and OpenMP Fortran code for CPU. Hybrid Fortran is currently used for porting Japan's national next generation weather prediction model to GPGPU[3].
+Hybrid Fortran is a directive based extension of the Fortran language. It is intended for enabling GPGPU acceleration of physical packages[1] while keeping x86 CPU compatibility and performance[2]. In the backend it automatically creates CUDA Fortran code for GPU and OpenMP Fortran code for CPU. Hybrid Fortran is currently used for porting Japan's national next generation weather prediction model to GPGPU[3].
 
 [1]: 'Physical package' here means code for high performance computations where the data access dependencies are orthogonal to the parallelized dimensions - as opposed to dynamical packages with general stencil dependencies.
 
-[2]: Between 20%-30% (~10k codelines) of this weather model has already successfully been ported to GPGPU using Hybrid Fortran, showing a speedup of 3.5x with one Kepler card vs. 6 core Westmere. Fully integrated with the already ported dynamics[3] we expect speedups in the region of 5x-7x per Kepler card. Considering that compute nodes can carry twice as many kepler cards as CPUs, this allows substantial cost and power savings and/or increased grid resolution.
+[2]: Between 20%-30% (~10k codelines) of this weather model has already successfully been ported to GPGPU using Hybrid Fortran, showing a speedup of 3.5x with one Kepler card vs. 6 core Westmere. Fully integrated with the already ported dynamics[4] we expect speedups in the region of 5x-7x per Kepler card. Considering that compute nodes can carry twice as many kepler cards as CPUs, this allows substantial cost and power savings and/or increased grid resolution.
 
-[3]: Ported code has so far shown a performance increase on CPU from anywhere between -5% and +25% on six core CPU.
+[3]: Ported code has so far shown a performance increase from anywhere between -5% and +25% on six core CPU.
 
 [4]: T. Shimokawabe, T. Aoki, J. Ishida, K. Kawano, and C. Muroi, “145 TFlops performance on 3990 GPUs of TSUBAME 2.0 supercomputer for an operational weather prediction.,” Procedia CS, vol. 4
 
@@ -222,11 +227,13 @@ Commercial support as well as Consulting will be available from June 2013 throug
 
 Documentation and Results
 -------------------------
-Detailed Documentation is currently available in the form of my [master thesis from 2012](https://github.com/muellermichel/Hybrid-Fortran/raw/master/doc/Documentation_v080.pdf) (it has been updated with the changes since then, however). Chapter 3 and Appendix A will be most relevant for using the framework. This will be refactored into a more standard software documentation by v0.85.
+Detailed Documentation is available [here](https://github.com/muellermichel/Hybrid-Fortran/raw/master/doc/Documentation_v081.pdf).
 
 The poster shown at GTC 2013 is available [here](http://on-demand.gputechconf.com/gtc/2013/poster/pdf/P0199_MichelMueller.pdf).
 
 The slides shown in Michel's talk at GTC 2013 are available [here](https://github.com/muellermichel/Hybrid-Fortran/raw/master/doc/Slides_GTC2013.pdf). I'm afraid they aren't very self explanatory, but you can see our current results with Japan's next generation radiation module (53 kernels, around 10k lines of code). The recording will be made available by NVIDIA until end of April 2013. We expect to publish some papers on this as soon as the implementation is done, however it's probably not going to be in time for SC 2013.
+
+If you'd like to get the background story (why would I do such a thing), you can read my [Master Thesis from 2012 (slightly updated)](https://github.com/muellermichel/Hybrid-Fortran/raw/master/doc/Thesis_updated_2013-3.pdf). I plan on doing a blog post, explaining the background story of this project soon.
 
 Roadmap
 -------

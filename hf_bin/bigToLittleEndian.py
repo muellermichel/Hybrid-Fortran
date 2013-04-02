@@ -1,6 +1,23 @@
 #!/usr/bin/python
 # -*- coding: UTF-8 -*-
 
+# Copyright (C) 2013 Michel Müller, Rikagaku Kenkyuujo (RIKEN)
+
+# This file is part of Hybrid Fortran.
+
+# Hybrid Fortran is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# Hybrid Fortran is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU Lesser General Public License for more details.
+
+# You should have received a copy of the GNU Lesser General Public License
+# along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
+
 from optparse import OptionParser
 import struct
 import sys
@@ -35,19 +52,19 @@ if (options.readEndian == "little"):
 	readEndianFormat = '<'
 if (options.writeEndian == "big"):
 	readEndianFormat = '>'
-	
+
 typeSpecifier = 'f'
 if (numOfBytesPerValue == 8):
 	typeSpecifier = 'd'
-	
+
 numOfRecordsToPrint = int(options.printRecords)
 
 i = 0
-try: 
+try:
 	#prepare files
 	inFile = open(str(options.inFile),'r')
 	outFile = open(str(options.outFile),'w')
-	
+
 	printedRecords = 0
 	while True:
 		header = inFile.read(4)
@@ -65,15 +82,15 @@ try:
 		print "record byte length: %i" %(recordByteLength)
 		recordLength = recordByteLength / numOfBytesPerValue
 		print "record length: %i" %(recordLength)
-		
+
 		data = inFile.read(recordByteLength)
 		if (len(data) != recordByteLength):
 			print "Could not read %i bytes at record %i. Abort." %(recordByteLength, i)
 			sys.exit()
-		
+
 		dataFormat = '%s%i%s' %(readEndianFormat, recordLength, typeSpecifier)
 		unpacked = struct.unpack(dataFormat, data)
-		
+
 		#analyse unpacked data (to make sure we have read something useful). Print some values if specified.
 		if (printedRecords < numOfRecordsToPrint):
 			print "record %i: %s" %(i, unpacked)
@@ -85,7 +102,7 @@ try:
 			else:
 				print "value %i in record %i is out of the specified bounds: %d" %(j, i, val)
 				sys.exit()
-		
+
 		trailer = inFile.read(4)
 		if (len(trailer) != 4):
 			print "Could not read trailer at record %i. Abort." %(i)
@@ -95,7 +112,7 @@ try:
 		if (recordByteLength != redundantRecordLength):
 			print "Header and trailer do not match at record %i. Abort." %(i)
 			sys.exit()
-		
+
 		repackedRecordFormat = '%si%i%si' %(writeEndianFormat, recordLength, typeSpecifier)
 		print "write format: %s" %(repackedRecordFormat)
 		unpackedWithHeaderAndTrailer = (recordByteLength,) + unpacked + (recordByteLength,)

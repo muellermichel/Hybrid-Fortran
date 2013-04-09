@@ -1172,18 +1172,13 @@ parallel regions defined in the same subroutine in Hybrid Fortran." %(self.currS
         super(H90toF90Printer, self).processInsideSubroutineCall(line)
         adjustedLine = ""
 
-        if not self.currCalleeNode:
-            raise Exception("Callee %s not found in hybrid fortran source files" \
-                %(self.currCalleeName)
-            )
-
-        if getRoutineNodeInitStage(self.currCalleeNode) == RoutineNodeInitStage.DIRECTIVES_WITHOUT_PARALLELREGION_POSITION:
+        if self.currCalleeNode and getRoutineNodeInitStage(self.currCalleeNode) == RoutineNodeInitStage.DIRECTIVES_WITHOUT_PARALLELREGION_POSITION:
             #special case. see also processBeginMatch.
             adjustedLine = "! " + line
         else:
             adjustedLine = self.processSymbolsAndGetAdjustedLine(line, isInsideSubroutineCall=True)
 
-        if self.state != "inside_subroutine_call":
+        if self.currCalleeNode and self.state != "inside_subroutine_call":
             adjustedLine = self.processCallPostAndGetAdjustedLine(adjustedLine)
         self.prepareLine(adjustedLine.rstrip() + "\n", "")
 

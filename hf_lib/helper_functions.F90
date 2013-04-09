@@ -125,28 +125,35 @@ contains
 		close(imt)
 	end subroutine write2DToFile
 
-	!2012-6-19 michel: helper function to save output
-	subroutine write3DToFile(path, array, n1, n2, n3)
+	subroutine write3DToFile(path, array, n1, n2, n3, start3_in)
+		use pp_vardef
+		use pp_service, only: find_new_mt
 		implicit none
 
 		!input arguments
-		real(8), intent(in) :: array(DOM(n1,n2,n3))
+		real(kind = r_size), intent(in) :: array(DOM(n1,n2,n3))
 		character(len=*), intent(in) :: path
 		integer(4), intent(in) :: n1
 		integer(4), intent(in) :: n2
 		integer(4), intent(in) :: n3
-		integer(4) :: imt, i,j,k
-		real(8) :: out_array(n3, n1, n2)
+		integer(4), intent(in), optional :: start3_in
+		integer(4) :: imt, i, j, k, start3
+		real(kind = r_size) :: out_array(n3, n1, n2)
+
+		start3 = 1
+		if (present(start3_in)) then
+            if (start3_in) start3 = start3_in
+         endif
 
 		do j=1, n2
 			do i=1, n1
-				do k=1, n3
+				do k=start3, n3
 					out_array(k,i,j) = array(AT(i,j,k))
 				end do
 			end do
 		end do
 
-		call findNewFileHandle(imt)
+		call find_new_mt(imt)
 		open(imt, file = path, form = 'unformatted', status = 'replace')
 		write(imt) out_array
 		close(imt)

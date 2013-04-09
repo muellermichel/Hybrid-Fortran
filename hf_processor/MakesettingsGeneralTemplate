@@ -18,7 +18,7 @@
 #############################################################################
 # Executables in your project. Make sure to understand the following rules: #
 # 1) Multiple executables can be specified in this variable, separated by   #
-#    spaces.                                                                #
+#    spaces, surrounded by double quotes.                                   #
 # 2) For every executable you should have a h90,H90,f90 or F90 file that    #
 #    contains a main routine and whose filename matches exactly the name    #
 #    of the executable. These main files can be placed anywhere in your     #

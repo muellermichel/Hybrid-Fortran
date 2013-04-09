@@ -91,9 +91,10 @@ SRC_F90_PRE='$(shell find ${SRC_DIR_COMMON} -type f -name '*.f90')'
 SRC_F90=$(shell python ${TOOLSDIR}filterExceptions.py --paths ${SRC_F90_PRE} --exceptions ${EXCEPTIONS})
 SRC_F90PP_PRE='$(shell find ${SRC_DIR_COMMON} -type f -name '*.F90')'
 SRC_F90PP=$(shell python ${TOOLSDIR}filterExceptions.py --paths ${SRC_F90PP_PRE} --exceptions ${EXCEPTIONS})
-SRC_LIB_FORT=$(shell find ${LIBDIR} -type f -name '*.F90')
+SRC_LIB_FORT=$(shell find ${LIBDIR} -type f -name '*.f90')
+SRC_LIB_FORT_PP=$(shell find ${LIBDIR} -type f -name '*.F90')
 SRC_LIB_H90=$(shell find ${LIBDIR} -type f -name '*.h90')
-SRC_FORT=${SRC_F90} ${SRC_F90PP} ${SRC_LIB_FORT}
+SRC_FORT=${SRC_F90} ${SRC_F90PP} ${SRC_LIB_FORT} ${SRC_LIB_FORT_PP}
 
 SRC_FORT_CPU=$(addprefix $(SRC_DIR_CPU),$(notdir ${SRC_FORT}))
 SRC_FORT_GPU=$(addprefix $(SRC_DIR_GPU),$(notdir ${SRC_FORT}))
@@ -256,12 +257,12 @@ ${SRC_DIR_HFPP}%.h90: %.h90
 	@mkdir -p ${SRC_DIR_HFPP}; cp -fp $< $@
 
 ${SRC_DIR_CPU}%.F90: ${SRC_DIR_HFPP}%.h90 ${CG_DIR}${CPU_CALLGRAPH_FILE}
-	@echo ...........converting $< to $@ using ${CPU_CALLGRAPH_FILE} and ${CPU_IMPLEMENTATION}........
+	@echo ...........converting $< to $@ using ${CPU_CALLGRAPH_FILE} and ${CPU_IMPLEMENTATION}
 	@echo ..calling generateF90fromH90AndAnalyzedCallGraph.py -i $< -c ${CG_DIR}${CPU_CALLGRAPH_FILE} --implementation ${CPU_IMPLEMENTATION} ${H90_PREPROCESSOR_ARGS} >${DEBUG_OUTPUT}
 	@python ${TOOLSDIR}/generateF90fromH90AndAnalyzedCallGraph.py -i $< -c ${CG_DIR}${CPU_CALLGRAPH_FILE} --implementation ${CPU_IMPLEMENTATION} ${H90_PREPROCESSOR_ARGS} > $@ ;\
 
 ${SRC_DIR_GPU}%.F90: ${SRC_DIR_HFPP}%.h90 ${CG_DIR}${GPU_CALLGRAPH_FILE}
-	@echo ...........converting $< to $@ using ${GPU_CALLGRAPH_FILE} and ${GPU_IMPLEMENTATION}........
+	@echo ...........converting $< to $@ using ${GPU_CALLGRAPH_FILE} and ${GPU_IMPLEMENTATION}
 	@echo ..calling generateF90fromH90AndAnalyzedCallGraph.py -i $< -c ${CG_DIR}${GPU_CALLGRAPH_FILE} --implementation ${GPU_IMPLEMENTATION} ${H90_PREPROCESSOR_ARGS} >${DEBUG_OUTPUT}
 	@python ${TOOLSDIR}/generateF90fromH90AndAnalyzedCallGraph.py -i $< -c ${CG_DIR}${GPU_CALLGRAPH_FILE} --implementation ${GPU_IMPLEMENTATION} ${H90_PREPROCESSOR_ARGS} > $@ ;\
 

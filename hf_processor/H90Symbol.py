@@ -61,7 +61,7 @@ def splitDeclarationSettingsFromSymbols(line, dependantSymbols, patterns, withAn
         #no :: is used in this declaration line -> we should only have one symbol defined on this line
         if len(dependantSymbols) > 1:
             raise Exception("Declaration line without :: has multiple matching dependant symbols.")
-        match = re.match(r"(\s*(?:real|integer|character)(?:.*?))\s*" + dependantSymbols[0].name + r"(.*)", line)
+        match = re.match(r"(\s*(?:real|integer|character|logical)(?:.*?))\s*" + dependantSymbols[0].name + r"(.*)", line)
         if not match:
             raise Exception("When trying to extract a device declaration: This is not a valid declaration: %s" %(line))
         declarationDirectives = match.group(1)

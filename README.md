@@ -32,6 +32,7 @@ Table of Contents
 * [Commercial Support and Consulting](#commercial-support-and-consulting)
 * [Documentation and Results](#documentation-and-results)
 * [Roadmap](#roadmap)
+* [Credits](#credits)
 * [Contact Information](#contact-information)
 
 Version History
@@ -276,6 +277,11 @@ Please note: The time frames for this roadmap will depend on your demands (both 
         <td>Automatic implementation of halo communication for multinode support.</td>
     </tr>
 </table>
+
+Credits
+-------
+- 'Kracken' module for parsing Fortran program arguments by John S. Urban
+- Everything else in this repository by Michel Müller, in part created during employment at the Rikagaku Kenkyuujo (RIKEN) Advanced Institute for Computational Science.
 
 Contact Information
 -------------------

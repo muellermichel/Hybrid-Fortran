@@ -82,7 +82,7 @@ for i in "${!argStringsArr[@]}"; do
 	timingResult=$(./${1} ${argString} 2>./log_lastRun.txt)
 	rc=$?
 	if [[ $rc != 0 ]] ; then
-		echo "Profiled program has returned error code $rc" 1>&2
+		echo "Profiled program has returned error code $rc"
 	    exit $rc
 	fi
 	allAccuracy.sh $refPath 2>>./log_lastRun.txt

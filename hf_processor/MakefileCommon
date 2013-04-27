@@ -150,7 +150,7 @@ vpath %.F90 $(SRC_FORT_COMMON_DIRS)
 vpath %.h90 $(SRC_FORT_COMMON_DIRS)
 vpath %.H90 $(SRC_FORT_COMMON_DIRS)
 
-.PHONY: all clean install install_cpu install_gpu graphs build build_cpu build_gpu create_install_directories source source_cpu source_gpu tests tests_cpu tests_gpu
+.PHONY: all clean clean_cpu clean_gpu install install_cpu install_gpu graphs build build_cpu build_gpu create_install_directories source source_cpu source_gpu tests tests_cpu tests_gpu
 
 .SUFFIXES: .f90 .F90 .h90 .H90
 
@@ -170,10 +170,19 @@ source_gpu: ${SRC_DIR_GPU}Makefile ${SRC_DIR_GPU}Makesettings ${SRC_DIR_GPU}Make
 
 graphs: ${CG_DIR}CG_CPU.png ${CG_DIR}CG_GPU.png
 
-clean:
-	rm -rf ${BASEDIR}
+clean: clean_cpu clean_gpu
+	rm -r ${CG_DIR}rawCG.xml
+	rm -rf ${SRC_DIR_HFPP}
+
+clean_cpu:
 	rm -f ${INSTALLED_EXECUTABLES_CPU}
+	rm -rf ${DIR_CPU}
+	rm -f ${CG_DIR}${CPU_CALLGRAPH_FILE}
+
+clean_gpu:
 	rm -f ${INSTALLED_EXECUTABLES_GPU}
+	rm -rf ${DIR_GPU}
+	rm -f ${CG_DIR}${GPU_CALLGRAPH_FILE}
 
 build: build_cpu build_gpu
 

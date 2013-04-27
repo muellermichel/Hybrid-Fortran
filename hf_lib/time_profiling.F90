@@ -19,9 +19,9 @@ module time_profiling
 	implicit none
 	private
 
-	real(8) :: counter_timestep, counter_rad_sw_wrapper, counter_rad_sw, counter_rad_sw_main
+	real(8) :: counter_timestep, counter_rad_sw_wrapper, counter_rad_sw, counter_rad_sw_main, counter_rad_lw
 	real(8) :: counter_sf_flx, counter_pbl_mym, counter_pbl_coupler, counter_rad, counter_mainloop
-	public :: counter_timestep, counter_rad_sw_wrapper, counter_rad_sw, counter_rad_sw_main, incrementCounter, time_profiling_ini
+	public :: counter_timestep, counter_rad_sw_wrapper, counter_rad_sw, counter_rad_sw_main, counter_rad_lw, incrementCounter, time_profiling_ini
 	public :: counter_sf_flx, counter_pbl_mym, counter_pbl_coupler, counter_rad, counter_mainloop
 
 contains
@@ -35,6 +35,7 @@ contains
 		counter_timestep = 0.0d0
 		counter_mainloop = 0.0d0
 		counter_rad = 0.0d0
+		counter_rad_lw = 0.0d0
 	end subroutine time_profiling_ini
 
 	subroutine incrementCounter(prof_counter, start_time)

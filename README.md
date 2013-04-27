@@ -59,6 +59,8 @@ What is Hybrid Fortran?
 -----------------------
 Hybrid Fortran is a directive based extension of the Fortran language. It is intended for enabling GPGPU acceleration of physical packages[1] while keeping x86 CPU compatibility and performance[2]. In the backend it automatically creates CUDA Fortran code for GPU and OpenMP Fortran code for CPU. Hybrid Fortran is currently used for porting Japan's national next generation weather prediction model to GPGPU[3].
 
+<iframe class="wistia_embed" name="wistia_embed" src="http://fast.wistia.net/embed/iframe/it27se5tgg?controlsVisibleOnLoad=true&plugin%5Bsocialbar-v1%5D%5Bbuttons%5D=embed-twitter-reddit-tumblr-stumbleUpon-linkedIn-googlePlus-facebook&version=v1&videoHeight=360&videoWidth=640&playerColor=&canonicalUrl=http%3A%2F%2Fnvidia.fullviewmedia.com%2Fgtc2013%2F0320-211B-S3326.html&canonicalTitle=0320-211B-3326-edit" allowtransparency="true" frameborder="0" scrolling="no" width="480" height="298"></iframe>
+
 [1]: 'Physical package' here means code for high performance computations where the data access dependencies are orthogonal to the parallelized dimensions - as opposed to dynamical packages with general stencil dependencies.
 
 [2]: Between 20%-30% (~10k codelines) of this weather model has already successfully been ported to GPGPU using Hybrid Fortran, showing a speedup of 3.5x with one Kepler card vs. 6 core Westmere. Fully integrated with the already ported dynamics[4] we expect speedups in the region of 5x-7x per Kepler card. Considering that compute nodes can carry twice as many kepler cards as CPUs, this allows substantial cost and power savings and/or increased grid resolution.

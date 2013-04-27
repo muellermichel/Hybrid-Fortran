@@ -33,8 +33,13 @@
 #***************************************************************************#
 CONFIGDIR=./config/
 include ${CONFIGDIR}MakesettingsGeneral
-
 SHELL=/bin/bash
+
+ifeq ($(DEBUG_MODE),true)
+DEBUG=1
+endif
+
+
 ifdef EMULATED
 
 #############################################################################
@@ -43,8 +48,6 @@ ifdef EMULATED
 GPU_IMPLEMENTATION=${GPU_IMPLEMENTATION_EMULATION}
 CPU_IMPLEMENTATION=${CPU_IMPLEMENTATION_DEBUG}
 BUILD_ARGS="EMULATED=1"
-H90_PREPROCESSOR_ARGS=
-DEBUG_OUTPUT=/dev/null
 #############################################################################
 
 else
@@ -56,8 +59,6 @@ ifdef DEBUG
 GPU_IMPLEMENTATION=${GPU_IMPLEMENTATION_DEBUG}
 CPU_IMPLEMENTATION=${CPU_IMPLEMENTATION_DEBUG}
 BUILD_ARGS="DEBUG=1"
-H90_PREPROCESSOR_ARGS="--debug"
-DEBUG_OUTPUT=&1
 #############################################################################
 
 else
@@ -68,11 +69,26 @@ else
 GPU_IMPLEMENTATION=${GPU_IMPLEMENTATION_PRODUCTION}
 CPU_IMPLEMENTATION=${CPU_IMPLEMENTATION_PRODUCTION}
 BUILD_ARGS=
-H90_PREPROCESSOR_ARGS=
-DEBUG_OUTPUT=/dev/null
 #############################################################################
 
 endif
+endif
+
+ifdef VERBOSE
+H90_PREPROCESSOR_ARGS="--debug"
+DEBUG_OUTPUT=&1
+BUILD_ARGS="$BUILD_ARGS VERBOSE=1"
+else
+H90_PREPROCESSOR_ARGS=
+DEBUG_OUTPUT=/dev/null
+endif
+
+ifeq ($(TEST_WITH_EVERY_BUILD),true)
+ADDITIONAL_BUILD_TARGETS_CPU=tests_cpu
+ADDITIONAL_BUILD_TARGETS_GPU=tests_gpu
+else
+ADDITIONAL_BUILD_TARGETS_CPU=
+ADDITIONAL_BUILD_TARGETS_GPU=
 endif
 
 #############################################################################
@@ -134,7 +150,7 @@ vpath %.F90 $(SRC_FORT_COMMON_DIRS)
 vpath %.h90 $(SRC_FORT_COMMON_DIRS)
 vpath %.H90 $(SRC_FORT_COMMON_DIRS)
 
-.PHONY: all clean install install_cpu install_gpu graphs build build_cpu build_gpu create_install_directories source source_cpu source_gpu
+.PHONY: all clean install install_cpu install_gpu graphs build build_cpu build_gpu create_install_directories source source_cpu source_gpu tests tests_cpu tests_gpu
 
 .SUFFIXES: .f90 .F90 .h90 .H90
 
@@ -161,11 +177,15 @@ clean:
 
 build: build_cpu build_gpu
 
-build_cpu: ${SRC_DIR_CPU}Makefile ${SRC_DIR_CPU}Makesettings ${SRC_DIR_CPU}MakesettingsGeneral ${SRC_ALL_CPU}
+build_cpu: ${EXECUTABLES_CPU_OUT} ${ADDITIONAL_BUILD_TARGETS_CPU}
+
+build_gpu: ${EXECUTABLES_GPU_OUT} ${ADDITIONAL_BUILD_TARGETS_GPU}
+
+${EXECUTABLES_CPU_OUT}: ${SRC_DIR_CPU}Makefile ${SRC_DIR_CPU}Makesettings ${SRC_DIR_CPU}MakesettingsGeneral ${SRC_ALL_CPU}
 	@echo "..cpu executable dependant on " ${SRC_DIR_CPU}Makefile ${SRC_DIR_CPU}Makesettings ${SRC_DIR_CPU}MakesettingsGeneral ${SRC_ALL_CPU} >${DEBUG_OUTPUT}
 	@cd ${SRC_DIR_CPU}; make ${BUILD_ARGS}
 
-build_gpu: ${SRC_DIR_GPU}Makefile ${SRC_DIR_GPU}Makesettings ${SRC_DIR_GPU}MakesettingsGeneral ${SRC_ALL_GPU}
+${EXECUTABLES_GPU_OUT}: ${SRC_DIR_GPU}Makefile ${SRC_DIR_GPU}Makesettings ${SRC_DIR_GPU}MakesettingsGeneral ${SRC_ALL_GPU}
 	@echo "..gpu executable dependant on " ${SRC_DIR_GPU}Makefile ${SRC_DIR_GPU}Makesettings ${SRC_DIR_GPU}MakesettingsGeneral ${SRC_ALL_GPU} >${DEBUG_OUTPUT}
 	@cd ${SRC_DIR_GPU}; make ${BUILD_ARGS}
 
@@ -174,12 +194,27 @@ create_install_directories:
 	@mkdir -p $(dir ${INSTALLED_EXECUTABLES_CPU})
 	@mkdir -p $(dir ${INSTALLED_EXECUTABLES_GPU})
 
+tests: tests_cpu tests_gpu
+
+ifdef DEBUG
+tests_cpu: ${INSTALLED_EXECUTABLES_CPU}
+	runTests.sh "${INSTALLED_EXECUTABLES_CPU}" debug
+else
+tests_cpu: ${INSTALLED_EXECUTABLES_CPU}
+	runTests.sh "${INSTALLED_EXECUTABLES_CPU}"
+endif
+
+tests_gpu: ${INSTALLED_EXECUTABLES_GPU}
+	runTests.sh "${INSTALLED_EXECUTABLES_GPU}"
+
 .SECONDEXPANSION:
 ${TESTDIR}/%_cpu: $${DIR_CPU}$$(notdir %).out create_install_directories
+	@echo "...........creating $@ from $<"
 	@cp -fp $< $@
 
 .SECONDEXPANSION:
 ${TESTDIR}/%_gpu: $${DIR_GPU}$$(notdir %).out create_install_directories
+	@echo "...........creating $@ from $<"
 	@cp -fp $< $@
 
 ${CG_DIR}rawCG.xml: ${CG_DIR}touchedWhenUpdateNeeded

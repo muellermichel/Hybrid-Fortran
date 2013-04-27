@@ -359,7 +359,7 @@ class H90CallGraphParser(object):
         lineNo = 1
         for line in fileinput.input([fileName]):
             try:
-                # if lineNo == 70:
+                # if lineNo == 57:
                 #     pdb.set_trace()
                 self.processLine(line)
             except Exception, e:
@@ -560,7 +560,7 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
         branchSettings = branchSettingText.split(",")
         if len(branchSettings) != 1:
             raise Exception("Invalid number of branch settings.")
-        branchSettingMatch = re.match(r'(\w*)\s*\(\s*(\w*)\s*\)', branchSettings[0].strip())
+        branchSettingMatch = re.match(r'(\w*)\s*\(\s*(\w*)\s*\)', branchSettings[0].strip(), re.IGNORECASE)
         if not branchSettingMatch:
             raise Exception("Invalid branch setting definition.")
         if branchSettingMatch.group(1) != "parallelRegion":
@@ -634,23 +634,19 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
 
 class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
     currSubroutineImplementationNeedsToBeCommented = False
-
     currRoutineIsCallingParallelRegion = False
     currCalleeNode = None
     additionalSymbolsByCalleeName = {}
     currAdditionalSubroutineParameters = []
+    currAdditionalCompactedSubroutineParameters = []
     symbolsPassedInCurrentCallByName = {}
-
     currParallelIterators = []
     intentPattern = None
     dimensionPattern = None
-
     tab_insideSub = "\t\t"
     tab_outsideSub = "\t"
-
     implementation = None
     codeSanitizer = None
-
     stateBeforeBranch = None
 
     def __init__(self, cgDoc, implementation):
@@ -663,6 +659,7 @@ class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
         self.currentLine = ""
         self.currCalleeNode = None
         self.currAdditionalSubroutineParameters = []
+        self.currAdditionalCompactedSubroutineParameters = []
         self.codeSanitizer = FortranCodeSanitizer()
 
         super(H90toF90Printer, self).__init__(cgDoc)
@@ -689,11 +686,11 @@ class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
         #match the symbol's postfix again in the current given line. (The prefix could have changed from the last match.)
         postfix = paramDeclMatch.group(2)
         postfixEscaped = re.escape(postfix)
-        pattern1 = r"(.*?)" + re.escape(symbol.deviceName()) + postfixEscaped + r"\s*"
-        currMatch = re.match(pattern1, line)
+        pattern1 = r"(.*?(?:\W|^))" + re.escape(symbol.deviceName()) + postfixEscaped + r"\s*"
+        currMatch = re.match(pattern1, line, re.IGNORECASE)
         if not currMatch:
-            pattern2 = r"(.*?)" + re.escape(symbol.name) + postfixEscaped + r"\s*"
-            currMatch = re.match(pattern2, line)
+            pattern2 = r"(.*?(?:\W|^))" + re.escape(symbol.name) + postfixEscaped + r"\s*"
+            currMatch = re.match(pattern2, line, re.IGNORECASE)
             if not currMatch:
                 raise Exception(\
                     "Symbol %s is accessed in an unexpected way. Note: '_d' postfix is reserved for internal use. Cannot match one of the following patterns: \npattern1: '%s'\npattern2: '%s'" \
@@ -711,7 +708,7 @@ class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
                 accPatternStr = accPatternStr + r"\s*([\w\s\+\*\/\-\:]*)\s*"
             accPatternStr = accPatternStr + r"\)(.*)"
         elif numOfIndependentDomains == 0:
-            bracketMatch = re.match(r"\s*\(.*", postfix)
+            bracketMatch = re.match(r"\s*\(.*", postfix, re.IGNORECASE)
             if bracketMatch:
                 raise Exception("Unexpected array access for symbol %s: No match for access in domain %s with no independant dimensions. \
 Note: Parallel domain accesses are inserted automatically." \
@@ -722,7 +719,7 @@ Note: Parallel domain accesses are inserted automatically." \
 
         offsets = []
         if accPatternStr:
-            accMatch = re.match(accPatternStr, postfix)
+            accMatch = re.match(accPatternStr, postfix, re.IGNORECASE)
             if accMatch:
                 #the number of groups should be numOfIndependentDomains plus 1 for the new postfix
                 postfix = accMatch.group(numOfIndependentDomains + 1)
@@ -823,6 +820,8 @@ access pattern: %s; access string: %s; domains: %s" \
         and getRoutineNodeInitStage(self.currCalleeNode) == RoutineNodeInitStage.DIRECTIVES_WITHOUT_PARALLELREGION_POSITION:
             #special case. see also processBeginMatch.
             self.prepareLine("! " + subProcCallMatch.group(0), "")
+            self.symbolsPassedInCurrentCallByName = {}
+            self.currCalleeNode = None
             return
 
         arguments = subProcCallMatch.group(2)
@@ -830,8 +829,16 @@ access pattern: %s; access string: %s; domains: %s" \
         if not paramListMatch and len(arguments.strip()) > 0:
             raise Exception("Subprocedure arguments without enclosing brackets. This is invalid in Hybrid Fortran")
         additionalSymbolsSeparated = self.additionalSymbolsByCalleeName.get(self.currCalleeName)
+        toBeCompacted = []
+        if additionalSymbolsSeparated and len(additionalSymbolsSeparated) > 1:
+            toBeCompacted, declarationPrefix, otherImports = self.listCompactedSymbolsAndDeclarationPrefixAndOtherImports(additionalSymbolsSeparated[0])
+        compactedArrayList = []
+        if len(toBeCompacted) > 0:
+            compactedArrayName = "hfimp_%s" %(self.currCalleeName)
+            compactedArray = FrameworkArray(compactedArrayName, declarationPrefix, domains=[("hfauto", str(len(toBeCompacted)))], isOnDevice=True)
+            compactedArrayList = [compactedArray]
         if additionalSymbolsSeparated:
-            additionalSymbols = sorted(additionalSymbolsSeparated[0] + additionalSymbolsSeparated[1])
+            additionalSymbols = sorted(additionalSymbolsSeparated[1] + otherImports + compactedArrayList)
         else:
             additionalSymbols = []
         if len(additionalSymbols) > 0:
@@ -841,7 +848,7 @@ access pattern: %s; access string: %s; domains: %s" \
         symbolNum = 0
         bridgeStr = ", & !additional parameter inserted by framework\n" + self.tab_insideSub + "& "
         for symbol in additionalSymbols:
-            adjustedLine = adjustedLine + self.tab_insideSub + symbol.automaticName()
+            adjustedLine = adjustedLine + symbol.automaticName()
             if symbolNum < len(additionalSymbols) - 1 or paramListMatch:
                 adjustedLine = adjustedLine + bridgeStr
             symbolNum = symbolNum + 1
@@ -853,6 +860,10 @@ access pattern: %s; access string: %s; domains: %s" \
         if self.currCalleeNode and self.currCalleeNode.getAttribute("parallelRegionPosition") == "within":
             if self.state != "inside_subroutine_call":
                 adjustedLine = self.processCallPostAndGetAdjustedLine(adjustedLine)
+
+        if self.state != "inside_subroutine_call":
+            self.symbolsPassedInCurrentCallByName = {}
+            self.currCalleeNode = None
 
         self.prepareLine(adjustedLine, self.tab_insideSub)
 
@@ -893,7 +904,16 @@ access pattern: %s; access string: %s; domains: %s" \
         #build list of additional subroutine parameters
         #(parameters that the user didn't specify but that are necessary based on the features of the underlying technology
         # and the symbols declared by the user, such us temporary arrays and imported symbols)
-        self.currAdditionalSubroutineParameters = self.implementation.extractListOfAdditionalSubroutineSymbols(routineNode, self.currSymbolsByName)
+        toBeCompacted, declarationPrefix, otherImports = self.listCompactedSymbolsAndDeclarationPrefixAndOtherImports(
+            self.implementation.extractListOfAdditionalSubroutineSymbols(routineNode, self.currSymbolsByName)
+        )
+        compactedArrayList = []
+        if len(toBeCompacted) > 0:
+            compactedArrayName = "hfimp_%s" %(subprocName)
+            compactedArray = FrameworkArray(compactedArrayName, declarationPrefix, domains=[("hfauto", str(len(toBeCompacted)))], isOnDevice=True)
+            compactedArrayList = [compactedArray]
+        self.currAdditionalSubroutineParameters = sorted(otherImports + compactedArrayList)
+        self.currAdditionalCompactedSubroutineParameters = sorted(toBeCompacted)
         adjustedLine = self.processAdditionalSubroutineParametersAndGetAdjustedLine()
 
         #print line
@@ -930,6 +950,7 @@ access pattern: %s; access string: %s; domains: %s" \
         self.prepareLine(self.currentLine + subProcEndMatch.group(0), self.tab_outsideSub)
         self.additionalSymbolsByCalleeName = {}
         self.currAdditionalSubroutineParameters = []
+        self.currAdditionalCompactedSubroutineParameters = []
         self.currSubroutineImplementationNeedsToBeCommented = False
         super(H90toF90Printer, self).processProcEndMatch(subProcEndMatch)
 
@@ -955,6 +976,31 @@ access pattern: %s; access string: %s; domains: %s" \
     def processNoMatch(self):
         super(H90toF90Printer, self).processNoMatch()
         self.prepareLine(str(self.currentLine), "")
+
+    def listCompactedSymbolsAndDeclarationPrefixAndOtherImports(self, additionalImports):
+        toBeCompacted = []
+        otherImports = []
+        declarationPrefix = None
+        for symbol in additionalImports:
+            declType = symbol.declarationType()
+
+            # compact the imports of real type. Background: Experience has shown that too many
+            # symbols passed to kernels, such that parameter list > 256Byte, can cause strange behavior. (corruption
+            # of parameter list leading to launch failures)
+            #-> need to pack all real symbols into an array to make it work reliably for cases where many reals are imported
+            # why not integers? because they can be used as array boundaries.
+            # Note: currently only a single real type per subroutine is supported for compaction
+            if declType in [DeclarationType.IMPORTED_SCALAR, DeclarationType.MODULE_SCALAR] \
+            and 'real' in symbol.declarationPrefix.lower() \
+            and (declarationPrefix == None \
+            or symbol.declarationPrefix.strip().lower() == declarationPrefix.strip().lower()):
+                declarationPrefix = symbol.declarationPrefix
+                symbol.isCompacted = True
+                toBeCompacted.append(symbol)
+            else:
+                otherImports.append(symbol)
+        return toBeCompacted, declarationPrefix, otherImports
+
 
     def processInsideDeclarationsState(self, line):
         '''process everything that happens per h90 declaration line'''
@@ -982,16 +1028,32 @@ access pattern: %s; access string: %s; domains: %s" \
             #########################################################################
             # additional symbols for called kernel                                  #
             #########################################################################
+            packedRealSymbolsByCalleeName = {}
             for calleeName in self.additionalSymbolsByCalleeName.keys():
-                _, additionalDeclarations = self.additionalSymbolsByCalleeName[calleeName]
+                additionalImports, additionalDeclarations = self.additionalSymbolsByCalleeName[calleeName]
+                additionalImportSymbolsByName = {}
+                for symbol in additionalImports:
+                    additionalImportSymbolsByName[symbol.name] = symbol
+
                 for symbol in additionalDeclarations:
                     declType = symbol.declarationType()
                     if declType != DeclarationType.IMPORTED_SCALAR and declType != DeclarationType.LOCAL_ARRAY:
                         continue
+
+                    #in case the array uses domain sizes in the declaration that are additional symbols themselves
+                    #we need to fix them.
+                    adjustedDomains = []
+                    for (domName, domSize) in symbol.domains:
+                        domSizeSymbol = additionalImportSymbolsByName.get(domSize)
+                        if domSizeSymbol is None:
+                            adjustedDomains.append((domName, domSize))
+                            continue
+                        adjustedDomains.append((domName, domSizeSymbol.automaticName()))
+                    symbol.domains = adjustedDomains
+
                     additionalDeclarationsStr = additionalDeclarationsStr + \
-                        self.tab_insideSub + self.implementation.adjustDeclarationForDevice( \
-                            self.tab_insideSub + \
-                                symbol.getDeclarationLineForAutomaticSymbol().strip(), \
+                        self.implementation.adjustDeclarationForDevice( \
+                            symbol.getDeclarationLineForAutomaticSymbol().strip(), \
                             self.patterns, \
                             [symbol], \
                             self.currRoutineIsCallingParallelRegion, \
@@ -1002,19 +1064,45 @@ access pattern: %s; access string: %s; domains: %s" \
                             %(self.currSubprocName, symbol, calleeName) \
                         )
 
+                toBeCompacted, declarationPrefix, _ = self.listCompactedSymbolsAndDeclarationPrefixAndOtherImports(additionalImports)
+                if len(toBeCompacted) > 0:
+                    #TODO: generalize for cases where we don't want this to be on the device (e.g. put this into Implementation class)
+                    compactedArrayName = "hfimp_%s" %(calleeName)
+                    compactedArray = FrameworkArray(compactedArrayName, declarationPrefix, domains=[("hfauto", str(len(toBeCompacted)))], isOnDevice=True)
+                    packedRealSymbolsByCalleeName[calleeName] = toBeCompacted
+                    additionalDeclarationsStr = additionalDeclarationsStr + \
+                        self.implementation.adjustDeclarationForDevice( \
+                            compactedArray.getDeclarationLineForAutomaticSymbol().strip(), \
+                            self.patterns, \
+                            [compactedArray], \
+                            self.currRoutineIsCallingParallelRegion, \
+                            self.routineNodesByProcName[self.currSubprocName].getAttribute('parallelRegionPosition') \
+                        ).rstrip() + "\n"
+                    if self.debugPrint:
+                        sys.stderr.write("...In subroutine %s: Symbols %s packed into array %s\n" \
+                            %(self.currSubprocName, toBeCompacted, compactedArrayName) \
+                        )
+
+
             #########################################################################
             # additional symbols for ourselves                                      #
             #########################################################################
             ourSymbolsToAdd = sorted(
                 [symbol for symbol in self.currAdditionalSubroutineParameters
-                    if symbol.sourceModule != None and symbol.sourceModule != ""
-                ]
+                    if symbol.declarationType() in [DeclarationType.IMPORTED_SCALAR,
+                        DeclarationType.MODULE_SCALAR,
+                        DeclarationType.FRAMEWORK_ARRAY
+                    ]
+                ] + self.currAdditionalCompactedSubroutineParameters
             )
             for symbol in ourSymbolsToAdd:
+                purgeIntent=False
+                if symbol.isCompacted:
+                    purgeIntent=True
                 additionalDeclarationsStr = additionalDeclarationsStr + \
                     self.tab_insideSub + self.implementation.adjustDeclarationForDevice( \
                         self.tab_insideSub + \
-                            symbol.getDeclarationLineForAutomaticSymbol().strip(), \
+                            symbol.getDeclarationLineForAutomaticSymbol(purgeIntent, self.patterns).strip(), \
                         self.patterns, \
                         [symbol], \
                         self.currRoutineIsCallingParallelRegion, \
@@ -1031,15 +1119,30 @@ access pattern: %s; access string: %s; domains: %s" \
             parallelTemplates = self.parallelRegionTemplatesByProcName.get(self.currSubprocName)
             if parallelTemplates and len(parallelTemplates) > 0:
                 parallelTemplate = parallelTemplates[0]
-            self.prepareLine(additionalDeclarationsStr + \
-                self.implementation.declarationEnd( \
+            additionalDeclarationsStr = additionalDeclarationsStr + self.implementation.declarationEnd( \
                     self.currSymbolsByName.values(), \
                     self.currRoutineIsCallingParallelRegion, \
                     self.routineNodesByProcName[self.currSubprocName], \
-                    parallelTemplate \
-                ), \
-                self.tab_insideSub \
-            )
+                    parallelTemplate)
+
+            #########################################################################
+            # additional symbols to be packed into arrays                           #
+            #########################################################################
+            #TODO: move this into implementation classes
+            calleesWithPackedReals = packedRealSymbolsByCalleeName.keys()
+            for calleeName in calleesWithPackedReals:
+                for idx, symbol in enumerate(sorted(packedRealSymbolsByCalleeName[calleeName])):
+                    additionalDeclarationsStr = additionalDeclarationsStr + "hfimp_%s(%i) = %s\n" %(calleeName, idx+1, symbol.automaticName())
+
+            #########################################################################
+            # additional symbols to be unpacked                                     #
+            #########################################################################
+            #TODO: move this into implementation classes
+            for idx, symbol in enumerate(self.currAdditionalCompactedSubroutineParameters):
+                additionalDeclarationsStr = additionalDeclarationsStr + "%s = hfimp_%s(%i)\n" %(symbol.deviceName(), self.currSubprocName, idx+1)
+
+            self.prepareLine(additionalDeclarationsStr, self.tab_insideSub)
+
         if self.state != "inside_declarations":
             return
 
@@ -1218,5 +1321,6 @@ parallel regions defined in the same subroutine in Hybrid Fortran." %(self.currS
         sys.stdout.write('''#include "storage_order.F90"\n''')
         super(H90toF90Printer, self).processFile(fileName)
 
+    #TODO: remove tab argument everywhere
     def prepareLine(self, line, tab):
         self.currentLine = self.codeSanitizer.sanitizeLines(line)

@@ -181,6 +181,7 @@ Dependencies
 * Python v2.6 or compatible.
 * GNU Make 3.81 or compatible.
 * A POSIX compatible operating system.
+* (optional) `valgrind` if you would like to use the test system shipped with this framework (accessible through `make tests`).
 * (optional) The `pydot` python package as well as the [Graphviz software](http://www.graphviz.org/Download..php) in case you'd like to use the automatic visual representation of your callgraph.
 
 Getting Started
@@ -249,12 +250,12 @@ Please note: The time frames for this roadmap will depend on your demands (both 
     <tr>
         <td>v0.85</td>
         <td>End of April 2013</td>
-        <td>Same functionality as v0.85, but includes an OpenMP configuration optimized for Intel MIC. (Note: MIC should be compatible with the current 'CPU' build, however it is untested as of yet).</td>
+        <td>Same functionality as v0.80, but includes an OpenMP configuration optimized for Intel MIC. (Note: MIC should be compatible with the current 'CPU' build, however it is untested as of yet).</td>
     </tr>
     <tr>
         <td>v0.9</td>
         <td>Summer 2013</td>
-        <td>Support for Fortran functions (in addition to subroutines). Parallel region layouts may vary between CPU and GPU loop regions. GPU debugging improvements. Support for Fortran language version > Fortran 90.</td>
+        <td>Support for Fortran functions (in addition to subroutines). Parallel region layouts may vary between CPU and GPU loop regions. GPU debugging improvements. Support for Fortran language version > Fortran 90. Support for module scope for subroutine names.</td>
     </tr>
     <tr>
         <td>v1.0</td>

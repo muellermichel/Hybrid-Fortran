@@ -20,14 +20,21 @@ module time_profiling
 	private
 
 	real(8) :: counter_timestep, counter_rad_sw_wrapper, counter_rad_sw, counter_rad_sw_main
+	real(8) :: counter_sf_flx, counter_pbl_mym, counter_pbl_coupler, counter_rad, counter_mainloop
 	public :: counter_timestep, counter_rad_sw_wrapper, counter_rad_sw, counter_rad_sw_main, incrementCounter, time_profiling_ini
+	public :: counter_sf_flx, counter_pbl_mym, counter_pbl_coupler, counter_rad, counter_mainloop
 
 contains
 	subroutine time_profiling_ini()
 		counter_rad_sw_wrapper = 0.0d0
 		counter_rad_sw = 0.0d0
 		counter_rad_sw_main = 0.0d0
+		counter_sf_flx = 0.0d0
+		counter_pbl_mym = 0.0d0
+		counter_pbl_coupler = 0.0d0
 		counter_timestep = 0.0d0
+		counter_mainloop = 0.0d0
+		counter_rad = 0.0d0
 	end subroutine time_profiling_ini
 
 	subroutine incrementCounter(prof_counter, start_time)

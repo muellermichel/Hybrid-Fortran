@@ -48,6 +48,19 @@ TESTDIR=./test
 EXCEPTIONS=""
 
 #############################################################################
+# set this to true if you'd like to have every compilation in debug mode    #
+# Note: If this is set to false, you can still enable debug mode by         #
+# calling 'make [your target] DEBUG=1'                                      #
+#############################################################################
+DEBUG_MODE=false
+
+#############################################################################
+# set this to true if you'd like to have tests started after every          #
+# successful compilation                                                    #
+#############################################################################
+TEST_WITH_EVERY_BUILD=false
+
+#############################################################################
 # implementation settings                                                   #
 #############################################################################
 CPU_IMPLEMENTATION_DEBUG=FortranImplementation

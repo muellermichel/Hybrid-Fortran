@@ -38,14 +38,14 @@ ifdef DEBUG
 #############################################################################
 # debug settings                                                            #
 #############################################################################
-FFLAGS= -g -DGPU -Mcuda=cc20 -ta=nvidia,cc20,keepgpu,time -Minfo=accel,inline,ipa -Mneginfo -Minform=inform -I/usr/local/include -r8
+FFLAGS= -g -DGPU -Mcuda=cc20 -ta=nvidia,cc20,keepgpu,keepbin,time -Minfo=accel,inline,ipa -Mneginfo -Minform=inform -I/usr/local/include -r8
 LDFLAGS= -Mcuda=cc20 -ta=nvidia,cc20,time -L/usr/local/lib -Minfo=accel,inline -Mneginfo
 
 else
 #############################################################################
 # production settings                                                       #
 #############################################################################
-FFLAGS= -DGPU -Mcuda=cc20 -ta=nvidia,cc20,keepgpu -Minline=levels:5,reshape ‑Mipa=inline,reshape -Minfo=accel,inline,ipa -Mneginfo -Minform=inform -I/usr/local/include -r8 -O4
+FFLAGS= -DGPU -Mcuda=cc20 -ta=nvidia,cc20 -Minline=levels:5,reshape ‑Mipa=inline,reshape -Minfo=accel,inline,ipa -Mneginfo -Minform=inform -I/usr/local/include -r8 -O4
 LDFLAGS= -Mcuda=cc20 -ta=nvidia,cc20,time -Mipa=inline,reshape -L/usr/local/lib -Minfo=accel,inline -Mneginfo
 
 endif

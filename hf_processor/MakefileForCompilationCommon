@@ -25,7 +25,7 @@
 include ./MakesettingsGeneral
 include ./Makesettings
 
-ifdef DEBUG
+ifdef VERBOSE
 DEBUG_OUTPUT=&1
 else
 DEBUG_OUTPUT=/dev/null

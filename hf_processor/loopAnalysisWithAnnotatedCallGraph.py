@@ -211,7 +211,7 @@ def analyseParallelRegions(doc, appliesTo):
 		#check our kernel callers. Rule: Their direct callees should not be a kernel caller themselves.
 		kernelCallers = callNodesByCalleeName.get(routineName)
 		if not kernelCallers:
-			raise Exception("Kernel wrapper routine node not found in callgraph for kernel %s" %(routineName))
+			continue
 
 		for kernelCaller in kernelCallers:
 			kernelCallerName = kernelCaller.getAttribute("caller")

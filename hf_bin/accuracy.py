@@ -56,33 +56,37 @@ def unpackNextRecord(file, readEndianFormat, numOfBytesPerValue):
 	dataFormat = '%s%i%s' %(readEndianFormat, recordLength, typeSpecifier)
 	return struct.unpack(dataFormat, data)
 
-def rootMeanSquareDeviation(tup, tupRef):
+def rootMeanSquareDeviation(tup, tupRef, eps):
 	err = 0.0
+	newErr = 0.0
+	newErrSquare = 0.0
 	i = 0
 	firstErr = -1
 	firstErrVal = 0.0
-	expectedVal = 0.0
+	firstErrExpected = 0.0
 	for val in tup:
+		expectedVal = tupRef[i]
+		newErr = val - expectedVal
+		i = i + 1
 		try:
-			newErr = (val - tupRef[i])**2
+			newErrSquare = newErr**2
 		except(OverflowError), e:
 			firstErr = i
-			newErr = 0.0
+			newErrSquare = sys.float_info.max
 			firstErrVal = val
-			expectedVal = tupRef[i]
-		i = i + 1
+			firstErrExpected = expectedVal
 		if math.isnan(newErr) and firstErr == -1:
 			firstErr = i
 			newErr = 0.0
+			newErrSquare = 0.0
 			firstErrVal = val
-			expectedVal = tupRef[i]
-		elif newErr > 1E-08 and firstErr == -1:
+			firstErrExpected = expectedVal
+		elif abs(newErr) > eps and firstErr == -1:
 			firstErr = i
 			firstErrVal = val
-			expectedVal = tupRef[i]
-		err = err + newErr
-
-	return math.sqrt(err), firstErr, firstErrVal, expectedVal
+			firstErrExpected = expectedVal
+		err = err + newErrSquare
+	return math.sqrt(err), firstErr, firstErrVal, firstErrExpected
 
 ##################### MAIN ##############################
 #get all program arguments
@@ -94,6 +98,7 @@ parser.add_option("--reference", dest="refFile",
 parser.add_option("-b", "--bytesPerValue", dest="bytes", default="4")
 parser.add_option("-r", "--readEndian", dest="readEndian", default="big")
 parser.add_option("-v", action="store_true", dest="verbose")
+parser.add_option("-e", "--epsilon", metavar="EPS", dest="epsilon", help="Throw an error if at any point the error becomes higher than EPS. Defaults to 1E-9.")
 
 (options, args) = parser.parse_args()
 
@@ -108,6 +113,10 @@ if (numOfBytesPerValue == 8):
 readEndianFormat = '>'
 if (options.readEndian == "little"):
 	readEndianFormat = '<'
+
+eps = 1E-9
+if (options.epsilon):
+	eps = float(options.epsilon)
 
 inFile = None
 refFile = None
@@ -127,7 +136,7 @@ try:
 			sys.stderr.write("Error reading record %i from %s: %s\n" %(i, str(options.refFile), e))
 			sys.exit(1)
 
-		if (unpackedRef == None):
+		if unpackedRef == None:
 			break;
 
 		unpacked = None
@@ -137,25 +146,27 @@ try:
 			sys.stderr.write("Error reading record %i from %s: %s\n" %(i, str(options.inFile), e))
 			sys.exit(1)
 
-		if (unpacked == None):
+		if unpacked == None:
 			sys.stderr.write("Error in %s: Record expected, could not load record it\n" %(str(options.inFile)))
 			sys.exit(1)
 
-		if (len(unpacked) != len(unpackedRef)):
+		if len(unpacked) != len(unpackedRef):
 			sys.stderr.write("Error in %s: Record %i does not have same length as reference. Length: %i, expected: %i\n" \
 				%(str(options.inFile), i, len(unpacked), len(unpackedRef)))
 			sys.exit(1)
 
 		#analyse unpacked data
-		[err, firstErr, firstErrVal, expectedVal] = rootMeanSquareDeviation(unpacked, unpackedRef)
-		if (firstErr != -1 or err > 1E-8):
+		[err, firstErr, firstErrVal, expectedVal] = rootMeanSquareDeviation(unpacked, unpackedRef, eps)
+		errorState=False
+		if firstErr != -1 or err > eps:
+			errorState=True
 			passedStr = "first error value: %s; expected: %s; FAIL <-------" %(firstErrVal, expectedVal)
 		sys.stderr.write("%s, record %i: Mean square error: %e; First Error at: %i; %s\n" %(options.inFile, i, err, firstErr, passedStr))
 
-		if (options.verbose):
+		if options.verbose:
 			sys.stderr.write(unpacked + "\n")
 
-		if (firstErr != -1):
+		if errorState:
 			sys.exit(1)
 
 except(Exception), e:

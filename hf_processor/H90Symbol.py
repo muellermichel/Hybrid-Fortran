@@ -45,6 +45,7 @@ DeclarationType = enum("UNDEFINED",
     "LOCAL_ARRAY",
     "IMPORTED_SCALAR",
     "MODULE_SCALAR",
+    "FRAMEWORK_ARRAY",
     "OTHER"
 )
 
@@ -61,20 +62,17 @@ def splitDeclarationSettingsFromSymbols(line, dependantSymbols, patterns, withAn
         #no :: is used in this declaration line -> we should only have one symbol defined on this line
         if len(dependantSymbols) > 1:
             raise Exception("Declaration line without :: has multiple matching dependant symbols.")
-        match = re.match(r"(\s*(?:real|integer|character|logical)(?:.*?))\s*" + dependantSymbols[0].name + r"(.*)", line)
+        match = re.match(r"(\s*(?:real|integer|character|logical)(?:.*?))\s*(" + re.escape(dependantSymbols[0].name) + r".*)", line, re.IGNORECASE)
         if not match:
             raise Exception("When trying to extract a device declaration: This is not a valid declaration: %s" %(line))
         declarationDirectives = match.group(1)
         symbolDeclarationStr = match.group(2)
 
-    if symbolDeclarationStr == "":
-        raise Exception("Unexpected error: Splitting off symbols in declaration string was not possible.")
-
     if not withAndWithoutIntent:
         return declarationDirectives, symbolDeclarationStr
 
     declarationDirectivesWithoutIntent = ""
-    match = re.match(r"(.*?),\s*intent.*?\)(.*)", declarationDirectives)
+    match = re.match(r"(.*?),\s*intent.*?\)(.*)", declarationDirectives, re.IGNORECASE)
     if match:
         declarationDirectivesWithoutIntent = match.group(1) + match.group(2)
     else:
@@ -100,6 +98,8 @@ class Symbol(object):
     isPresent = False
     isAutomatic = False
     isAutoDom = False
+    isToBeTransfered = False
+    isCompacted = False
     declPattern = None
     namePattern = None
     importPattern = None
@@ -125,7 +125,7 @@ class Symbol(object):
         self.isAutomatic = isAutomatic
         self.domains = []
         self.isMatched = False
-        self.declPattern = re.compile(r'(\s*(?:real|integer).*?[\s,:]+)' + re.escape(name) + r'((?:\s|\,|\(|$)+.*)', \
+        self.declPattern = re.compile(r'(\s*(?:real|integer|logical).*?[\s,:]+)' + re.escape(name) + r'((?:\s|\,|\(|$)+.*)', \
             re.IGNORECASE)
         self.namePattern = re.compile(r'(.*?(?:\W|^))' + re.escape(name) + r'(?:_d)?(\W+.*|\Z)', \
             re.IGNORECASE)
@@ -148,11 +148,17 @@ class Symbol(object):
 
         self.isPresent = False
         self.isAutoDom = False
+        self.isToBeTransfered = False
+        self.isCompacted = False
         attributes = getAttributes(self.template)
         if "present" in attributes:
             self.isPresent = True
         if "autoDom" in attributes:
             self.isAutoDom = True
+        if "transferHere" in attributes:
+            if self.isPresent:
+                raise Exception("Symbol %s has contradicting attributes 'transferHere' and 'present'" %(self))
+            self.isToBeTransfered = True
 
     def __repr__(self):
         name = self.name
@@ -315,10 +321,12 @@ from the standard declaration. Declared domain: %s, Domain after template init: 
 
         #   get and check intent
         intentMatch = patterns.intentPattern.match(paramDeclMatch.group(1))
-        if intentMatch:
+        if intentMatch and (not self.intent or self.intent.strip() == ""):
             self.intent = intentMatch.group(1)
-        else:
+        elif not self.intent or self.intent.strip() == "":
             self.intent = ""
+        elif not self.intent == intentMatch.group(1):
+            raise Exception("Symbol %s's intent was previously defined already and does not match the declaration on this line. Previously loaded intent: %s" %(str(self), self.intent))
 
         #   look at declaration of symbol and get its             #
         #   dimensions.                                               #
@@ -428,12 +436,12 @@ declared in the specification part of the subroutine." %(self.name)
         if dimensionMatch:
             dimensionStr = dimensionMatch.group(2)
         else:
-            dimensionMatch = re.match(r'\s*(?:real\W|integer\W).*?(?:intent\W)*.*?(?:in\W|out\W|inout\W)*.*?' + re.escape(self.name) + r'\s*\(\s*(.*?)\s*\)(.*)', \
+            dimensionMatch = re.match(r'\s*(?:real\W|integer\W|logical\W).*?(?:intent\W)*.*?(?:in\W|out\W|inout\W)*.*?(?:\W|^)' + re.escape(self.name) + r'\s*\(\s*(.*?)\s*\)(.*)', \
                 str(prefix + self.name + postfix), re.IGNORECASE)
             if dimensionMatch:
                 dimensionStr = dimensionMatch.group(1)
                 postfix = dimensionMatch.group(2)
-        dimensionCheckForbiddenCharacters = re.match(r'^(?!.*[()]).*', dimensionStr)
+        dimensionCheckForbiddenCharacters = re.match(r'^(?!.*[()]).*', dimensionStr, re.IGNORECASE)
         if not dimensionCheckForbiddenCharacters:
             raise Exception("Forbidden characters found in declaration of symbol %s: %s. Note: Preprocessor statements in domain dependant declarations are not allowed." \
                 %(self.name, dimensionStr))
@@ -450,27 +458,38 @@ declared in the specification part of the subroutine." %(self.name)
         dimensionStr, postfix = self.getDimensionStringAndRemainderFromDeclMatch(paramDeclMatch, dimensionPattern)
         return prefix + str(self) + postfix
 
-    def getDeclarationLineForAutomaticSymbol(self):
+    def getDeclarationLineForAutomaticSymbol(self, purgeIntent=False, patterns=None):
         if self.declarationPrefix == None or self.declarationPrefix == "":
-            raise Exception("Symbol %s needs to be automatically declared but there is no information about its type. \
-Please specify the type like in a Fortran 90 declaration line using a @domainDependant {declarationPrefix([TYPE DECLARATION])} directive.\n\n\
+            if self.routineNode:
+                routineHelperText = " for subroutine %s," %(self.routineNode.getAttribute("name"))
+            raise Exception("Symbol %s needs to be automatically declared%s but there is no information about its type. \
+Please specify the type like in a Fortran 90 declaration line using a @domainDependant {declarationPrefix([TYPE DECLARATION])} directive within said subroutine.\n\n\
 EXAMPLE:\n\
 @domainDependant {declarationPrefix(real(8))}\n\
 %s\n\
-@end domainDependant" %(self.name, self.name)
+@end domainDependant" %(self.automaticName(), routineHelperText, self.name)
             )
+
+        if purgeIntent and patterns == None:
+            raise Exception("Unexpected error: patterns argument required with purgeIntent argument set to True in getDeclarationLineForAutomaticSymbol.")
 
         declarationPrefix = self.declarationPrefix
         if "::" not in declarationPrefix:
             declarationPrefix = declarationPrefix.rstrip() + " ::"
 
+        if purgeIntent:
+            declarationDirectivesWithoutIntent, _,  symbolDeclarationStr = splitDeclarationSettingsFromSymbols(
+                declarationPrefix + " " + str(self),
+                [self],
+                patterns,
+                withAndWithoutIntent=True
+            )
+            declarationPrefix = declarationDirectivesWithoutIntent
+
         return declarationPrefix + " " + str(self)
 
     def automaticName(self):
-        if not self.routineNode:
-            raise Exception("Unexpected error: reference name request in auto symbol without routine node")
-
-        if self.declarationType() == DeclarationType.MODULE_SCALAR:
+        if not self.routineNode or self.declarationType() == DeclarationType.MODULE_SCALAR:
             return self.name
 
         referencingName = self.name + "_hfauto_" + self.routineNode.getAttribute("name")
@@ -507,7 +526,6 @@ EXAMPLE:\n\
                 %(self.name, offsets, self.domains))
         elif len(parallelIterators) != 0 and len(offsets) + len(parallelIterators) != len(self.domains) \
         and len(offsets) != len(self.domains):
-            pdb.set_trace()
             raise Exception("Unexpected number of offsets and iterators specified for symbol %s; Offsets: %s, Iterators: %s, Expected domains: %s" \
                 %(self.name, offsets, parallelIterators, self.domains))
 
@@ -619,5 +637,25 @@ EXAMPLE:\n\
         else:
             return ""
 
+class FrameworkArray(Symbol):
+
+    def __init__(self, name, declarationPrefix, domains, isOnDevice):
+        if not name or name == "":
+            raise Exception("Unexpected error: name required for initializing framework array")
+        if not declarationPrefix or declarationPrefix == "":
+            raise Exception("Unexpected error: declaration prefix required for initializing framework array")
+        if len(domains) != 1:
+            raise Exception("Unexpected error: currently unsupported non-1D-array specified as framework array")
+
+        self.name = name
+        self.domains = domains
+        self.isMatched = True
+        self.isAutomatic = True
+        self.isOnDevice = isOnDevice
+        self.declarationPrefix = declarationPrefix
+        self.initLevel = Init.NOTHING_LOADED
+
+    def declarationType(self):
+        return DeclarationType.FRAMEWORK_ARRAY
 
 

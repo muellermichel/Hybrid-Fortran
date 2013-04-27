@@ -22,6 +22,10 @@ if [ ! -e ./out ]; then
 	echo "error in allAccuracy.sh: no output directory found. The program to be tested probably could not complete its run." 1>&2
 	exit 1
 fi
+if [ ! "$(ls -A ./out)" ]; then
+     echo "error in allAccuracy.sh: output directory appears to be empty. The program to be tested probably could not complete its run." 1>&2
+     exit 1
+fi
 for i in ./out/*.dat; do
 	filename=$(basename $i)
 	extension=${filename##*.}
@@ -32,7 +36,7 @@ for i in ./out/*.dat; do
 	else
 		accuracy.py -b 8 -f $i --reference $refPath -r little
 		rc=$?
-		if [[ $rc != 0 ]] ; then
+		if [ $errorVal -eq 0 ] ; then
 		    errorVal=$rc
 		fi
 	fi

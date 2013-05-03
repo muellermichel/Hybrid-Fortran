@@ -1,4 +1,4 @@
-# Copyright (C) 2013 Michel Müller, Rikagaku Kenkyuujo (RIKEN)
+# Copyright (C) 2013 Michel Müller (Typhoon Computing), RIKEN Advanced Institute for Computational Science (AICS)
 
 # This file is part of Hybrid Fortran.
 
@@ -56,7 +56,7 @@ all: ${EXECUTABLES_OUT}
 %.out: %.o
 	@echo ".........linking " $<
 	@echo ..calling $(LD) -o ../$@ $< $(LDFLAGS) -L./ >${DEBUG_OUTPUT}
-	@$(LD) -o ../$@ $< $(LDFLAGS) -L./
+	@$(LD) -o ../$@ $< $(LDFLAGS) ${USER_LIB}
 
 ${USER_LIB}: $(OBJ)
 	@echo ".........building user library ${USER_LIB} from " $(OBJ)

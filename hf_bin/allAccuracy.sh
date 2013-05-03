@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (C) 2013 Michel Müller, Rikagaku Kenkyuujo (RIKEN)
+# Copyright (C) 2013 Michel Müller (Typhoon Computing), RIKEN Advanced Institute for Computational Science (AICS)
 
 # This file is part of Hybrid Fortran.
 

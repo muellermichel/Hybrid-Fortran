@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: UTF-8 -*-
 
-# Copyright (C) 2013 Michel Müller, Rikagaku Kenkyuujo (RIKEN)
+# Copyright (C) 2013 Michel Müller (Typhoon Computing), RIKEN Advanced Institute for Computational Science (AICS)
 
 # This file is part of Hybrid Fortran.
 
@@ -80,7 +80,7 @@ data = srcFile.read()
 srcFile.close()
 doc = parseString(data)
 
-graph = pydot.Dot(graph_type='digraph')
+graph = pydot.Dot(graph_type='digraph', rankdir='LR')
 
 parallelRegions = doc.getElementsByTagName("activeParallelRegions")
 routinesWithActiveRegions = []

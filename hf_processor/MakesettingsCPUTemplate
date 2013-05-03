@@ -1,4 +1,4 @@
-# Copyright (C) 2013 Michel Müller, Rikagaku Kenkyuujo (RIKEN)
+# Copyright (C) 2013 Michel Müller (Typhoon Computing), RIKEN Advanced Institute for Computational Science (AICS)
 
 # This file is part of Hybrid Fortran.
 
@@ -26,7 +26,8 @@
 #############################################################################
 # common settings                                                           #
 #############################################################################
-AR=xiar
+#AR=xiar #use this for support of Intel compiler with OpenMP
+AR=ar
 ARFLAGS=rv
 
 #############################################################################

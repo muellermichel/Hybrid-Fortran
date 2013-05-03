@@ -1,4 +1,4 @@
-! Copyright (C) 2013 Michel Müller, Rikagaku Kenkyuujo (RIKEN)
+! Copyright (C) 2013 Michel Müller (Typhoon Computing), RIKEN Advanced Institute for Computational Science (AICS)
 
 ! This file is part of Hybrid Fortran.
 
@@ -120,25 +120,22 @@ contains
 		integer(4) :: imt
 
 		call findNewFileHandle(imt)
-
 		open(imt, file = path, form = 'unformatted', status = 'replace')
 		write(imt) array
 		close(imt)
 	end subroutine write2DToFile
 
 	subroutine write3DToFile(path, array, n1, n2, n3)
-		use pp_vardef
-		use pp_service, only: find_new_mt
 		implicit none
 
 		!input arguments
-		real(kind = r_size), intent(in) :: array(DOM(n1,n2,n3))
+		real(8), intent(in) :: array(DOM(n1,n2,n3))
 		character(len=*), intent(in) :: path
 		integer(4), intent(in) :: n1
 		integer(4), intent(in) :: n2
 		integer(4), intent(in) :: n3
 		integer(4) :: imt, i, j, k
-		real(kind = r_size) :: out_array(n3, n1, n2)
+		real(8) :: out_array(n3, n1, n2)
 
 		do j=1, n2
 			do i=1, n1
@@ -148,26 +145,24 @@ contains
 			end do
 		end do
 
-		call find_new_mt(imt)
+		call findNewFileHandle(imt)
 		open(imt, file = path, form = 'unformatted', status = 'replace')
 		write(imt) out_array
 		close(imt)
 	end subroutine write3DToFile
 
 	subroutine write3DToFile_n3StartsAt(path, array, n1, n2, n3, start3)
-		use pp_vardef
-		use pp_service, only: find_new_mt
 		implicit none
 
 		!input arguments
 		integer(4), intent(in) :: start3
-		real(kind = r_size), intent(in) :: array(DOM(n1,n2,start3:n3))
+		real(8), intent(in) :: array(DOM(n1,n2,start3:n3))
 		character(len=*), intent(in) :: path
 		integer(4), intent(in) :: n1
 		integer(4), intent(in) :: n2
 		integer(4), intent(in) :: n3
 		integer(4) :: imt, i, j, k
-		real(kind = r_size) :: out_array(n3+1-start3, n1, n2)
+		real(8) :: out_array(n3+1-start3, n1, n2)
 
 		do j=1, n2
 			do i=1, n1
@@ -177,7 +172,7 @@ contains
 			end do
 		end do
 
-		call find_new_mt(imt)
+		call findNewFileHandle(imt)
 		open(imt, file = path, form = 'unformatted', status = 'replace')
 		write(imt) out_array
 		close(imt)

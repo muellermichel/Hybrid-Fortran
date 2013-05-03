@@ -1,4 +1,4 @@
-Copyright (C) 2013 Michel Müller, Rikagaku Kenkyuujo (RIKEN)
+Copyright (C) 2013 Michel Müller (Typhoon Computing), RIKEN Advanced Institute for Computational Science (AICS)
 
 This file is part of Hybrid Fortran.
 
@@ -44,6 +44,11 @@ Version History
         <th>Comment</th>
     </tr>
     <tr>
+        <td>v0.85</td>
+        <td>2013-5-3</td>
+        <td>New features: 1) Automated validation and valgrind test system. 2) Automatic packing and unpacking of real scalars into arrays for passing into kernels (circumvents a potential PGI problem with kernels that have large argument lists). Documentation updated to reflect the latest features. Also, several bugfixes in the parser.</td>
+    </tr>
+    <tr>
         <td>v0.81</td>
         <td>2013-4-2</td>
         <td>First release of full Hybrid Fortran documentation. Added test scripts. Improvements in the build system for building multiple executables.</td>
@@ -57,17 +62,15 @@ Version History
 
 What is Hybrid Fortran?
 -----------------------
-Hybrid Fortran is a directive based extension of the Fortran language. It is intended for enabling GPGPU acceleration of physical packages[1] while keeping x86 CPU compatibility and performance[2]. In the backend it automatically creates CUDA Fortran code for GPU and OpenMP Fortran code for CPU. Hybrid Fortran is currently used for porting Japan's national next generation weather prediction model to GPGPU[3].
+Hybrid Fortran is a directive based extension of the Fortran language. It is intended for enabling GPGPU acceleration of physical packages[1] while keeping x86 CPU compatibility and performance[2]. In the backend it automatically creates CUDA Fortran code for GPU and OpenMP Fortran code for CPU. Hybrid Fortran has been successfully used for porting the Physical Core of Japan's national next generation weather prediction model to GPGPU.
 
 You can also watch [my talk at the GTC 2013](http://nvidia.fullviewmedia.com/gtc2013/0320-211B-S3326.html).
 
 [1]: 'Physical package' here means code for high performance computations where the data access dependencies are orthogonal to the parallelized dimensions - as opposed to dynamical packages with general stencil dependencies.
 
-[2]: Between 20%-30% (~10k codelines) of this weather model has already successfully been ported to GPGPU using Hybrid Fortran, showing a speedup of 3.5x with one Kepler card vs. 6 core Westmere. Fully integrated with the already ported dynamics[4] we expect speedups in the region of 5x-7x per Kepler card. Considering that compute nodes can carry twice as many kepler cards as CPUs, this allows substantial cost and power savings and/or increased grid resolution.
+[2]: Between 20%-30% (~10k codelines) of this weather model has already successfully been ported to GPGPU using Hybrid Fortran, showing a speedup of 3.5x with one Kepler card vs. 6 core Westmere. Fully integrated with the already ported dynamics[3] we expect speedups in the region of 5x-7x per Kepler card. Considering that compute nodes can carry twice as many kepler cards as CPUs, this allows substantial cost and power savings and/or increased grid resolution.
 
-[3]: Ported code has so far shown a performance increase from anywhere between -5% and +25% on six core CPU.
-
-[4]: T. Shimokawabe, T. Aoki, J. Ishida, K. Kawano, and C. Muroi, “145 TFlops performance on 3990 GPUs of TSUBAME 2.0 supercomputer for an operational weather prediction.,” Procedia CS, vol. 4
+[3]: T. Shimokawabe, T. Aoki, J. Ishida, K. Kawano, and C. Muroi, “145 TFlops performance on 3990 GPUs of TSUBAME 2.0 supercomputer for an operational weather prediction.,” Procedia CS, vol. 4
 
 Why Hybrid Fortran?
 -------------------
@@ -231,13 +234,13 @@ Commercial support as well as Consulting will be available from June 2013 throug
 
 Documentation and Results
 -------------------------
-Detailed Documentation is available [here](https://github.com/muellermichel/Hybrid-Fortran/raw/master/doc/Documentation_v081.pdf).
+Detailed Documentation is available [here](https://github.com/muellermichel/Hybrid-Fortran/raw/master/doc/Documentation.pdf).
 
 The poster shown at GTC 2013 is available [here](http://on-demand.gputechconf.com/gtc/2013/poster/pdf/P0199_MichelMueller.pdf).
 
 The slides shown in Michel's talk at GTC 2013 are available [here](https://github.com/muellermichel/Hybrid-Fortran/raw/master/doc/Slides_GTC2013.pdf). You can also watch the recording [here](http://nvidia.fullviewmedia.com/gtc2013/0320-211B-S3326.html).
 
-We expect to publish some papers on this as soon as the implementation is done.
+We expect to publish some scientific papers on this soon.
 
 If you'd like to get the background story (why would I do such a thing), you can read my [Master Thesis from 2012 (slightly updated)](https://github.com/muellermichel/Hybrid-Fortran/raw/master/doc/Thesis_updated_2013-3.pdf). I plan on doing a blog post, explaining the background story of this project soon.
 
@@ -250,11 +253,6 @@ Please note: The time frames for this roadmap will depend on your demands (both 
         <th>Version</th>
         <th>Expected Time Frame</th>
         <th>Comment</th>
-    </tr>
-    <tr>
-        <td>v0.85</td>
-        <td>End of April 2013</td>
-        <td>Same functionality as v0.80, but includes an OpenMP configuration optimized for Intel MIC. (Note: MIC should be compatible with the current 'CPU' build, however it is untested as of yet).</td>
     </tr>
     <tr>
         <td>v0.9</td>
@@ -286,7 +284,7 @@ Please note: The time frames for this roadmap will depend on your demands (both 
 Credits
 -------
 - 'Kracken' module for parsing Fortran program arguments by John S. Urban
-- Everything else in this repository by Michel Müller, in part created during employment at the Rikagaku Kenkyuujo (RIKEN) Advanced Institute for Computational Science.
+- Everything else in this repository by Michel Müller, in part created during employment at the Rikagaku Kenkyuujo Advanced Institute for Computational Science (RIKEN AICS).
 
 Contact Information
 -------------------

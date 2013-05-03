@@ -15,8 +15,8 @@ GNU Lesser General Public License for more details.
 You should have received a copy of the GNU Lesser General Public License
 along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
-Hybrid Fortran v0.8
-===================
+Hybrid Fortran v0.85
+====================
 
 Table of Contents
 -----------------

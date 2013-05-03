@@ -30,5 +30,5 @@ include ${TOOLSDIR}MakefileForCompilationCommon
 # ADD YOUR DEPENDENCIES BELOW THIS LINE
 # -------->
 
-example.o: storage_order.F90
+example.o: ${USER_LIB}
 

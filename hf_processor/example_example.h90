@@ -69,6 +69,7 @@ program main
   use example
   real, dimension(DOM(NX, NY, NZ)) :: a, b, c, d
   integer :: x, y, z
+  integer :: fail_x, fail_y, fail_z
   logical test
 
   a(:,:,:) = 1.0d0
@@ -83,11 +84,17 @@ program main
   do y=1,NY
   do x=1,NX
   do z=1,NZ
-    if (c(AT(x,y,z)) .NE. 3.0d0) then
+    if (test .EQ. .TRUE. .AND. c(AT(x,y,z)) .NE. 3.0d0) then
       test = .FALSE.
+      fail_x = x
+      fail_y = y
+      fail_z = z
     end if
-    if (d(AT(x,y,z)) .NE. 2.0d0) then
+    if (test .EQ. .TRUE. .AND. d(AT(x,y,z)) .NE. 2.0d0) then
       test = .FALSE.
+      fail_x = x
+      fail_y = y
+      fail_z = z
     end if
   end do
   end do
@@ -96,6 +103,7 @@ program main
     write(6,*) "test ok"
   else
     write(6,*) "test failed"
+    write(6,*) "fails at", fail_x, fail_y, fail_z, "C:", c(AT(fail_x,fail_y,fail_z)), "D:", d(AT(fail_x,fail_y,fail_z))
   end if
 
   stop

@@ -23,8 +23,8 @@
 #                                                                           #
 #***************************************************************************#
 SHELL=/bin/bash
-TOOLSDIR=./hf_processor/
-EXAMPLEDIR=./example/
+TOOLSDIR=${HF_DIR}/hf_processor/
+EXAMPLEDIR=${HF_DIR}/example/
 EXAMPLEDIR_SOURCE=${EXAMPLEDIR}source/
 EXAMPLEDIR_CONFIG=${EXAMPLEDIR}config/
 
@@ -35,7 +35,7 @@ all: example
 #note: cp -n does not exist in older GNU utils, so we emulate it here for compatibility
 #      cp -p doesn't do the same thing in older GNU utils, so we also do chmod +x
 example:
-	@mkdir -p ./example
+	@mkdir -p ${HF_DIR}/example
 	@mkdir -p ${EXAMPLEDIR_CONFIG}
 	@mkdir -p ${EXAMPLEDIR_SOURCE}
 	@if [ ! -e ${EXAMPLEDIR}Makefile ]; then \

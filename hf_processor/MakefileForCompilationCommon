@@ -17,7 +17,7 @@
 
 #***************************************************************************#
 #  Makefile that gets copied into the individual build directories.         #
-#  Dependencies of your sources need to be specified here.                  #
+#  Usually nothing needs to be changed here.                                #
 #                                                                           #
 #  Date             2013/02/01                                              #
 #  Author           Michel Müller (RIKEN)                                   #

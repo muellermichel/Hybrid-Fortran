@@ -1,0 +1,46 @@
+# Copyright (C) 2013 Michel Müller (Typhoon Computing), RIKEN Advanced Institute for Computational Science (AICS)
+
+# This file is part of Hybrid Fortran.
+
+# Hybrid Fortran is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# Hybrid Fortran is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU Lesser General Public License for more details.
+
+# You should have received a copy of the GNU Lesser General Public License
+# along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
+
+#############################################################################
+# test settings                                                             #
+#############################################################################
+TESTDIR=./test/
+EXECUTABLE_NAME=example
+
+#############################################################################
+# directories                                                               #
+#############################################################################
+#IMPORTANT WARNING: make clean will delete this directory!
+#THEREFORE DO NOT SPECIFY AN EXISTING DIRECTORY
+BASEDIR=./build/
+
+LIBDIR=${HF_DIR}/hf_lib/
+SRC_DIR_COMMON=./source/
+
+#############################################################################
+# which names / directory names should be excluded from compilation?        #
+#############################################################################
+EXCEPTIONS=""
+
+#############################################################################
+# implementation settings                                                   #
+#############################################################################
+CPU_IMPLEMENTATION_DEBUG=FortranImplementation
+CPU_IMPLEMENTATION_PRODUCTION=OpenMPFortranImplementation
+GPU_IMPLEMENTATION_EMULATION=DebugEmulatedCUDAFortranImplementation
+GPU_IMPLEMENTATION_DEBUG=DebugCUDAFortranImplementation
+GPU_IMPLEMENTATION_PRODUCTION=CUDAFortranImplementation

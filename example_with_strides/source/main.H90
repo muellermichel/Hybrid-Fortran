@@ -1,0 +1,223 @@
+! Copyright (C) 2013 Michel Müller (Typhoon Computing), RIKEN Advanced Institute for Computational Science (AICS)
+
+! This file is part of Hybrid Fortran.
+
+! Hybrid Fortran is free software: you can redistribute it and/or modify
+! it under the terms of the GNU Lesser General Public License as published by
+! the Free Software Foundation, either version 3 of the License, or
+! (at your option) any later version.
+
+! Hybrid Fortran is distributed in the hope that it will be useful,
+! but WITHOUT ANY WARRANTY; without even the implied warranty of
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+! GNU Lesser General Public License for more details.
+
+! You should have received a copy of the GNU Lesser General Public License
+! along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
+
+#define NX_STRIDE_MAX 32
+#define NY_STRIDE_MAX 32
+
+module example
+contains
+
+  subroutine run(nx, ny, a, b, c, d)
+    implicit none
+
+    integer, intent(in) :: nx, ny
+    real(8), dimension(NZ), intent(in) :: a, b
+    real(8), dimension(NZ), intent(out) :: c, d
+
+
+    @domainDependant{domName(x,y,z), domSize(nx,ny,NZ), domPP(DOM), accPP(AT)}
+    a, b, c, d
+    @end domainDependant
+
+    @parallelRegion{appliesTo(CPU), domName(x,y), domSize(nx, nx)}
+    call wrapper(nx, ny, a, b, c, d)
+    @end parallelRegion
+  end subroutine
+
+  #define GET_SLICE_3D(sliceArrayName, arrayName) \
+    call getSlice3D(sliceArrayName, arrayName, stride_x_size, stride_y_size, NZ, nx, ny, NZ, stride_x_offset, stride_y_offset, 0)
+  #define STORE_SLICE_3D(arrayName, sliceArrayName) \
+    call storeSlice3D(arrayName, sliceArrayName, nx, ny, NZ, stride_x_size, stride_y_size, NZ, stride_x_offset, stride_y_offset, 0)
+  subroutine wrapper(nx, ny, a, b, c, d)
+    use helper_functions_gpu
+    implicit none
+
+    integer, intent(in) :: nx, ny
+    real(8), dimension(NZ), intent(in) :: a, b
+    real(8), dimension(NZ), intent(out) :: c, d
+    integer(4) :: num_strides_x, num_strides_y, stride_x, stride_y
+    integer(4) :: stride_x_offset, stride_y_offset
+    integer(4) :: stride_x_size, stride_y_size
+
+    @domainDependant{domName(x,y,z), domSize(nx,ny,NZ), domPP(DOM), accPP(AT)}
+    a, b, c, d
+    @end domainDependant
+
+    @if {parallelRegion(inside)}
+    real(8), dimension(DOM(NX_STRIDE_MAX, NY_STRIDE_MAX, NZ)), device :: a_stride, b_stride, c_stride, d_stride
+    real(8), dimension(DOM(nx, ny, NZ)), device :: a_d, b_d, c_d, d_d
+    a_d(:,:,:) = a(:,:,:)
+    b_d(:,:,:) = b(:,:,:)
+    c_d(:,:,:) = 15.d0
+    d_d(:,:,:) = 15.d0
+    stride_x_size = min(nx, NX_STRIDE_MAX)
+    stride_y_size = min(ny, NY_STRIDE_MAX)
+    num_strides_x = nx / stride_x_size
+    num_strides_y = ny / stride_y_size
+    do stride_x = 0, num_strides_x - 1
+      do stride_y = 0, num_strides_y - 1
+        stride_x_offset = stride_x * stride_x_size
+        stride_y_offset = stride_y * stride_y_size
+        GET_SLICE_3D(a_stride, a_d)
+        GET_SLICE_3D(b_stride, b_d)
+        GET_SLICE_3D(c_stride, c_d)
+        GET_SLICE_3D(d_stride, d_d)
+        call kernel_wrapper(stride_x_size, stride_y_size, a_stride, b_stride, c_stride, d_stride)
+        STORE_SLICE_3D(c_d, c_stride)
+        STORE_SLICE_3D(d_d, d_stride)
+      end do
+    end do
+    c(:,:,:) = c_d(:,:,:)
+    d(:,:,:) = d_d(:,:,:)
+    @end if
+
+    @if {parallelRegion(outside)}
+    call kernel_wrapper(nx, ny, a, b, c, d)
+    @end if
+  end subroutine
+
+  subroutine kernel_wrapper(nx, ny, a, b, c, d)
+    implicit none
+
+    integer, intent(in) :: nx, ny
+    real(8), dimension(NZ), intent(in) :: a, b
+    real(8), dimension(NZ), intent(out) :: c, d
+
+    @domainDependant{domName(x,y,z), domSize(nx,ny,NZ), domPP(DOM), accPP(AT), attribute(present)}
+    a, b, c, d
+    @end domainDependant
+    call add(nx, ny, a, b, c)
+    call mult(nx, ny, a, b, d)
+  end subroutine
+
+  subroutine add(nx, ny, a, b, c)
+    implicit none
+
+    integer, intent(in) :: nx, ny
+    real(8), dimension(NZ), intent(in) :: a, b
+    real(8), dimension(NZ), intent(out) :: c
+    integer :: z
+
+    @domainDependant{}
+    nx, ny
+    @end domainDependant
+
+    @domainDependant{domName(x,y,z), domSize(nx,ny,NZ), domPP(DOM), accPP(AT)}
+    a, b, c
+    @end domainDependant
+
+    @parallelRegion{appliesTo(GPU), domName(x,y), domSize(nx,ny)}
+    do z=1,NZ
+      c(z) = a(z) + b(z)
+    end do
+    @end parallelRegion
+  end subroutine
+
+  subroutine mult(nx, ny, a, b, d)
+    implicit none
+
+    integer, intent(in) :: nx, ny
+    real(8), dimension(NZ), intent(in) :: a, b
+    real(8), dimension(NZ), intent(out) :: d
+    integer :: z
+
+    @domainDependant{}
+    nx, ny
+    @end domainDependant
+
+    @domainDependant{domName(x,y,z), domSize(nx,ny,NZ), domPP(DOM), accPP(AT)}
+    a, b, d
+    @end domainDependant
+
+    @parallelRegion{appliesTo(GPU), domName(x,y), domSize(nx,ny)}
+    do z=1,NZ
+      d(z) = a(z) * b(z)
+    end do
+    @end parallelRegion
+  end subroutine
+
+end module example
+
+program main
+  use example
+  implicit none
+
+  integer, parameter :: nx = 64
+  integer, parameter :: ny = 64
+  real(8), dimension(DOM(nx, ny, NZ)) :: a, b, c, d
+  integer :: x, y, z, firstErrorCx, firstErrorCy, firstErrorCz, firstErrorDx, firstErrorDy, firstErrorDz
+  real :: errorValC, errorValD
+  logical test
+
+  do y=1,ny
+  do x=1,ny
+  do z=1,NZ
+  a(AT(x,y,z)) = (real(x)-1) + 100.d0*(real(y)-1) + 10000.d0*(real(z)-1)
+  b(AT(x,y,z)) = (real(x)-1) + 100.d0*(real(y)-1) + 10000.d0*(real(z)-1)
+  end do
+  end do
+  end do
+
+  c(:,:,:) = 0.0d0
+  d(:,:,:) = 0.0d0
+
+  call run(nx, ny, a, b, c, d)
+  write(6,*) "calculation complete"
+
+  test = .TRUE.
+  firstErrorCx = -1
+  firstErrorCy = -1
+  firstErrorCz = -1
+  firstErrorDx = -1
+  firstErrorDy = -1
+  firstErrorDz = -1
+  errorValC = -1.0d0
+  errorValD = -1.0d0
+  do y=1,ny
+  do x=1,ny
+  do z=1,NZ
+    if (c(AT(x,y,z)) .NE. 2.d0*((real(x)-1) + 100.d0*(real(y)-1) + 10000.d0*(real(z)-1))) then
+      test = .FALSE.
+      if (firstErrorCx .EQ. -1.0d0) then
+        firstErrorCx = x
+        firstErrorCy = y
+        firstErrorCz = z
+        errorValC = c(AT(x,y,z))
+      end if
+    end if
+    if (d(AT(x,y,z)) .NE. ((real(x)-1) + 100.d0*(real(y)-1) + 10000.d0*(real(z)-1))**2) then
+      test = .FALSE.
+      if (firstErrorDx .EQ. -1.0d0) then
+        firstErrorDx = x
+        firstErrorDy = y
+        firstErrorDz = z
+        errorValD = d(AT(x,y,z))
+      end if
+    end if
+  end do
+  end do
+  end do
+  if (test .EQ. .TRUE.) then
+    write(6,*) "test ok"
+  else
+    write(6,*) "test failed"
+    write(6,*) "First Error in C: ", errorValC, "@x=", firstErrorCx, ",y=", firstErrorCy, ",z=", firstErrorCz
+    write(6,*) "First Error in D: ", errorValD, "@x=", firstErrorDx, ",y=", firstErrorDy, ",z=", firstErrorDz
+  end if
+
+  stop
+end program main

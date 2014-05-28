@@ -257,10 +257,10 @@ Please note: The time frames for this roadmap will depend on your demands (both 
     </tr>
     <tr>
         <td>v0.9</td>
-        <td>Summer 2013</td>
-        <td>Support for Fortran functions (in addition to subroutines). Parallel region layouts may vary between CPU and GPU loop regions. GPU debugging improvements. Support for Fortran language version > Fortran 90. Support for module scope for subroutine names.</td>
+        <td>Summer 2014</td>
+        <td>I'm currently doing preliminary work for porting WRF to Hybrid Fortran. Functionality will therefore be extended in the coming months. Especially general stencil compatibility should be achieved soon.</td>
     </tr>
-    <tr>
+   <!--  <tr>
         <td>v1.0</td>
         <td>Early 2014</td>
         <td>Functionality extended for dynamical packages with arbitrary stencil data accesses. Halo regions will need to be implemented manually using Hybrid Fortran syntax. In this version, the parallel regions will be required to be at the same place for both CPU and GPU implementation, if used for dynamical code with parallel region offset accesses.</td>
@@ -279,7 +279,7 @@ Please note: The time frames for this roadmap will depend on your demands (both 
         <td>v2.1</td>
         <td>Late 2015</td>
         <td>Automatic implementation of halo communication for multinode support.</td>
-    </tr>
+    </tr> -->
 </table>
 
 Credits

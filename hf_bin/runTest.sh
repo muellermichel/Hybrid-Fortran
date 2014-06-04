@@ -17,9 +17,12 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
+executable_name=${1}
+configuration_name=${2}
+output_file_pattern=${3}
 date=`date`
-echo "---------------------- testing ${1} for ${2} on ${date} ----------------------" | tee -a ./log.txt 1>&2
-configFile="./testConfig_${2}.txt"
+echo "---------------------- testing ${executable_name} for ${configuration_name} on ${date} ----------------------" | tee -a ./log.txt 1>&2
+configFile="./testConfig_${configuration_name}.txt"
 if [ ! -e ${configFile} ]; then
 	echo "Error: Test configuration file ${configFile} not found."
 	exit 1
@@ -27,7 +30,6 @@ fi
 col_idx=1
 argStringsArr=( )
 refPostfixesArr=( )
-first=true
 while true
 do
 	argNames=`cut -d' ' -f${col_idx} ${configFile}`
@@ -44,6 +46,7 @@ do
 	argValsArr=($argVals)
 	if [ ${#argNamesArr[@]} -ne ${#argValsArr[@]} ]; then
 		echo "Error reading ${configFile}: all arguments need to have an assigned value." 1>&2
+		exit 1
 	fi
 	for i in "${!argNamesArr[@]}"; do
 		if [ ${#argStringsArr[@]} -lt ${i} ]; then
@@ -66,7 +69,7 @@ for i in "${!argStringsArr[@]}"; do
 
 	if [ "$2" = "valgrind" ]; then
 		echo -n "valgrind with parameters${argString},"
-		`valgrind --log-file='./log_lastRun.txt' --suppressions=../../../hf_config/valgrind_errors.supp ./${1} ${argString} &>/dev/null`
+		`valgrind --log-file='./log_lastRun.txt' --suppressions=../../../hf_config/valgrind_errors.supp ./${executable_name} ${argString} &>/dev/null`
 		cat ./log_lastRun.txt 2>&1 | grep 'Unrecognised instruction' &> './log_temp.txt'
 		if [[ -s './log_temp.txt' ]]; then
 			echo "fail"
@@ -101,17 +104,17 @@ for i in "${!argStringsArr[@]}"; do
 		    	extractionAttempted=true
 			fi
 			if [ ! -e $refPath ]; then
-				echo "Error with ${2} tests: Reference data directory $refPath not part of the reference data in ./ref.tar.gz" 1>&2
+				echo "Error with ${configuration_name} tests: Reference data directory $refPath not part of the reference data in ./ref.tar.gz" 1>&2
 				exit 1
 			fi
 		fi
 	fi
-	echo -n "${2} with parameters${argString},"
-	timingResult=$(./${1} ${argString} 2>./log_lastRun.txt)
+	echo -n "${configuration_name} with parameters${argString},"
+	timingResult=$(./${executable_name} ${argString} 2>./log_lastRun.txt)
 	rc=$?
 	if [[ $rc != 0 ]] ; then
 		echo "fail"
-		echo "Profiled program has returned error code $rc. The output of the last failed run have been logged in 'log_lastRun.txt' in the ${1} test directory."
+		echo "Profiled program has returned error code $rc. The output of the last failed run have been logged in 'log_lastRun.txt' in the ${executable_name} test directory."
 		echo "--------------------- output of tail log_lastRun.txt -----------------------------"
 		tail ./log_lastRun.txt
 		echo "----------------------------------------------------------------------------------"
@@ -119,7 +122,7 @@ for i in "${!argStringsArr[@]}"; do
 	    exit $rc
 	fi
 	if [ "$2" = "validation" ]; then
-		allAccuracy.sh $refPath 2>>./log_lastRun.txt
+		${HF_DIR}/hf_bin/allAccuracy.sh $refPath $output_file_pattern 2>>./log_lastRun.txt
 		rc=$?
 		validationResult=""
 		cat ./log_lastRun.txt >> ./log.txt
@@ -131,7 +134,7 @@ for i in "${!argStringsArr[@]}"; do
 		echo "${timingResult}",$validationResult
 		if [[ $rc != 0 ]] ; then
 			echo "fail"
-			echo "The output of the last failed run have been logged in 'log_lastRun.txt' in the ${1} test directory."
+			echo "The output of the last failed run have been logged in 'log_lastRun.txt' in the ${executable_name} test directory."
 			echo "--------------------- output of tail log_lastRun.txt -----------------------------"
 			tail ./log_lastRun.txt
 			echo "----------------------------------------------------------------------------------"

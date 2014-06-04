@@ -207,14 +207,14 @@ tests: tests_cpu tests_gpu
 
 ifdef DEBUG
 tests_cpu: ${INSTALLED_EXECUTABLES_CPU}
-	runTests.sh "${INSTALLED_EXECUTABLES_CPU}" debug
+	${HF_DIR}/hf_bin/runTests.sh "${INSTALLED_EXECUTABLES_CPU}" debug
 else
 tests_cpu: ${INSTALLED_EXECUTABLES_CPU}
-	runTests.sh "${INSTALLED_EXECUTABLES_CPU}"
+	${HF_DIR}/hf_bin/runTests.sh "${INSTALLED_EXECUTABLES_CPU}"
 endif
 
 tests_gpu: ${INSTALLED_EXECUTABLES_GPU}
-	runTests.sh "${INSTALLED_EXECUTABLES_GPU}"
+	${HF_DIR}/hf_bin/runTests.sh "${INSTALLED_EXECUTABLES_GPU}"
 
 .SECONDEXPANSION:
 ${TESTDIR}/%_cpu: $${DIR_CPU}$$(notdir %).out create_install_directories

@@ -54,12 +54,12 @@ VPATH=$OBJDIR
 all: ${EXECUTABLES_OUT}
 
 %.out: %.o
-	@echo ".........linking " $<
+	@echo .........linking $< in $(CURDIR)
 	@echo ..calling $(LD) -o ../$@ $< $(LDFLAGS) -L./ >${DEBUG_OUTPUT}
-	@$(LD) -o ../$@ $< $(LDFLAGS) ${USER_LIB}
+	@$(LD) -o ../$@ $< $(LDFLAGS) -L./ >${DEBUG_OUTPUT}
 
 ${USER_LIB}: $(OBJ)
-	@echo ".........building user library ${USER_LIB} from " $(OBJ)
+	@echo .........building user library ${USER_LIB} from $(OBJ)
 	@echo ..calling $(AR) $(ARFLAGS) $@ $(OBJ) >${DEBUG_OUTPUT}
 	@$(AR) $(ARFLAGS) $@ $(OBJ)
 

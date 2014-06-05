@@ -1,4 +1,3 @@
-#!/usr/bin/python
 # -*- coding: UTF-8 -*-
 
 # Copyright (C) 2013 Michel Müller (Typhoon Computing), RIKEN Advanced Institute for Computational Science (AICS)
@@ -20,7 +19,7 @@
 
 from optparse import OptionParser
 import struct
-import sys
+import sys, pdb
 import math
 import traceback
 
@@ -88,7 +87,7 @@ def rootMeanSquareDeviation(tup, tupRef, eps):
 		err = err + newErrSquare
 	return math.sqrt(err), firstErr, firstErrVal, firstErrExpected
 
-def run_accuracy_test_for_datfile(options):
+def run_accuracy_test_for_datfile(options, eps):
 	numOfBytesPerValue = int(options.bytes)
 	if (numOfBytesPerValue != 4 and numOfBytesPerValue != 8):
 		sys.stderr.write("Unsupported number of bytes per value specified.\n")
@@ -99,9 +98,6 @@ def run_accuracy_test_for_datfile(options):
 	readEndianFormat = '>'
 	if (options.readEndian == "little"):
 		readEndianFormat = '<'
-	eps = 1E-9
-	if (options.epsilon):
-		eps = float(options.epsilon)
 	inFile = None
 	refFile = None
 	try:
@@ -148,7 +144,7 @@ def run_accuracy_test_for_datfile(options):
 			if errorState:
 				sys.exit(1)
 	except(Exception), e:
-		sys.stderr.write("Error: %s\n%s\n" %(e, traceback.format_exc()))
+		sys.stderr.write("Error: %s\n" %(e))
 		sys.exit(1)
 	finally:
 		#cleanup
@@ -157,8 +153,65 @@ def run_accuracy_test_for_datfile(options):
 		if refFile != None:
 			refFile.close()
 
-def run_accuracy_test_for_netcdf(options):
-	print "hello world"
+def run_accuracy_test_for_netcdf(options, eps):
+	def get_array_from_netcdf_variable(netcdf_variable):
+		num_of_dimensions = len(netcdf_variable.dimensions)
+		if num_of_dimensions == 1:
+			return netcdf_variable[:]
+		if num_of_dimensions == 2:
+			return netcdf_variable[:, :]
+		if num_of_dimensions == 3:
+			return netcdf_variable[:, :, :]
+		if num_of_dimensions == 4:
+			return netcdf_variable[:, :, :, :]
+		if num_of_dimensions == 5:
+			return netcdf_variable[:, :, :, :, :]
+
+	from netCDF4 import Dataset
+	import numpy
+	inFile = Dataset(options.inFile)
+	refFile = Dataset(options.refFile)
+	for key in inFile.variables.keys():
+		try:
+			in_array = None
+			ref_array = None
+			if not key in refFile.variables:
+				sys.stderr.write("Error: variable %s not found in reference netcdf file %s\n" %(key, options.refFile))
+				sys.exit(1)
+			in_variable = inFile.variables[key]
+			if in_variable.dtype.kind == 'S':
+				sys.stderr.write("Skipping variable %s with data type %s\n" %(key, in_variable.dtype))
+				continue
+			ref_variable = refFile.variables[key]
+			if in_variable.dtype != ref_variable.dtype:
+				sys.stderr.write("Error: variable %s has different datatypes - infile: %s, reference: %s\n" %(key, in_variable.dtype, ref_variable.dtype))
+				sys.exit(1)
+			shape_comparison = numpy.equal(in_variable.shape, ref_variable.shape)
+			if not numpy.all(shape_comparison):
+				sys.stderr.write("Error: variable %s has different shapes - infile: %s, reference: %s\n" %(key, in_variable.shape, ref_variable.shape))
+				sys.exit(1)
+			in_array = get_array_from_netcdf_variable(in_variable)
+			ref_array = get_array_from_netcdf_variable(ref_variable)
+			absolute_difference = numpy.abs(in_array - ref_array)
+			greater_than_epsilon = absolute_difference > eps
+			error_found = False
+			passed_string = "pass"
+			if numpy.any(greater_than_epsilon):
+				error_found = True
+				passed_string = "input: \n%s\nexpected:\n%s\nFAIL <-------" %(in_array, ref_array)
+			root_mean_square_deviation = numpy.sqrt(numpy.mean((in_array - ref_array)**2))
+			sys.stderr.write("%s, variable %s: Mean square error: %e; %s\n" %(
+				options.inFile,
+				key,
+				root_mean_square_deviation,
+				passed_string
+			))
+			if error_found:
+				sys.exit(1)
+		except Exception as e:
+			message = "Variable %s\nError Message: %s\n%s\ninarray:%s\nrefarray:%s" %(key, str(e), traceback.format_tb(sys.exc_info()[2]), str(in_array), str(ref_array))
+			e.args = (message,)+e.args[1:]
+			raise e
 
 ##################### MAIN ##############################
 #get all program arguments
@@ -172,9 +225,11 @@ parser.add_option("-r", "--readEndian", dest="readEndian", default="big")
 parser.add_option("--netcdf", action="store_true", dest="netcdf")
 parser.add_option("-v", action="store_true", dest="verbose")
 parser.add_option("-e", "--epsilon", metavar="EPS", dest="epsilon", help="Throw an error if at any point the error becomes higher than EPS. Defaults to 1E-9.")
-
 (options, args) = parser.parse_args()
+eps = 1E-9
+if (options.epsilon):
+	eps = float(options.epsilon)
 if options.netcdf:
-	run_accuracy_test_for_netcdf(options)
+	run_accuracy_test_for_netcdf(options, eps)
 else:
-	run_accuracy_test_for_datfile(options)
+	run_accuracy_test_for_datfile(options, eps)

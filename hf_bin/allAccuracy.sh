@@ -41,15 +41,19 @@ for i in $output_file_pattern; do
 	if [ ! -e ${refPath} ]; then
 		echo "Error in accuracy test: Cannot find file ${refPath}. Make sure to include this output in your reference program." 1>&2
 	else
-		${HF_DIR}/hf_bin/accuracy.py -f $i --reference $refPath $formatParam
+		python ${HF_DIR}/hf_bin/accuracy.py -f $i --reference $refPath $formatParam
 		rc=$?
 		if [ $errorVal -eq 0 ] ; then
 		    errorVal=$rc
 		fi
+		if [ $rc -ne 0 ] ; then
+		    echo "Accuracy test has returned error $rc"
+		    exit $rc
+		fi
 	fi
 done
-if ! $output_file_found; then
-     echo "error in allAccuracy.sh: no output files found. The program to be tested probably could not complete its run." 1>&2
-     exit 1
-fi
+# if ! $output_file_found; then
+#      echo "error in allAccuracy.sh: no output files found. The program to be tested probably could not complete its run." 1>&2
+#      exit 1
+# fi
 exit $(( errorVal ))

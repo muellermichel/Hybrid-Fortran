@@ -20,6 +20,9 @@
 executable_name=${1}
 configuration_name=${2}
 output_file_pattern=${3}
+if [ -z "$output_file_pattern" ]; then
+	output_file_pattern="./out/*.dat"
+fi
 date=`date`
 echo "---------------------- testing ${executable_name} for ${configuration_name} on ${date} ----------------------" | tee -a ./log.txt 1>&2
 configFile="./testConfig_${configuration_name}.txt"
@@ -62,8 +65,8 @@ done
 
 extractionAttempted=false
 for i in "${!argStringsArr[@]}"; do
-	rm -rf ./out/*.dat
-	mkdir -p ./out
+	rm -rf $output_file_pattern
+	mkdir -p "$(dirname $output_file_pattern)"
 	argString=${argStringsArr[$i]}
 	refPath=./ref${refPostfixesArr[$i]}/
 

@@ -39,7 +39,6 @@ ifeq ($(DEBUG_MODE),true)
 DEBUG=1
 endif
 
-
 ifdef EMULATED
 
 #############################################################################
@@ -94,10 +93,11 @@ endif
 #############################################################################
 # Determine sources and directories                                         #
 #############################################################################
-SRC_DIR_HFPP=${BASEDIR}hf_preprocessed/
-DIR_CPU=${BASEDIR}cpu/
-DIR_GPU=${BASEDIR}gpu/
-CG_DIR=${BASEDIR}callgraphs/
+BASEDIR=$(patsubst %\,%,$(BASEDIR))
+SRC_DIR_HFPP=${BASEDIR}/hf_preprocessed/
+DIR_CPU=${BASEDIR}/cpu/
+DIR_GPU=${BASEDIR}/gpu/
+CG_DIR=${BASEDIR}/callgraphs/
 CPU_CALLGRAPH_FILE=CG_CPU.xml
 GPU_CALLGRAPH_FILE=CG_GPU.xml
 SRC_DIR_CPU=${DIR_CPU}source/
@@ -141,7 +141,6 @@ EXECUTABLES_GPU_OUT=$(patsubst %,%.out,$(EXECUTABLES_GPU))
 INSTALLED_EXECUTABLES_CPU=$(foreach executable,$(EXECUTABLES_POST),${TESTDIR}/${executable}/${executable}_cpu)
 INSTALLED_EXECUTABLES_GPU=$(foreach executable,$(EXECUTABLES_POST),${TESTDIR}/${executable}/${executable}_gpu)
 #############################################################################
-
 
 SRC_FORT_COMMON_DIRS=$(dir $(SRC_FORT)) $(dir $(SRC_H90_ALL))
 

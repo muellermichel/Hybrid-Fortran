@@ -196,10 +196,14 @@ def run_accuracy_test_for_netcdf(options, eps):
 			greater_than_epsilon = absolute_difference > eps
 			error_found = False
 			passed_string = "pass"
+			root_mean_square_deviation = numpy.sqrt(numpy.mean((in_array - ref_array)**2))
 			if numpy.any(greater_than_epsilon):
 				error_found = True
-				passed_string = "input: \n%s\nexpected:\n%s\nFAIL <-------" %(in_array, ref_array)
-			root_mean_square_deviation = numpy.sqrt(numpy.mean((in_array - ref_array)**2))
+				# first_error = numpy.unravel_index(numpy.argmax(greater_than_epsilon), greater_than_epsilon.shape)[0]
+				passed_string = "input: \n%s\nexpected:\n%s\nerrors found at:%s\nFAIL <-------" %(in_array, ref_array, greater_than_epsilon)
+			elif root_mean_square_deviation > eps:
+				error_found = True
+				passed_string = "FAIL <-------"
 			sys.stderr.write("%s, variable %s: Mean square error: %e; %s\n" %(
 				options.inFile,
 				key,

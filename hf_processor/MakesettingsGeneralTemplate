@@ -92,8 +92,8 @@ TESTDIR=./test
 # Custom installation and testing                                           #
 #############################################################################
 # !New in Version 0.9
-#OPTIONAL (needed in case you use a configure script. Specify the path of a file that's always touched by configure, relative to the projects root directory.
-#          The Hybrid Fortran build system will produce an error message and exit if this file doesn't exist yet. Note: It's advisable to put files needed by your framework compilation into
+#OPTIONAL (recommended in case you use a configure script. Specify the path of a file that's always touched by configure, relative to the projects root directory.
+#          The Hybrid Fortran build system will automatically call ./configure if this file doesn't exist yet. Note: It's advisable to put files needed by your framework compilation into
 #          one of the $FRAMEWORK_DIRS specified above. This way they will be picked up and put into the the build directory $BASEDIR such that your own build system can find them.)
 FRAMEWORK_CONFIGURE_OUTPUT=
 
@@ -120,15 +120,16 @@ SOURCE_THIS_AFTER_TESTING=
 
 # !New in Version 0.9
 #OPTIONAL, can be used to have the 'make tests' interface with custom executables - for example when you need to run multiple executables for your
-#tests, you can create a run-script in a test-subdirectory together with all the input data you need and you can specify these script paths here.
+#tests, you can create a run-script in a test-subdirectory together with all the input data you need and you can specify these script paths using TEST_EXECUTABLES.
 #Specify relative to the project's root directory, separate with spaces and surround the list with double quotes.
 # ! your scripts specified here should take one input argument 'ARCH' and call your executables with _$ARCH postfix in the filename !
 # Note: The output of automatic tests looks best if you use STDOUT for timing outputs and STDERR for everything else. Return codes other than 0 will result in the
-# test failing - which can be useful - so it is advisable to return error codes generated in your codebase.
+# test failing - which can be very useful - so it is advisable to return error codes generated in your codebase.
 TEST_EXECUTABLES=""
 
 # !New in Version 0.9
-#OPTIONAL, can be used to specify the naming pattern of files that are being created by your tests, as seen from the respective executable's directory.
+#OPTIONAL, can be used to specify the naming pattern of files that are being created by your tests, using bash syntax, as seen from the respective executable's directory.
+#As an example, if your script is placed in tests/my_test/my_run_script.sh and the output is files of the form tests/my_test/my_output*, specify "my_output*" here.
 #This will be used by the Hybrid Fortran test framework to pick up output files and compare them to reference files that you provide in a ref.tar.gz in the
 #test executable's directory. Compatible with simple .dat files as well as netcdf. Please refer to the manual for more information.
 TEST_OUTPUT_FILE_PATTERN=""

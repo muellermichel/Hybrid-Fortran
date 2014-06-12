@@ -188,6 +188,8 @@ Dependencies
 * A POSIX compatible operating system.
 * (optional) `valgrind` if you would like to use the test system shipped with this framework (accessible through `make tests`).
 * (optional) The `pydot` python package as well as the [Graphviz software](http://www.graphviz.org/Download..php) in case you'd like to use the automatic visual representation of your callgraph.
+* (optional) NetCDF4-Python in case you'd like to use Hybrid Fortran's automated testing together with NetCDF Output.
+* (optional) numpy in case you'd like to use Hybrid Fortran's automated testing together with NetCDF Output.
 
 Getting Started
 ---------------

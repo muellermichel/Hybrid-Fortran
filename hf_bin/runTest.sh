@@ -18,56 +18,64 @@
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
 executable_name=${1}
-configuration_name=${2}
-output_file_pattern=${3}
+architecture=${2}
+configuration_name=${3}
+output_file_pattern=${4}
+
 if [ -z "$output_file_pattern" ]; then
 	output_file_pattern="./out/*.dat"
 fi
 date=`date`
-echo "---------------------- testing ${executable_name} for ${configuration_name} on ${date} ----------------------" | tee -a ./log.txt 1>&2
+echo "---------------------- testing ${executable_name} for ${configuration_name} on ${architecture} ; ${date} in `pwd` ----------------------" | tee -a ./log.txt 1>&2
 configFile="./testConfig_${configuration_name}.txt"
-if [ ! -e ${configFile} ]; then
-	echo "Error: Test configuration file ${configFile} not found."
-	exit 1
-fi
-col_idx=1
 argStringsArr=( )
 refPostfixesArr=( )
-while true
-do
-	argNames=`cut -d' ' -f${col_idx} ${configFile}`
-	val_idx=$(( $col_idx + 1 ))
-	if [[ ! $argNames ]]; then
-		break
-	fi
-	argVals=`cut -d' ' -f${val_idx} ${configFile}`
-	if [[ ! $argVals ]]; then
-		echo "Error reading ${configFile}: arguments without value." 1>&2
-		exit 1
-	fi
-	argNamesArr=($argNames)
-	argValsArr=($argVals)
-	if [ ${#argNamesArr[@]} -ne ${#argValsArr[@]} ]; then
-		echo "Error reading ${configFile}: all arguments need to have an assigned value." 1>&2
-		exit 1
-	fi
-	for i in "${!argNamesArr[@]}"; do
-		if [ ${#argStringsArr[@]} -lt ${i} ]; then
-			argStringsArr+=("-${argNamesArr[$i]} ${argValsArr[$i]}")
-			refPostfixesArr+=("_${argNamesArr[$i]}${argValsArr[$i]}")
-		else
-			argStringsArr[$i]="${argStringsArr[$i]} -${argNamesArr[$i]} ${argValsArr[$i]}"
-			refPostfixesArr[$i]="${refPostfixesArr[$i]}_${argNamesArr[$i]}${argValsArr[$i]}"
+if [ -e ${configFile} ]; then
+	col_idx=1
+	while true
+	do
+		argNames=`cut -d' ' -f${col_idx} ${configFile}`
+		val_idx=$(( $col_idx + 1 ))
+		if [[ ! $argNames ]]; then
+			break
 		fi
+		argVals=`cut -d' ' -f${val_idx} ${configFile}`
+		if [[ ! $argVals ]]; then
+			echo "Error reading ${configFile}: arguments without value." 1>&2
+			exit 1
+		fi
+		argNamesArr=($argNames)
+		argValsArr=($argVals)
+		if [ ${#argNamesArr[@]} -ne ${#argValsArr[@]} ]; then
+			echo "Error reading ${configFile}: all arguments need to have an assigned value." 1>&2
+			exit 1
+		fi
+		for i in "${!argNamesArr[@]}"; do
+			if [ ${#argStringsArr[@]} -lt ${i} ]; then
+				argStringsArr+=("-${argNamesArr[$i]} ${argValsArr[$i]}")
+				refPostfixesArr+=("_${argNamesArr[$i]}${argValsArr[$i]}")
+			else
+				argStringsArr[$i]="${argStringsArr[$i]} -${argNamesArr[$i]} ${argValsArr[$i]}"
+				refPostfixesArr[$i]="${refPostfixesArr[$i]}_${argNamesArr[$i]}${argValsArr[$i]}"
+			fi
+		done
+		col_idx=$(( $col_idx + 2 ))
 	done
-	col_idx=$(( $col_idx + 2 ))
-done
+else
+	argStringsArr=( "" )
+	refPostfixesArr=( "" )
+fi
 
 extractionAttempted=false
 for i in "${!argStringsArr[@]}"; do
 	rm -rf $output_file_pattern
 	mkdir -p "$(dirname $output_file_pattern)"
-	argString=${argStringsArr[$i]}
+	argString=""
+	if [[ $executable_name == "*${architecture}*" ]] ; then
+		argString=${argStringsArr[$i]}
+	else
+		argString="${architecture} ${argStringsArr[$i]}"
+	fi
 	refPath=./ref${refPostfixesArr[$i]}/
 
 	if [ "$2" = "valgrind" ]; then
@@ -112,12 +120,13 @@ for i in "${!argStringsArr[@]}"; do
 			fi
 		fi
 	fi
-	echo -n "${configuration_name} with parameters${argString},"
+	echo -n "$calling ${executable_name} ( with parameters ${argString} ) for ${configuration_name} ,"
 	timingResult=$(./${executable_name} ${argString} 2>./log_lastRun.txt)
 	rc=$?
 	if [[ $rc != 0 ]] ; then
 		echo "fail"
-		echo "Profiled program has returned error code $rc. The output of the last failed run have been logged in 'log_lastRun.txt' in the ${executable_name} test directory."
+		echo "Profiled program has returned error code $rc. The error output of the last failed run have been logged in 'log_lastRun.txt' in the ${executable_name} test directory."
+		echo "stdout: $timingResult"
 		echo "--------------------- output of tail log_lastRun.txt -----------------------------"
 		tail ./log_lastRun.txt
 		echo "----------------------------------------------------------------------------------"
@@ -137,7 +146,7 @@ for i in "${!argStringsArr[@]}"; do
 		echo "${timingResult}",$validationResult
 		if [[ $rc != 0 ]] ; then
 			echo "fail"
-			echo "The output of the last failed run have been logged in 'log_lastRun.txt' in the ${executable_name} test directory."
+			echo "The output of the last failed validation has been logged in 'log_lastRun.txt' in the ${executable_name} test directory."
 			echo "--------------------- output of tail log_lastRun.txt -----------------------------"
 			tail ./log_lastRun.txt
 			echo "----------------------------------------------------------------------------------"

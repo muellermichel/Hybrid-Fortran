@@ -93,15 +93,15 @@ endif
 #############################################################################
 # Determine sources and directories                                         #
 #############################################################################
-BASEDIR=$(patsubst %\,%,$(BASEDIR))
-SRC_DIR_HFPP=${BASEDIR}/hf_preprocessed/
-DIR_CPU=${BASEDIR}/cpu/
-DIR_GPU=${BASEDIR}/gpu/
-CG_DIR=${BASEDIR}/callgraphs/
+BASEDIR_POST=$(patsubst %\,%,$(BASEDIR))
+SRC_DIR_HFPP=${BASEDIR_POST}/hf_preprocessed/
+DIR_CPU=${BASEDIR_POST}/cpu/
+DIR_GPU=${BASEDIR_POST}/gpu/
+CG_DIR=${BASEDIR_POST}/callgraphs/
 CPU_CALLGRAPH_FILE=CG_CPU.xml
 GPU_CALLGRAPH_FILE=CG_GPU.xml
-SRC_DIR_CPU=${DIR_CPU}source/
-SRC_DIR_GPU=${DIR_GPU}source/
+SRC_DIR_CPU=${DIR_CPU}${SRC_DIR_COMMON}/
+SRC_DIR_GPU=${DIR_GPU}${SRC_DIR_COMMON}/
 
 SRC_F90_PRE='$(shell find ${SRC_DIR_COMMON} -type f -name '*.f90')'
 SRC_F90=$(shell python ${TOOLSDIR}filterExceptions.py --paths ${SRC_F90_PRE} --exceptions ${EXCEPTIONS})
@@ -126,6 +126,9 @@ SRC_H90TGT_CPU=$(SRC_H90TGT_CPU_PRE:.h90=.F90)
 SRC_H90TGT_GPU_PRE=$(addprefix $(SRC_DIR_GPU),$(notdir $(SRC_H90TGT_HFPP)))
 SRC_H90TGT_GPU=$(SRC_H90TGT_GPU_PRE:.h90=.F90)
 
+FRAMEWORK_DIRS_CPU=$(addprefix $(SRC_DIR_CPU),$(FRAMEWORK_DIRS))
+FRAMEWORK_DIRS_GPU=$(addprefix $(SRC_DIR_GPU),$(FRAMEWORK_DIRS))
+
 SRC_ALL_CPU=${SRC_FORT_CPU} ${SRC_H90TGT_CPU}
 SRC_ALL_GPU=${SRC_FORT_GPU} ${SRC_H90TGT_GPU}
 #############################################################################
@@ -133,13 +136,67 @@ SRC_ALL_GPU=${SRC_FORT_GPU} ${SRC_H90TGT_GPU}
 #############################################################################
 # Determine executables                                                     #
 #############################################################################
+ifdef FRAMEWORK_MAKEFILE
+
+FRAMEWORK_MAKEFILE_CPU=$(DIR_CPU)$(FRAMEWORK_MAKEFILE)
+FRAMEWORK_MAKEFILE_GPU=$(DIR_GPU)$(FRAMEWORK_MAKEFILE)
+
+FRAMEWORK_EXECUTABLE_PATHS_POST=$(subst ",,${FRAMEWORK_EXECUTABLE_PATHS})
+FRAMEWORK_INSTALLED_EXECUTABLE_PATHS_POST=$(subst ",,${FRAMEWORK_INSTALLED_EXECUTABLE_PATHS})
+EXECUTABLES_CPU_OUT=$(addprefix $(DIR_CPU),$(FRAMEWORK_EXECUTABLE_PATHS_POST))
+EXECUTABLES_GPU_OUT=$(addprefix $(DIR_GPU),$(FRAMEWORK_EXECUTABLE_PATHS_POST))
+BUILD_TARGETS_CPU= build_hybrid_cpu build_framework_cpu
+BUILD_TARGETS_GPU= build_hybrid_gpu build_framework_gpu
+
+else
+
 EXECUTABLES_POST=$(subst ",,${EXECUTABLES})
 EXECUTABLES_CPU=$(addprefix $(DIR_CPU),$(notdir ${EXECUTABLES_POST}))
 EXECUTABLES_GPU=$(addprefix $(DIR_GPU),$(notdir ${EXECUTABLES_POST}))
 EXECUTABLES_CPU_OUT=$(patsubst %,%.out,$(EXECUTABLES_CPU))
 EXECUTABLES_GPU_OUT=$(patsubst %,%.out,$(EXECUTABLES_GPU))
+BUILD_TARGETS_CPU=${EXECUTABLES_CPU_OUT}
+BUILD_TARGETS_GPU=${EXECUTABLES_GPU_OUT}
+
+endif
+#############################################################################
+
+#############################################################################
+# Determine tests and installation                                          #
+#############################################################################
+ifdef EXECUTABLES_POST
+ifdef TESTDIR
+
 INSTALLED_EXECUTABLES_CPU=$(foreach executable,$(EXECUTABLES_POST),${TESTDIR}/${executable}/${executable}_cpu)
 INSTALLED_EXECUTABLES_GPU=$(foreach executable,$(EXECUTABLES_POST),${TESTDIR}/${executable}/${executable}_gpu)
+
+endif
+endif
+
+ifndef TEST_EXECUTABLES
+
+TEST_TARGET_CPU = ${INSTALLED_EXECUTABLES_CPU}
+TEST_TARGET_GPU = ${INSTALLED_EXECUTABLES_GPU}
+
+else
+
+TEST_EXECUTABLES_POST=$(subst ",,${TEST_EXECUTABLES})
+TEST_TARGET_CPU = ${TEST_EXECUTABLES_POST}
+TEST_TARGET_GPU = ${TEST_EXECUTABLES_POST}
+
+endif
+
+ifdef FRAMEWORK_MAKEFILE
+
+INSTALL_TARGETS_CPU= install_framework_executables_cpu
+INSTALL_TARGETS_GPU= install_framework_executables_gpu
+
+else
+
+INSTALL_TARGETS_CPU= ${INSTALLED_EXECUTABLES_CPU}
+INSTALL_TARGETS_GPU= ${INSTALLED_EXECUTABLES_GPU}
+
+endif
 #############################################################################
 
 SRC_FORT_COMMON_DIRS=$(dir $(SRC_FORT)) $(dir $(SRC_H90_ALL))
@@ -149,7 +206,7 @@ vpath %.F90 $(SRC_FORT_COMMON_DIRS)
 vpath %.h90 $(SRC_FORT_COMMON_DIRS)
 vpath %.H90 $(SRC_FORT_COMMON_DIRS)
 
-.PHONY: all clean clean_cpu clean_gpu install install_cpu install_gpu graphs build build_cpu build_gpu create_install_directories source source_cpu source_gpu tests tests_cpu tests_gpu
+.PHONY: all clean clean_cpu clean_gpu install install_cpu install_gpu install_framework_executables_cpu install_framework_executables_gpu graphs build build_cpu build_gpu create_install_directories source source_cpu source_gpu tests tests_cpu tests_gpu framework_sources framework_sources_cpu framework_sources_gpu build_hybrid_cpu build_hybrid_gpu build_framework_cpu build_framework_gpu
 
 .SUFFIXES: .f90 .F90 .h90 .H90
 
@@ -157,9 +214,9 @@ all: build_cpu build_gpu
 
 install: install_cpu install_gpu
 
-install_cpu: ${INSTALLED_EXECUTABLES_CPU}
+install_cpu: ${INSTALL_TARGETS_CPU}
 
-install_gpu: ${INSTALLED_EXECUTABLES_GPU}
+install_gpu: ${INSTALL_TARGETS_GPU}
 
 source: source_cpu source_gpu
 
@@ -170,8 +227,9 @@ source_gpu: ${SRC_DIR_GPU}Makefile ${SRC_DIR_GPU}Makesettings ${SRC_DIR_GPU}Make
 graphs: ${CG_DIR}CG_CPU.png ${CG_DIR}CG_GPU.png
 
 clean: clean_cpu clean_gpu
-	rm -r ${CG_DIR}rawCG.xml
+	rm -f ${CG_DIR}rawCG.xml
 	rm -rf ${SRC_DIR_HFPP}
+	rm -r ${BASEDIR_POST}
 
 clean_cpu:
 	rm -f ${INSTALLED_EXECUTABLES_CPU}
@@ -185,17 +243,85 @@ clean_gpu:
 
 build: build_cpu build_gpu
 
-build_cpu: ${EXECUTABLES_CPU_OUT} ${ADDITIONAL_BUILD_TARGETS_CPU}
+build_cpu: framework_sources_cpu ${BUILD_TARGETS_CPU} ${ADDITIONAL_BUILD_TARGETS_CPU}
 
-build_gpu: ${EXECUTABLES_GPU_OUT} ${ADDITIONAL_BUILD_TARGETS_GPU}
+build_gpu: framework_sources_gpu ${BUILD_TARGETS_GPU} ${ADDITIONAL_BUILD_TARGETS_GPU}
 
-${EXECUTABLES_CPU_OUT}: ${SRC_DIR_CPU}Makefile ${SRC_DIR_CPU}Makesettings ${SRC_DIR_CPU}MakesettingsGeneral ${SRC_ALL_CPU}
+framework_sources_cpu: ${FRAMEWORK_CONFIGURE_OUTPUT}
+	@( set -e && \
+	  mkdir -p ${DIR_CPU} && \
+	  framework_dir_list=( ${FRAMEWORK_DIRS} ) && \
+	  for framework_dir in $$framework_dir_list ; do \
+	    echo "..synching framework directory $$framework_dir with ${DIR_CPU}" && \
+	    rsync -azP $$framework_dir ${DIR_CPU} >${DEBUG_OUTPUT} ; \
+	  done )
+
+framework_sources_gpu: ${FRAMEWORK_CONFIGURE_OUTPUT}
+	@( set -e && \
+	  mkdir -p ${DIR_GPU} && \
+	  framework_dir_list=( ${FRAMEWORK_DIRS} ) && \
+	  for framework_dir in $$framework_dir_list ; do \
+	    echo "..synching framework directory $$framework_dir with ${DIR_GPU}" && \
+	    rsync -azP $$framework_dir ${DIR_GPU} >${DEBUG_OUTPUT} ; \
+	  done )
+
+framework_sources: framework_sources_gpu framework_sources_cpu
+
+${FRAMEWORK_CONFIGURE_OUTPUT}:
+	@echo "..it looks like you haven't run ./configure yet - let's do that now"
+	@./configure
+
+${EXECUTABLES_CPU_OUT}: build_hybrid_cpu
+
+${EXECUTABLES_GPU_OUT}: build_hybrid_gpu
+
+build_hybrid_cpu: ${SRC_DIR_CPU}Makefile ${SRC_DIR_CPU}Makesettings ${SRC_DIR_CPU}MakesettingsGeneral ${SRC_ALL_CPU} framework_sources_cpu
 	@echo "..cpu executable dependant on " ${SRC_DIR_CPU}Makefile ${SRC_DIR_CPU}Makesettings ${SRC_DIR_CPU}MakesettingsGeneral ${SRC_ALL_CPU} >${DEBUG_OUTPUT}
-	@cd ${SRC_DIR_CPU}; make ${BUILD_ARGS}
+	@cd ${SRC_DIR_CPU} && make ${BUILD_ARGS}
 
-${EXECUTABLES_GPU_OUT}: ${SRC_DIR_GPU}Makefile ${SRC_DIR_GPU}Makesettings ${SRC_DIR_GPU}MakesettingsGeneral ${SRC_ALL_GPU}
+build_hybrid_gpu: ${SRC_DIR_GPU}Makefile ${SRC_DIR_GPU}Makesettings ${SRC_DIR_GPU}MakesettingsGeneral ${SRC_ALL_GPU} framework_sources_gpu
 	@echo "..gpu executable dependant on " ${SRC_DIR_GPU}Makefile ${SRC_DIR_GPU}Makesettings ${SRC_DIR_GPU}MakesettingsGeneral ${SRC_ALL_GPU} >${DEBUG_OUTPUT}
-	@cd ${SRC_DIR_GPU}; make ${BUILD_ARGS}
+	@cd ${SRC_DIR_GPU} && make ${BUILD_ARGS}
+
+build_framework_cpu: build_hybrid_cpu framework_sources_cpu
+	@echo "..building framework with ${FRAMEWORK_MAKEFILE_CPU}"
+	@cd $(dir ${FRAMEWORK_MAKEFILE_CPU}) && make ${BUILD_ARGS}
+
+build_framework_gpu: build_hybrid_gpu framework_sources_gpu
+	@echo "..building framework with ${FRAMEWORK_MAKEFILE_GPU}"
+	@cd $(dir ${FRAMEWORK_MAKEFILE_GPU}) && make ${BUILD_ARGS}
+
+install_framework_executables_cpu: build_cpu
+	@( set -e && \
+	  executable_list=( ${EXECUTABLES_CPU_OUT} ) && \
+	  install_path_list=( ${FRAMEWORK_INSTALLED_EXECUTABLE_PATHS_POST} ) && \
+	  index=0 && \
+	  for executable in $${executable_list[*]} ; do \
+	    filename_with_extension=$${executable##*/} && \
+	    extension=$${filename_with_extension##*.} && \
+	    filename=$${filename_with_extension%.*} && \
+	    install_path=$${install_path_list[$$index]} && \
+	    target_path=$${install_path}/$${filename}_cpu.$${extension} && \
+	    echo "..installing executable $$executable to $$target_path" && \
+	    cp -f $$executable $$target_path && \
+	    index=$$[index + 1] ; \
+	  done )
+
+install_framework_executables_gpu: build_gpu
+	@( set -e && \
+	  executable_list=( ${EXECUTABLES_GPU_OUT} ) && \
+	  install_path_list=( ${FRAMEWORK_INSTALLED_EXECUTABLE_PATHS_POST} ) && \
+	  index=0 && \
+	  for executable in $${executable_list[*]} ; do \
+	    filename_with_extension=$${executable##*/} && \
+	    extension=$${filename_with_extension##*.} && \
+	    filename=$${filename_with_extension%.*} && \
+	    install_path=$${install_path_list[$$index]} && \
+	    target_path=$${install_path}/$${filename}_gpu.$${extension} && \
+	    echo "..installing executable $$executable to $$target_path" && \
+	    cp -f $$executable $$target_path && \
+	    index=$$[index + 1] ; \
+	  done )
 
 create_install_directories:
 	@echo "..creating install directories {$(dir ${INSTALLED_EXECUTABLES_CPU})}" >${DEBUG_OUTPUT}
@@ -205,15 +331,15 @@ create_install_directories:
 tests: tests_cpu tests_gpu
 
 ifdef DEBUG
-tests_cpu: ${INSTALLED_EXECUTABLES_CPU}
-	${HF_DIR}/hf_bin/runTests.sh "${INSTALLED_EXECUTABLES_CPU}" debug
+tests_cpu: ${INSTALL_TARGETS_CPU}
+	${HF_DIR}/hf_bin/runTests.sh "${TEST_TARGET_CPU}" debug cpu ${TEST_OUTPUT_FILE_PATTERN}
 else
-tests_cpu: ${INSTALLED_EXECUTABLES_CPU}
-	${HF_DIR}/hf_bin/runTests.sh "${INSTALLED_EXECUTABLES_CPU}"
+tests_cpu: ${INSTALL_TARGETS_CPU}
+	${HF_DIR}/hf_bin/runTests.sh "${TEST_TARGET_CPU}" production cpu ${TEST_OUTPUT_FILE_PATTERN}
 endif
 
-tests_gpu: ${INSTALLED_EXECUTABLES_GPU}
-	${HF_DIR}/hf_bin/runTests.sh "${INSTALLED_EXECUTABLES_GPU}"
+tests_gpu: ${INSTALL_TARGETS_GPU}
+	${HF_DIR}/hf_bin/runTests.sh "${TEST_TARGET_GPU}" production gpu ${TEST_OUTPUT_FILE_PATTERN}
 
 .SECONDEXPANSION:
 ${TESTDIR}/%_cpu: $${DIR_CPU}$$(notdir %).out create_install_directories

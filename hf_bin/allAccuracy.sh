@@ -20,10 +20,22 @@
 errorVal=0
 reference_path=$1
 output_file_pattern=$2
+source_before=$3
+source_after=$4
 if [ -z "$output_file_pattern" ]; then
 	output_file_pattern="./out/*.dat"
 fi
+echo "Performing accuracy tests with files $output_file_pattern against $reference_path; prescript: $source_before; postscript: $source_after" 1>&2
 output_file_found=false
+if [ -n "$source_before" ]; then
+	echo "sourcing $source_before before accuracy tests" 1>&2
+	source $source_before
+	rc=$?
+	if [ $rc -ne 0 ] ; then
+	    echo "prescript has returned error $rc"
+	    exit $rc
+	fi
+fi
 for i in $output_file_pattern; do
 	output_file_found=true
 	filename=$(basename $i)
@@ -39,7 +51,8 @@ for i in $output_file_pattern; do
 		formatParam="--netcdf"
 	fi
 	if [ ! -e ${refPath} ]; then
-		echo "Error in accuracy test: Cannot find file ${refPath}. Make sure to include this output in your reference program." 1>&2
+		echo "Error in accuracy test: Cannot find file ${refPath}. Please set 'TEST_OUTPUT_FILE_PATTERN' in config/MakesettingsGeneral." 1>&2
+		exit 2
 	else
 		python ${HF_DIR}/hf_bin/accuracy.py -f $i --reference $refPath $formatParam
 		rc=$?
@@ -52,8 +65,17 @@ for i in $output_file_pattern; do
 		fi
 	fi
 done
-# if ! $output_file_found; then
-#      echo "error in allAccuracy.sh: no output files found. The program to be tested probably could not complete its run." 1>&2
-#      exit 1
-# fi
+if [ -n "$source_after" ]; then
+	echo "sourcing $source_after after accuracy tests" 1>&2
+	source $source_after
+	rc=$?
+	if [ $rc -ne 0 ] ; then
+	    echo "postscript has returned error $rc"
+	    exit $rc
+	fi
+fi
+if ! $output_file_found; then
+     echo "error in allAccuracy.sh: no output files found. The program to be tested probably could not complete its run." 1>&2
+     exit 1
+fi
 exit $(( errorVal ))

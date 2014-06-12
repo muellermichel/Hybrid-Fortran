@@ -21,12 +21,14 @@ executable_name=${1}
 architecture=${2}
 configuration_name=${3}
 output_file_pattern=${4}
+source_before=${5}
+source_after=${6}
 
 if [ -z "$output_file_pattern" ]; then
 	output_file_pattern="./out/*.dat"
 fi
 date=`date`
-echo "---------------------- testing ${executable_name} for ${configuration_name} on ${architecture} ; ${date} in `pwd` ----------------------" | tee -a ./log.txt 1>&2
+echo "------- testing ${executable_name} for ${configuration_name} on ${architecture} ; ${date} in `pwd` ; output pattern: ${output_file_pattern} -------" | tee -a ./log.txt 1>&2
 configFile="./testConfig_${configuration_name}.txt"
 argStringsArr=( )
 refPostfixesArr=( )
@@ -78,7 +80,7 @@ for i in "${!argStringsArr[@]}"; do
 	fi
 	refPath=./ref${refPostfixesArr[$i]}/
 
-	if [ "$2" = "valgrind" ]; then
+	if [ "$configuration_name" = "valgrind" ]; then
 		echo -n "valgrind with parameters${argString},"
 		`valgrind --log-file='./log_lastRun.txt' --suppressions=../../../hf_config/valgrind_errors.supp ./${executable_name} ${argString} &>/dev/null`
 		cat ./log_lastRun.txt 2>&1 | grep 'Unrecognised instruction' &> './log_temp.txt'
@@ -103,7 +105,7 @@ for i in "${!argStringsArr[@]}"; do
 		continue
 	fi
 
-	if [ "$2" = "validation" ]; then
+	if [ "$configuration_name" = "validation" ]; then
 		if [ ! -e $refPath ]; then
 			if ! $extractionAttempted; then
 				echo "extracting reference data"
@@ -133,8 +135,8 @@ for i in "${!argStringsArr[@]}"; do
 		cat ./log_lastRun.txt >> ./log.txt
 	    exit $rc
 	fi
-	if [ "$2" = "validation" ]; then
-		${HF_DIR}/hf_bin/allAccuracy.sh $refPath $output_file_pattern 2>>./log_lastRun.txt
+	if [ "$configuration_name" = "validation" ]; then
+		${HF_DIR}/hf_bin/allAccuracy.sh $refPath "$output_file_pattern" $source_before $source_after 2>>./log_lastRun.txt
 		rc=$?
 		validationResult=""
 		cat ./log_lastRun.txt >> ./log.txt

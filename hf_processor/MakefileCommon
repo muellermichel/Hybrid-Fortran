@@ -332,14 +332,14 @@ tests: tests_cpu tests_gpu
 
 ifdef DEBUG
 tests_cpu: ${INSTALL_TARGETS_CPU}
-	${HF_DIR}/hf_bin/runTests.sh "${TEST_TARGET_CPU}" debug cpu ${TEST_OUTPUT_FILE_PATTERN}
+	${HF_DIR}/hf_bin/runTests.sh "${TEST_TARGET_CPU}" debug cpu ${TEST_OUTPUT_FILE_PATTERN} ${SOURCE_THIS_BEFORE_TESTING} ${SOURCE_THIS_AFTER_TESTING}
 else
 tests_cpu: ${INSTALL_TARGETS_CPU}
-	${HF_DIR}/hf_bin/runTests.sh "${TEST_TARGET_CPU}" production cpu ${TEST_OUTPUT_FILE_PATTERN}
+	${HF_DIR}/hf_bin/runTests.sh "${TEST_TARGET_CPU}" production cpu ${TEST_OUTPUT_FILE_PATTERN} ${SOURCE_THIS_BEFORE_TESTING} ${SOURCE_THIS_AFTER_TESTING}
 endif
 
 tests_gpu: ${INSTALL_TARGETS_GPU}
-	${HF_DIR}/hf_bin/runTests.sh "${TEST_TARGET_GPU}" production gpu ${TEST_OUTPUT_FILE_PATTERN}
+	${HF_DIR}/hf_bin/runTests.sh "${TEST_TARGET_GPU}" production gpu ${TEST_OUTPUT_FILE_PATTERN} ${SOURCE_THIS_BEFORE_TESTING} ${SOURCE_THIS_AFTER_TESTING}
 
 .SECONDEXPANSION:
 ${TESTDIR}/%_cpu: $${DIR_CPU}$$(notdir %).out create_install_directories

@@ -356,7 +356,8 @@ class H90CallGraphParser(object):
             self.currCalleeName = None
 
     def processFile(self, fileName):
-        lineNo = 1
+        self.lineNo = 1
+        self.fileName = fileName
         for line in fileinput.input([fileName]):
             try:
                 # if lineNo == 57:
@@ -365,17 +366,21 @@ class H90CallGraphParser(object):
             except Exception, e:
                 exc_type, exc_obj, exc_tb = sys.exc_info()
                 fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-                sys.stderr.write('Error when parsing file %s on line %i; Print of line:\n%s\n%s\n'
-                    %(str(fileName), lineNo, str(line).strip(), e))
+                sys.stderr.write('Error when parsing file %s on line %i: %s; Print of line:\n%s\n' %(
+                        str(fileName), self.lineNo, str(e), str(line).strip()
+                    )
+                )
                 if self.debugPrint:
                     sys.stderr.write(traceback.format_exc())
                 sys.exit(1)
-            lineNo = lineNo + 1
+            self.lineNo += 1
 
         if (self.state != 'none'):
             sys.stderr.write('Error when parsing file %s: File ended unexpectedly. Parser state: %s; Current Callee: %s; Current Subprocedure name: %s\n' \
                 %(str(fileName), self.state, self.currCalleeName, self.currSubprocName))
             sys.exit(1)
+        del self.lineNo
+        del self.fileName
 
 class H90XMLCallGraphGenerator(H90CallGraphParser):
     doc = None
@@ -531,7 +536,7 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
         templatesAndEntries = getDomainDependantTemplatesAndEntries(self.cgDoc, routineNode)
         for template, entry in templatesAndEntries:
             dependantName = entry.firstChild.nodeValue
-            symbol = Symbol(dependantName, template)
+            symbol = Symbol(dependantName, template, debugPrint=self.debugPrint)
             symbol.loadDomainDependantEntryNodeAttributes(entry)
             symbol.loadRoutineNodeAttributes(routineNode, parallelRegionTemplates)
             self.currSymbolsByName[dependantName] = symbol
@@ -683,6 +688,28 @@ class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
         self.prepareLine(functionAttr(templates[0]), self.tab_insideSub)
 
     def processSymbolMatchAndGetAdjustedLine(self, line, paramDeclMatch, symbol, isInsideSubroutineCall):
+        def getAccessPattern(numberOfDimensions):
+            if numberOfDimensions == 0:
+                return r"\s*((?:[^(]|$).*)"
+            accPatternStr = r"\s*\("
+            for i in range(numberOfDimensions):
+                if i != 0:
+                    accPatternStr = accPatternStr + r"\,"
+                accPatternStr = accPatternStr + r"\s*([\w\s\+\*\/\-\:]*)\s*"
+            accPatternStr = accPatternStr + r"\)(.*)"
+            return accPatternStr
+
+        def getAccessMatchAndNumberOfDomainsInAccessor(tryNumberOfDimensions, postfix):
+            accMatch = None
+            numberOfDomainsInAccessor = None
+            for numberOfDimensions in tryNumberOfDimensions:
+                accPatternStr = getAccessPattern(numberOfDimensions)
+                accMatch = re.match(accPatternStr, postfix, re.IGNORECASE)
+                if accMatch != None:
+                    numberOfDomainsInAccessor = numberOfDimensions
+                    break
+            return accMatch, numberOfDomainsInAccessor
+
         #match the symbol's postfix again in the current given line. (The prefix could have changed from the last match.)
         postfix = paramDeclMatch.group(2)
         postfixEscaped = re.escape(postfix)
@@ -696,42 +723,21 @@ class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
                     "Symbol %s is accessed in an unexpected way. Note: '_d' postfix is reserved for internal use. Cannot match one of the following patterns: \npattern1: '%s'\npattern2: '%s'" \
                     %(symbol.name, pattern1, pattern2))
 
-
         prefix = currMatch.group(1)
         numOfIndependentDomains = len(symbol.domains) - symbol.numOfParallelDomains
-        accPatternStr = None
-        if numOfIndependentDomains > 0:
-            accPatternStr = r"\s*\("
-            for i in range(numOfIndependentDomains):
-                if i != 0:
-                    accPatternStr = accPatternStr + r"\,"
-                accPatternStr = accPatternStr + r"\s*([\w\s\+\*\/\-\:]*)\s*"
-            accPatternStr = accPatternStr + r"\)(.*)"
-        elif numOfIndependentDomains == 0:
-            bracketMatch = re.match(r"\s*\(.*", postfix, re.IGNORECASE)
-            if bracketMatch:
-                raise Exception("Unexpected array access for symbol %s: No match for access in domain %s with no independant dimensions. \
-Note: Parallel domain accesses are inserted automatically." \
-                    %(symbol.name, str(symbol.domains))
-                )
-        else:
-            raise Exception("Number of parallel domains exceeds total number of domains with symbol %s" %(symbol.name))
-
+        accMatch, numberOfDomainsInAccessor = getAccessMatchAndNumberOfDomainsInAccessor([numOfIndependentDomains, len(symbol.domains)], postfix)
         offsets = []
-        if accPatternStr:
-            accMatch = re.match(accPatternStr, postfix, re.IGNORECASE)
-            if accMatch:
-                #the number of groups should be numOfIndependentDomains plus 1 for the new postfix
-                postfix = accMatch.group(numOfIndependentDomains + 1)
-                for i in range(numOfIndependentDomains):
-                    offsets.append(accMatch.group(i + 1))
-            elif isInsideSubroutineCall:
-                for i in range(numOfIndependentDomains):
-                    offsets.append(":")
-            else:
-                raise Exception("Symbol %s is accessed in an unexpected way: Unexpected number of independent dimensions. \
-access pattern: %s; access string: %s; domains: %s" \
-                    %(symbol.name, accPatternStr, postfix, str(symbol.domains)))
+        if accMatch == None and not isInsideSubroutineCall:
+            raise Exception("Unexpected array access for symbol %s: Please use either %i (number of parallel independant dimensions)\
+or %i (number of declared dimensions for this array) accessors." %(symbol.name, numOfIndependentDomains, len(symbol.domains)))
+        elif accMatch == None:
+            #inside a subroutine call
+            for i in range(numOfIndependentDomains):
+                offsets.append(":")
+        else:
+            postfix = accMatch.group(numberOfDomainsInAccessor + 1)
+            for i in range(numberOfDomainsInAccessor):
+                offsets.append(accMatch.group(i + 1))
 
         iterators = self.currParallelIterators
         if isInsideSubroutineCall:
@@ -754,8 +760,8 @@ access pattern: %s; access string: %s; domains: %s" \
             while nextMatch:
                 if symbol.domains and len(symbol.domains) > 0 and not isInsideSubroutineCall and self.state != "inside_parallelRegion" \
                 and self.routineNodesByProcName[self.currSubprocName].getAttribute("parallelRegionPosition") != "outside":
-                    sys.stderr.write("WARNING: Dependant symbol %s accessed outside of a parallel region or subroutine call in subroutine %s\n" \
-                    %(symbol.name, self.currSubprocName))
+                    sys.stderr.write("WARNING: Dependant symbol %s accessed outside of a parallel region or subroutine call in subroutine %s(%s:%i)\n" \
+                    %(symbol.name, self.currSubprocName, self.fileName, self.lineNo))
 
                 symbolWasMatched = True
                 prefix = nextMatch.group(1)
@@ -801,13 +807,16 @@ access pattern: %s; access string: %s; domains: %s" \
 
     def processCallMatch(self, subProcCallMatch):
         super(H90toF90Printer, self).processCallMatch(subProcCallMatch)
-
         adjustedLine = "call " + self.currCalleeName
         self.currCalleeNode = self.routineNodesByProcName.get(self.currCalleeName)
 
         parallelRegionPosition = None
         if self.currCalleeNode:
             parallelRegionPosition = self.currCalleeNode.getAttribute("parallelRegionPosition")
+        if self.debugPrint:
+            sys.stderr.write("In subroutine %s: Processing subroutine call to %s, parallel region position: %s\n" \
+                %(self.currSubprocName, self.currCalleeName, parallelRegionPosition) \
+            )
         if self.currCalleeNode and parallelRegionPosition == "within":
             parallelTemplates = self.parallelRegionTemplatesByProcName.get(self.currCalleeName)
             if not parallelTemplates or len(parallelTemplates) == 0:
@@ -1012,7 +1021,12 @@ access pattern: %s; access string: %s; domains: %s" \
             #there is no relation to a parallel region anymore in the callgraph.
             #This is a special case where the programmer most probably commented out the call to this subroutine
             #=> go into skipped state where the whole subroutine body is printed out commented (don't compile the body)
-            self.currSubroutineImplementationNeedsToBeCommented = True
+            if self.currSubroutineImplementationNeedsToBeCommented != True:
+                sys.stderr.write("WARNING: subroutine body for %s is getting commented out by HF - can't determine the position of its parallel region \
+relative to the rest of the program. Please ignore this message if you have intentionally commented out a call to the respective subroutine \n" \
+                    %(self.currSubprocName) \
+                )
+                self.currSubroutineImplementationNeedsToBeCommented = True
             if self.state == "inside_declarations":
                 self.prepareLine(line, "")
             else:

@@ -16,41 +16,54 @@
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
 #--------------------------------------------------------#
-#-- GNU Make settings for GPU compilation ---------------#
+#-- GNU Make settings for CPU compilation ---------------#
 #-- created:   2012-9-3 ---------------------------------#
 #-- author:    Michel Müller ----------------------------#
 #-- place:     Tokyo Institute of Technology ------------#
 #--------------------------------------------------------#
 
+
+#############################################################################
+# common settings                                                           #
+#############################################################################
+#AR=xiar #use this for support of Intel compiler with OpenMP
+AR=ar
+ARFLAGS=rv
+
+#############################################################################
+# uncomment these settings to use pgf90                                     #
+#############################################################################
 FC=pgf90
 LD=pgf90
-
-ifdef EMULATED
+FFLAGS_PRODUCTION= -Minfo=inline,ipa -Mneginfo -I/usr/local/include -r8 -O4
+FFLAGS_DEBUG= -g -Mbounds -Mchkptr -Minfo=accel,inline -Mneginfo -Minform=inform -I/usr/local/include -r8
+LDFLAGS_PRODUCTION= -L/usr/local/lib -lpp
+LDFLAGS_DEBUG= -L/usr/local/lib -lpp
 
 #############################################################################
-# emulation mode settings                                                   #
+# uncomment these settings to use pgfortran                                 #
 #############################################################################
-FFLAGS= -Mcuda=emu -g -DGPU -I/usr/local/include -I/home/usr1/A2400653/software/include -r8
-LDFLAGS= -Mcuda=emu -L/usr/local/lib -L/home/usr1/A2400653/software/lib -Minfo=accel,inline -Mneginfo
+# FC=pgfortran
+# LD=pgfortran
+# FFLAGS_PRODUCTION= -Minfo=inline,ipa -Mneginfo -I/usr/local/include -r8 -O4
+# FFLAGS_DEBUG= -g -Mbounds -Mchkptr -Minfo=accel,inline -Mneginfo -Minform=inform -I/usr/local/include -r8
+# LDFLAGS_PRODUCTION= -L/usr/local/lib -lpp
+# LDFLAGS_DEBUG= -L/usr/local/lib -lpp
 
-else
+#############################################################################
+# uncomment these settings to use ifort                                     #
+#############################################################################
+# FC=ifort
+# LD=ifort
+# FFLAGS_PRODUCTION= -fast -openmp -r8 -I/usr/local/include
+# FFLAGS_DEBUG= -g -r8 -I/usr/local/include
+# LDFLAGS_PRODUCTION= -openmp -L/usr/local/lib -lpp
+# LDFLAGS_DEBUG= -L/usr/local/lib -lpp
+
 ifdef DEBUG
-#############################################################################
-# debug settings                                                            #
-#############################################################################
-FFLAGS= -g -DGPU -Mcuda=cc20 -ta=nvidia,cc20,keepgpu,time -Minfo=accel,inline,ipa -Mneginfo -Minform=inform -I/usr/local/include -I/home/usr1/A2400653/software/include -r8
-LDFLAGS= -Mcuda=cc20 -ta=nvidia,cc20,time -L/usr/local/lib -L/home/usr1/A2400653/software/lib -Minfo=accel,inline -Mneginfo
-
+FFLAGS=${FFLAGS_DEBUG}
+LDFLAGS=${LDFLAGS_DEBUG}
 else
-#############################################################################
-# production settings                                                       #
-#############################################################################
-FFLAGS= -DGPU -Mcuda=cc20 -ta=nvidia,cc20,keepgpu -Minline=levels:5,reshape ‑Mipa=inline,reshape -Minfo=accel,inline,ipa -Mneginfo -Minform=inform -I/usr/local/include -I/home/usr1/A2400653/software/include -r8 -O4
-LDFLAGS= -Mcuda=cc20 -ta=nvidia,cc20,time -Mipa=inline,reshape -L/usr/local/lib -L/home/usr1/A2400653/software/lib -Minfo=accel,inline -Mneginfo
-
+FFLAGS=${FFLAGS_PRODUCTION}
+LDFLAGS=${LDFLAGS_PRODUCTION}
 endif
-endif
-
-
-
-

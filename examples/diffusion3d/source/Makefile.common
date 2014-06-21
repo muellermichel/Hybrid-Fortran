@@ -1,0 +1,148 @@
+#--------------------------------------------------------#
+#-- COMMON VARIABLES FOR ALL MAKESFILES -----------------#
+#-- created:   2012-5-9 ---------------------------------#
+#-- author:    Michel Müller ----------------------------#
+#-- place:     Tokyo Institute of Technology ------------#
+#--------------------------------------------------------#
+
+#--------------------------------------------------------#
+#--------  PURE C COMPILER AND LINKER SETTINGS ----------#
+#--------  NOTE: This is only active when ---------------#
+#--------  OpenACC variables are not set ----------------#
+#--------------------------------------------------------#
+
+###### GCC ##############
+#C_COMPILER = gcc
+#C_COMPILER_FLAGS = -lm -fopenmp -O3
+#C_LINKER = gcc
+#C_LINKER_FLAGS = ${C_COMPILER_FLAGS}
+
+###### PGCC #############
+C_COMPILER = pgcc
+C_COMPILER_FLAGS =
+C_LINKER = pgcc
+C_LINKER_FLAGS =
+ifdef DEBUG
+C_COMPILER_FLAGS = -g
+C_LINKER_FLAGS = -g
+endif
+ifdef EMULATED
+C_COMPILER_FLAGS = -g
+C_LINKER_FLAGS = -g
+endif
+
+
+###### INTEL ############
+# CPU_ONLY = 1
+# C_COMPILER = icc
+# C_COMPILER_FLAGS = -fast -openmp
+# C_LINKER = icc
+# C_LINKER_FLAGS = -openmp
+
+###### CRAY #############
+#C_COMPILER = cc
+#C_COMPILER_FLAGS =
+#C_LINKER = cc
+#C_LINKER_FLAGS = ${C_COMPILER_FLAGS}
+
+#--------------------------------------------------------#
+#--------  C+CUDA COMPILER AND LINKER SETTINGS ----------#
+#--------------------------------------------------------#
+###### TSUBAME 2.0 #######
+CUDA_PATH = /opt/cuda/4.0
+CUDA_SDK_PATH = /usr/apps/free/NVIDIA_GPU_Computing_SDK/4.0/C
+
+##### michel@i-server ####
+#CUDA_PATH = /usr/local/cuda
+#CUDA_SDK_PATH = ${HOME}/CUDA-SDK-40/C
+
+#### SHARED SETTINGS: NVCC + gcc ###
+CUDA_COMPILER = nvcc
+CUDA_COMPILER_FLAGS = -O3 -I ${CUDA_SDK_PATH}/common/inc -arch sm_20 -use_fast_math
+CUDA_LINKER = ${C_LINKER}
+CUDA_LINKER_FLAGS = ${C_LINKER_FLAGS} -L"${CUDA_PATH}/lib64" -L"${CUDA_SDK_PATH}/lib" -lcudart -lcutil_x86_64 -use_fast_math
+
+#### SHARED SETTINGS: pgCC ###
+#CUDA_COMPILER = pgCC
+#CUDA_COMPILER_FLAGS = -Mcudax86 -I ${CUDA_SDK_PATH}/common/inc
+#CUDA_LINKER = pgCC
+#CUDA_LINKER_FLAGS = -Mcudax86 -L"${CUDA_PATH}/lib64" -L"${CUDA_SDK_PATH}/lib"
+
+
+#--------------------------------------------------------#
+#--------  C+OPENACC COMPILER AND LINKER SETTINGS -------#
+#--------------------------------------------------------#
+
+###### PGCC #############
+OPENACC_COMPILER = pgcc
+OPENACC_COMPILER_FLAGS = -c -acc -ta=nvidia,cc20,keepgpu -Minfo -O4
+OPENACC_LINKER = pgcc
+OPENACC_LINKER_FLAGS = -ta=nvidia,cc20
+
+###### HMPP #############
+#HMPP_FLAGS = --codelet-required --nvcc-options -arch,sm_20
+#OPENACC_COMPILER = hmpp ${HMPP_FLAGS} ${C_COMPILER}
+#OPENACC_COMPILER_FLAGS = ${C_COMPILER_FLAGS} -O4
+#OPENACC_LINKER = hmpp ${C_LINKER}
+#OPENACC_LINKER_FLAGS = ${C_LINKER_FLAGS}
+
+###### CRAY #############
+#OPENACC_COMPILER = cc
+#OPENACC_COMPILER_FLAGS =
+#OPENACC_LINKER = ${C_LINKER}
+#OPENACC_LINKER_FLAGS =
+
+##### SHARED SETTINGS ###
+#C_COMPILER = ${OPENACC_COMPILER}
+#C_COMPILER_FLAGS = ${OPENACC_COMPILER_FLAGS}
+#C_LINKER = ${OPENACC_LINKER}
+#C_LINKER_FLAGS = ${C_COMPILER_FLAGS}
+
+
+#--------------------------------------------------------#
+#--------  EXECUTABLES CREATED --------------------------#
+#--------------------------------------------------------#
+OPENACC_EXE = ${PROGRAM_NAME_PREFIX}_openACC
+CUDA_EXE = ${PROGRAM_NAME_PREFIX}_cuda
+C_EXE = ${PROGRAM_NAME_PREFIX}_c_version
+HF_EXE = ${PROGRAM_NAME_PREFIX}_hf_version
+
+#--------------------------------------------------------#
+#--------  MAKE HIERARCHY -------------------------------#
+#--------------------------------------------------------#
+all: ${OPENACC_EXE} ${C_EXE} ${CUDA_EXE} ${HF_EXE}
+
+${OPENACC_EXE}: etc.o main.o ${PROGRAM_NAME_PREFIX}_openacc.o
+	${OPENACC_LINKER} ${OPENACC_LINKER_FLAGS} etc.o ${PROGRAM_NAME_PREFIX}_openacc.o main.o -o ${OPENACC_EXE}
+
+${C_EXE}: etc.o main.o ${PROGRAM_NAME_PREFIX}_c_version.o
+	${C_LINKER} ${C_LINKER_FLAGS} etc.o ${PROGRAM_NAME_PREFIX}_c_version.o main.o -o ${C_EXE}
+
+${HF_EXE}: ../hybrid_source/diffusion3d.o
+	pgf90 -Mcuda ../hybrid_source/diffusion3d.o -o ${HF_EXE}
+
+${CUDA_EXE}: etc.o main.o ${PROGRAM_NAME_PREFIX}_cuda.o
+	${CUDA_LINKER} etc.o ${PROGRAM_NAME_PREFIX}_cuda.o main.o -o ${CUDA_EXE} ${CUDA_LINKER_FLAGS}
+
+etc.o: etc.c ido.h
+	${C_COMPILER} ${C_COMPILER_FLAGS} -c ${PROGRAM_COMPILER_FLAGS} etc.c
+
+main.o: main.c ido.h
+	${C_COMPILER} ${C_COMPILER_FLAGS} -c ${PROGRAM_COMPILER_FLAGS} main.c -o main.o
+
+main_hf.o: main.c ido.h
+	${C_COMPILER} ${C_COMPILER_FLAGS} -DUSE_HF_MAINLOOP -c ${PROGRAM_COMPILER_FLAGS} main.c -o main_hf.o
+
+${PROGRAM_NAME_PREFIX}_openacc.o: ${PROGRAM_NAME_PREFIX}.c ido.h
+	${OPENACC_COMPILER} -c ${OPENACC_COMPILER_FLAGS} ${PROGRAM_COMPILER_FLAGS} ${PROGRAM_NAME_PREFIX}.c -o ${PROGRAM_NAME_PREFIX}_openacc.o
+
+${PROGRAM_NAME_PREFIX}_c_version.o: ${PROGRAM_NAME_PREFIX}.c ido.h
+	${C_COMPILER} -c ${C_COMPILER_FLAGS} ${PROGRAM_COMPILER_FLAGS} ${PROGRAM_NAME_PREFIX}.c -o ${PROGRAM_NAME_PREFIX}_c_version.o
+
+${PROGRAM_NAME_PREFIX}_cuda.o: ${PROGRAM_NAME_PREFIX}.cu ido.h
+	${CUDA_COMPILER} -c ${PROGRAM_COMPILER_FLAGS} ${CUDA_COMPILER_FLAGS} ${PROGRAM_NAME_PREFIX}.cu -o ${PROGRAM_NAME_PREFIX}_cuda.o
+
+clean:
+	rm -f ${OPENACC_EXE} ${C_EXE} ${CUDA_EXE} *o *gpu *ptx *hmf*
+
+ido.h : storage.h commons.h

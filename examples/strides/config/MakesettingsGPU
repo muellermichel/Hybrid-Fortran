@@ -16,36 +16,41 @@
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
 #--------------------------------------------------------#
-#-- GNU Make settings for CPU compilation ---------------#
+#-- GNU Make settings for GPU compilation ---------------#
 #-- created:   2012-9-3 ---------------------------------#
 #-- author:    Michel Müller ----------------------------#
 #-- place:     Tokyo Institute of Technology ------------#
 #--------------------------------------------------------#
 
-#############################################################################
-# PG Fortran                                                                #
-#############################################################################
 FC=pgf90
 LD=pgf90
-LDFLAGS= -L/usr/local/lib -L/home/usr1/A2400653/software/lib
+
+ifdef EMULATED
 
 #############################################################################
-# Intel Fortran                                                             #
+# emulation mode settings                                                   #
 #############################################################################
-#FC=ifort
-#LD=ifort
-#LDFLAGS= -openmp -L/usr/local/lib -L/home/usr1/A2400653/software/lib
+FFLAGS= -Mcuda=emu -g -DGPU -I/usr/local/include -I/home/usr1/A2400653/software/include -r8
+LDFLAGS= -Mcuda=emu -L/usr/local/lib -L/home/usr1/A2400653/software/lib -Minfo=accel,inline -Mneginfo -lpp
 
+else
 ifdef DEBUG
 #############################################################################
 # debug settings                                                            #
 #############################################################################
-FFLAGS= -g -Minfo=accel,inline -Mneginfo -Minform=inform -I/usr/local/include -I/home/usr1/A2400653/software/include -r8
+FFLAGS= -g -DGPU -Mcuda=cc3x -ta=nvidia,cc3x,keepgpu,keepbin,time -Minfo=accel,inline,ipa -Mneginfo -Minform=inform -I/usr/local/include -r8
+LDFLAGS= -g -Mcuda=cc3x -ta=nvidia,cc3x,time -L/usr/local/lib -Minfo=accel,inline -Mneginfo -lpp
 
 else
 #############################################################################
 # production settings                                                       #
 #############################################################################
-FFLAGS= -fast -openmp -r8 -I/usr/local/include -I/home/usr1/A2400653/software/include
+FFLAGS= -DGPU -Mcuda=cc3x -ta=nvidia,cc3x -Minline=levels:5,reshape ‑Mipa=inline,reshape -Minfo=accel,inline,ipa -Mneginfo -Minform=inform -I/usr/local/include -r8 -O4
+LDFLAGS= -Mcuda=cc3x -ta=nvidia,cc3x,time -Mipa=inline,reshape -L/usr/local/lib -Minfo=accel,inline -Mneginfo -lpp
 
 endif
+endif
+
+
+
+

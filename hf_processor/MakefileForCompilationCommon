@@ -51,7 +51,7 @@ USER_LIB=libpp.a
 
 VPATH=$OBJDIR
 
-all: ${EXECUTABLES_OUT}
+all: ${EXECUTABLES_OUT} ${USER_LIB}
 
 %.out: %.o
 	@echo .........linking $< in $(CURDIR)

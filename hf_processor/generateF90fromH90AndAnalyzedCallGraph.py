@@ -67,22 +67,6 @@ data = cgFile.read()
 cgDoc = parseString(data)
 cgFile.close()
 
-# #first pass: gather symbol declaration informations and store them in the callgraph dom tree
-# try:
-#   symbolDeclExtractor = H90XMLSymbolDeclarationExtractor(cgDoc)
-#   symbolDeclExtractor.debugPrint = options.debug
-#   symbolDeclExtractor.processFile(options.sourceFile)
-#   #note: currently we only write this out for debugging purposes - it is not being read again by the parser.
-#   if options.debug:
-#     debugFile = openFile(options.callgraph.split(".xml")[0] + "_debug.xml", "w")
-#     debugFile.write(cgDoc.toprettyxml())
-#     debugFile.close()
-
-# except Exception, e:
-#   sys.stderr.write('Error when extracting symbol declaration information from H90 file %s: %s\n%s\n' \
-#     %(str(options.sourceFile), str(e), traceback.format_exc()))
-#   sys.exit(1)
-
 try:
   implementationAttr = getattr(FortranImplementation, options.implementation)
   implementation = implementationAttr()

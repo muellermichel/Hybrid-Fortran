@@ -1,26 +1,5 @@
-# Copyright (C) 2013 Michel Müller (Typhoon Computing), RIKEN Advanced Institute for Computational Science (AICS)
-
-# This file is part of Hybrid Fortran.
-
-# Hybrid Fortran is free software: you can redistribute it and/or modify
-# it under the terms of the GNU Lesser General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-
-# Hybrid Fortran is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU Lesser General Public License for more details.
-
-# You should have received a copy of the GNU Lesser General Public License
-# along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
-
 #############################################################################
-# Hybrid executable names for executables to be built from your sources     #
-# in SRC_DIR_COMMON using Hybrid Fortran's own build system.                #
-# In case you use a FRAMEWORK_MAKEFILE, you can also handle the building of #
-# executables yourself - please see section                                 #
-# 'Custom installation and testing' for that purpose.                       #
+# Hybrid executable names to be built from your sources in SRC_DIR_COMMON.  #
 #                                                                           #
 # Make sure to understand the following rules:                              #
 # 1) Multiple executables can be specified in this variable, separated by   #
@@ -30,7 +9,7 @@
 #    of the executable. These main files can be placed anywhere in your     #
 #    source directory or one of its subdirectories.                         #
 #############################################################################
-EXECUTABLES="example"
+EXECUTABLES="diffusion3d"
 
 #############################################################################
 # directories as seen from project directory.                               #
@@ -45,7 +24,7 @@ LIBDIR=${HF_DIR}/hf_lib
 
 #This directory will be picked up for hybrid compilation - specify the root
 #directory you'd like to port over
-SRC_DIR_COMMON=./source
+SRC_DIR_COMMON=./hybrid_source
 
 # !New in Version 0.9
 #OPTIONAL
@@ -57,15 +36,15 @@ SRC_DIR_COMMON=./source
 #                    |- $FRAMEWORK_DIR[1] (entire directory tree)
 #                    |- .....
 #                    |- $FRAMEWORK_DIR[n-1] (entire directory tree)
-#                    |- EXECUTABLES[0].out
-#                    |- EXECUTABLES[1].out
+#                    |- EXECUTABLES[0].out (only if no $FRAMEWORK_MAKEFILE is specified)
+#                    |- EXECUTABLES[1].out (only if no $FRAMEWORK_MAKEFILE is specified)
 #                    |- ....
-#                    |- EXECUTABLES[n-1].out
+#                    |- EXECUTABLES[n].out (only if no $FRAMEWORK_MAKEFILE is specified)
 #
 #             |- gpu |- .... (same as cpu directory)
 #
 # Separate using spaces and surround with double quotes.
-FRAMEWORK_DIRS=""
+FRAMEWORK_DIRS="source"
 
 # !New in Version 0.9
 #OPTIONAL, only needed in case you have sources that need to be compiled separately
@@ -84,41 +63,41 @@ FRAMEWORK_DIRS=""
 # *) after_hybrid_build (will be called after the files in $BASEDIR/XXX/$SRC_DIR_COMMON have been compiled. This should produce an executable
 #    based on the library / object files in $BASEDIR/XXX/$SRC_DIR_COMMON as well as your other sources within FRAMEWORK_DIRS that you need to take
 #    care of yourself here.)
-FRAMEWORK_MAKEFILE=
+FRAMEWORK_MAKEFILE=source/Makefile
 
 #where are tests to be installed? (ignored in case you specify $TEST_EXECUTABLES)
-TESTDIR=./test
+TESTDIR=
 
 #############################################################################
 # Custom installation and testing                                           #
 #############################################################################
 # !New in Version 0.9
-#OPTIONAL (recommended in case you use a configure script. Specify the path of a file that's always touched by configure, relative to the projects root directory.
-#          The Hybrid Fortran build system will automatically call ./configure if this file doesn't exist yet. Note: It's advisable to put files needed by your framework compilation into
+#OPTIONAL (needed in case you use a configure script. Specify the path of a file that's always touched by configure, relative to the projects root directory.
+#          The Hybrid Fortran build system will produce an error message and exit if this file doesn't exist yet. Note: It's advisable to put files needed by your framework compilation into
 #          one of the $FRAMEWORK_DIRS specified above. This way they will be picked up and put into the the build directory $BASEDIR such that your own build system can find them.)
 FRAMEWORK_CONFIGURE_OUTPUT=
 
 # !New in Version 0.9
 #OPTIONAL (needed in case you set a $FRAMEWORK_MAKEFILE. Specify the paths of executables generated by your makefile, relative to $BASEDIR/XXX.
 #          separate with spaces and surround the list with double quotes)
-FRAMEWORK_EXECUTABLE_PATHS=""
+FRAMEWORK_EXECUTABLE_PATHS="source/diffusion3d_hf_version"
 
 # !New in Version 0.9
-#OPTIONAL (needed in case you set a $FRAMEWORK_MAKEFILE. Specify the paths where executables should be installed, relative to the project's root directory. Hybrid Fortran will install executables defined in $FRAMEWORK_EXECUTABLE_PATHS in the path below *with _cpu / _gpu postfixes*, i.e. it will create two versions of each executable and install them in the paths specified below.
+#OPTIONAL (needed in case you set a $FRAMEWORK_MAKEFILE. Specify the directory paths where executables should be installed, without filename, relative to the projects root directory.
 # 	       ! This list needs to have the same number of entries as $FRAMEWORK_EXECUTABLE_PATHS !
 #          separate with spaces and surround the list with double quotes)
-FRAMEWORK_INSTALLED_EXECUTABLE_PATHS=""
+FRAMEWORK_INSTALLED_EXECUTABLE_PATHS="executables"
 
 # !New in Version 0.9
 #OPTIONAL (Specify the paths of executables generated by your makefile, that are *not* in any way calling hybrid cpu/gpu code, relative to $BASEDIR/XXX.
 #          separate with spaces and surround the list with double quotes)
-FRAMEWORK_NON_HYBRID_EXECUTABLE_PATHS=""
+FRAMEWORK_NON_HYBRID_EXECUTABLE_PATHS="source/diffusion3d_c_version source/diffusion3d_cuda source/diffusion3d_openACC"
 
 # !New in Version 0.9
 #OPTIONAL (Specify the paths where non-hybrid executables should be installed, relative to the project's root directory. Hybrid Fortran will only install a *single* version of these executables in the specified directories.
 # 	       ! This list needs to have the same number of entries as $FRAMEWORK_NON_HYBRID_EXECUTABLE_PATHS !
 #          separate with spaces and surround the list with double quotes)
-FRAMEWORK_NON_HYBRID_INSTALLED_EXECUTABLE_PATHS=""
+FRAMEWORK_NON_HYBRID_INSTALLED_EXECUTABLE_PATHS="executables executables executables"
 
 # !New in Version 0.9
 #OPTIONAL, can be used to switch to a different environment for testing. As an example, you can have your python NetCDF and Numpy Libraries inside a
@@ -132,19 +111,16 @@ SOURCE_THIS_AFTER_TESTING=
 
 # !New in Version 0.9
 #OPTIONAL, can be used to have the 'make tests' interface with custom executables - for example when you need to run multiple executables for your
-#tests, you can create a run-script in a test-subdirectory together with all the input data you need and you can specify these script paths using TEST_EXECUTABLES.
-#Specify relative to the project's root directory, separate with spaces and surround the list with double quotes.
+#tests, you can create a run-script in a test-subdirectory together with all the input data you need and you can specify these script paths here.
+#separate with spaces and surround the list with double quotes.
 # ! your scripts specified here should take one input argument 'ARCH' and call your executables with _$ARCH postfix in the filename !
-# Note: The output of automatic tests looks best if you use STDOUT for timing outputs and STDERR for everything else. Return codes other than 0 will result in the
-# test failing - which can be very useful - so it is advisable to return error codes generated in your codebase.
-TEST_EXECUTABLES=""
+TEST_EXECUTABLES=
 
 # !New in Version 0.9
-#OPTIONAL, can be used to specify the naming pattern of files that are being created by your tests, using bash syntax, as seen from the respective executable's directory.
-#As an example, if your script is placed in tests/my_test/my_run_script.sh and the output is files of the form tests/my_test/my_output*, specify "my_output*" here.
+#OPTIONAL, can be used to specify the naming pattern of files that are being created by your tests, as seen from the respective executable's directory.
 #This will be used by the Hybrid Fortran test framework to pick up output files and compare them to reference files that you provide in a ref.tar.gz in the
 #test executable's directory. Compatible with simple .dat files as well as netcdf. Please refer to the manual for more information.
-TEST_OUTPUT_FILE_PATTERN=""
+TEST_OUTPUT_FILE_PATTERN=
 
 #############################################################################
 # which names / directory names within $SRC_DIR_COMMON should be excluded   #

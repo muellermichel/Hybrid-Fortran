@@ -125,13 +125,13 @@ def getFirstKernelCallerInCalleesOf(routineName, callNodesByCallerName, parallel
 			return call
 	return None
 
-def purgeTemplateRelation(routineNode, regionsNode, templateRelation):
-	regionsNode.removeChild(templateRelation)
-	remainingTemplateRelations = regionsNode.getElementsByTagName("parallelRegions")
-	if not remainingTemplateRelations or len(remainingTemplateRelations) == 0:
-		routineNode.removeChild(regionsNode)
-
 def filterParallelRegionNodes(doc, routineNode, appliesTo):
+	def purgeTemplateRelation(routineNode, regionsNode, templateRelation):
+		regionsNode.removeChild(templateRelation)
+		remainingTemplateRelations = regionsNode.getElementsByTagName("parallelRegions")
+		if not remainingTemplateRelations or len(remainingTemplateRelations) == 0:
+			routineNode.removeChild(regionsNode)
+
 	templates = doc.getElementsByTagName("parallelRegionTemplate")
 	regionsNodes = routineNode.getElementsByTagName("parallelRegions")
 	if not regionsNodes or len(regionsNodes) == 0:
@@ -149,15 +149,11 @@ def filterParallelRegionNodes(doc, routineNode, appliesTo):
 		if matchedTemplate == None:
 			raise Exception("Parallel region template id %s cannot be matched\n" %(templateID))
 		appliesToNodes = matchedTemplate.getElementsByTagName("appliesTo")
-		if (not appliesToNodes or len(appliesToNodes) == 0):
-			if appliesTo != "":
-				purgeTemplateRelation(routineNode, regionsNode, templateRelation)
-				continue
-		else:
+		if appliesToNodes != None and len(appliesToNodes) != 0:
 			entries = appliesToNodes[0].getElementsByTagName("entry")
 			for entry in entries:
-				val = getNodeValue(entry).upper()
-				if (val == "CPU" or val == "") and appliesTo == "":
+				val = getNodeValue(entry).upper().strip()
+				if val in ["CPU",""] and appliesTo.upper() in ["CPU",""]:
 					break
 				if val == appliesTo.upper():
 					break

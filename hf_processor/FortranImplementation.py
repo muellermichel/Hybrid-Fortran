@@ -165,28 +165,34 @@ class FortranImplementation(object):
     def getIterators(self, parallelRegionTemplate):
         if not appliesTo(["CPU", ""], parallelRegionTemplate):
             return []
+        return [domain.name for domain in getDomainsWithParallelRegionTemplate(parallelRegionTemplate)]
 
-        (domainNames, domainSizes) = domainNamesAndSizesWithParallelRegionTemplate(parallelRegionTemplate)
-        return domainNames
+    def iteratorDefinitionBeforeParallelRegion(self, domains):
+        return ""
+
+    def safetyOutsideRegion(self, domains):
+        return ""
 
     def parallelRegionBegin(self, parallelRegionTemplate):
-        (domainNames, domainSizes) = domainNamesAndSizesWithParallelRegionTemplate(parallelRegionTemplate)
+        domains = getDomainsWithParallelRegionTemplate(parallelRegionTemplate)
         regionStr = ''
-        for pos in range(len(domainNames)-1,-1,-1): #use inverted order (optimization of accesses for fortran storage order)
-            domainName = domainNames[pos]
-            regionStr = regionStr + 'do %s=1,%s' %(domainName, domainSizes[pos])
+        for pos in range(len(domains)-1,-1,-1): #use inverted order (optimization of accesses for fortran storage order)
+            domain = domains[pos]
+            startsAt = domain.startsAt if domain.startsAt != None else "1"
+            endsAt = domain.endsAt if domain.endsAt != None else domain.size
+            regionStr = regionStr + 'do %s=%s,%s' %(domain.name, startsAt, endsAt)
             if pos != 0:
                 regionStr = regionStr + '; '
             pos = pos + 1
         return regionStr
 
     def parallelRegionEnd(self, parallelRegionTemplate):
-        (domainNames, domainSizes) = domainNamesAndSizesWithParallelRegionTemplate(parallelRegionTemplate)
+        domains = getDomainsWithParallelRegionTemplate(parallelRegionTemplate)
         pos = 0
         regionStr = ''
-        for domainName in domainNames:
+        for domain in domains:
             regionStr = regionStr + 'end do'
-            if pos != len(domainNames) - 1:
+            if pos != len(domains) - 1:
                 regionStr = regionStr + '; '
             pos = pos + 1
         return regionStr
@@ -233,25 +239,27 @@ class CUDAFortranImplementation(FortranImplementation):
     def kernelCallPreparation(self, parallelRegionTemplate):
         if not appliesTo(["GPU"], parallelRegionTemplate):
             return ""
-
         blockSizePPNames = ["CUDA_BLOCKSIZE_X", "CUDA_BLOCKSIZE_Y", "CUDA_BLOCKSIZE_Z"]
-        (domainNames, domainSizes) = domainNamesAndSizesWithParallelRegionTemplate(parallelRegionTemplate)
-        if len(domainSizes) > 3 or len(domainSizes) < 1:
+        gridSizeVarNames = ["cugridSizeX", "cugridSizeY", "cugridSizeZ"]
+        domains = getDomainsWithParallelRegionTemplate(parallelRegionTemplate)
+        if len(domains) > 3 or len(domains) < 1:
             raise Exception("Invalid number of parallel domains in parallel region definition.")
-
-        gridStr = "cugrid = dim3("
         blockStr = "cublock = dim3("
+        gridStr = "cugrid = dim3("
+        gridPreparationStr = ""
         for i in range(3):
             if i != 0:
-                gridStr = gridStr + ", "
-                blockStr = blockStr + ", "
-            if i < len(domainSizes):
-                gridStr = gridStr + "ceiling(real(%s) / real(%s))" %(domainSizes[i], blockSizePPNames[i])
-                blockStr = blockStr + "%s" %(blockSizePPNames[i])
+                gridPreparationStr += "\n"
+                gridStr += ", "
+                blockStr += ", "
+            if i < len(domains):
+                gridPreparationStr += "%s = ceiling(real(%s) / real(%s))" %(gridSizeVarNames[i], domains[i].size, blockSizePPNames[i])
+                blockStr += "%s" %(blockSizePPNames[i])
             else:
-                gridStr = gridStr + "1"
-                blockStr = blockStr + "1"
-        result = gridStr + ")\n" + blockStr + ")\n"
+                gridPreparationStr +=  "%s = 1" %(gridSizeVarNames[i])
+                blockStr += "1"
+            gridStr += "%s" %(gridSizeVarNames[i])
+        result = gridPreparationStr + "\n" + gridStr + ")\n" + blockStr + ")\n"
         return result
 
     def kernelCallPost(self, symbolsByName, calleeRoutineNode):
@@ -296,7 +304,6 @@ class CUDAFortranImplementation(FortranImplementation):
         result = []
         if not routineNode.getAttribute("parallelRegionPosition") == "within":
             return result
-
         for symbolName in currSymbolsByName.keys():
             symbol = currSymbolsByName[symbolName]
             if symbol.sourceModule and symbol.sourceModule != "":
@@ -309,9 +316,7 @@ class CUDAFortranImplementation(FortranImplementation):
     def getIterators(self, parallelRegionTemplate):
         if not appliesTo(["GPU"], parallelRegionTemplate):
             return []
-
-        (domainNames, domainSizes) = domainNamesAndSizesWithParallelRegionTemplate(parallelRegionTemplate)
-        return domainNames
+        return [domain.name for domain in getDomainsWithParallelRegionTemplate(parallelRegionTemplate)]
 
     def subroutinePrefix(self, routineNode):
         parallelRegionPosition = routineNode.getAttribute("parallelRegionPosition")
@@ -436,24 +441,30 @@ Symbols vs transferHere attributes:\n%s" %(str([(symbol.name, symbol.transferHer
 
         return adjustedLine + "\n"
 
-    def parallelRegionBegin(self, parallelRegionTemplate):
-        (domainNames, domainSizes) = domainNamesAndSizesWithParallelRegionTemplate(parallelRegionTemplate)
-        regionStr = ''
-        if len(domainNames) > 3:
-            raise Exception("Only up to 3 parallel dimensions supported. %i are specified: %s." %(len(domainNames), domainNames))
-
+    def iteratorDefinitionBeforeParallelRegion(self, domains):
+        if len(domains) > 3:
+            raise Exception("Only up to 3 parallel dimensions supported. %i are specified: %s." %(len(domains), str(domains)))
         cudaDims = ("x", "y", "z")
+        result = ""
+        for index, domain in enumerate(domains):
+            result += "%s = (blockidx%%%s - 1) * blockDim%%%s + threadidx%%%s\n" %(domain.name, cudaDims[index], cudaDims[index], cudaDims[index])
+        return result
 
-        for i in range(len(domainNames)):
-            regionStr = regionStr + "%s = (blockidx%%%s - 1) * blockDim%%%s + threadidx%%%s\n" %(domainNames[i], cudaDims[i], cudaDims[i], cudaDims[i])
+    def safetyOutsideRegion(self, domains):
+        result = "if ("
+        for index, domain in enumerate(domains):
+            startsAt = domain.startsAt if domain.startsAt != None else "1"
+            endsAt = domain.endsAt if domain.endsAt != None else domain.size
+            if index != 0:
+                result += " .OR. "
+            result += "%s .GT. %s .OR. %s .LT. %s" %(domain.name, endsAt, domain.name, startsAt)
+        result += ") then\nreturn\nend if\n"
+        return result
 
-        regionStr = regionStr + "if ("
-        for i in range(len(domainNames)):
-            if i != 0:
-                regionStr = regionStr + " .OR. "
-            regionStr = regionStr + "%s > %s" %(domainNames[i], domainSizes[i])
-        regionStr = regionStr + ") then\nreturn\nend if\n"
-
+    def parallelRegionBegin(self, parallelRegionTemplate):
+        domains = getDomainsWithParallelRegionTemplate(parallelRegionTemplate)
+        regionStr = self.iteratorDefinitionBeforeParallelRegion(domains)
+        regionStr += self.safetyOutsideRegion(domains)
         return regionStr
 
     def parallelRegionEnd(self, parallelRegionTemplate):
@@ -473,7 +484,7 @@ Symbols vs transferHere attributes:\n%s" %(str([(symbol.name, symbol.transferHer
 
         if routineIsKernelCaller:
             result = result + "type(dim3) :: cugrid, cublock\n"
-            result = result + "integer(4) :: cuerror, cuErrorMemcopy\n"
+            result = result + "integer(4) :: cugridSizeX, cugridSizeY, cugridSizeZ, cuerror, cuErrorMemcopy\n"
 
         deviceInitStatements = ""
         for symbol in dependantSymbols:
@@ -534,37 +545,66 @@ class DebugEmulatedCUDAFortranImplementation(CUDAFortranImplementation):
         self.currDependantSymbols = dependantSymbols
         return CUDAFortranImplementation.declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplate)
 
-    def parallelRegionBegin(self, parallelRegionTemplate):
-        result = CUDAFortranImplementation.parallelRegionBegin(self, parallelRegionTemplate)
+    def kernelCallPreparation(self, parallelRegionTemplate):
+        result = CUDAFortranImplementation.kernelCallPreparation(self, parallelRegionTemplate)
+        iterators = self.getIterators(parallelRegionTemplate)
+        gridSizeVarNames = ["cugridSizeX", "cugridSizeY", "cugridSizeZ"]
+        routineName = self.currRoutineNode.getAttribute('name')
+        result += "write(0,*) 'calling kernel %s with grid size', " %(routineName)
+        for i in range(len(iterators)):
+            if i != 0:
+                result += ", "
+            result += "%s" %(gridSizeVarNames[i])
+        result += "\n"
+        return result
 
+    def parallelRegionBegin(self, parallelRegionTemplate):
+        domains = getDomainsWithParallelRegionTemplate(parallelRegionTemplate)
+        regionStr = self.iteratorDefinitionBeforeParallelRegion(domains)
         routineName = self.currRoutineNode.getAttribute('name')
         if not routineName:
             raise Exception("Routine name undefined.")
-
         iterators = self.getIterators(parallelRegionTemplate)
         if not iterators or len(iterators) == 0:
             raise Exception("No iterators in kernel.")
-
+        error_conditional = "("
+        for i in range(len(iterators)):
+            if i != 0:
+                error_conditional += " .OR. "
+            error_conditional += "%s .LT. 1" %(iterators[i])
+        error_conditional = error_conditional + ")"
+        regionStr += "if %s then\n\twrite(0,*) 'ERROR: invalid initialization of iterators in kernel \
+%s - check kernel domain setup'\n" %(error_conditional, routineName)
+        regionStr += "\twrite(0,*) "
+        for i in range(len(iterators)):
+            if i != 0:
+                regionStr += ", "
+            regionStr += "'%s', %s" %(iterators[i], iterators[i])
+        regionStr += "\nend if\n"
         conditional = "("
         for i in range(len(iterators)):
             if i != 0:
                 conditional = conditional + " .AND. "
             conditional = conditional + "%s .EQ. %i" %(iterators[i], 1)
         conditional = conditional + ")"
-
-        result = result + "if %s write(0,*) '*********** entering kernel %s finished *************** '\n" %(conditional, routineName)
+        regionStr += "if %s write(0,*) '*********** entering kernel %s finished *************** '\n" %(conditional, routineName)
+        region_domains = getDomainsWithParallelRegionTemplate(parallelRegionTemplate)
         for symbol in self.currDependantSymbols:
             offsets = []
-            for i in range(len(symbol.domains) - symbol.numOfParallelDomains):
-                offsets.append("4")
+            symbol_domain_names = [domain[0] for domain in symbol.domains]
+            for region_domain in region_domains:
+                if region_domain.name in symbol_domain_names:
+                    offsets.append(region_domain.startsAt if region_domain.startsAt != None else "1")
+            for i in range(len(symbol.domains) - len(offsets)):
+                offsets.append("1")
             if symbol.intent == "in" or symbol.intent == "inout":
-                result = result + "if %s then\n\twrite(0,*) '%s@1,1(,1)', %s\nend if\n" %(conditional, symbol.name, symbol.accessRepresentation(iterators, offsets))
+                symbol_access = symbol.accessRepresentation(iterators, offsets)
+                regionStr += "if %s then\n\twrite(0,*) '%s', %s\nend if\n" %(conditional, symbol_access, symbol_access)
 
-        result = result + "if %s write(0,*) '**********************************************'\n" %(conditional)
-        result = result + "if %s write(0,*) ''\n" %(conditional)
-
-        return result
-
+        regionStr += "if %s write(0,*) '**********************************************'\n" %(conditional)
+        regionStr += "if %s write(0,*) ''\n" %(conditional)
+        regionStr += self.safetyOutsideRegion(domains)
+        return regionStr
 
     def subroutineEnd(self, dependantSymbols, routineIsKernelCaller):
         self.currRoutineNode = None

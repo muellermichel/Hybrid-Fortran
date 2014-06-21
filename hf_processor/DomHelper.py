@@ -30,6 +30,13 @@ from GeneralHelper import BracketAnalyzer, enum
 import uuid
 import re
 
+class ParallelRegionDomain(object):
+    def __init__(self, name, size, startsAt=None, endsAt=None):
+        self.name = name
+        self.size = size
+        self.startsAt = startsAt
+        self.endsAt = endsAt
+
 #TODO: refactor the call lookups in the parser to use this index
 def getCallersByCalleeName(callNodes):
     callersByCalleeName = {}
@@ -90,7 +97,6 @@ def appendSeparatedTextAsNodes(text, separator, doc, parent, nodeName):
 
 def firstDuplicateChild(parent, newNode):
     '''Get first duplicate for the newNode within parent's childNodes'''
-
     nodesWithDuplicateAttributes = []
     for childNode in parent.childNodes:
         if hasattr(childNode, "tagName") and ((not hasattr(newNode, "tagName")) or childNode.tagName != newNode.tagName):
@@ -115,7 +121,6 @@ def firstDuplicateChild(parent, newNode):
             #the inner loop has never breaked -> current child shares all attribute values with newNode.
             nodesWithDuplicateAttributes.append(childNode)
             break
-
     if len(nodesWithDuplicateAttributes) == 0:
         return None
 
@@ -128,10 +133,8 @@ def firstDuplicateChild(parent, newNode):
     for node in nodesWithDuplicateAttributes:
         if len(newNode.childNodes) != len(node.childNodes):
             continue
-
         newNodeContentCopy = newNodeContent.copy()
         nodeValue = getNodeValue(node)
-
         if newNodeContentCopy.get("value", None) != None:
             if not nodeValue:
                 continue
@@ -296,29 +299,38 @@ def getDomainDependantTemplatesAndEntries(cgDoc, routineNode):
             result.append((template, entry))
     return result
 
-def domainNamesAndSizesWithParallelRegionTemplate(parallelRegionTemplate):
-    domNodes = parallelRegionTemplate.getElementsByTagName('domName')
-    if not domNodes or len(domNodes) != 1:
-        raise Exception('parallel region template without valid domain definition.\nTemplate:%s' %(parallelRegionTemplate.toprettyxml()))
-    entries = domNodes[0].getElementsByTagName('entry')
-    domainNames = []
-    for entry in entries:
-        domainNames.append(entry.firstChild.nodeValue)
-    domSizeNodes = parallelRegionTemplate.getElementsByTagName('domSize')
-    if not domSizeNodes or len(domSizeNodes) != 1:
-        raise Exception('parallel region template without valid domain size definition')
-    entries = domSizeNodes[0].getElementsByTagName('entry')
-    domainSizes = []
-    for entry in entries:
-        domainSizes.append(entry.firstChild.nodeValue)
-    if len(domainSizes) != len(domainNames):
-        raise Exception('number of domain size definition does not match number of domains')
-    return domainNames, domainSizes
+def getDomainsWithParallelRegionTemplate(parallelRegionTemplate):
+    def getAttributeEntries(attributeName, mandatory=False, expectedLength=None):
+        domNodes = parallelRegionTemplate.getElementsByTagName(attributeName)
+        if mandatory and (domNodes == None or len(domNodes) != 1):
+            raise Exception('%s definition is invalid in parallelRegion\nTemplate:%s' %(attributeName, parallelRegionTemplate.toprettyxml()))
+        elif not mandatory and (domNodes == None or len(domNodes) == 0):
+            return None
+        nodeEntries = domNodes[0].getElementsByTagName('entry')
+        if expectedLength != None and len(nodeEntries) != expectedLength:
+            raise Exception('invalid %s definition: has %i entries - %i are expected' %(attributeName, len(nodeEntries), expectedLength))
+        result = []
+        for entry in nodeEntries:
+            result.append(entry.firstChild.nodeValue)
+        return result
+    domainNames = getAttributeEntries('domName', mandatory=True)
+    domainSizes = getAttributeEntries('domSize', mandatory=True, expectedLength=len(domainNames))
+    startsAtEntries = getAttributeEntries('startAt', mandatory=False, expectedLength=len(domainNames))
+    endsAtEntries = getAttributeEntries('endAt', mandatory=False, expectedLength=len(domainNames))
+    domains = []
+    for index, domainName in enumerate(domainNames):
+        domains.append(ParallelRegionDomain(
+            name=domainName,
+            size=domainSizes[index],
+            startsAt=startsAtEntries[index] if startsAtEntries != None else None,
+            endsAt=endsAtEntries[index] if endsAtEntries != None else None
+        ))
+    return domains
 
 def appliesTo(appliesToTests, parallelRegionTemplate):
     appliesToNodes = parallelRegionTemplate.getElementsByTagName("appliesTo")
     if not appliesToNodes or len(appliesToNodes) == 0:
-        return False
+        return True
     entries = appliesToNodes[0].getElementsByTagName("entry")
     if not entries or len(entries) == 0:
         raise Exception("Unexpected parallel region template definition: AppliesTo node without entry.")

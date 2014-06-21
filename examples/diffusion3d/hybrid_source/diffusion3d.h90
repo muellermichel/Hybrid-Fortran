@@ -1,0 +1,186 @@
+#include "../source/storage.h"
+#define M_PI 3.14159265358979323846d0
+
+module diffusion
+contains
+subroutine diffusion3d_inner(f, fn, coeff_east_west, coeff_north_south, coeff_top_bottom, coeff_center)
+	implicit none
+	real(FLOAT_BYTE_LENGTH), intent(in), dimension(DIM_X, DIM_Y, DIM_Z) :: f
+	real(FLOAT_BYTE_LENGTH), intent(out), dimension(DIM_X, DIM_Y, DIM_Z) :: fn
+	real(FLOAT_BYTE_LENGTH), intent(in) :: coeff_east_west, coeff_north_south, coeff_top_bottom, coeff_center
+	@domainDependant {attribute(autoDom)}
+	f, fn, coeff_east_west, coeff_north_south, coeff_top_bottom, coeff_center
+	@end domainDependant
+
+	@parallelRegion{domName(x, y, z), domSize(DIM_X,DIM_Y,DIM_Z), startAt(HALO_X+1,HALO_Y+1,HALO_Z+1), endAt(DIM_X-HALO_X,DIM_Y-HALO_Y,DIM_Z-HALO_Z)}
+	fn(x,y,z) = coeff_center*f(x,y,z) &
+	      + coeff_east_west*f(x+1,y,z) + coeff_east_west*f(x-1,y,z) &
+	      + coeff_north_south*f(x,y+1,z) + coeff_north_south*f(x,y-1,z) &
+	      + coeff_top_bottom*f(x,y,z+1) + coeff_top_bottom*f(x,y,z-1)
+	@end parallelRegion
+end subroutine
+
+subroutine wallBoundaryYZ(fn)
+	implicit none
+	real(FLOAT_BYTE_LENGTH), intent(inout), dimension(DIM_X, DIM_Y, DIM_Z) :: fn
+	@domainDependant {attribute(autoDom)}
+	fn
+	@end domainDependant
+
+	@parallelRegion{domName(y,z), domSize(DIM_Y,DIM_Z), startAt(HALO_Y+1,HALO_Z+1), endAt(DIM_Y-HALO_Y,DIM_Z-HALO_Z)}
+	fn(1,y,z) = fn(2,y,z)
+	fn(DIM_X,y,z) = fn(DIM_X-1,y,z)
+	@end parallelRegion
+end subroutine
+
+subroutine wallBoundaryXZ(fn)
+	implicit none
+	real(FLOAT_BYTE_LENGTH), intent(inout), dimension(DIM_X, DIM_Y, DIM_Z) :: fn
+	@domainDependant {attribute(autoDom)}
+	fn
+	@end domainDependant
+
+	@parallelRegion{domName(x,z), domSize(DIM_X,DIM_Z), startAt(HALO_X+1,HALO_Z+1), endAt(DIM_X-HALO_X,DIM_Z-HALO_Z)}
+	fn(x,1,z) = fn(x,2,z)
+	fn(x,DIM_Y,z) = fn(x,DIM_Y-1,z)
+	@end parallelRegion
+end subroutine
+
+subroutine wallBoundaryXY(fn)
+	implicit none
+	real(FLOAT_BYTE_LENGTH), intent(inout), dimension(DIM_X, DIM_Y, DIM_Z) :: fn
+	@domainDependant {attribute(autoDom)}
+	fn
+	@end domainDependant
+
+	@parallelRegion{domName(x,y), domSize(DIM_X,DIM_Y), startAt(HALO_X+1,HALO_Y+1), endAt(DIM_X-HALO_X,DIM_Y-HALO_Y)}
+	fn(x,y,1) = fn(x,y,2)
+	fn(x,y,DIM_Z) = fn(x,y,DIM_Z-1)
+	@end parallelRegion
+end subroutine
+
+subroutine diffusion3d(f, fn, coeff_east_west, coeff_north_south, coeff_top_bottom, coeff_center)
+	implicit none
+	real(FLOAT_BYTE_LENGTH), intent(in), dimension(DIM_X, DIM_Y, DIM_Z) :: f
+	real(FLOAT_BYTE_LENGTH), intent(out), dimension(DIM_X, DIM_Y, DIM_Z) :: fn
+	real(FLOAT_BYTE_LENGTH), intent(in) :: coeff_east_west, coeff_north_south, coeff_top_bottom, coeff_center
+	@domainDependant {attribute(autoDom)}
+	f, fn, coeff_east_west, coeff_north_south, coeff_top_bottom, coeff_center
+	@end domainDependant
+
+	call diffusion3d_inner(f, fn, coeff_east_west, coeff_north_south, coeff_top_bottom, coeff_center)
+	call wallBoundaryYZ(fn)
+	call wallBoundaryXZ(fn)
+	call wallBoundaryXY(fn)
+end subroutine
+
+subroutine mainloop(f, fn, kappa, time, dt, dx, dy, dz)
+	implicit none
+	real(FLOAT_BYTE_LENGTH), intent(inout), dimension(DIM_X, DIM_Y, DIM_Z) :: f
+	real(FLOAT_BYTE_LENGTH), intent(out), dimension(DIM_X, DIM_Y, DIM_Z) :: fn
+	real(FLOAT_BYTE_LENGTH), intent(in) :: kappa, dt, dx, dy, dz
+	real(FLOAT_BYTE_LENGTH), intent(inout) :: time
+	integer :: icnt
+	real(FLOAT_BYTE_LENGTH) :: coeff_east_west, coeff_north_south, coeff_top_bottom, coeff_center
+
+	coeff_east_west = kappa*dt/(dx*dx)
+	coeff_north_south = kappa*dt/(dy*dy)
+	coeff_top_bottom = kappa*dt/(dz*dz)
+	coeff_center = 1.0 - (2 * coeff_east_west + 2 * coeff_north_south + 2 * coeff_top_bottom)
+
+	write(6,*) "Starting Hybrid Fortran Version of 3D Diffusion"
+	write(6,"(A,E13.5,A,E13.5,A,E13.5)") "kappa:", kappa, ", dt:", dt, ", dx:", dx
+	do icnt=0,90000-1
+		call diffusion3d(f, fn, coeff_east_west, coeff_north_south, coeff_top_bottom, coeff_center)
+		f = fn
+		time = time + dt
+		if(modulo(icnt,100) .eq. 0) then
+			write(6,"(A,I5,A,E13.5)") "time after iteration ", icnt+1, ":",time
+		end if
+		if (time + 0.5*dt >= 0.1) exit
+	end do
+end subroutine
+
+subroutine initial(f, dx, dy, dz)
+	implicit none
+	real(FLOAT_BYTE_LENGTH), intent(out), dimension(DIM_X, DIM_Y, DIM_Z) :: f
+	real(FLOAT_BYTE_LENGTH), intent(in) :: dx, dy, dz
+	real(FLOAT_BYTE_LENGTH) :: k, x, y, z
+	integer :: ix, iy, iz
+
+	k = 2.0*M_PI
+	do iz=1,DIM_Z
+		do iy=1,DIM_Y
+			do ix=1,DIM_X
+				x = dx*(real(ix - 1 - HALO_X) + 0.5d0)
+				y = dy*(real(iy - 1 - HALO_Y) + 0.5d0)
+				z = dz*(real(iz - 1 - HALO_Z) + 0.5d0)
+				f(ix,iy,iz) = 0.125*(1.0 - cos(k*x))*(1.0 - cos(k*y))*(1.0 - cos(k*z))
+			end do
+		end do
+	end do
+end subroutine
+
+function accuracy(f, kappa, time, dx, dy, dz)
+	implicit none
+	real(FLOAT_BYTE_LENGTH), intent(in), dimension(DIM_X, DIM_Y, DIM_Z) :: f
+	real(FLOAT_BYTE_LENGTH), intent(in) :: kappa, time, dx, dy, dz
+	real(8), intent(out) :: accuracy
+	real(FLOAT_BYTE_LENGTH) :: k, a, f0
+	real(8) :: ferr, newErr, x, y, z, eps
+	integer :: ix, iy, iz
+	logical :: firstErrorFound
+
+	k = 2.0*M_PI
+	a = exp(-kappa*time*(k*k))
+	ferr = 0.0d0
+	firstErrorFound = .false.
+	eps = 1E-8
+
+	do iz=HALO_Z+1,DIM_Z-HALO_Z
+		do iy=HALO_Y+1,DIM_Y-HALO_Y
+			do ix=HALO_X+1,DIM_X-HALO_X
+				x = dx*(real(ix - 1 - HALO_X) + 0.5d0)
+				y = dy*(real(iy - 1 - HALO_Y) + 0.5d0)
+				z = dz*(real(iz - 1 - HALO_Z) + 0.5d0)
+				f0 = 0.125d0*(1.0d0 - a*cos(k*x)) &
+				            *(1.0d0 - a*cos(k*y)) &
+				            *(1.0d0 - a*cos(k*z))
+				newErr = (f(ix,iy,iz) - f0)*(f(ix,iy,iz) - f0)
+				if (.not. firstErrorFound .and. newErr > eps) then
+					write(6,"(A,I5,A,I5,A,I5,A,E13.5,A,E13.5,A,E13.5)") "first error found at ", ix, ",", iy, ",", iz, ": ", newErr, "; reference: ", f0, ", actual: ", f(ix, iy, iz)
+					firstErrorFound = .true.
+				end if
+				ferr = ferr + newErr
+			end do
+		end do
+	end do
+
+	if (.not. firstErrorFound) then
+		write(6,*) "no error found larger than epsilon in the numeric approximation"
+	end if
+
+	accuracy = sqrt(ferr/real(DIM_X*DIM_Y*DIM_Z));
+end function
+end module diffusion
+
+program main
+	use diffusion
+	real(FLOAT_BYTE_LENGTH), dimension(DIM_X, DIM_Y, DIM_Z) :: f, fn
+	real(FLOAT_BYTE_LENGTH) :: kappa, dt, dx, dy, dz, time, L, error
+
+	L = 1.0
+	dx = L/real(DIM_X_INNER)
+	dy = L/real(DIM_Y_INNER)
+	dz = L/real(DIM_Z_INNER)
+	kappa = 0.1
+	dt = 0.1*dx*dx/kappa;
+	time = 0.0;
+
+	call initial(f,dx,dy,dz)
+  	call mainloop(f, fn, kappa, time, dt, dx, dy, dz)
+  	error = accuracy(f,kappa,time,dx,dy,dz);
+	write(6,*) "Root Mean Square Error: ", error
+
+	stop
+end program main

@@ -216,16 +216,28 @@ class FortranImplementation(object):
         return ''
 
 class OpenMPFortranImplementation(FortranImplementation):
+    def __init__(self):
+        self.currDependantSymbols = None
+
+    def declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplate):
+        self.currDependantSymbols = dependantSymbols
+        return FortranImplementation.declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplate)
+
     def parallelRegionBegin(self, parallelRegionTemplate):
-        openMPLines = "!$OMP PARALLEL\n!$OMP DO SCHEDULE(RUNTIME)\n"
+        if self.currDependantSymbols == None:
+            raise Exception("parallel region without any dependant arrays")
+        openMPLines = "!$OMP PARALLEL\n!$OMP DO SCHEDULE(RUNTIME) "
+        openMPLines += "DEFAULT(Private) "
+        openMPLines += "shared(%s)\n" %(','.join([symbol.deviceName() for symbol in self.currDependantSymbols if symbol.domains and len(symbol.domains) > 0]))
         return openMPLines + FortranImplementation.parallelRegionBegin(self, parallelRegionTemplate)
 
     def parallelRegionEnd(self, parallelRegionTemplate):
         openMPLines = "\n!$OMP END DO\n!$OMP END PARALLEL\n"
         return FortranImplementation.parallelRegionEnd(self, parallelRegionTemplate) + openMPLines
 
-    # def additionalIncludes(self):
-    #     return "use omp_lib\n"
+    def subroutineEnd(self, dependantSymbols, routineIsKernelCaller):
+        self.currDependantSymbols = None
+        return FortranImplementation.subroutineEnd(self, dependantSymbols, routineIsKernelCaller)
 
 class CUDAFortranImplementation(FortranImplementation):
 

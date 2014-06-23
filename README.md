@@ -1,28 +1,22 @@
-Copyright (C) 2013 Michel Müller (Typhoon Computing), RIKEN Advanced Institute for Computational Science (AICS)
-
-This file is part of Hybrid Fortran.
-
-Hybrid Fortran is free software: you can redistribute it and/or modify
-it under the terms of the GNU Lesser General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Hybrid Fortran is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU Lesser General Public License for more details.
-
-You should have received a copy of the GNU Lesser General Public License
-along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
-
-Hybrid Fortran v0.85
+Hybrid Fortran v0.90
 ====================
+# *Performance Portable Parallel Programming - Speedup your Fortran with CUDA and OpenMP in one Go*
+
+Hybrid Fortran is a directive based extension of the Fortran language. It is intended for enabling GPGPU acceleration of physical packages[1] while keeping x86 CPU compatibility and performance[2]. In the backend it automatically creates CUDA Fortran code for GPU and OpenMP Fortran code for CPU. Hybrid Fortran has been successfully used for porting the Physical Core of Japan's national next generation weather prediction model to GPGPU.
+
+You can also watch [my talk at the GTC 2013](http://nvidia.fullviewmedia.com/gtc2013/0320-211B-S3326.html).
+
+[1]: 'Physical package' here means code for high performance computations where the data access dependencies are orthogonal to the parallelized dimensions - as opposed to dynamical packages with general stencil dependencies.
+
+[2]: Between 20%-30% (~10k codelines) of this weather model has already successfully been ported to GPGPU using Hybrid Fortran, showing a speedup of 3.5x with one Kepler card vs. 6 core Westmere. Fully integrated with the already ported dynamics[3] we expect speedups in the region of 5x-7x per Kepler card. Considering that compute nodes can carry twice as many kepler cards as CPUs, this allows substantial cost and power savings and/or increased grid resolution.
+
+[3]: T. Shimokawabe, T. Aoki, J. Ishida, K. Kawano, and C. Muroi, “145 TFlops performance on 3990 GPUs of TSUBAME 2.0 supercomputer for an operational weather prediction.,” Procedia CS, vol. 4
+
 
 Table of Contents
 -----------------
 
 * [Version History](#version-history)
-* [What is Hybrid Fortran?](#what-is-hybrid-fortran)
 * [Why Hybrid Fortran?](#why-hybrid-fortran)
 * [Example](#example)
 * [Features](#features)
@@ -59,18 +53,6 @@ Version History
         <td>First public release. Intended for physical packages with data dependencies orthogonal to parallelized data dimensions (i.e. no halo regions).</td>
     </tr>
 </table>
-
-What is Hybrid Fortran?
------------------------
-Hybrid Fortran is a directive based extension of the Fortran language. It is intended for enabling GPGPU acceleration of physical packages[1] while keeping x86 CPU compatibility and performance[2]. In the backend it automatically creates CUDA Fortran code for GPU and OpenMP Fortran code for CPU. Hybrid Fortran has been successfully used for porting the Physical Core of Japan's national next generation weather prediction model to GPGPU.
-
-You can also watch [my talk at the GTC 2013](http://nvidia.fullviewmedia.com/gtc2013/0320-211B-S3326.html).
-
-[1]: 'Physical package' here means code for high performance computations where the data access dependencies are orthogonal to the parallelized dimensions - as opposed to dynamical packages with general stencil dependencies.
-
-[2]: Between 20%-30% (~10k codelines) of this weather model has already successfully been ported to GPGPU using Hybrid Fortran, showing a speedup of 3.5x with one Kepler card vs. 6 core Westmere. Fully integrated with the already ported dynamics[3] we expect speedups in the region of 5x-7x per Kepler card. Considering that compute nodes can carry twice as many kepler cards as CPUs, this allows substantial cost and power savings and/or increased grid resolution.
-
-[3]: T. Shimokawabe, T. Aoki, J. Ishida, K. Kawano, and C. Muroi, “145 TFlops performance on 3990 GPUs of TSUBAME 2.0 supercomputer for an operational weather prediction.,” Procedia CS, vol. 4
 
 Why Hybrid Fortran?
 -------------------

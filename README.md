@@ -2,20 +2,20 @@ Hybrid Fortran v0.90
 ====================
 # *Performance Portable Parallel Programming - Speedup your Fortran with CUDA and OpenMP in one Go*
 
-Hybrid Fortran is a directive based extension of the Fortran language. It is intended for enabling GPGPU acceleration of physical packages[1] while keeping x86 CPU compatibility and performance[2]. In the backend it automatically creates CUDA Fortran code for GPU and OpenMP Fortran code for CPU. Hybrid Fortran has been successfully used for porting the Physical Core of Japan's national next generation weather prediction model to GPGPU.
+Hybrid Fortran is ..
+* .. a directive based extension for the Fortran language.
+* .. a way for you to keep writing your Fortran code the way you're used to - only now with GPGPU support.
+* .. a preprocessor for your code - its input are Fortran files (with Hybrid Fortran extensions), its output is CUDA Fortran or OpenMP Fortran code (or whatever else you'd like to have as a backend).
+* .. a build system that handles building two separate versions (CPU / GPU) of your codebase automatically, including all the preprocessing.
+* .. a test system that handles verification of your outputs automatically after setup.
+* .. a framework for you to build your own parallel code implementations (OpenCL, ARM, FPGA, Hamster Wheel.. as long as it has some parallel Fortran support you're good) while keeping the same source files.
 
-You can also watch [my talk at the GTC 2013](http://nvidia.fullviewmedia.com/gtc2013/0320-211B-S3326.html).
+Hybrid Fortran has been successfully used for porting the Physical Core of Japan's national next generation weather prediction model to GPGPU. We're currently planning to port the internationally used Open Source weather model WRF to Hybrid Fortran as well.
 
-[1]: 'Physical package' here means code for high performance computations where the data access dependencies are orthogonal to the parallelized dimensions - as opposed to dynamical packages with general stencil dependencies.
-
-[2]: Between 20%-30% (~10k codelines) of this weather model has already successfully been ported to GPGPU using Hybrid Fortran, showing a speedup of 3.5x with one Kepler card vs. 6 core Westmere. Fully integrated with the already ported dynamics[3] we expect speedups in the region of 5x-7x per Kepler card. Considering that compute nodes can carry twice as many kepler cards as CPUs, this allows substantial cost and power savings and/or increased grid resolution.
-
-[3]: T. Shimokawabe, T. Aoki, J. Ishida, K. Kawano, and C. Muroi, “145 TFlops performance on 3990 GPUs of TSUBAME 2.0 supercomputer for an operational weather prediction.,” Procedia CS, vol. 4
-
+Hybrid Fortran has been developed since 2012 by Michel Müller, MSc ETH Zurich, as a guest at Prof. Aoki's Gordon Bell award winning laboratory at the Tokyo Institute of Technology, as well as during a temporary stay at the RIKEN Advanced Institute for Computational Science in Kobe, Japan.
 
 Table of Contents
 -----------------
-
 * [Version History](#version-history)
 * [Why Hybrid Fortran?](#why-hybrid-fortran)
 * [Example](#example)
@@ -25,7 +25,6 @@ Table of Contents
 * [Current Restrictions](#current-restrictions)
 * [Commercial Support and Consulting](#commercial-support-and-consulting)
 * [Documentation and Results](#documentation-and-results)
-* [Roadmap](#roadmap)
 * [Credits](#credits)
 * [Contact Information](#contact-information)
 
@@ -56,21 +55,9 @@ Version History
 
 Why Hybrid Fortran?
 -------------------
-Experiences with [OpenACC](http://www.openacc-standard.org/) have shown that it is not well suited for the challenges presented in a physical package as defined in [1]. The main issue is a decrease in CPU performance because of increased cache misses when using loop structures suitable for GPGPU back on the CPU. Additionally, storage order abstraction is a big missing feature in the OpenACC standard, thus creating lots of additional code when trying to keep it performant on both CPU and GPU. For this reason, Hybrid Fortran supports multiple loop structures (abstracted using the `@parallelRegion` directive).
+Experiences with [OpenACC](http://www.openacc-standard.org/) have shown that it is not well suited to port a so called 'physical core' as defined in [1]. The main issue is a decrease in CPU performance because of increased cache misses when using loop structures suitable for GPGPU back on the CPU. Additionally, storage order abstraction is a big missing feature in the OpenACC standard, thus creating lots of additional code when trying to keep it performant on both CPU and GPU (since these architectures often need different storage orders to be efficient). For this reason, Hybrid Fortran supports multiple loop structures (abstracted using the `@parallelRegion` directive) as well as multiple storage orders (defined once per symbol and subroutine using the `@domainDependant` directive - your computational code can be left alone). Additionally, compiler based approaches make debugging typically rather difficult - in case of OpenACC, in the best case you will debug automatically created C code, in the worst case PTX instructions. Hybrid Fortran uses a 1-to-1 mapping of your codebase to Fortran 90 code - this enables you to debug in a familiar language and with
 
-Hybrid Fortran then is part of a new approach for porting large legacy codebases to hybrid CPU+GPGPU support with high performance requirements:
-
-1. Port a small but representative sample code to GPGPU, using the endorsed tools that let you keep your legacy code as much as possible while meeting your performance expectations. Such tools currently include CUDA C, CUDA Fortran and OpenACC.
-
-2. Evaluate the required code changes as well as the performance of the approach and choose what gets you there the closest.
-
-3. Spend somewhere between 10%-30% of your time budget on a preprocessor and/or framework that automates as much of the required code changes as possible. Your user code should resemble as closely as possible the original CPU optimized code, in order to decrease subsequent portation time and to keep the CPU version at the same performance.
-
-4. Port your codebase according to the syntax devised in (3).
-
-5. Integrate your codebase into your production environment.
-
-Hybrid Fortran has the potential to speed up the portation of your physical packages massively. It allows you to profit from lots of work that has gone into porting Japan's next generation weather model. More precisely, it will remove much of your burden in step (1), (2), (3) and (5), allowing you to concentrate on the really interesting problems, such as carving out the last 30% of your super computers. Please note that it may still make sense to adapt the framework to your specific needs in step (3). At [Typhoon Computing](http://typhooncomputing.com) we have the kind of know-how that will make this whole process as smooth as possible for you. But of course we very much invite to adapt this framework with your in house team - and we're always glad about pull requests.
+[1]: 'Physical core' here means code for high performance computations where the data access dependencies are orthogonal to the parallelized dimensions, resulting in 'loose loops' being optimal on the CPU - as opposed to dynamical packages with general stencil dependencies and tight loops being used on all architectures.
 
 Example
 -------
@@ -215,7 +202,7 @@ For more details please refer to the documentation.
 
 Commercial Support and Consulting
 ---------------------------------
-Commercial support as well as Consulting will be available from June 2013 through [Typhoon Computing](http://typhooncomputing.com) on a per-call basis. Please contact me as soon as possible if you're interested in this offering.
+Commercial support as well as Consulting is available through [Typhoon Computing](http://typhooncomputing.com) on a per-call basis. Please contact me if you're interested in this offering.
 
 Documentation and Results
 -------------------------
@@ -229,7 +216,7 @@ We expect to publish some scientific papers on this soon.
 
 If you'd like to get the background story (why would I do such a thing), you can read my [Master Thesis from 2012 (slightly updated)](https://github.com/muellermichel/Hybrid-Fortran/raw/master/doc/Thesis_updated_2013-3.pdf). I plan on doing a blog post, explaining the background story of this project soon.
 
-Roadmap
+<!-- Roadmap
 -------
 Please note: The time frames for this roadmap will depend on your demands (both non-commercial and commercial requests). For this reason I heavily recommend contacting me in case you're waiting on one of the specified features - I will need your feedback for deciding on what to prioritize. Each of the features specified up and including v1.0 could be accomplished within a matter of days, however I can't (yet) make this my fulltime job yet, so I've chosen rather pessimistic time frames.
 
@@ -244,7 +231,7 @@ Please note: The time frames for this roadmap will depend on your demands (both 
         <td>Summer 2014</td>
         <td>I'm currently doing preliminary work for porting WRF to Hybrid Fortran. Functionality will therefore be extended in the coming months. Especially general stencil compatibility should be achieved soon.</td>
     </tr>
-   <!--  <tr>
+    <tr>
         <td>v1.0</td>
         <td>Early 2014</td>
         <td>Functionality extended for dynamical packages with arbitrary stencil data accesses. Halo regions will need to be implemented manually using Hybrid Fortran syntax. In this version, the parallel regions will be required to be at the same place for both CPU and GPU implementation, if used for dynamical code with parallel region offset accesses.</td>
@@ -263,13 +250,14 @@ Please note: The time frames for this roadmap will depend on your demands (both 
         <td>v2.1</td>
         <td>Late 2015</td>
         <td>Automatic implementation of halo communication for multinode support.</td>
-    </tr> -->
-</table>
+    </tr>
+</table> -->
 
 Credits
 -------
 - 'Kracken' module for parsing Fortran program arguments by John S. Urban
-- Everything else in this repository by Michel Müller, in part created during employment at the Rikagaku Kenkyuujo Advanced Institute for Computational Science (RIKEN AICS).
+- Diffusion3d example based on original code by Prof. Takayuki Aoki
+- Everything else in this repository by Michel Müller, written at Tokyo Institute of Technology (Aoki Laboratory) and RIKEN Advanced Institute for Computational Science, Kobe
 
 Contact Information
 -------------------

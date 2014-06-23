@@ -1,6 +1,7 @@
 Hybrid Fortran v0.90
 ====================
-### *Performance Portable Parallel Programming - Speedup your Fortran with CUDA and OpenMP in one Go*
+### *Performance Portable Parallel Programming -*
+### *Accelerate your Fortran with CUDA and OpenMP in one go*
 
 Hybrid Fortran is ..
 * .. a directive based extension for the Fortran language.

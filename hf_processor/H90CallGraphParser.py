@@ -687,7 +687,7 @@ class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
         functionAttr = getattr(implementationAttr, implementationFunctionName)
         self.prepareLine(functionAttr(templates[0]), self.tab_insideSub)
 
-    def processSymbolMatchAndGetAdjustedLine(self, line, paramDeclMatch, symbol, isInsideSubroutineCall):
+    def processSymbolMatchAndGetAdjustedLine(self, line, symbolMatch, symbol, isInsideSubroutineCall):
         def getAccessPattern(numberOfDimensions):
             if numberOfDimensions == 0:
                 return r"\s*((?:[^(]|$).*)"
@@ -711,7 +711,7 @@ class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
             return accMatch, numberOfDomainsInAccessor
 
         #match the symbol's postfix again in the current given line. (The prefix could have changed from the last match.)
-        postfix = paramDeclMatch.group(2)
+        postfix = symbolMatch.group(2)
         postfixEscaped = re.escape(postfix)
         pattern1 = r"(.*?(?:\W|^))" + re.escape(symbol.deviceName()) + postfixEscaped + r"\s*"
         currMatch = re.match(pattern1, line, re.IGNORECASE)

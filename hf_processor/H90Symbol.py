@@ -128,7 +128,7 @@ class Symbol(object):
 		self.isMatched = False
 		self.declPattern = re.compile(r'(\s*(?:real|integer|logical).*?[\s,:]+)' + re.escape(name) + r'((?:\s|\,|\(|$)+.*)', \
 			re.IGNORECASE)
-		self.namePattern = re.compile(r'((?:[^\"\']|(?:\".*?\")|(?:\'.*?\'))*?(?:\W|^))' + re.escape(name) + r'(?:_d)?(\W+.*|\Z)', \
+		self.namePattern = re.compile(r'((?:[^\"\']|(?:\".*\")|(?:\'.*\'))*?(?:\W|^))' + re.escape(name) + r'(?:_d)?((?:\W.*)|\Z)', \
 			re.IGNORECASE)
 		self.symbolImportPattern = re.compile(r'^\s*use\s*(\w*)[,\s]*only\s*\:.*?\W' + re.escape(name) + r'\W.*', \
 			re.IGNORECASE)

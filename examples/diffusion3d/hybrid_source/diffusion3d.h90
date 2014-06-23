@@ -64,7 +64,7 @@ subroutine diffusion3d(f, fn, coeff_east_west, coeff_north_south, coeff_top_bott
 	real(FLOAT_BYTE_LENGTH), intent(in), dimension(DIM_X, DIM_Y, DIM_Z) :: f
 	real(FLOAT_BYTE_LENGTH), intent(out), dimension(DIM_X, DIM_Y, DIM_Z) :: fn
 	real(FLOAT_BYTE_LENGTH), intent(in) :: coeff_east_west, coeff_north_south, coeff_top_bottom, coeff_center
-	@domainDependant {attribute(autoDom)}
+	@domainDependant {attribute(autoDom, present)}
 	f, fn, coeff_east_west, coeff_north_south, coeff_top_bottom, coeff_center
 	@end domainDependant
 
@@ -74,14 +74,30 @@ subroutine diffusion3d(f, fn, coeff_east_west, coeff_north_south, coeff_top_bott
 	call wallBoundaryXY(fn)
 end subroutine
 
-subroutine mainloop(f, fn, kappa, time, dt, dx, dy, dz)
+subroutine writeBack(f, fn)
+	implicit none
+	real(FLOAT_BYTE_LENGTH), intent(out), dimension(DIM_X, DIM_Y, DIM_Z) :: f
+	real(FLOAT_BYTE_LENGTH), intent(in), dimension(DIM_X, DIM_Y, DIM_Z) :: fn
+	@domainDependant {attribute(autoDom)}
+	f, fn
+	@end domainDependant
+
+	@parallelRegion{domName(x,y,z), domSize(DIM_X,DIM_Y,DIM_Z)}
+	f(x,y,z) = fn(x,y,z)
+	@end parallelRegion
+end subroutine
+
+subroutine mainloop(f, kappa, time, dt, dx, dy, dz)
 	implicit none
 	real(FLOAT_BYTE_LENGTH), intent(inout), dimension(DIM_X, DIM_Y, DIM_Z) :: f
-	real(FLOAT_BYTE_LENGTH), intent(out), dimension(DIM_X, DIM_Y, DIM_Z) :: fn
 	real(FLOAT_BYTE_LENGTH), intent(in) :: kappa, dt, dx, dy, dz
 	real(FLOAT_BYTE_LENGTH), intent(inout) :: time
-	integer :: icnt
 	real(FLOAT_BYTE_LENGTH) :: coeff_east_west, coeff_north_south, coeff_top_bottom, coeff_center
+	real(FLOAT_BYTE_LENGTH), dimension(DIM_X, DIM_Y, DIM_Z) :: fn
+	integer :: icnt
+	@domainDependant {attribute(autoDom, transferHere)}
+	f, fn, time, coeff_east_west, coeff_north_south, coeff_top_bottom, coeff_center
+	@end domainDependant
 
 	coeff_east_west = kappa*dt/(dx*dx)
 	coeff_north_south = kappa*dt/(dy*dy)
@@ -91,8 +107,9 @@ subroutine mainloop(f, fn, kappa, time, dt, dx, dy, dz)
 	write(6,*) "Starting Hybrid Fortran Version of 3D Diffusion"
 	write(6,"(A,E13.5,A,E13.5,A,E13.5)") "kappa:", kappa, ", dt:", dt, ", dx:", dx
 	do icnt=0,90000-1
+		!Fortran allocatables don't offer an efficient way to swap input and output, so we do some even/uneven unrolling for this job
 		call diffusion3d(f, fn, coeff_east_west, coeff_north_south, coeff_top_bottom, coeff_center)
-		f = fn
+		call writeBack(f, fn)
 		time = time + dt
 		if(modulo(icnt,100) .eq. 0) then
 			write(6,"(A,I5,A,E13.5)") "time after iteration ", icnt+1, ":",time
@@ -178,7 +195,7 @@ program main
 	time = 0.0;
 
 	call initial(f,dx,dy,dz)
-  	call mainloop(f, fn, kappa, time, dt, dx, dy, dz)
+  	call mainloop(f, kappa, time, dt, dx, dy, dz)
   	error = accuracy(f,kappa,time,dx,dy,dz);
 	write(6,*) "Root Mean Square Error: ", error
 

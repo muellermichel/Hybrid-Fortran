@@ -69,7 +69,7 @@ Experiences with [OpenACC](http://www.openacc-standard.org/) have shown that it 
 
 License
 -------
-Hybrid Fortran is available under GNU Lesser Public License (LGPL)
+Hybrid Fortran is available under GNU Lesser Public License (LGPL).
 
 Example
 -------

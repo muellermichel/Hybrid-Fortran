@@ -20,6 +20,7 @@ Table of Contents
 -----------------
 * [Version History](#version-history)
 * [Why Hybrid Fortran?](#why-hybrid-fortran)
+* [License](#license)
 * [Example](#example)
 * [Features](#features)
 * [Dependencies](#dependencies)
@@ -65,6 +66,10 @@ Why Hybrid Fortran?
 Experiences with [OpenACC](http://www.openacc-standard.org/) have shown that it is not well suited to port a so called 'physical core' as defined in [1]. The main issue is a decrease in CPU performance because of increased cache misses when using loop structures suitable for GPGPU back on the CPU. Additionally, storage order abstraction is a big missing feature in the OpenACC standard, thus creating lots of additional code when trying to keep it performant on both CPU and GPU (since these architectures often need different storage orders to be efficient). For this reason, Hybrid Fortran supports multiple loop structures (abstracted using the `@parallelRegion` directive) as well as multiple storage orders (defined once per symbol and subroutine using the `@domainDependant` directive - your computational code can be left alone). Additionally, compiler based approaches make debugging typically rather difficult. Hybrid Fortran uses a 1-to-1 mapping of your codebase to Fortran 90 code, i.e. it only inserts some code necessary to run your code on GPU and adjusts your array accesses - this enables you to debug in a familiar language and with code looking very close to what you've written yourself. Hybrid Fortran also provides very helpful debug modes that automatically insert print statements after kernels have been called, or even an emulated mode for printing within kernels. Emulated mode is also compatible with the Allinea DDT parallel debugger.
 
 [1]: 'Physical core' here means code for high performance computations where the data access dependencies are orthogonal to the parallelized dimensions, resulting in 'loose loops' being optimal on the CPU - as opposed to dynamical packages with general stencil dependencies and tight loops being used on all architectures.
+
+License
+-------
+Hybrid Fortran is available under GNU Lesser Public License (LGPL)
 
 Example
 -------

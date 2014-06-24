@@ -262,7 +262,8 @@ Please note: The time frames for this roadmap will depend on your demands (both 
 Credits
 -------
 - 'Kracken' module for parsing Fortran program arguments by John S. Urban
-- Diffusion3d example based on original code by Prof. Takayuki Aoki
+- 3D Diffusion example based on original code by Prof. Takayuki Aoki, Tokyo Institute of Technology
+- 2D Poisson FEM Solver example by Dr. Johan Hysing, Tokyo Institute of Technology
 - Everything else in this repository by Michel Müller, written at Tokyo Institute of Technology (Aoki Laboratory) and RIKEN Advanced Institute for Computational Science, Kobe
 
 Contact Information

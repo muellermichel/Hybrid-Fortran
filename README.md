@@ -1,6 +1,6 @@
 Hybrid Fortran v0.90
 ====================
-#### *Performance Portable Parallel Programming - Target CUDA and OpenMP in a Unified Codebase
+#### Performance Portable Parallel Programming - Target CUDA and OpenMP in a Unified Codebase
 
 Hybrid Fortran is ..
 * .. a directive based extension for the Fortran language.

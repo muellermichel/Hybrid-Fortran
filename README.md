@@ -4,7 +4,7 @@ Hybrid Fortran v0.90
 
 Hybrid Fortran is ..
 * .. a directive based extension for the Fortran language.
-* .. a way for you to keep writing your Fortran code the way you're used to - only now with GPGPU support.
+* .. a way for you to keep writing your Fortran code like you're used to - only now with GPGPU support.
 * .. a preprocessor for your code - its input are Fortran files (with Hybrid Fortran extensions), its output is CUDA Fortran or OpenMP Fortran code (or whatever else you'd like to have as a backend).
 * .. a build system that handles building two separate versions (CPU / GPU) of your codebase automatically, including all the preprocessing.
 * .. a test system that handles verification of your outputs automatically after setup.

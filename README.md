@@ -10,7 +10,7 @@ Hybrid Fortran is ..
 * .. a test system that handles verification of your outputs automatically after setup.
 * .. a framework for you to build your own parallel code implementations (OpenCL, ARM, FPGA, Hamster Wheel.. as long as it has some parallel Fortran support you're good) while keeping the same source files.
 
-[![Screencast: Writing a Unified Stencil Code](http://img.youtube.com/vi/3Of4kFQQRi4/0.jpg)](http://www.youtube.com/watch?v=3Of4kFQQRi4)
+[![Screencast: Writing a Unified Stencil Code](/../master/doc/ScreencastThumbnail.png)](http://www.youtube.com/watch?v=3Of4kFQQRi4)
 
 Hybrid Fortran has been successfully used for porting the Physical Core of Japan's national next generation weather prediction model to GPGPU. We're currently planning to port the internationally used Open Source weather model WRF to Hybrid Fortran as well.
 

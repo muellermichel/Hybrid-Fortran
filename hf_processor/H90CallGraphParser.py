@@ -58,6 +58,7 @@ class FortranCodeSanitizer:
         self.endSubroutinePattern = re.compile(r'end\s*subroutine.*', re.IGNORECASE)
         self.tabDecreasingPattern = re.compile(r'(end\s|enddo).*', re.IGNORECASE)
         self.commentedPattern = re.compile(r'\s*\!', re.IGNORECASE)
+        self.openMPLinePattern = re.compile(r'\s*\!\$OMP.*', re.IGNORECASE)
         self.preprocessorPattern = re.compile(r'\s*\#', re.IGNORECASE)
         self.currNumOfTabs = 0
 
@@ -81,7 +82,8 @@ class FortranCodeSanitizer:
                 continue
             currLine = codeLine
             while len(currLine) > howManyCharsPerLine - len(lineSep):
-                if commentChar in currLine:
+                isOpenMPDirectiveLine = self.openMPLinePattern.match(currLine) != None
+                if commentChar in currLine and not isOpenMPDirectiveLine:
                     commentPos = currLine.find(commentChar)
                     if commentPos <= howManyCharsPerLine:
                         break
@@ -92,7 +94,10 @@ class FortranCodeSanitizer:
                     #-> bail out in order to avoid infinite loop - just keep the line as it was.
                     raise Exception("The following line could not be broken up for Fortran compatibility - no suitable spaces found: %s" %(currLine))
                 sanitizedCodeLines.append(currLine[:blankPos] + lineSep)
-                currLine = currLine[blankPos:]
+                if isOpenMPDirectiveLine:
+                    currLine = '!$OMP& ' + currLine[blankPos:]
+                else:
+                    currLine = currLine[blankPos:]
             if toBeCommented:
                 currLine = commentChar + " " + currLine
             sanitizedCodeLines.append(currLine)

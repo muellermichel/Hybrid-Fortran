@@ -1,0 +1,48 @@
+module stencil
+contains
+  subroutine stencil(n, m, a, b)
+    implicit none
+    integer(4), intent(in) :: n, m
+    real(8), intent(in), dimension(n,m) :: a
+    real(8), intent(out), dimension(n,m) :: b
+    @domainDependant{attribute(autoDom)}
+    a, b, n, m
+    @end domainDependant
+
+    @parallelRegion{domName(i,j), domSize(n,m), endAt(n-1,m)}
+    b(i,j) = a(i,j) + a(i+1,j)
+    @end parallelRegion
+  end subroutine
+
+  subroutine stencil_wrapper(n, m, a, b)
+    implicit none
+    integer(4), intent(in) :: n, m
+    real(8), intent(in), dimension(n,m) :: a
+    real(8), intent(out), dimension(n,m) :: b
+    @domainDependant{attribute(autoDom)}
+    a, b
+    @end domainDependant
+
+    call stencil(n, m, a, b)
+  end subroutine
+end module
+
+program main
+  use stencil
+  implicit none
+  real(8), dimension(:,:), allocatable :: a, b
+  integer(4) :: n, m
+
+  n = 4
+  m = 4
+  allocate(a(n,m))
+  allocate(b(n,m))
+  a(:,:) = 1.0d0
+  b(:,:) = 0.0d0
+  call stencil_wrapper(n, m, a, b)
+  write(6,*) b
+  deallocate(a)
+  deallocate(b)
+
+  stop
+end program main

@@ -33,15 +33,15 @@ CONTAINS
     n = size(u,1)
 
     ! calculate initial defect (and corresponding l2 norm)
-    call call_matvec(n,n,h,s,u,-1.0_RP,f)
+    call call_matvec(n,h,s,u,-1.0_RP,f)
     dnorm0 = sqrt(sum(h*h))
 
     if ( i_print/=0 ) then
-       write (*,*) 
+       write (*,*)
        write (*,*) '--------+--------------+--------------+'
        write (*,*) '  iter. | sol. changes |  sol. defect |'
        write (*,*) '--------+--------------+--------------+'
-       write (*,'(a,e12.4,a)') '       0 |              | ',dnorm0,' |' 
+       write (*,'(a,e12.4,a)') '       0 |              | ',dnorm0,' |'
        write (*,*) '--------+--------------+--------------+'
     end if
 
@@ -78,7 +78,7 @@ CONTAINS
 
 
        ! calculate defect:  d = f - A*u
-       call call_matvec(n,n,h,s,u,-1.0_RP,f)
+       call call_matvec(n,h,s,u,-1.0_RP,f)
 
        dnorm = sqrt(sum(h*h))
 

@@ -104,8 +104,8 @@ class Symbol(object):
 	importPattern = None
 	parallelRegionPosition = None
 	numOfParallelDomains = 0
-	parallelActiveDims = []
-	parallelInactiveDims = []
+	parallelActiveDims = [] #!Important: The order of this list must remain insignificant when it is used
+	parallelInactiveDims = [] #!Important: The order of this list must remain insignificant when it is used
 	aggregatedRegionDomSizesByName = {}
 	routineNode = None
 	declarationPrefix = None
@@ -140,7 +140,7 @@ class Symbol(object):
 		self.parallelActiveDims = []
 		self.parallelInactiveDims = []
 		self.aggregatedRegionDomSizesByName = {}
-		self.aggregatedRegionDomNamesBySize = {}
+		self.aggregatedRegionDomNames = []
 		self.routineNode = None
 		self.declarationPrefix = None
 		self.initLevel = Init.NOTHING_LOADED
@@ -271,6 +271,11 @@ class Symbol(object):
 		self.parallelRegionPosition = parallelRegionPosition
 
 		dependantDomNameAndSize = getDomNameAndSize(self.template)
+		dependantDomSizeByName = {
+			dependantDomName:dependantDomSize
+			for (dependantDomName, dependantDomSize)
+			in dependantDomNameAndSize
+		}
 		declarationPrefixFromTemplate = getDeclarationPrefix(self.template)
 		if declarationPrefixFromTemplate != None and declarationPrefixFromTemplate.strip() != "":
 			self.declarationPrefix = declarationPrefixFromTemplate
@@ -284,19 +289,22 @@ class Symbol(object):
 		if len(parallelRegionTemplates) > 1 and parallelRegionPosition != "inside":
 			raise Exception("Only one active parallel region definition allowed within a subroutines or in an outside callgraph position. %i found for %s" \
 				%(len(parallelRegionTemplates), self.currSubprocName))
+		self.parallelActiveDims = []
+		self.parallelInactiveDims = []
+		self.aggregatedRegionDomNames = []
+		self.aggregatedRegionDomSizesByName = {}
 		for parallelRegionTemplate in parallelRegionTemplates:
 			regionDomNameAndSize = getDomNameAndSize(parallelRegionTemplate)
 			for (regionDomName, regionDomSize) in regionDomNameAndSize:
+				if regionDomName in dependantDomSizeByName and regionDomName not in self.parallelActiveDims:
+					self.parallelActiveDims.append(regionDomName)
 				self.aggregatedRegionDomSizesByName[regionDomName] = regionDomSize
-				self.aggregatedRegionDomNamesBySize[regionDomSize] = regionDomName
+				self.aggregatedRegionDomNames.append(regionDomName)
 
 		for (dependantDomName, dependantDomSize) in dependantDomNameAndSize:
-			if self.aggregatedRegionDomSizesByName.get(dependantDomName):
-				self.parallelActiveDims.append(dependantDomName)
-			else:
+			if dependantDomName not in self.parallelActiveDims:
 				self.parallelInactiveDims.append(dependantDomName)
 
-		#$$$ refactor this code - it appears we're just inserting dependant declarations before any other dimensions.
 		dimsBeforeReset = self.domains
 		self.domains = []
 		for (dependantDomName, dependantDomSize) in dependantDomNameAndSize:
@@ -370,24 +378,36 @@ class Symbol(object):
 			patterns.dimensionPattern \
 		)
 		dimensionSizes = [sizeStr.strip() for sizeStr in dimensionStr.split(',') if sizeStr.strip() != ""]
-
 		if self.isAutoDom:
 			# for the stencil use case: user will still specify the dimensions in the declaration
 			# -> autodom picks them up and integrates them as parallel active dims
 			for dimensionSize in dimensionSizes:
-				if dimensionSize in self.aggregatedRegionDomNamesBySize \
-				and self.aggregatedRegionDomNamesBySize[dimensionSize] not in self.parallelActiveDims:
-					self.parallelActiveDims.append(self.aggregatedRegionDomNamesBySize[dimensionSize])
+				missingParallelDomain = None
+				for domName in self.aggregatedRegionDomNames:
+					if self.aggregatedRegionDomSizesByName[domName] != dimensionSize:
+						continue
+					if domName in self.parallelActiveDims:
+						continue
+					missingParallelDomain = domName
+					break
+				if missingParallelDomain != None:
+					if self.debugPrint:
+						sys.stderr.write("Dimension size %s matched to a parallel region but not matched in the domain dependant \
+template for symbol %s - automatically inserting it for domain name %s\n"
+							%(dimensionSize, self.name, domName)
+						)
+					self.parallelActiveDims.append(domName)
 			self.domains = []
 			for parallelDomName in self.parallelActiveDims:
 				parallelDomSize = self.aggregatedRegionDomSizesByName[parallelDomName]
 				self.domains.append((parallelDomName, parallelDomSize))
 			for dimensionSize in dimensionSizes:
-				if dimensionSize in self.aggregatedRegionDomNamesBySize \
-				and self.aggregatedRegionDomNamesBySize[dimensionSize] in self.parallelActiveDims:
-					continue
-				self.parallelInactiveDims.append(dimensionSize)
-				self.domains.append(("HF_GENERIC_PARALLEL_INACTIVE_DIM", dimensionSize))
+				for domName in self.aggregatedRegionDomNames:
+					if self.aggregatedRegionDomSizesByName[domName] == dimensionSize:
+						break
+				else:
+					self.parallelInactiveDims.append(dimensionSize)
+					self.domains.append(("HF_GENERIC_PARALLEL_INACTIVE_DIM", dimensionSize))
 
 		# at this point we may not go further if the parallel region data
 		# has not yet been analyzed.

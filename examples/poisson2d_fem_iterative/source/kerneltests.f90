@@ -26,7 +26,7 @@ CONTAINS
 
     s = 2.1_RP
 
-    write (*,*) 
+    write (*,*)
     write (*,*) '---------------------------------------'
     write (*,*) '           kernel timings'
     write (*,*) '---------------------------------------'
@@ -53,7 +53,7 @@ CONTAINS
 
              case (1)
                 ctest = '    matrix-vector'
-                call call_matvec(n1,n2,x1,s,x2,-1.0_RP,x3)
+                call call_matvec(n1,x1,s,x2,-1.0_RP,x3)
 
              case (2)
                 ctest = '    jacobi iteration'

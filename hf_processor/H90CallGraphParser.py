@@ -692,7 +692,7 @@ class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
         functionAttr = getattr(implementationAttr, implementationFunctionName)
         self.prepareLine(functionAttr(templates[0]), self.tab_insideSub)
 
-    def processSymbolMatchAndGetAdjustedLine(self, line, symbolMatch, symbol, isInsideSubroutineCall):
+    def processSymbolMatchAndGetAdjustedLine(self, line, symbolMatch, symbol, isInsideSubroutineCall, isPointerAssignment):
         def getAccessPattern(numberOfDimensions):
             if numberOfDimensions == 0:
                 return r"\s*((?:[^(]|$).*)"
@@ -732,7 +732,7 @@ class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
         numOfIndependentDomains = len(symbol.domains) - symbol.numOfParallelDomains
         accMatch, numberOfDomainsInAccessor = getAccessMatchAndNumberOfDomainsInAccessor([numOfIndependentDomains, len(symbol.domains)], postfix)
         offsets = []
-        if accMatch == None and not isInsideSubroutineCall:
+        if accMatch == None and not isInsideSubroutineCall and not isPointerAssignment:
             raise Exception("Unexpected array access for symbol %s: Please use either %i (number of parallel independant dimensions)\
 or %i (number of declared dimensions for this array) accessors." %(symbol.name, numOfIndependentDomains, len(symbol.domains)))
         elif accMatch == None:
@@ -749,12 +749,17 @@ or %i (number of declared dimensions for this array) accessors." %(symbol.name, 
             calleeNode = self.routineNodesByProcName.get(self.currCalleeName)
             if calleeNode and calleeNode.getAttribute("parallelRegionPosition") != "outside":
                 iterators = []
+        symbol_access = None
+        if isPointerAssignment:
+            symbol_access = symbol.deviceName()
+        else:
+            symbol_access = symbol.accessRepresentation(iterators, offsets)
 
-        return (prefix + symbol.accessRepresentation(iterators, offsets) + postfix).rstrip() + "\n"
+        return (prefix + symbol_access + postfix).rstrip() + "\n"
 
     def processSymbolsAndGetAdjustedLine(self, line, isInsideSubroutineCall):
+        isPointerAssignment = self.patterns.pointerAssignmentPattern.match(line) != None
         symbolNames = self.currSymbolsByName.keys()
-        #TODO: in case of subroutine call, use the call routine domaindependant entries instead.
         adjustedLine = line
         for symbolName in symbolNames:
             symbol = self.currSymbolsByName[symbolName]
@@ -763,7 +768,7 @@ or %i (number of declared dimensions for this array) accessors." %(symbol.name, 
             work = adjustedLine
             nextMatch = symbol.namePattern.match(work)
             while nextMatch:
-                if symbol.domains and len(symbol.domains) > 0 and not isInsideSubroutineCall and self.state != "inside_parallelRegion" \
+                if symbol.domains and len(symbol.domains) > 0 and not isInsideSubroutineCall and not isPointerAssignment and self.state != "inside_parallelRegion" \
                 and self.routineNodesByProcName[self.currSubprocName].getAttribute("parallelRegionPosition") != "outside":
                     sys.stderr.write("WARNING: Dependant symbol %s accessed outside of a parallel region or subroutine call in subroutine %s(%s:%i)\n" \
                     %(symbol.name, self.currSubprocName, self.fileName, self.lineNo))
@@ -773,7 +778,7 @@ or %i (number of declared dimensions for this array) accessors." %(symbol.name, 
                 lineSections.append(prefix)
                 lineSections.append(symbol.deviceName())
                 postfix = nextMatch.group(2)
-                processed = self.processSymbolMatchAndGetAdjustedLine(work, nextMatch, symbol, isInsideSubroutineCall)
+                processed = self.processSymbolMatchAndGetAdjustedLine(work, nextMatch, symbol, isInsideSubroutineCall, isPointerAssignment)
                 adjustedMatch = symbol.namePattern.match(processed)
                 if not adjustedMatch:
                     raise Exception("Unexpected error: symbol %s can't be matched again after adjustment. Adjusted portion: %s" %(symbol.name, processed))
@@ -827,7 +832,7 @@ or %i (number of declared dimensions for this array) accessors." %(symbol.name, 
             if not parallelTemplates or len(parallelTemplates) == 0:
                 raise Exception("Unexpected: Subprocedure %s's parallelRegionPosition is defined as 'within', but no parallel region template could be found." \
                     %(self.currCalleeName))
-            adjustedLine = self.implementation.kernelCallPreparation(parallelTemplates[0])
+            adjustedLine = self.implementation.kernelCallPreparation(parallelTemplates[0], calleeNode=self.currCalleeNode)
             adjustedLine = adjustedLine + "call " + self.currCalleeName + " " + self.implementation.kernelCallConfig()
 
         if self.currCalleeNode \

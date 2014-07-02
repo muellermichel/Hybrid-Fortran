@@ -21,19 +21,18 @@
 
 int  main(int argc, char *argv[])
 {
-	int      nx = DIM_X_INNER,   ny = DIM_Y_INNER,   nz = DIM_Z_INNER;
 	FLOAT    *f,  *fn,  dt,  time,  Lx = 1.0,  Ly = 1.0,  Lz = 1.0,
-						dx = Lx/(FLOAT)nx,  dy = Ly/(FLOAT)ny,   dz = Lz/(FLOAT)nz,
+						dx = Lx/(FLOAT)DIM_X_INNER,  dy = Ly/(FLOAT)DIM_Y_INNER,   dz = Lz/(FLOAT)DIM_Z_INNER,
 						kappa = 0.1;
 	double error;
 
    printf("Diffusion 3D, inner region %i %i %i, %i byte per float\n", DIM_X_INNER, DIM_Y_INNER, DIM_Z_INNER, FLOAT_BYTE_LENGTH);
 	malloc_variables(&f,&fn);
-	initial(f,nx,ny,nz,dx,dy,dz);
+	initial(f,dx,dy,dz);
 	dt = 0.1*dx*dx/kappa;
 	time = 0.0;
-	mainloop(f,fn,nx,ny,nz,kappa,&time,dt,dx,dy,dz);
-	error = accuracy(f,kappa,time,nx,ny,nz,dx,dy,dz);
+	mainloop(f,fn,kappa,&time,dt,dx,dy,dz);
+	error = accuracy(f,kappa,time,dx,dy,dz);
 	printf("Room Mean Square Error: %e\n", error);
 	free(f);
 	free(fn);
@@ -51,23 +50,18 @@ void   initial
 //
 (
 	 FLOAT    *f,         /* dependent variable f                      */
-	 int      nx,         /* x-dimension size                          */
-	 int      ny,         /* y-dimension size                          */
-	 int      nz,         /* z-dimension size                          */
 	 FLOAT    dx,         /* grid spacing in the x-direction           */
 	 FLOAT    dy,         /* grid spacing in the y-direction           */
 	 FLOAT    dz          /* grid spacing in the z-direction           */
 )
 // --------------------------------------------------------------------
 {
-		int     j,    jx,   jy,  jz,  NX,  NY,  NZ,  HALO;
+		int     j,    jx,   jy,  jz;
 		FLOAT   x,    y,   z,   kx = 2.0*M_PI,  ky = kx,  kz = kx;
 
-		NX = DIM_X;   NY = DIM_Y;  NZ = DIM_Z;
-
-		for(jz=0 ; jz < NZ; jz++) {
-			for(jy=0 ; jy < NY; jy++) {
-				for(jx=0 ; jx < NX; jx++) {
+		for(jz=0 ; jz < DIM_Z; jz++) {
+			for(jy=0 ; jy < DIM_Y; jy++) {
+				for(jx=0 ; jx < DIM_X; jx++) {
 					j = ADDR_FROM_XYZ(jx, jy, jz);
 					if (j>=0) {
 						x = dx*((FLOAT)(jx - HALO_X) + 0.5);
@@ -79,7 +73,6 @@ void   initial
 				}
 			}
 		}
-
 }
 
 double   accuracy
@@ -95,33 +88,28 @@ double   accuracy
 	 FLOAT    *f,         /* dependent variable f                      */
 	 FLOAT    kappa,      /* diffusion coefficient                     */
 	 FLOAT    time,       /* physical time                             */
-	 int      nx,         /* x-dimension size                          */
-	 int      ny,         /* y-dimension size                          */
-	 int      nz,         /* z-dimension size                          */
 	 FLOAT    dx,         /* grid spacing in the x-direction           */
 	 FLOAT    dy,         /* grid spacing in the y-direction           */
 	 FLOAT    dz          /* grid spacing in the z-direction           */
 )
 // --------------------------------------------------------------------
 {
-	int     j,   jx,  jy,  jz,  NX,  NY,  NZ,  HALO;
+	int     j,   jx,  jy,  jz;
 	FLOAT   x,   y,   z,   kx = 2.0*M_PI,  ky = kx,  kz = kx,
 	        f0;
 	double ferr = 0.0;
 	double eps = 1E-8;
-	HALO = 1;  NX = nx + 2*HALO;  NY = ny + 2*HALO;
-	NZ = nz + 2*HALO;
 	int firstErrorFound = 0;
 	FLOAT  ax = exp(-kappa*time*(kx*kx)), ay = exp(-kappa*time*(ky*ky)),
 	       az = exp(-kappa*time*(kz*kz));
 
-	for(jz=HALO ; jz < NZ-HALO; jz++) {
-		for(jy=HALO ; jy < NY-HALO; jy++) {
-			for(jx=HALO ; jx < NX-HALO; jx++) {
+	for(jz=HALO_Z ; jz < DIM_Z-HALO_Z; jz++) {
+		for(jy=HALO_Y ; jy < DIM_Y-HALO_Y; jy++) {
+			for(jx=HALO_X ; jx < DIM_X-HALO_X; jx++) {
 					j = ADDR_FROM_XYZ(jx, jy, jz);
-					x = dx*((FLOAT)(jx - HALO) + 0.5);
-					y = dy*((FLOAT)(jy - HALO) + 0.5);
-					z = dz*((FLOAT)(jz - HALO) + 0.5);
+					x = dx*((FLOAT)(jx - HALO_X) + 0.5);
+					y = dy*((FLOAT)(jy - HALO_Y) + 0.5);
+					z = dz*((FLOAT)(jz - HALO_Z) + 0.5);
 
 					f0 = 0.125*(1.0 - ax*cos(kx*x))
 					          *(1.0 - ay*cos(ky*y))
@@ -142,5 +130,5 @@ double   accuracy
 		printf("no error found that is squared larger than epsilon in the numeric approximation\n");
 	}
 
-	return sqrt(ferr/(double)(nx*ny*nz));
+	return sqrt(ferr/(double)(DIM_Z_INNER * DIM_Y_INNER * DIM_X_INNER));
 }

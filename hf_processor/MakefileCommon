@@ -294,7 +294,7 @@ build_framework_cpu: build_hybrid_cpu framework_sources_cpu
 
 build_framework_gpu: build_hybrid_gpu framework_sources_gpu
 	@echo "..building framework with ${FRAMEWORK_MAKEFILE_GPU}"
-	@cd $(dir ${FRAMEWORK_MAKEFILE_GPU}) && make ${BUILD_ARGS}
+	@cd $(dir ${FRAMEWORK_MAKEFILE_GPU}) && make GPU=1 ${BUILD_ARGS}
 
 install_non_hybrid_framework_executables: build_cpu
 	@( set -e && \

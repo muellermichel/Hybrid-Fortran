@@ -28,17 +28,12 @@
 #define DEBUG_OUT_nz 4
 
 /* ------ CUDA run configuration ------------ */
-#define CUDA_BLOCKSIZE_X 16
-#define CUDA_BLOCKSIZE_Y 16
-#define CUDA_BLOCKSIZE_Z 1
+#define CUDA_BLOCKSIZE_X 32
+#define CUDA_BLOCKSIZE_Y 8
+#define CUDA_BLOCKSIZE_Z 2
 
-/* ------ Data Dim configuration ------------  */
-/* It is beneficial to have these dimensions defined */
-/* at compile-time for the GPU. NX, NY can be changed at */
-/* runtime with commandline arguments */
-#define NX 256
-#define NY 256
-#define NZ 10
+#define CUDA_BLOCKSIZE_X_BOUNDARY 16
+#define CUDA_BLOCKSIZE_Y_BOUNDARY 16
 
 /* ------ What Storage Orders are defined? -------  */
 #define IJK_ORDER 1
@@ -62,14 +57,14 @@
 
 /* ------ Order dependent macros -------------  */
 #if (CURR_ORDER == KIJ_ORDER)
-	#define AT(iParam, jParam, kParam) kParam, iParam, jParam
-	#define AT4(iParam, jParam, kParam, lParam) kParam, lParam, iParam, jParam
+#define AT(iParam, jParam, kParam) kParam, iParam, jParam
+#define AT4(iParam, jParam, kParam, lParam) kParam, lParam, iParam, jParam
 #elif (CURR_ORDER == IKJ_ORDER)
-	#define AT(iParam, jParam, kParam) iParam, kParam, jParam
-	#define AT4(iParam, jParam, kParam, lParam) iParam, kParam, lParam, jParam
+#define AT(iParam, jParam, kParam) iParam, kParam, jParam
+#define AT4(iParam, jParam, kParam, lParam) iParam, kParam, lParam, jParam
 #else
-	#define AT(iParam, jParam, kParam) iParam, jParam, kParam
-	#define AT4(iParam, jParam, kParam, lParam) iParam, jParam, kParam, lParam
+#define AT(iParam, jParam, kParam) iParam, jParam, kParam
+#define AT4(iParam, jParam, kParam, lParam) iParam, jParam, kParam, lParam
 #endif
 
 /* ------ Syntactic sugar -------------------  */

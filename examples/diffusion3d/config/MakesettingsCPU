@@ -26,19 +26,18 @@
 #############################################################################
 # common settings                                                           #
 #############################################################################
-#AR=xiar #use this for support of Intel compiler with OpenMP
 AR=ar
 ARFLAGS=rv
 
 #############################################################################
 # uncomment these settings to use pgf90                                     #
 #############################################################################
-FC=pgf90
-LD=pgf90
-FFLAGS_PRODUCTION= -Minfo=inline,ipa -Mneginfo -I/usr/local/include -O4
-FFLAGS_DEBUG= -g -Mbounds -Mchkptr -Minfo=accel,inline -Mneginfo -Minform=inform -I/usr/local/include
-LDFLAGS_PRODUCTION= -L/usr/local/lib
-LDFLAGS_DEBUG= -L/usr/local/lib
+# FC=pgf90
+# LD=pgf90
+# FFLAGS_PRODUCTION= -Minfo=inline,ipa -Mneginfo -I/usr/local/include -O4
+# FFLAGS_DEBUG= -g -Mbounds -Mchkptr -Minfo=accel,inline -Mneginfo -Minform=inform -I/usr/local/include
+# LDFLAGS_PRODUCTION= -L/usr/local/lib -lpp
+# LDFLAGS_DEBUG= -L/usr/local/lib -lpp
 
 #############################################################################
 # uncomment these settings to use pgfortran                                 #
@@ -53,12 +52,13 @@ LDFLAGS_DEBUG= -L/usr/local/lib
 #############################################################################
 # uncomment these settings to use ifort                                     #
 #############################################################################
-# FC=ifort
-# LD=ifort
-# FFLAGS_PRODUCTION= -fast -openmp -I/usr/local/include
-# FFLAGS_DEBUG= -g -I/usr/local/include
-# LDFLAGS_PRODUCTION= -openmp -L/usr/local/lib
-# LDFLAGS_DEBUG= -L/usr/local/lib
+FC=ifort
+LD=ifort
+FFLAGS_PRODUCTION= -fast -openmp -I/usr/local/include -opt-streaming-stores always
+FFLAGS_DEBUG= -g -openmp -I/usr/local/include
+LDFLAGS_PRODUCTION= -openmp -L/usr/local/lib -lpp
+LDFLAGS_DEBUG= -openmp -L/usr/local/lib -lpp
+AR=xiar
 
 ifdef DEBUG
 FFLAGS=${FFLAGS_DEBUG}

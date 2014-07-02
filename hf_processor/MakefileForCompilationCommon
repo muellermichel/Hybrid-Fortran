@@ -38,7 +38,6 @@ SRC=${SRC_FORT} ${SRC_PP}
 EXECUTABLES_POST=$(subst ",,${EXECUTABLES})
 EXECUTABLES_OUT=$(patsubst %,%.out,${EXECUTABLES_POST})
 EXECUTABLES_O=$(patsubst %,%.o,${EXECUTABLES_POST})
-#$(warning Executable objects ${EXECUTABLES_O})
 
 OBJ_PRE1=$(SRC:.f90=.o)
 OBJ_PRE2=$(OBJ_PRE1:.F90=.o)

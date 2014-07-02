@@ -14,9 +14,9 @@ subroutine diffusion3d_inner(f, fn, coeff_east_west, coeff_north_south, coeff_to
 
 	@parallelRegion{domName(x, y, z), domSize(DIM_X,DIM_Y,DIM_Z), startAt(HALO_X+1,HALO_Y+1,HALO_Z+1), endAt(DIM_X-HALO_X,DIM_Y-HALO_Y,DIM_Z-HALO_Z)}
 	fn(x,y,z) = coeff_center*f(x,y,z) &
-	      + coeff_east_west*f(x+1,y,z) + coeff_east_west*f(x-1,y,z) &
-	      + coeff_north_south*f(x,y+1,z) + coeff_north_south*f(x,y-1,z) &
-	      + coeff_top_bottom*f(x,y,z+1) + coeff_top_bottom*f(x,y,z-1)
+      + coeff_east_west*f(x+1,y,z) + coeff_east_west*f(x-1,y,z) &
+      + coeff_north_south*f(x,y+1,z) + coeff_north_south*f(x,y-1,z) &
+      + coeff_top_bottom*f(x,y,z+1) + coeff_top_bottom*f(x,y,z-1)
 	@end parallelRegion
 end subroutine
 
@@ -60,18 +60,32 @@ subroutine wallBoundaryXY(fn)
 end subroutine
 
 subroutine diffusion3d(f, fn, coeff_east_west, coeff_north_south, coeff_top_bottom, coeff_center)
+	use time_profiling
+	use helper_functions
 	implicit none
 	real(FLOAT_BYTE_LENGTH), intent(in), dimension(DIM_X, DIM_Y, DIM_Z) :: f
 	real(FLOAT_BYTE_LENGTH), intent(out), dimension(DIM_X, DIM_Y, DIM_Z) :: fn
 	real(FLOAT_BYTE_LENGTH), intent(in) :: coeff_east_west, coeff_north_south, coeff_top_bottom, coeff_center
+	real(8) :: time_start, time_before_yz, time_before_xz, time_before_xy
 	@domainDependant {attribute(autoDom, present)}
 	f, fn, coeff_east_west, coeff_north_south, coeff_top_bottom, coeff_center
 	@end domainDependant
 
+	call getTime(time_start)
 	call diffusion3d_inner(f, fn, coeff_east_west, coeff_north_south, coeff_top_bottom, coeff_center)
+	call incrementCounter(counter1, time_start)
+
+	call getTime(time_before_yz)
 	call wallBoundaryYZ(fn)
+	call incrementCounter(counter2, time_before_yz)
+
+	call getTime(time_before_xz)
 	call wallBoundaryXZ(fn)
+	call incrementCounter(counter3, time_before_xz)
+
+	call getTime(time_before_xy)
 	call wallBoundaryXY(fn)
+	call incrementCounter(counter4, time_before_xy)
 end subroutine
 
 subroutine writeBack(f, fn)
@@ -87,35 +101,60 @@ subroutine writeBack(f, fn)
 	@end parallelRegion
 end subroutine
 
-subroutine mainloop(f, kappa, time, dt, dx, dy, dz)
+subroutine mainloop(f_p, fn_p, kappa, time, dt, dx, dy, dz, numOfStencilsComputed)
+	use time_profiling
+	use helper_functions
 	implicit none
-	real(FLOAT_BYTE_LENGTH), intent(inout), dimension(DIM_X, DIM_Y, DIM_Z) :: f
+	real(FLOAT_BYTE_LENGTH), intent(inout), dimension(:, :, :), pointer :: f_p
+	real(FLOAT_BYTE_LENGTH), intent(inout), dimension(:, :, :), pointer :: fn_p
 	real(FLOAT_BYTE_LENGTH), intent(in) :: kappa, dt, dx, dy, dz
 	real(FLOAT_BYTE_LENGTH), intent(inout) :: time
+	integer(8), intent(out) :: numOfStencilsComputed
+	real(FLOAT_BYTE_LENGTH), dimension(:, :, :), pointer :: temp_p
 	real(FLOAT_BYTE_LENGTH) :: coeff_east_west, coeff_north_south, coeff_top_bottom, coeff_center
-	real(FLOAT_BYTE_LENGTH), dimension(DIM_X, DIM_Y, DIM_Z) :: fn
 	integer :: icnt
+	real(8) :: t_start_main
+	integer(8) :: idealCacheModelBytesTransferred, noCacheModelBytesTransferred
 	@domainDependant {attribute(autoDom, transferHere)}
-	f, fn, time, coeff_east_west, coeff_north_south, coeff_top_bottom, coeff_center
+	time, coeff_east_west, coeff_north_south, coeff_top_bottom, coeff_center
+	@end domainDependant
+	@domainDependant {domName(x,y,z), domSize(DIM_X, DIM_Y, DIM_Z), attribute(autoDom, transferHere)}
+	f_p, fn_p
+	@end domainDependant
+	@domainDependant {attribute(autoDom)}
+	temp_p
 	@end domainDependant
 
 	coeff_east_west = kappa*dt/(dx*dx)
 	coeff_north_south = kappa*dt/(dy*dy)
 	coeff_top_bottom = kappa*dt/(dz*dz)
 	coeff_center = 1.0 - (2 * coeff_east_west + 2 * coeff_north_south + 2 * coeff_top_bottom)
-
-	write(6,*) "Starting Hybrid Fortran Version of 3D Diffusion"
-	write(6,"(A,E13.5,A,E13.5,A,E13.5)") "kappa:", kappa, ", dt:", dt, ", dx:", dx
-	do icnt=0,90000-1
-		!Fortran allocatables don't offer an efficient way to swap input and output, so we do some even/uneven unrolling for this job
-		call diffusion3d(f, fn, coeff_east_west, coeff_north_south, coeff_top_bottom, coeff_center)
-		call writeBack(f, fn)
+	numOfStencilsComputed = 0
+	idealCacheModelBytesTransferred = 0
+	noCacheModelBytesTransferred = 0
+	write(0,*) "Starting Hybrid Fortran Version of 3D Diffusion"
+	write(0,"(A, I3, A, I3, A, I3, A,E13.5,A,E13.5,A,E13.5)") "X:", DIM_X_INNER, ", Y:", DIM_Y_INNER, ", Z:", DIM_Z_INNER, ", kappa:", kappa, ", dt:", dt, ", dx:", dx
+	call time_profiling_ini()
+	icnt = 0
+	do
+		icnt = icnt + 1
+		call getTime(t_start_main)
+		call diffusion3d(f_p, fn_p, coeff_east_west, coeff_north_south, coeff_top_bottom, coeff_center)
+		numOfStencilsComputed = numOfStencilsComputed + DIM_X_INNER * DIM_Y_INNER * DIM_Z_INNER
+		idealCacheModelBytesTransferred = idealCacheModelBytesTransferred + DIM_X_INNER * DIM_Y_INNER * DIM_Z_INNER * FLOAT_BYTE_LENGTH * 2;
+		noCacheModelBytesTransferred = noCacheModelBytesTransferred + DIM_X_INNER * DIM_Y_INNER * DIM_Z_INNER * FLOAT_BYTE_LENGTH * 8;
+		temp_p => f_p
+		f_p => fn_p
+		fn_p => temp_p
+		call incrementCounter(counter_timestep, t_start_main)
 		time = time + dt
 		if(modulo(icnt,100) .eq. 0) then
-			write(6,"(A,I5,A,E13.5)") "time after iteration ", icnt+1, ":",time
+			write(0,"(A,I5,A,E13.5)") "time after iteration ", icnt+1, ":",time
 		end if
-		if (time + 0.5*dt >= 0.1) exit
+		if (time + 0.5*dt >= 0.1 .or. icnt >= 90000) exit
 	end do
+	write(0, "(A,F13.5,A)") "Bandwidth Ideal Cache Model= ", real(idealCacheModelBytesTransferred)/counter_timestep*1E-09, "[GB/s]"
+	write(0, "(A,F13.5,A)") "Bandwidth No Cache Model= ", real(noCacheModelBytesTransferred)/counter_timestep*1E-09, "[GB/s]"
 end subroutine
 
 subroutine initial(f, dx, dy, dz)
@@ -142,7 +181,7 @@ function accuracy(f, kappa, time, dx, dy, dz)
 	implicit none
 	real(FLOAT_BYTE_LENGTH), intent(in), dimension(DIM_X, DIM_Y, DIM_Z) :: f
 	real(FLOAT_BYTE_LENGTH), intent(in) :: kappa, time, dx, dy, dz
-	real(8), intent(out) :: accuracy
+	real(8) :: accuracy
 	real(FLOAT_BYTE_LENGTH) :: k, a, f0
 	real(8) :: ferr, newErr, x, y, z, eps
 	integer :: ix, iy, iz
@@ -165,7 +204,7 @@ function accuracy(f, kappa, time, dx, dy, dz)
 				            *(1.0d0 - a*cos(k*z))
 				newErr = (f(ix,iy,iz) - f0)*(f(ix,iy,iz) - f0)
 				if (.not. firstErrorFound .and. newErr > eps) then
-					write(6,"(A,I5,A,I5,A,I5,A,E13.5,A,E13.5,A,E13.5)") "first error found at ", ix, ",", iy, ",", iz, ": ", newErr, "; reference: ", f0, ", actual: ", f(ix, iy, iz)
+					write(0,"(A,I5,A,I5,A,I5,A,E13.5,A,E13.5,A,E13.5)") "first error found at ", ix, ",", iy, ",", iz, ": ", newErr, "; reference: ", f0, ", actual: ", f(ix, iy, iz)
 					firstErrorFound = .true.
 				end if
 				ferr = ferr + newErr
@@ -174,7 +213,7 @@ function accuracy(f, kappa, time, dx, dy, dz)
 	end do
 
 	if (.not. firstErrorFound) then
-		write(6,*) "no error found larger than epsilon in the numeric approximation"
+		write(0,*) "no error found larger than epsilon in the numeric approximation"
 	end if
 
 	accuracy = sqrt(ferr/real(DIM_X*DIM_Y*DIM_Z));
@@ -182,9 +221,14 @@ end function
 end module diffusion
 
 program main
+	use time_profiling
+	use helper_functions
 	use diffusion
-	real(FLOAT_BYTE_LENGTH), dimension(DIM_X, DIM_Y, DIM_Z) :: f, fn
+	implicit none
+	real(FLOAT_BYTE_LENGTH), dimension(:, :, :), pointer :: f, fn
 	real(FLOAT_BYTE_LENGTH) :: kappa, dt, dx, dy, dz, time, L, error
+	real(8) :: time_start
+	integer(8) :: numOfStencilsComputed
 
 	L = 1.0
 	dx = L/real(DIM_X_INNER)
@@ -194,10 +238,19 @@ program main
 	dt = 0.1*dx*dx/kappa;
 	time = 0.0;
 
+	allocate(f(DIM_X, DIM_Y, DIM_Z))
+	allocate(fn(DIM_X, DIM_Y, DIM_Z))
+	fn(:,:,:) = 0.0d0
 	call initial(f,dx,dy,dz)
-  	call mainloop(f, kappa, time, dt, dx, dy, dz)
+	call getTime(time_start)
+  	call mainloop(f, fn, kappa, time, dt, dx, dy, dz, numOfStencilsComputed)
+  	call incrementCounter(counter5, time_start)
+  	write(0, "(A,F13.5,A)") "Performance= ", real(numOfStencilsComputed)/counter5*1E-06, "[million stencils/s]"
+  	write(6, "(E13.5,A,E13.5,A,E13.5,A,E13.5,A,E13.5,A,E13.5)") counter_timestep, ",", counter1, ",", counter2, ",", counter3, ",", counter4, ",", counter5
   	error = accuracy(f,kappa,time,dx,dy,dz);
-	write(6,*) "Root Mean Square Error: ", error
+	write(0,*) "Root Mean Square Error: ", error
+	deallocate(f)
+  	deallocate(fn)
 
 	stop
 end program main

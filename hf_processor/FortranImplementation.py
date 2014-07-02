@@ -135,7 +135,7 @@ class FortranImplementation(object):
     def kernelCallConfig(self):
         return ""
 
-    def kernelCallPreparation(self, parallelRegionTemplate):
+    def kernelCallPreparation(self, parallelRegionTemplate, calleeNode=None):
         return ""
 
     def kernelCallPost(self, symbolsByName, calleeRoutineNode):
@@ -226,13 +226,12 @@ class OpenMPFortranImplementation(FortranImplementation):
     def parallelRegionBegin(self, parallelRegionTemplate):
         if self.currDependantSymbols == None:
             raise Exception("parallel region without any dependant arrays")
-        openMPLines = "!$OMP PARALLEL\n!$OMP DO SCHEDULE(RUNTIME) "
-        openMPLines += "DEFAULT(Private) "
-        openMPLines += "shared(%s)\n" %(', '.join([symbol.deviceName() for symbol in self.currDependantSymbols if symbol.domains and len(symbol.domains) > 0]))
+        openMPLines = "!$OMP PARALLEL DO DEFAULT(Private) "
+        openMPLines += "SHARED(%s)\n" %(', '.join([symbol.deviceName() for symbol in self.currDependantSymbols]))
         return openMPLines + FortranImplementation.parallelRegionBegin(self, parallelRegionTemplate)
 
     def parallelRegionEnd(self, parallelRegionTemplate):
-        openMPLines = "\n!$OMP END DO\n!$OMP END PARALLEL\n"
+        openMPLines = "\n!$OMP END PARALLEL DO\n"
         return FortranImplementation.parallelRegionEnd(self, parallelRegionTemplate) + openMPLines
 
     def subroutineEnd(self, dependantSymbols, routineIsKernelCaller):
@@ -241,6 +240,9 @@ class OpenMPFortranImplementation(FortranImplementation):
 
 class CUDAFortranImplementation(FortranImplementation):
 
+    def __init__(self):
+        self.currRoutineNode = None
+
     def warningOnUnrecognizedSubroutineCallInParallelRegion(self, callerName, calleeName):
         return "WARNING: subroutine %s called inside %s's parallel region, but it is not defined in a h90 file.\n" \
                     %(calleeName, callerName)
@@ -248,9 +250,17 @@ class CUDAFortranImplementation(FortranImplementation):
     def kernelCallConfig(self):
         return "<<< cugrid, cublock >>>"
 
-    def kernelCallPreparation(self, parallelRegionTemplate):
+    def kernelCallPreparation(self, parallelRegionTemplate, calleeNode=None):
         if not appliesTo(["GPU"], parallelRegionTemplate):
             return ""
+        gridPreparationStr = ""
+        if calleeNode != None:
+            gridPreparationStr += "cuerror = cudaFuncSetCacheConfig(%s, cudaFuncCachePreferL1)\n" %(calleeNode.getAttribute('name'))
+            gridPreparationStr += "cuerror = cudaGetLastError()\n"
+            gridPreparationStr += "if(cuerror .NE. cudaSuccess) then\n \
+    \twrite(0, *) 'CUDA error when setting cache configuration for kernel %s:', cudaGetErrorString(cuerror)\n \
+    stop 1\n\
+end if\n" %(calleeNode.getAttribute('name'))
         blockSizePPNames = ["CUDA_BLOCKSIZE_X", "CUDA_BLOCKSIZE_Y", "CUDA_BLOCKSIZE_Z"]
         gridSizeVarNames = ["cugridSizeX", "cugridSizeY", "cugridSizeZ"]
         domains = getDomainsWithParallelRegionTemplate(parallelRegionTemplate)
@@ -258,7 +268,6 @@ class CUDAFortranImplementation(FortranImplementation):
             raise Exception("Invalid number of parallel domains in parallel region definition.")
         blockStr = "cublock = dim3("
         gridStr = "cugrid = dim3("
-        gridPreparationStr = ""
         for i in range(3):
             if i != 0:
                 gridPreparationStr += "\n"
@@ -345,6 +354,7 @@ class CUDAFortranImplementation(FortranImplementation):
         return 'call %s' %(subroutineName)
 
     def subroutineEnd(self, dependantSymbols, routineIsKernelCaller):
+        self.currRoutineNode = None
         deviceInitStatements = ""
         for symbol in dependantSymbols:
             if not symbol.isOnDevice:
@@ -358,6 +368,8 @@ class CUDAFortranImplementation(FortranImplementation):
                 symbol.isUsingDevicePostfix = True
                 deviceStr = symbol.selectAllRepresentation()
                 deviceInitStatements += originalStr + " = " + deviceStr + "\n"
+                if symbol.isPointer:
+                    deviceInitStatements += "deallocate(%s)\n" %(symbol.deviceName())
         return deviceInitStatements
 
     def adjustImportForDevice(self, line, parallelRegionPosition):
@@ -483,6 +495,7 @@ Symbols vs transferHere attributes:\n%s" %(str([(symbol.name, symbol.transferHer
         return ""
 
     def declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplate):
+        self.currRoutineNode = currRoutineNode
         result = ""
         if currParallelRegionTemplate and appliesTo(["GPU"], currParallelRegionTemplate) and \
         currRoutineNode.getAttribute('parallelRegionPosition') == 'within':
@@ -512,6 +525,8 @@ Symbols vs transferHere attributes:\n%s" %(str([(symbol.name, symbol.transferHer
                 originalStr = symbol.selectAllRepresentation()
                 symbol.isUsingDevicePostfix = True
                 deviceStr = symbol.selectAllRepresentation()
+                if symbol.isPointer:
+                    deviceInitStatements += "allocate(%s)\n" %(symbol.allocationRepresentation())
                 deviceInitStatements += deviceStr + " = " + originalStr + "\n"
             elif routineIsKernelCaller or symbol.isToBeTransfered:
                 deviceInitStatements += symbol.selectAllRepresentation() + " = 0\n"
@@ -521,21 +536,16 @@ Symbols vs transferHere attributes:\n%s" %(str([(symbol.name, symbol.transferHer
     def additionalIncludes(self):
         return "use cudafor\n"
 
-
 class DebugCUDAFortranImplementation(CUDAFortranImplementation):
 
-    def __init__(self):
-        self.currRoutineNode = None
-
     def declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplate):
-        self.currRoutineNode = currRoutineNode
         result = "real(8) :: cuTemp\n"
         result = result + CUDAFortranImplementation.declarationEnd(self, dependantSymbols, routineIsKernelCaller, \
             currRoutineNode, currParallelRegionTemplate)
         return result
 
-    def kernelCallPreparation(self, parallelRegionTemplate):
-        result = CUDAFortranImplementation.kernelCallPreparation(self, parallelRegionTemplate)
+    def kernelCallPreparation(self, parallelRegionTemplate, calleeNode=None):
+        result = CUDAFortranImplementation.kernelCallPreparation(self, parallelRegionTemplate, calleeNode)
         iterators = self.getIterators(parallelRegionTemplate)
         gridSizeVarNames = ["cugridSizeX", "cugridSizeY", "cugridSizeZ"]
         routineName = self.currRoutineNode.getAttribute('name')
@@ -561,10 +571,6 @@ class DebugCUDAFortranImplementation(CUDAFortranImplementation):
         #TODO: remove
         #result = result + getTempDeallocationsAfterKernelCall(symbolsByName)
         return result
-
-    def subroutineEnd(self, dependantSymbols, routineIsKernelCaller):
-        self.currRoutineNode = None
-        return CUDAFortranImplementation.subroutineEnd(self, dependantSymbols, routineIsKernelCaller)
 
 class DebugEmulatedCUDAFortranImplementation(DebugCUDAFortranImplementation):
 

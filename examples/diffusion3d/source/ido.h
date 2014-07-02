@@ -18,9 +18,6 @@ void  mainloop
 (
    FLOAT    *f,         /* dependent variable                        */
    FLOAT    *fn,        /* updated dependent variable                */
-   int      nx,         /* x-dimensional grid size                   */
-   int      ny,         /* y-dimensional grid size                   */
-   int      nz,         /* z-dimensional grid size                   */
    FLOAT    kappa,      /* diffusion coefficient                     */
    FLOAT    *time,       /* time                                      */
    FLOAT    dt,         /* time step interval                        */
@@ -42,9 +39,6 @@ void  diffusion3d
 (
    FLOAT    *f,         /* dependent variable                        */
    FLOAT    *fn,        /* updated dependent variable                */
-   int      nx,         /* x-dimensional grid size                   */
-   int      ny,         /* y-dimensional grid size                   */
-   int      nz,         /* z-dimensional grid size                   */
    FLOAT    kappa,      /* diffusion coefficient                     */
    FLOAT    dt,         /* time step interval                        */
    FLOAT    dx,         /* grid spacing in the x-direction           */
@@ -64,9 +58,6 @@ void   initial
 //
 (
    FLOAT    *f,         /* dependent variable f                      */
-   int      nx,         /* x-dimension size                          */
-   int      ny,         /* y-dimension size                          */
-   int      nz,         /* z-dimension size                          */
    FLOAT    dx,         /* grid spacing in the x-direction           */
    FLOAT    dy,         /* grid spacing in the y-direction           */
    FLOAT    dz          /* grid spacing in the z-direction           */
@@ -86,9 +77,6 @@ double   accuracy
    FLOAT    *f,         /* dependent variable f                      */
    FLOAT    kappa,      /* diffusion coefficient                     */
    FLOAT    time,       /* physical time                             */
-   int      nx,         /* x-dimension size                          */
-   int      ny,         /* y-dimension size                          */
-   int      nz,         /* z-dimension size                          */
    FLOAT    dx,         /* grid spacing in the x-direction           */
    FLOAT    dy,         /* grid spacing in the y-direction           */
    FLOAT    dz          /* grid spacing in the z-direction           */

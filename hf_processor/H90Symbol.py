@@ -96,12 +96,14 @@ class Symbol(object):
 	isUsingDevicePostfix = False
 	isPresent = False
 	isAutomatic = False
+	isPointer = False
 	isAutoDom = False
 	isToBeTransfered = False
 	isCompacted = False
 	declPattern = None
 	namePattern = None
 	importPattern = None
+	pointerAssignmentPattern = None
 	parallelRegionPosition = None
 	numOfParallelDomains = 0
 	parallelActiveDims = [] #!Important: The order of this list must remain insignificant when it is used
@@ -123,6 +125,7 @@ class Symbol(object):
 		self.name = name
 		self.template = template
 		self.isAutomatic = isAutomatic
+		self.isPointer = False
 		self.debugPrint = debugPrint
 		self.domains = []
 		self.isMatched = False
@@ -134,6 +137,7 @@ class Symbol(object):
 			re.IGNORECASE)
 		self.symbolImportMapPattern = re.compile(r'.*?\W' + re.escape(name) + r'\s*\=\>\s*(\w*).*', \
 			re.IGNORECASE)
+		self.pointerDeclarationPattern = re.compile(r'\s*(?:real|integer|logical).*?pointer.*?[\s,:]+' + re.escape(name), re.IGNORECASE)
 		self.parallelRegionPosition = None
 		self.isUsingDevicePostfix = False
 		self.isOnDevice = False
@@ -179,9 +183,12 @@ class Symbol(object):
 				result = result + "("
 			for i in range(len(self.domains)):
 				if i != 0:
-					result = result + ", "
-				(domName, domSize) = self.domains[i]
-				result = result + domSize
+					result += ", "
+				if self.isPointer:
+					result += ":"
+				else:
+					(domName, domSize) = self.domains[i]
+					result += domSize
 			if self.parallelRegionPosition != "outside" and domPP != "":
 				result = result + "))"
 			else:
@@ -218,6 +225,7 @@ class Symbol(object):
 			domainDependantEntryNode.setAttribute("sourceModule", self.sourceModule)
 		if self.sourceSymbol:
 			domainDependantEntryNode.setAttribute("sourceSymbol", self.sourceSymbol)
+		domainDependantEntryNode.setAttribute("isPointer", "yes" if self.isPointer else "no")
 		if self.domains and len(self.domains) > 0:
 			domainDependantEntryNode.setAttribute(
 				"declaredDimensionSizes", ",".join(
@@ -235,6 +243,7 @@ class Symbol(object):
 		self.declarationPrefix = domainDependantEntryNode.getAttribute("declarationPrefix")
 		self.sourceModule = domainDependantEntryNode.getAttribute("sourceModule")
 		self.sourceSymbol = domainDependantEntryNode.getAttribute("sourceSymbol")
+		self.isPointer = domainDependantEntryNode.getAttribute("isPointer") == "yes"
 		for dimSize in domainDependantEntryNode.getAttribute("declaredDimensionSizes").split(","):
 			if dimSize.strip() != "":
 				self.domains.append(('HF_GENERIC_DIM', dimSize))
@@ -313,9 +322,10 @@ class Symbol(object):
 				raise Exception("Automatic symbol %s's dependant domain size %s is not declared as one of its dimensions." \
 					%(self.name, dependantDomSize))
 			self.domains.append((dependantDomName, dependantDomSize))
-		if self.isAutoDom:
+		if self.isAutoDom and not self.isPointer:
 			for dim in dimsBeforeReset:
 				self.domains.append(dim)
+
 		self.checkIntegrityOfDomains()
 		self.initLevel = max(self.initLevel, Init.ROUTINENODE_ATTRIBUTES_LOADED)
 		if self.debugPrint:
@@ -372,13 +382,23 @@ class Symbol(object):
 		elif not self.intent == intentMatch.group(1):
 			raise Exception("Symbol %s's intent was previously defined already and does not match the declaration on this line. Previously loaded intent: %s, new intent: %s" %(str(self), self.intent, intentMatch.group(1)))
 
+		#   check whether this is a pointer
+		self.isPointer = self.pointerDeclarationPattern.match(paramDeclMatch.group(0)) != None
+
 		#   look at declaration of symbol and get its                 #
 		#   dimensions.                                               #
 		dimensionStr, remainder = self.getDimensionStringAndRemainderFromDeclMatch(paramDeclMatch, \
 			patterns.dimensionPattern \
 		)
 		dimensionSizes = [sizeStr.strip() for sizeStr in dimensionStr.split(',') if sizeStr.strip() != ""]
-		if self.isAutoDom:
+		if self.isAutoDom and self.isPointer:
+			if len(self.domains) == 0:
+				for dimensionSize in dimensionSizes:
+					self.domains.append(("HF_GENERIC_UNKNOWN_DIM", dimensionSize))
+			elif len(dimensionSizes) != len(self.domains):
+				raise Exception("Symbol %s's declared shape does not match its domainDependant directive. \
+Automatic reshaping is not supported since this is a pointer type. Domains in Directive: %s, dimensions in declaration: %s" %(self.name, str(self.domains), str(dimensionSizes)))
+		elif self.isAutoDom:
 			# for the stencil use case: user will still specify the dimensions in the declaration
 			# -> autodom picks them up and integrates them as parallel active dims
 			for dimensionSize in dimensionSizes:
@@ -412,48 +432,53 @@ template for symbol %s - automatically inserting it for domain name %s\n"
 		# at this point we may not go further if the parallel region data
 		# has not yet been analyzed.
 		if self.initLevel < Init.ROUTINENODE_ATTRIBUTES_LOADED:
-			self.domains = getReorderedDomainsAccordingToDeclaration(self.domains, dimensionSizes)
+			if not self.isPointer:
+				self.domains = getReorderedDomainsAccordingToDeclaration(self.domains, dimensionSizes)
 			self.checkIntegrityOfDomains()
 			return
 
-		#   compare the declared dimensions with those in the         #
-		#   'parallelActive' set using the declared domain sizes.     #
-		#   If there are any matches                                  #
-		#   in subroutines where the parallel region is outside,      #
-		#   throw an error. the user should NOT declare those         #
-		#   dimensions himself.                                       #
-		#   Otherwise, insert the dimensions to the declaration       #
-		#   in order of their appearance in the dependant template.   #
-		self.domains = [] #throw away the domains we knew before, we want to recheck now depending on information based on the declaration.
-		for parallelDomName in self.parallelActiveDims:
-			parallelDomSize = self.aggregatedRegionDomSizesByName[parallelDomName]
-			if parallelDomSize in dimensionSizes and self.parallelRegionPosition == "outside":
-				raise Exception("Parallel domain %s is declared for array %s in a subroutine where the parallel region is positioned outside. \
-This is not allowed. Note: These domains are inserted automatically if needed. For stencil computations it is recommended to only pass scalars to subroutine calls within the parallel region." \
-					%(parallelDomName, self.name))
-			if self.parallelRegionPosition != "outside":
-				self.domains.append((parallelDomName, parallelDomSize))
+		dimensionSizesMatchedInTemplate = []
+
+		if not self.isPointer:
+			#   compare the declared dimensions with those in the         #
+			#   'parallelActive' set using the declared domain sizes.     #
+			#   If there are any matches                                  #
+			#   in subroutines where the parallel region is outside,      #
+			#   throw an error. the user should NOT declare those         #
+			#   dimensions himself.                                       #
+			#   Otherwise, insert the dimensions to the declaration       #
+			#   in order of their appearance in the dependant template.   #
+			#   $$$ TODO: enable support for symmetric domain setups where one domain is passed in for vectorization
+			self.domains = [] #throw away the domains we knew before, we want to recheck now depending on information based on the declaration.
+			for parallelDomName in self.parallelActiveDims:
+				parallelDomSize = self.aggregatedRegionDomSizesByName[parallelDomName]
+				if parallelDomSize in dimensionSizes and self.parallelRegionPosition == "outside":
+					raise Exception("Parallel domain %s is declared for array %s in a subroutine where the parallel region is positioned outside. \
+	This is not allowed. Note: These domains are inserted automatically if needed. For stencil computations it is recommended to only pass scalars to subroutine calls within the parallel region." \
+						%(parallelDomName, self.name))
+				if self.parallelRegionPosition != "outside":
+					self.domains.append((parallelDomName, parallelDomSize))
 
 		#   Now match the declared dimensions to those in the         #
 		#   'parallelInactive' set, using the declared domain sizes.#
 		#   All should be matched, otherwise throw an error.          #
 		#   Insert the dimensions in order of their appearance in     #
 		#   the domainDependant template.                             #
-		dimensionSizesMatchedInTemplate = []
 		dependantDomNameAndSize = getDomNameAndSize(self.template)
 		for (dependantDomName, dependantDomSize) in dependantDomNameAndSize:
 			if dependantDomName not in self.parallelInactiveDims:
 				continue
 			if dependantDomSize not in dimensionSizes:
 				raise Exception("Symbol %s's dependant non-parallel domain size %s is not declared as one of its dimensions." %(self.name, dependantDomSize))
-			self.domains.append((dependantDomName, dependantDomSize))
+			if not self.isPointer:
+				self.domains.append((dependantDomName, dependantDomSize))
 			dimensionSizesMatchedInTemplate.append(dependantDomSize)
 		for (dependantDomName, dependantDomSize) in dependantDomNameAndSize:
 			if dependantDomName not in self.parallelActiveDims:
 				continue
 			if dependantDomSize in dimensionSizes:
 				dimensionSizesMatchedInTemplate.append(dependantDomSize)
-		if self.isAutoDom:
+		if self.isAutoDom and not self.isPointer:
 			for dimSize in self.parallelInactiveDims:
 				self.domains.append(("HF_GENERIC_PARALLEL_INACTIVE_DIM", dimSize))
 
@@ -472,12 +497,8 @@ all dimensions in the directive.\nNumber of declared dimensions: %i (%s); number
 Parallel region position: %s"
 				%(self.name, len(dimensionSizes), str(dimensionSizes), len(dimensionSizesMatchedInTemplate), str(dimensionSizesMatchedInTemplate), self.parallelRegionPosition)
 			)
-		if self.isAutoDom and len(dimensionSizesMatchedInTemplate) != 0:
-			raise Exception("Symbol %s's domainDependant directive uses the 'autoDom' flag, but non parallel dimensions \
-are used in the template. When using 'autoDom' it is necessary to remove all dimensions from the template that are also \
-declared in the specification part of the subroutine." %(self.name)
-			)
-		self.domains = getReorderedDomainsAccordingToDeclaration(self.domains, dimensionSizes)
+		if not self.isPointer:
+			self.domains = getReorderedDomainsAccordingToDeclaration(self.domains, dimensionSizes)
 		self.checkIntegrityOfDomains()
 		self.initLevel = max(self.initLevel, Init.DECLARATION_LOADED)
 		if self.debugPrint:
@@ -586,6 +607,30 @@ EXAMPLE:\n\
 				result = result + ","
 			result = result + ":"
 		result = result + ")"
+		return result
+
+	def allocationRepresentation(self):
+		if self.initLevel < Init.ROUTINENODE_ATTRIBUTES_LOADED:
+			raise Exception("Symbol %s's allocation representation is accessed without loading the routine node attributes first" %(str(self)))
+
+		result = self.deviceName()
+		if len(self.domains) == 0:
+			return result
+		result += "("
+		domPP = self.domPP()
+		if self.numOfParallelDomains != 0 and domPP != "":
+			result += domPP + "("
+		for index, domain in enumerate(self.domains):
+			if index != 0:
+				result = result + ","
+			dimSize = domain[1]
+			if dimSize == ":":
+				raise Exception("Cannot generate allocation call for symbol %s on the device - one or more dimension sizes are unknown at this point. \
+Please specify the domains and their sizes with domName and domSize attributes in the corresponding @domainDependant directive." %(self.name))
+			result += dimSize
+		if self.numOfParallelDomains != 0 and domPP != "":
+			result += ")"
+		result += ")"
 		return result
 
 	def accessRepresentation(self, parallelIterators, offsets):

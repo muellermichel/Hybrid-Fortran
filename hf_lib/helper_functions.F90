@@ -28,7 +28,7 @@ public :: write1DToFile
 public :: write2DToFile
 public :: write3DToFile
 public :: write3DToFile_n3StartsAt
-public :: printElapsedTime, getElapsedTime
+public :: printElapsedTime, getElapsedTime, getTime
 public :: printHeading
 
 contains
@@ -178,13 +178,32 @@ contains
 		close(imt)
 	end subroutine write3DToFile_n3StartsAt
 
+	subroutine getTime(time)
+#ifdef _OPENMP
+		use omp_lib
+#endif
+		real(8), intent(out) :: time
+#ifdef _OPENMP
+		time = OMP_get_wtime()
+#else
+		call cpu_time(time)
+#endif
+	end subroutine getTime
+
 	!2012-6-5 michel: take a starttime and return an elapsedtime
 	subroutine getElapsedTime(startTime, elapsedTime)
+#ifdef _OPENMP
+		use omp_lib
+#endif
 		real(8), intent(in) :: startTime
 		real(8), intent(out) :: elapsedTime
 		real(8) endTime
 
+#ifdef _OPENMP
+		endTime = OMP_get_wtime()
+#else
 		call cpu_time(endTime)
+#endif
 		elapsedTime = endTime - startTime
 	end subroutine getElapsedTime
 

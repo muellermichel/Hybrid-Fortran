@@ -46,9 +46,9 @@
 #define DIM_Z_INNER 256
 */
 
-#define DIM_X_INNER 64
-#define DIM_Y_INNER 64
-#define DIM_Z_INNER 64
+#define DIM_X_INNER 256
+#define DIM_Y_INNER 256
+#define DIM_Z_INNER 100
 
 #define HALO_X 1
 #define HALO_Y 1

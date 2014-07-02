@@ -20,12 +20,16 @@ module time_profiling
 	private
 
 	real(8) :: counter_timestep, counter_rad_sw_wrapper, counter_rad_sw, counter_rad_sw_main, counter_rad_lw
+	real(8) :: counter1, counter2, counter3, counter4, counter5
 	real(8) :: counter_sf_flx, counter_pbl_mym, counter_pbl_coupler, counter_rad, counter_mainloop
-	public :: counter_timestep, counter_rad_sw_wrapper, counter_rad_sw, counter_rad_sw_main, counter_rad_lw, incrementCounter, time_profiling_ini
+	public :: counter_timestep, counter_rad_sw_wrapper, counter_rad_sw, counter_rad_sw_main, counter_rad_lw
+	public :: counter1, counter2, counter3, counter4, counter5
 	public :: counter_sf_flx, counter_pbl_mym, counter_pbl_coupler, counter_rad, counter_mainloop
+	public :: incrementCounter, time_profiling_ini
 
 contains
 	subroutine time_profiling_ini()
+		use helper_functions
 		counter_rad_sw_wrapper = 0.0d0
 		counter_rad_sw = 0.0d0
 		counter_rad_sw_main = 0.0d0
@@ -36,6 +40,11 @@ contains
 		counter_mainloop = 0.0d0
 		counter_rad = 0.0d0
 		counter_rad_lw = 0.0d0
+		counter1 = 0.0d0
+		counter2 = 0.0d0
+		counter3 = 0.0d0
+		counter4 = 0.0d0
+		counter5 = 0.0d0
 	end subroutine time_profiling_ini
 
 	subroutine incrementCounter(prof_counter, start_time)
@@ -45,9 +54,7 @@ contains
 		real(8), intent(inout) :: prof_counter
 		real(8), intent(in) :: start_time
 		real(8) :: elapsed
-
 		call getElapsedTime(start_time, elapsed)
 		prof_counter = prof_counter + elapsed
-
 	end subroutine incrementCounter
 end module time_profiling

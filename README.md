@@ -1,4 +1,4 @@
-Hybrid Fortran v0.90
+Hybrid Fortran v0.91
 ====================
 #### Performance Portable Parallel Programming - Target CUDA and OpenMP in a Unified Codebase
 
@@ -38,6 +38,11 @@ Version History
         <th>Version</th>
         <th>Release Date</th>
         <th>Comment</th>
+    </tr>
+    <tr>
+        <td>v0.91</td>
+        <td>2013-7-02</td>
+        <td>Experimental support for Pointers. Support for different CUDA blocksizes per parallel region through region templates. Performance tuned version of Diffusion3D example included.</td>
     </tr>
     <tr>
         <td>v0.90</td>
@@ -146,6 +151,8 @@ Features
 
 * Temporary automatic arrays, module scalars and imported scalars within GPU kernels (aka subroutines containing a GPU `@parallelRegion`) - this functionality is provided in addition to CUDA Fortran's device syntax features.
 
+* Experimental Support for Pointers.
+
 * Seperate build directories for the automatically created CPU and GPU codes, showing you the created F90 files. Get a clear view of what happens in the back end without cluttering up your source directories.
 
 * Use any x86 Fortran compiler for the CPU code (PGI and Intel Fortran have been tested).
@@ -205,9 +212,9 @@ Current Restrictions
    * Subroutines may only contain one GPU parallel region.
    * Subroutines containing or being called within GPU parallel regions may not call other subroutines containing parallel regions. This restriction, however, may soon be lifted because of recent improvements in CUDA 5.
 
-* Arrays that are declared as domain dependant using `@domainDependant` directives must be of integer or real type (however any byte length within the Fortran specification is allowed).
+* Arrays that are declared as domain dependant using `@domainDependant` directives must be of integer, real, character or logical type (however any byte length within the Fortran specification is allowed).
 
-* All source files (h90, H90, f90 and F90) need to have distinctive filenames since they will be copied into flat build directories by the build system.
+* All source files need to have distinctive filenames since they will be copied into flat build directories by the build system.
 
 * `@domainDependant` directives are required for all arrays in all subroutines called within parallel regions (the preprocessor operates only on local symbol information within each subroutine).
 

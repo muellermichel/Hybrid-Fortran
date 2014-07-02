@@ -341,4 +341,15 @@ def appliesTo(appliesToTests, parallelRegionTemplate):
                 return True
     return False
 
+def getTemplate(parallelRegionTemplate):
+    templateNodes = parallelRegionTemplate.getElementsByTagName("template")
+    if not templateNodes or len(templateNodes) == 0:
+        return ''
+    if len(templateNodes) != 1:
+        raise Exception("Multiple templates are not supported.")
+    entries = templateNodes[0].getElementsByTagName("entry")
+    if len(entries) > 1:
+        raise Exception("Multiple templates are not supported.")
+    return entries[0].firstChild.nodeValue.strip()
+
 

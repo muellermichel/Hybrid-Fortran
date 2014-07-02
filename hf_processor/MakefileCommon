@@ -107,6 +107,7 @@ SRC_F90_PRE='$(shell find ${SRC_DIR_COMMON} -type f -name '*.f90')'
 SRC_F90=$(shell python ${TOOLSDIR}filterExceptions.py --paths ${SRC_F90_PRE} --exceptions ${EXCEPTIONS})
 SRC_F90PP_PRE='$(shell find ${SRC_DIR_COMMON} -type f -name '*.F90')'
 SRC_F90PP=$(shell python ${TOOLSDIR}filterExceptions.py --paths ${SRC_F90PP_PRE} --exceptions ${EXCEPTIONS})
+
 SRC_LIB_FORT=$(shell find ${LIBDIR} -type f -name '*.f90')
 SRC_LIB_FORT_PP=$(shell find ${LIBDIR} -type f -name '*.F90')
 SRC_LIB_H90=$(shell find ${LIBDIR} -type f -name '*.h90')
@@ -114,6 +115,7 @@ SRC_FORT=${SRC_F90} ${SRC_F90PP} ${SRC_LIB_FORT} ${SRC_LIB_FORT_PP}
 
 SRC_FORT_CPU=$(addprefix $(SRC_DIR_CPU),$(notdir ${SRC_FORT}))
 SRC_FORT_GPU=$(addprefix $(SRC_DIR_GPU),$(notdir ${SRC_FORT}))
+
 SRC_H90_WITHOUT_PP_PRE='$(shell find ${SRC_DIR_COMMON} -type f -name '*.h90')'
 SRC_H90_WITHOUT_PP=$(shell python ${TOOLSDIR}filterExceptions.py --paths ${SRC_H90_WITHOUT_PP_PRE} --exceptions ${EXCEPTIONS})
 SRC_H90_WITH_PP_PRE='$(shell find ${SRC_DIR_COMMON} -type f -name '*.H90')'
@@ -401,7 +403,7 @@ ${CG_DIR}touchedWhenUpdateNeeded: ${CG_DIR}temp.xml
 	@${TOOLSDIR}/testCG.sh ${CG_DIR} ${TOOLSDIR} ${H90_PREPROCESSOR_ARGS}
 
 ${CG_DIR}temp.xml: ${SRC_H90TGT_HFPP}
-	@echo "...........h90 files have been modified => building and testing hybrid callgraph"
+	@echo "...........hybrid files have been modified => building and testing hybrid callgraph"
 	@echo ..calling python ${TOOLSDIR}/annotatedCallGraphFromH90SourceDir.py -i ${SRC_DIR_COMMON} ${H90_PREPROCESSOR_ARGS} >${DEBUG_OUTPUT}
 	@mkdir -p ${CG_DIR}; python ${TOOLSDIR}/annotatedCallGraphFromH90SourceDir.py -i ${SRC_DIR_HFPP} ${H90_PREPROCESSOR_ARGS} > $@
 

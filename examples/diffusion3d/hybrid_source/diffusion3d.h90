@@ -27,7 +27,7 @@ subroutine wallBoundaryYZ(fn)
 	fn
 	@end domainDependant
 
-	@parallelRegion{domName(y,z), domSize(DIM_Y,DIM_Z), startAt(HALO_Y+1,HALO_Z+1), endAt(DIM_Y-HALO_Y,DIM_Z-HALO_Z)}
+	@parallelRegion{domName(y,z), domSize(DIM_Y,DIM_Z), startAt(HALO_Y+1,HALO_Z+1), endAt(DIM_Y-HALO_Y,DIM_Z-HALO_Z), template(BOUNDARY)}
 	fn(1,y,z) = fn(2,y,z)
 	fn(DIM_X,y,z) = fn(DIM_X-1,y,z)
 	@end parallelRegion
@@ -40,7 +40,7 @@ subroutine wallBoundaryXZ(fn)
 	fn
 	@end domainDependant
 
-	@parallelRegion{domName(x,z), domSize(DIM_X,DIM_Z), startAt(HALO_X+1,HALO_Z+1), endAt(DIM_X-HALO_X,DIM_Z-HALO_Z)}
+	@parallelRegion{domName(x,z), domSize(DIM_X,DIM_Z), startAt(HALO_X+1,HALO_Z+1), endAt(DIM_X-HALO_X,DIM_Z-HALO_Z), template(BOUNDARY)}
 	fn(x,1,z) = fn(x,2,z)
 	fn(x,DIM_Y,z) = fn(x,DIM_Y-1,z)
 	@end parallelRegion
@@ -53,7 +53,7 @@ subroutine wallBoundaryXY(fn)
 	fn
 	@end domainDependant
 
-	@parallelRegion{domName(x,y), domSize(DIM_X,DIM_Y), startAt(HALO_X+1,HALO_Y+1), endAt(DIM_X-HALO_X,DIM_Y-HALO_Y)}
+	@parallelRegion{domName(x,y), domSize(DIM_X,DIM_Y), startAt(HALO_X+1,HALO_Y+1), endAt(DIM_X-HALO_X,DIM_Y-HALO_Y), template(BOUNDARY)}
 	fn(x,y,1) = fn(x,y,2)
 	fn(x,y,DIM_Z) = fn(x,y,DIM_Z-1)
 	@end parallelRegion

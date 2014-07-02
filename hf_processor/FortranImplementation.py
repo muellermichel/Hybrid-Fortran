@@ -261,7 +261,11 @@ class CUDAFortranImplementation(FortranImplementation):
     \twrite(0, *) 'CUDA error when setting cache configuration for kernel %s:', cudaGetErrorString(cuerror)\n \
     stop 1\n\
 end if\n" %(calleeNode.getAttribute('name'))
-        blockSizePPNames = ["CUDA_BLOCKSIZE_X", "CUDA_BLOCKSIZE_Y", "CUDA_BLOCKSIZE_Z"]
+        template = getTemplate(parallelRegionTemplate)
+        template_prefix = ''
+        if template != '':
+            template_prefix = '_' + template
+        blockSizePPNames = ["CUDA_BLOCKSIZE_X" + template_prefix, "CUDA_BLOCKSIZE_Y" + template_prefix, "CUDA_BLOCKSIZE_Z" + template_prefix]
         gridSizeVarNames = ["cugridSizeX", "cugridSizeY", "cugridSizeZ"]
         domains = getDomainsWithParallelRegionTemplate(parallelRegionTemplate)
         if len(domains) > 3 or len(domains) < 1:

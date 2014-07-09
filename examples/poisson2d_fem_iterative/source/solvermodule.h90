@@ -1,0 +1,165 @@
+MODULE solvermodule
+  use system
+  use kernels
+  implicit none
+
+#ifdef GPU
+  interface
+    function cublasSnrm2(n, x, incx) bind(c,name='cublasSnrm2')
+      use iso_c_binding
+      integer(c_int), value :: n, incx
+      real(c_float), device, dimension(n) :: x
+    end function cublasSnrm2
+
+    function cublasDnrm2(n, x, incx) bind(c,name='cublasDnrm2')
+      use iso_c_binding
+      integer(c_int), value :: n, incx
+      real(c_double), device, dimension(n) :: x
+    end function cublasDnrm2
+
+    subroutine cublasInit() bind(c,name='cublasInit')
+      use iso_c_binding
+    end subroutine cublasInit
+
+    subroutine cublasShutdown() bind(c,name='cublasShutdown')
+      use iso_c_binding
+    end subroutine cublasShutdown
+  end interface
+#endif
+
+CONTAINS
+
+  SUBROUTINE l2norm2D(n1, n2, x, output)
+    integer(4), intent(in) :: n1, n2
+#ifdef GPU
+    real(RP), intent(in), dimension(n1, n2), device :: x
+#else
+    real(RP), intent(in), dimension(n1, n2) :: x
+#endif
+    real(RP), intent(out) :: output
+
+#ifdef GPU
+    if (RP .eq. DP) then
+      output = cublasDnrm2(n1 * n2, real(x, DP), 1)
+    else
+      output = cublasSnrm2(n1 * n2, real(x, SP), 1)
+    end if
+#else
+    output = sqrt(sum(x*x))
+#endif
+  END SUBROUTINE l2norm2D
+
+  SUBROUTINE relax_and_diff(n, u, h, omega)
+    integer(4), intent(in) :: n
+    real(RP), intent(inout), dimension(n,n) :: u, h
+    real(RP), intent(in)   :: omega
+    @domainDependant {attribute(autoDom)}
+      n, u, h, omega
+    @end domainDependant
+
+    @parallelRegion{domName(i,j),domSize(n,n)}
+    ! relax solution:  u = omega*u + (1-omega)*u0
+    if ( omega<1.0_RP ) then
+      u(i,j) = omega*u(i,j) + (1.0_RP-omega)*h(i,j)
+    end if
+
+    ! calculate changes in solution:  u_chg = u-u0
+    h(i,j) = u(i,j) - h(i,j)
+    @end parallelRegion
+  END SUBROUTINE
+
+  !------------------------------------------------------------------------------
+  ! Solver module
+  !------------------------------------------------------------------------------
+  SUBROUTINE solver(n, n_maxit,i_sol,tol,omega,i_print,u_p,f,h_p,s,duchg,dnorm,it)
+    integer(4), intent(in) :: n           ! Quadratic matrix size
+    integer(4), intent(in) :: n_maxit     ! maximum number of solver iterations
+    integer(4), intent(in) :: i_sol       ! solver flag (1=jacobi, 2=sor/gauss-seidel)
+    real(RP), intent(in)   :: tol         ! solver convergence criteria (reduction in defect)
+    real(RP), intent(in)   :: omega       ! solver relaxation parameter
+    integer, intent(in)    :: i_print     ! print terminal output (>0 print in # iteration)
+
+    real(RP), intent(inout), dimension(:,:), pointer :: u_p  ! solution vector
+    real(RP), intent(in), dimension(n,n)             :: f    ! right hand side/load vector
+    real(RP), intent(inout), dimension(:,:), pointer :: h_p  ! help vector (old solution)
+    real(RP), intent(in), dimension(3,3)             :: s    ! matrix stencil
+
+    integer(4), intent(out) :: it
+    real(RP), intent(out) :: duchg, dnorm
+    real(RP) :: dnorm0
+    real(DP) :: t0, t1
+    real(RP), pointer, dimension(:,:) :: temp_p
+    !------------------------------------------------------------------------------
+    @domainDependant {domName(i,j), domSize(n,n), attribute(autoDom, transferHere)}
+      u_p, h_p
+    @end domainDependant
+    @domainDependant {attribute(autoDom, transferHere)}
+      f, s
+    @end domainDependant
+    @domainDependant {attribute(autoDom, present)}
+      temp_p
+    @end domainDependant
+
+#ifdef GPU
+    call cublasInit()
+#endif
+
+    ! calculate initial defect (and corresponding l2 norm)
+    call call_matvec(n,n,h_p,s,u_p,-1.0_RP,f)
+    call l2norm2D(n,n,h_p,dnorm0)
+
+    if ( i_print/=0 ) then
+       write (*,*)
+       write (*,*) '--------+--------------+--------------+'
+       write (*,*) '  iter. | sol. changes |  sol. defect |'
+       write (*,*) '--------+--------------+--------------+'
+       write (*,'(a,e12.4,a)') '       0 |              | ',dnorm0,' |'
+       write (*,*) '--------+--------------+--------------+'
+    end if
+
+
+    ! main loop
+    call ztime(t0)
+    mainloop: do it=1,n_maxit
+      ! store old solution
+      temp_p => h_p
+      h_p => u_p
+      u_p => temp_p
+
+      ! call iterative solver
+      if ( i_sol==1 ) then
+        call call_jacobi(n,n,u_p,h_p,f,s)
+      else if ( i_sol==2 ) then
+        call call_sorgs(n,n,u_p,f,s)
+      end if
+
+      call relax_and_diff(n,u_p,h_p,omega)
+      call l2norm2D(n,n,h_p,duchg)
+
+      ! calculate defect:  d = f - A*u
+      call call_matvec(n,n,h_p,s,u_p,-1.0_RP,f)
+
+      call l2norm2D(n,n,h_p,dnorm)
+
+      if ( i_print>0 .and. mod(it,i_print)==0 ) then
+        write (*,'(i8,a,e12.4,a,e12.4,a)') it,' | ',duchg,' | ',dnorm,' |'
+      end if
+
+      ! check for convergence
+      if ( dnorm/dnorm0<tol ) then
+        exit
+      end if
+    end do  mainloop
+    call ztime(t1)
+    if ( it==n_maxit-1 ) then
+       it = it-1
+    end if
+
+#ifdef GPU
+    call cublasShutdown()
+#endif
+
+  END SUBROUTINE solver
+
+END MODULE solvermodule
+

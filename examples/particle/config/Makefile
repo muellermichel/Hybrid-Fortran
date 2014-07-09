@@ -29,7 +29,7 @@ include ${TOOLSDIR}MakefileForCompilationCommon
 
 # ADD YOUR DEPENDENCIES BELOW THIS LINE
 # -------->
-diffusion3d.o : storage_order.F90 ../source/storage.h ${USER_LIB}
-diffusion3d_openACC.o : storage_order.F90 ../source/storage.h ${USER_LIB}
+particle.o : storage_order.F90 ../source/storage.h ${USER_LIB}
+particle_openACC.o : storage_order.F90 ../source/storage.h ${USER_LIB}
 time_profiling.o : helper_functions.o
 

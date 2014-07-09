@@ -43,9 +43,10 @@ def getErrorHandlingAfterKernelCall(calleeRoutineNode, errorVariable="cuerror", 
     if stopImmediately:
         stopLine = "stop 1\n"
     return  "%s = cudaThreadSynchronize()\n" \
+            "%s = cudaGetLastError()\n" \
             "if(%s .NE. cudaSuccess) then\n"\
                 "\twrite(0, *) 'CUDA error in kernel %s:', cudaGetErrorString(%s)\n%s" \
-            "end if\n" %(errorVariable, errorVariable, name, errorVariable, stopLine)
+            "end if\n" %(errorVariable, errorVariable, errorVariable, name, errorVariable, stopLine)
 
 #currently unused
 def getTempDeallocationsAfterKernelCall(symbolsByName):
@@ -128,6 +129,7 @@ def getRuntimeDebugPrintStatements(symbolsByName, calleeRoutineNode):
     return result
 
 class FortranImplementation(object):
+    onDevice = False
 
     def warningOnUnrecognizedSubroutineCallInParallelRegion(self, callerName, calleeName):
         return ""
@@ -239,6 +241,7 @@ class OpenMPFortranImplementation(FortranImplementation):
         return FortranImplementation.subroutineEnd(self, dependantSymbols, routineIsKernelCaller)
 
 class CUDAFortranImplementation(FortranImplementation):
+    onDevice = True
 
     def __init__(self):
         self.currRoutineNode = None
@@ -532,7 +535,7 @@ Symbols vs transferHere attributes:\n%s" %(str([(symbol.name, symbol.transferHer
                 if symbol.isPointer:
                     deviceInitStatements += "allocate(%s)\n" %(symbol.allocationRepresentation())
                 deviceInitStatements += deviceStr + " = " + originalStr + "\n"
-            elif routineIsKernelCaller or symbol.isToBeTransfered:
+            elif (routineIsKernelCaller or symbol.isToBeTransfered):
                 deviceInitStatements += symbol.selectAllRepresentation() + " = 0\n"
 
         return result + deviceInitStatements

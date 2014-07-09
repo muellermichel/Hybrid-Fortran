@@ -33,7 +33,7 @@ def unpackNextRecord(file, readEndianFormat, numOfBytesPerValue, typeSpecifier):
 	headerUnpacked = struct.unpack(headerFormat, header)
 	recordByteLength = headerUnpacked[0]
 	if (recordByteLength % numOfBytesPerValue != 0):
-		raise Exception, "Odd record length."
+		raise Exception, "Odd record length: %i, modulo %i == 0 expected. Is the file endian correct?" %(recordByteLength, numOfBytesPerValue)
 		return None
 	recordLength = recordByteLength / numOfBytesPerValue
 
@@ -87,6 +87,13 @@ def rootMeanSquareDeviation(tup, tupRef, eps):
 		err = err + newErrSquare
 	return math.sqrt(err), firstErr, firstErrVal, firstErrExpected
 
+def checkIntegrity(tup):
+	for index, val in enumerate(tup):
+		if math.isnan(val):
+			raise Exception("value at index %i in input file is not a number." %(index))
+		if math.isinf(val):
+			raise Exception("value at index %i in input file is an infinite number." %(index))
+
 def run_accuracy_test_for_datfile(options, eps):
 	numOfBytesPerValue = int(options.bytes)
 	if (numOfBytesPerValue != 4 and numOfBytesPerValue != 8):
@@ -103,20 +110,23 @@ def run_accuracy_test_for_datfile(options, eps):
 	try:
 		#prepare files
 		inFile = open(str(options.inFile),'r')
-		refFile = open(str(options.refFile),'r')
+		if options.refFile != None:
+			refFile = open(str(options.refFile),'r')
+		else:
+			sys.stderr.write("WARNING: No reference file specified - doing some basic checks on the input only\n")
 		i = 0
 		while True:
 			passedStr = "pass"
 			i = i + 1
 			unpackedRef = None
-			try:
-				unpackedRef = unpackNextRecord(refFile, readEndianFormat, numOfBytesPerValue, typeSpecifier)
-			except(Exception), e:
-				sys.stderr.write("Error reading record %i from %s: %s\n" %(i, str(options.refFile), e))
-				sys.exit(1)
-
-			if unpackedRef == None:
-				break;
+			if refFile != None:
+				try:
+					unpackedRef = unpackNextRecord(refFile, readEndianFormat, numOfBytesPerValue, typeSpecifier)
+				except(Exception), e:
+					sys.stderr.write("Error reading record %i from %s: %s\n" %(i, str(options.refFile), e))
+					sys.exit(1)
+				if unpackedRef == None:
+					break;
 			unpacked = None
 			try:
 				unpacked = unpackNextRecord(inFile, readEndianFormat, numOfBytesPerValue, typeSpecifier)
@@ -124,25 +134,32 @@ def run_accuracy_test_for_datfile(options, eps):
 				sys.stderr.write("Error reading record %i from %s: %s\n" %(i, str(options.inFile), e))
 				sys.exit(1)
 
-			if unpacked == None:
+			if unpacked == None and unpackedRef != None:
 				sys.stderr.write("Error in %s: Record expected, could not load record it\n" %(str(options.inFile)))
 				sys.exit(1)
+			elif unpacked == None:
+				break
 
-			if len(unpacked) != len(unpackedRef):
-				sys.stderr.write("Error in %s: Record %i does not have same length as reference. Length: %i, expected: %i\n" \
-					%(str(options.inFile), i, len(unpacked), len(unpackedRef)))
-				sys.exit(1)
-			#analyse unpacked data
-			[err, firstErr, firstErrVal, expectedVal] = rootMeanSquareDeviation(unpacked, unpackedRef, eps)
-			errorState=False
-			if firstErr != -1 or err > eps:
-				errorState=True
-				passedStr = "first error value: %s; expected: %s; FAIL <-------" %(firstErrVal, expectedVal)
-			sys.stderr.write("%s, record %i: Mean square error: %e; First Error at: %i; %s\n" %(options.inFile, i, err, firstErr, passedStr))
+			checkIntegrity(unpacked)
+			if int(options.printNum) > 0:
+				print unpacked[0:int(options.printNum)]
 			if options.verbose:
-				sys.stderr.write(unpacked + "\n")
-			if errorState:
-				sys.exit(1)
+				sys.stderr.write("Record %i unpacked, contains %i elements.\n" %(i, len(unpacked)))
+
+			if unpackedRef != None:
+				if len(unpacked) != len(unpackedRef):
+					sys.stderr.write("Error in %s: Record %i does not have same length as reference. Length: %i, expected: %i\n" \
+						%(str(options.inFile), i, len(unpacked), len(unpackedRef)))
+					sys.exit(1)
+				#analyse unpacked data
+				[err, firstErr, firstErrVal, expectedVal] = rootMeanSquareDeviation(unpacked, unpackedRef, eps)
+				errorState=False
+				if firstErr != -1 or err > eps:
+					errorState=True
+					passedStr = "first error value: %s; expected: %s; FAIL <-------" %(firstErrVal, expectedVal)
+				sys.stderr.write("%s, record %i: Mean square error: %e; First Error at: %i; %s\n" %(options.inFile, i, err, firstErr, passedStr))
+				if errorState:
+					sys.exit(1)
 	except(Exception), e:
 		sys.stderr.write("Error: %s\n" %(e))
 		sys.exit(1)
@@ -223,8 +240,9 @@ parser = OptionParser()
 parser.add_option("-f", "--file", dest="inFile",
                   help="read from FILE", metavar="FILE", default="in.dat")
 parser.add_option("--reference", dest="refFile",
-                  help="reference FILE", metavar="FILE", default="ref.dat")
+                  help="reference FILE", metavar="FILE", default=None)
 parser.add_option("-b", "--bytesPerValue", dest="bytes", default="4")
+parser.add_option("-p", "--printFirstValues", dest="printNum", default="0")
 parser.add_option("-r", "--readEndian", dest="readEndian", default="big")
 parser.add_option("--netcdf", action="store_true", dest="netcdf")
 parser.add_option("-v", action="store_true", dest="verbose")

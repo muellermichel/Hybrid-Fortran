@@ -8,6 +8,39 @@ implicit none
 
 CONTAINS
 
+  SUBROUTINE testsuite_run(n1, n2, i_test, ctest, n_loops, times, x1, x2, x3, s)
+    real(RP), dimension(n1,n2), intent(inout) :: x1, x2, x3
+    real(RP), dimension(n1,n2), intent(in) :: s
+    real(DP), dimension(n_loops), intent(out) :: times
+    integer(4), intent(in) :: n1, n2, i_test, n_loops
+    character(len=40), intent(out) :: ctest
+    real(DP) :: t0, t1
+    integer(4) :: i
+    @domainDependant {attribute(autoDom, transferHere)}
+    x1, x2, x3, s
+    @end domainDependant
+
+    do i=1,n_loops
+      call ztime(t0)
+      select case (i_test)
+
+         case (1)
+            ctest = '    matrix-vector'
+            call call_matvec(n1,n2,x1,s,x2,-1.0_RP,x3)
+
+         case (2)
+            ctest = '    jacobi iteration'
+            call call_jacobi(n1,n2,x1,x2,x3,s)
+
+         case (3)
+            ctest = '    sor/gauss-seidel iteration'
+            call call_sorgs(n1,n2,x1,x2,s)
+
+      end select
+      call ztime(t1)
+      times(i) = t1-t0
+    end do
+  END SUBROUTINE testsuite_run
 
   !------------------------------------------------------------------------------
   ! kernel test driver
@@ -20,9 +53,8 @@ CONTAINS
     real(RP), allocatable, dimension(:,:) :: x1, x2, x3
     real(RP)  :: s(3,3)
     integer   :: i, i_test, n1, n2, n_threads
-    real(DP)  :: t0, t1, times(n_loops), tav, tref, dtmp
+    real(DP)  :: times(n_loops), tav, tref
     character(len=40) :: ctest
-    !------------------------------------------------------------------------------
 
     s = 2.1_RP
 
@@ -46,28 +78,7 @@ CONTAINS
        x2 = 1.3_RP
        x3 = 1.4_RP
 
-       do i=1,n_loops
-
-          call ztime(t0)
-          select case (i_test)
-
-             case (1)
-                ctest = '    matrix-vector'
-                call call_matvec(n1,x1,s,x2,-1.0_RP,x3)
-
-             case (2)
-                ctest = '    jacobi iteration'
-                call call_jacobi(n1,n2,x1,x2,x3,s)
-
-             case (3)
-                ctest = '    sor/gauss-seidel iteration'
-                call call_sorgs(n1,n2,x1,x2,s)
-
-          end select
-          call ztime(t1)
-          times(i) = t1-t0
-
-       end do
+       call testsuite_run(n1, n2, i_test, ctest, n_loops, times, x1, x2, x3, s)
 
        tav = sum(times(2:n_loops-1))/(n_loops-2)
        if ( n_threads==1 ) then

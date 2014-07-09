@@ -2,7 +2,7 @@
 ! 2D Poisson equation on a unit square
 !------------------------------------------------------------------------------
 PROGRAM fempoi2d
-  
+
   use system
   use kernels
   use kerneltests
@@ -25,10 +25,10 @@ PROGRAM fempoi2d
   integer           :: i_post  =    1              ! postprocessing flag (!=0=output solution)
   character(len=40) :: cfile   = 'solution'        ! filename to output solution
 
-  real(RP), allocatable, dimension(:,:) :: u       ! solution vector
+  real(RP), pointer, dimension(:,:) :: u_p         ! solution vector
   real(RP), allocatable, dimension(:,:) :: u_ref   ! reference solution vector
   real(RP), allocatable, dimension(:,:) :: f       ! right hand side/load vector
-  real(RP), allocatable, dimension(:,:) :: h       ! help vector (old solution)
+  real(RP), pointer, dimension(:,:) :: h_p         ! help vector (old solution)
   real(RP), dimension(3,3)              :: s       ! matrix stencil
 
 
@@ -76,7 +76,7 @@ PROGRAM fempoi2d
 
   !------------------------------------------------------------------------------
 
-  write (*,*) 
+  write (*,*)
   write (*,*) '---------------------------------------'
   write (*,*) ' 2D Poisson equation on a unit square'
   write (*,*) '---------------------------------------'
@@ -127,21 +127,21 @@ PROGRAM fempoi2d
   ! Solver
   !------------------------------------------------------------------------------
   if ( n_maxit==0 ) then
-     write (*,*) 
+     write (*,*)
      stop
   end if
 
-  allocate(u(n,n))
+  allocate(u_p(n,n))
   allocate(f(n,n))
-  allocate(h(n,n))
-  u              =  0.0_RP
+  allocate(h_p(n,n))
+  u_p            =  0.0_RP
   f              =  0.0_RP
   f(2:n-1,2:n-1) =  h_grid**2
-  h              =  0.0_RP
+  h_p            =  0.0_RP
 
   ! call to solver
   call ztime(t0)
-  call solver(n_maxit,i_sol,tol,omega,i_print,u,f,h,s,duchg,dnorm,it)
+  call solver(n,n_maxit,i_sol,tol,omega,i_print,u_p,f,h_p,s,duchg,dnorm,it)
   call ztime(t1)
 
   ! output solution statistics
@@ -154,13 +154,19 @@ PROGRAM fempoi2d
 
         allocate(u_ref(n,n))
         call poisqsol(u_ref,n_dacc)
+
+        write(*,*) 'Reference'
+        write(*,*) u_ref(17,1:17)
+        write(*,*) "Solution"
+        write(*,*) u_p(17,1:17)
+
         dtmp  = maxval(u_ref)
-        u_ref = u_ref-u
+        u_ref = u_ref-u_p
         dnorm = sqrt(sum(u_ref*u_ref))
         write (*,'(a,e11.2)') &
              ' l2 norm (u-u_ref)      : ',dnorm
         write (*,'(a,f11.8)') &
-             ' max(u)                 : ',maxval(u)
+             ' max(u)                 : ',maxval(u_p)
         write (*,'(a,f11.8)') &
              ' max(u_ref)             : ',dtmp
         write (*,*) '--------+--------------+--------------+'
@@ -212,14 +218,14 @@ PROGRAM fempoi2d
 
   ! output solution to file
   if ( i_post>0 ) then
-     call output_array(u,size(u),cfile)
-     call output_gmv(u,cfile)
+     call output_array(u_p,size(u_p),cfile)
+     call output_gmv(u_p,cfile)
   end if
 
 
-  deallocate(h)
+  deallocate(h_p)
   deallocate(f)
-  deallocate(u)
+  deallocate(u_p)
 
 END PROGRAM
 
@@ -240,7 +246,7 @@ END PROGRAM
     real(RP)                              :: pi, c, dx, dy, x, y, sinii, sinjj, udiff
     real(RP), dimension(:,:), allocatable :: u0
     !------------------------------------------------------------------------------
-    
+
     pi    = 4.0_RP*atan(1.0_RP)
     n_max = 1000   ! max number of Fourier series expansions
     n1    = size(u,1)

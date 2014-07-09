@@ -12,24 +12,24 @@
 #--------------------------------------------------------#
 
 ###### GCC ##############
-C_COMPILER = gcc
-C_COMPILER_FLAGS = -lm -fopenmp -O3
-C_LINKER = gcc
-C_LINKER_FLAGS = ${C_COMPILER_FLAGS}
+# C_COMPILER = gcc
+# C_COMPILER_FLAGS = -lm -fopenmp -O3
+# C_LINKER = gcc
+# C_LINKER_FLAGS = ${C_COMPILER_FLAGS}
 
 ###### PGCC #############
-# C_COMPILER = pgcc
-# C_COMPILER_FLAGS = -Minfo=inline,ipa -Mneginfo -I/usr/local/include -fast -mp
-# C_LINKER = pgcc
-# C_LINKER_FLAGS =
-# ifdef DEBUG
-# C_COMPILER_FLAGS = -g
-# C_LINKER_FLAGS = -g
-# endif
-# ifdef EMULATED
-# C_COMPILER_FLAGS = -g
-# C_LINKER_FLAGS = -g
-# endif
+C_COMPILER = pgcc
+C_COMPILER_FLAGS = -Minfo=inline,ipa -Mneginfo -I/usr/local/include -fast -mp
+C_LINKER = pgcc
+C_LINKER_FLAGS =
+ifdef DEBUG
+C_COMPILER_FLAGS = -g
+C_LINKER_FLAGS = -g
+endif
+ifdef EMULATED
+C_COMPILER_FLAGS = -g
+C_LINKER_FLAGS = -g
+endif
 
 
 ###### INTEL ############
@@ -111,7 +111,8 @@ HF_EXE = ${PROGRAM_NAME_PREFIX}_hf_version
 #--------------------------------------------------------#
 #--------  MAKE HIERARCHY -------------------------------#
 #--------------------------------------------------------#
-all: ${OPENACC_EXE} ${OPENACC_FORTRAN_EXE} ${C_EXE_INTEL} ${C_EXE_PGI} ${CUDA_EXE} ${HF_EXE}
+all: ${C_EXE_INTEL} ${CUDA_EXE} ${OPENACC_EXE} ${HF_EXE} ${OPENACC_FORTRAN_EXE}
+# all: ${C_EXE_INTEL}
 
 ${OPENACC_EXE}: etc.o main.o ${PROGRAM_NAME_PREFIX}_openacc.o
 	${OPENACC_LINKER} ${OPENACC_LINKER_FLAGS} etc.o ${PROGRAM_NAME_PREFIX}_openacc.o main.o -o ${OPENACC_EXE}
@@ -129,6 +130,9 @@ ${C_EXE_PGI}: etc.o main.o ${PROGRAM_NAME_PREFIX}_c_version.o
 
 ${C_EXE_INTEL}: etc_intel.o main_intel.o ${PROGRAM_NAME_PREFIX}_c_version_intel.o
 	${C_LINKER_INTEL} ${C_LINKER_FLAGS_INTEL} etc_intel.o main_intel.o ${PROGRAM_NAME_PREFIX}_c_version_intel.o -o ${C_EXE_INTEL}
+
+# ${C_EXE_INTEL}: etc_intel.o main_intel.o ${PROGRAM_NAME_PREFIX}_c_version_intel.o
+# 	ifort -cxxlib -nofor-main ${C_LINKER_FLAGS_INTEL} etc_intel.o main_intel.o ${PROGRAM_NAME_PREFIX}_c_version_intel.o ../hybrid_source/helper_functions.o -o ${C_EXE_INTEL}
 
 ifdef GPU
 ${HF_EXE}: ../hybrid_source/${PROGRAM_NAME_PREFIX}.o
@@ -177,7 +181,6 @@ clean:
 	rm -f ${OPENACC_EXE} ${C_EXE} ${CUDA_EXE} *o *gpu *ptx *hmf*
 
 ido.h : commons.h
-commons.h : storage.h
 etc.o : ido.h
 etc_intel.o : ido.h
 main.o : ido.h

@@ -154,7 +154,7 @@ TEST_OUTPUT_FILE_PATTERN=""
 # this list, will be compiled, even if there is not an explicit dependency  #
 # specified for them.                                                       #
 #############################################################################
-EXCEPTIONS=" "
+EXCEPTIONS=""
 
 #############################################################################
 # set this to true if you'd like to have every compilation in debug mode    #

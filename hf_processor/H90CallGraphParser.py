@@ -365,8 +365,6 @@ class H90CallGraphParser(object):
         self.fileName = fileName
         for line in fileinput.input([fileName]):
             try:
-                # if lineNo == 57:
-                #     pdb.set_trace()
                 self.processLine(line)
             except Exception, e:
                 exc_type, exc_obj, exc_tb = sys.exc_info()
@@ -533,11 +531,8 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
         subprocName = subProcBeginMatch.group(1)
         routineNode = self.routineNodesByProcName.get(subprocName)
         if not routineNode:
-            raise Exception("no definition found for routine '%s'" %(subprocName))
-        #$$$ this might be dangerous: We're executing this at a time when parallel regions haven't been analyzed for CPU or GPU!
-        #check whether this is really necessary and how it works.
+            return
         parallelRegionTemplates = self.parallelRegionTemplatesByProcName.get(self.currSubprocName)
-
         templatesAndEntries = getDomainDependantTemplatesAndEntries(self.cgDoc, routineNode)
         for template, entry in templatesAndEntries:
             dependantName = entry.firstChild.nodeValue
@@ -1026,7 +1021,8 @@ or %i (number of declared dimensions for this array) accessors." %(symbol.name, 
         super(H90toF90Printer, self).processInsideDeclarationsState(line)
         routineNode = self.routineNodesByProcName.get(self.currSubprocName)
         if routineNode \
-        and getRoutineNodeInitStage(routineNode) == RoutineNodeInitStage.DIRECTIVES_WITHOUT_PARALLELREGION_POSITION:
+        and getRoutineNodeInitStage(routineNode) == RoutineNodeInitStage.DIRECTIVES_WITHOUT_PARALLELREGION_POSITION \
+        and self.implementation.onDevice:
             #during analysis we've found that this routine had a parallel region directive but now
             #there is no relation to a parallel region anymore in the callgraph.
             #This is a special case where the programmer most probably commented out the call to this subroutine

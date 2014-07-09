@@ -8,84 +8,101 @@ subroutine diffusion3d_inner(f, fn, coeff_east_west, coeff_north_south, coeff_to
 	real(FLOAT_BYTE_LENGTH), intent(in), dimension(DIM_X, DIM_Y, DIM_Z) :: f
 	real(FLOAT_BYTE_LENGTH), intent(out), dimension(DIM_X, DIM_Y, DIM_Z) :: fn
 	real(FLOAT_BYTE_LENGTH), intent(in) :: coeff_east_west, coeff_north_south, coeff_top_bottom, coeff_center
-	@domainDependant {attribute(autoDom)}
-	f, fn, coeff_east_west, coeff_north_south, coeff_top_bottom, coeff_center
-	@end domainDependant
-
-	@parallelRegion{domName(x, y, z), domSize(DIM_X,DIM_Y,DIM_Z), startAt(HALO_X+1,HALO_Y+1,HALO_Z+1), endAt(DIM_X-HALO_X,DIM_Y-HALO_Y,DIM_Z-HALO_Z)}
+	integer(4) :: x, y, z
+	!$acc kernels present(f, fn)
+	!$acc loop independent
+	do z=HALO_Z+1,DIM_Z-HALO_Z
+	!$acc loop independent vector(8)
+	do y=HALO_Y+1,DIM_Y-HALO_Y
+	!$acc loop independent vector(32)
+	do x=HALO_X+1,DIM_X-HALO_X
 	fn(x,y,z) = coeff_center*f(x,y,z) &
-      + coeff_east_west*f(x+1,y,z) + coeff_east_west*f(x-1,y,z) &
-      + coeff_north_south*f(x,y+1,z) + coeff_north_south*f(x,y-1,z) &
-      + coeff_top_bottom*f(x,y,z+1) + coeff_top_bottom*f(x,y,z-1)
-	@end parallelRegion
+	      + coeff_east_west*f(x+1,y,z) + coeff_east_west*f(x-1,y,z) &
+	      + coeff_north_south*f(x,y+1,z) + coeff_north_south*f(x,y-1,z) &
+	      + coeff_top_bottom*f(x,y,z+1) + coeff_top_bottom*f(x,y,z-1)
+	end do
+	end do
+	end do
+	!$acc end kernels
 end subroutine
 
 subroutine wallBoundaryYZ(fn)
 	implicit none
 	real(FLOAT_BYTE_LENGTH), intent(inout), dimension(DIM_X, DIM_Y, DIM_Z) :: fn
-	@domainDependant {attribute(autoDom)}
-	fn
-	@end domainDependant
-
-	@parallelRegion{domName(y,z), domSize(DIM_Y,DIM_Z), startAt(HALO_Y+1,HALO_Z+1), endAt(DIM_Y-HALO_Y,DIM_Z-HALO_Z), template(BOUNDARY)}
-	fn(1,y,z) = fn(2,y,z)
-	fn(DIM_X,y,z) = fn(DIM_X-1,y,z)
-	@end parallelRegion
+	integer(4) :: x, y, z
+	!$acc kernels present(fn)
+	!$acc loop independent
+	do z=HALO_Z+1,DIM_Z-HALO_Z
+	!$acc loop independent
+	do y=HALO_Y+1,DIM_Y-HALO_Y
+		fn(1,y,z) = fn(2,y,z)
+		fn(DIM_X,y,z) = fn(DIM_X-1,y,z)
+	end do
+	end do
+	!$acc end kernels
 end subroutine
 
 subroutine wallBoundaryXZ(fn)
 	implicit none
 	real(FLOAT_BYTE_LENGTH), intent(inout), dimension(DIM_X, DIM_Y, DIM_Z) :: fn
-	@domainDependant {attribute(autoDom)}
-	fn
-	@end domainDependant
-
-	@parallelRegion{domName(x,z), domSize(DIM_X,DIM_Z), startAt(HALO_X+1,HALO_Z+1), endAt(DIM_X-HALO_X,DIM_Z-HALO_Z), template(BOUNDARY)}
-	fn(x,1,z) = fn(x,2,z)
-	fn(x,DIM_Y,z) = fn(x,DIM_Y-1,z)
-	@end parallelRegion
+	integer(4) :: x, y, z
+	!$acc kernels present(fn)
+	!$acc loop independent
+	do z=HALO_Z+1,DIM_Z-HALO_Z
+	!$acc loop independent
+	do x=HALO_X+1,DIM_X-HALO_X
+		fn(x,1,z) = fn(x,2,z)
+		fn(x,DIM_Y,z) = fn(x,DIM_Y-1,z)
+	end do
+	end do
+	!$acc end kernels
 end subroutine
 
 subroutine wallBoundaryXY(fn)
 	implicit none
 	real(FLOAT_BYTE_LENGTH), intent(inout), dimension(DIM_X, DIM_Y, DIM_Z) :: fn
-	@domainDependant {attribute(autoDom)}
-	fn
-	@end domainDependant
-
-	@parallelRegion{domName(x,y), domSize(DIM_X,DIM_Y), startAt(HALO_X+1,HALO_Y+1), endAt(DIM_X-HALO_X,DIM_Y-HALO_Y), template(BOUNDARY)}
-	fn(x,y,1) = fn(x,y,2)
-	fn(x,y,DIM_Z) = fn(x,y,DIM_Z-1)
-	@end parallelRegion
+	integer(4) :: x, y, z
+	!$acc kernels present(fn)
+	!$acc loop independent
+	do y=HALO_Y+1,DIM_Y-HALO_Y
+	!$acc loop independent
+	do x=HALO_X+1,DIM_X-HALO_X
+		fn(x,y,1) = fn(x,y,2)
+		fn(x,y,DIM_Z) = fn(x,y,DIM_Z-1)
+	end do
+	end do
+	!$acc end kernels
 end subroutine
 
 subroutine diffusion3d(f, fn, coeff_east_west, coeff_north_south, coeff_top_bottom, coeff_center)
-	use time_profiling
-	use helper_functions
 	implicit none
 	real(FLOAT_BYTE_LENGTH), intent(in), dimension(DIM_X, DIM_Y, DIM_Z) :: f
 	real(FLOAT_BYTE_LENGTH), intent(out), dimension(DIM_X, DIM_Y, DIM_Z) :: fn
 	real(FLOAT_BYTE_LENGTH), intent(in) :: coeff_east_west, coeff_north_south, coeff_top_bottom, coeff_center
-	real(8) :: time_start, time_before_yz, time_before_xz, time_before_xy
-	@domainDependant {attribute(autoDom, present)}
-	f, fn, coeff_east_west, coeff_north_south, coeff_top_bottom, coeff_center
-	@end domainDependant
 
-	call getTime(time_start)
 	call diffusion3d_inner(f, fn, coeff_east_west, coeff_north_south, coeff_top_bottom, coeff_center)
-	call incrementCounter(counter1, time_start)
-
-	call getTime(time_before_yz)
 	call wallBoundaryYZ(fn)
-	call incrementCounter(counter2, time_before_yz)
-
-	call getTime(time_before_xz)
 	call wallBoundaryXZ(fn)
-	call incrementCounter(counter3, time_before_xz)
-
-	call getTime(time_before_xy)
 	call wallBoundaryXY(fn)
-	call incrementCounter(counter4, time_before_xy)
+end subroutine
+
+subroutine writeBack(f, fn)
+	implicit none
+	real(FLOAT_BYTE_LENGTH), intent(out), dimension(DIM_X, DIM_Y, DIM_Z) :: f
+	real(FLOAT_BYTE_LENGTH), intent(in), dimension(DIM_X, DIM_Y, DIM_Z) :: fn
+	integer(4) :: x, y, z
+	!$acc kernels present(f, fn)
+	!$acc loop independent
+	do z=HALO_Z+1,DIM_Z-HALO_Z
+	!$acc loop independent
+	do y=HALO_Y+1,DIM_Y-HALO_Y
+	!$acc loop independent
+	do x=HALO_X+1,DIM_X-HALO_X
+		f(x,y,z) = fn(x,y,z)
+	end do
+	end do
+	end do
+	!$acc end kernels
 end subroutine
 
 subroutine mainloop(f_p, fn_p, kappa, time, dt, dx, dy, dz, numOfStencilsComputed)
@@ -102,14 +119,6 @@ subroutine mainloop(f_p, fn_p, kappa, time, dt, dx, dy, dz, numOfStencilsCompute
 	integer :: icnt
 	real(8) :: t_start_main
 	integer(8) :: idealCacheModelBytesTransferred, noCacheModelBytesTransferred
-	integer(4), parameter :: filehandle_initial_x = 30
-	integer(4), parameter :: filehandle_initial_y = 31
-	@domainDependant {attribute(autoDom, present)}
-	temp_p
-	@end domainDependant
-	@domainDependant {domName(x,y,z), domSize(DIM_X, DIM_Y, DIM_Z), attribute(autoDom, transferHere)}
-	f_p, fn_p
-	@end domainDependant
 
 	coeff_east_west = kappa*dt/(dx*dx)
 	coeff_north_south = kappa*dt/(dy*dy)
@@ -122,6 +131,7 @@ subroutine mainloop(f_p, fn_p, kappa, time, dt, dx, dy, dz, numOfStencilsCompute
 	write(0,"(A, I3, A, I3, A, I3, A,E13.5,A,E13.5,A,E13.5)") "X:", DIM_X_INNER, ", Y:", DIM_Y_INNER, ", Z:", DIM_Z_INNER, ", kappa:", kappa, ", dt:", dt, ", dx:", dx
 	call time_profiling_ini()
 	icnt = 0
+	!$acc data copy(f_p), create(fn_p)
 	do
 		icnt = icnt + 1
 		call getTime(t_start_main)
@@ -139,6 +149,7 @@ subroutine mainloop(f_p, fn_p, kappa, time, dt, dx, dy, dz, numOfStencilsCompute
 		end if
 		if (time + 0.5*dt >= 0.1 .or. icnt >= 90000) exit
 	end do
+	!$acc end data
 	write(0, "(A,F13.5,A)") "Bandwidth Ideal Cache Model= ", real(idealCacheModelBytesTransferred)/counter_timestep*1E-09, "[GB/s]"
 	write(0, "(A,F13.5,A)") "Bandwidth No Cache Model= ", real(noCacheModelBytesTransferred)/counter_timestep*1E-09, "[GB/s]"
 end subroutine

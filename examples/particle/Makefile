@@ -16,20 +16,20 @@
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
 #***************************************************************************#
-#  Makefile that gets copied into the individual build directories.         #
-#  Dependencies of your sources need to be specified here.                  #
+#  Makefile for Hybrid Fortran Build Interface                              #
 #                                                                           #
-#  Date             2013/02/01                                              #
+#  Date             2013/03/04                                              #
 #  Author           Michel Müller (RIKEN)                                   #
+#                                                                           #
+#                                                                           #
+# USUALLY NOTHING HERE SHOULD BE CHANGED!                                   #
+# see the following files for changing build settings:                      #
+#    * ./config/MakesettingsGeneral (directory settings,                    #
+#                                      compilation exceptions )             #
+#    * ./config/MakesettingsCPU (compiler settings CPU)                     #
+#    * ./config/MakesettingsGPU (compiler settings GPU)                     #
+#    * ./config/Makefile (source dependencies)                              #
+#                                                                           #
 #***************************************************************************#
 TOOLSDIR=${HF_DIR}/hf_processor/
-include ./MakesettingsGeneral
-include ./Makesettings
-include ${TOOLSDIR}MakefileForCompilationCommon
-
-# ADD YOUR DEPENDENCIES BELOW THIS LINE
-# -------->
-diffusion3d.o : storage_order.F90 ../source/storage.h ${USER_LIB}
-diffusion3d_openACC.o : storage_order.F90 ../source/storage.h ${USER_LIB}
-time_profiling.o : helper_functions.o
-
+include ${TOOLSDIR}MakefileCommon

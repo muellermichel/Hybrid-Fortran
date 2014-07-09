@@ -23,8 +23,9 @@ MODULE system
   ! kind value for 64 bit float (double precision)
   INTEGER, PARAMETER, PUBLIC :: DP = SELECTED_REAL_KIND(15,307)
 
-  ! kind value for 80/128 bit float (quad precision)
-  INTEGER, PARAMETER, PUBLIC :: QP = SELECTED_REAL_KIND(18,4931)
+! MMU 2014-7-8: QP not supported for GPU version
+!   ! kind value for 80/128 bit float (quad precision)
+!   INTEGER, PARAMETER, PUBLIC :: QP = SELECTED_REAL_KIND(18,4931)
 
   ! set precision for reals
   INTEGER, PARAMETER, PUBLIC :: RP = DP
@@ -128,7 +129,7 @@ CONTAINS
        '----------------------------------------------'
   END FUNCTION realsize
 
-        
+
   SUBROUTINE confuse(q,r)
     !     .. scalar arguments ..
     real(RP) :: q, r
@@ -140,5 +141,5 @@ CONTAINS
 
   END SUBROUTINE confuse
 
-  
+
 END MODULE

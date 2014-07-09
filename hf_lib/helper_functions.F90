@@ -22,8 +22,12 @@ implicit none
 
 private
 
+integer(4) :: nextGenericFileNumber
+public :: init_helper
 public :: findNewFileHandle
 public :: print1D
+public :: writeToFile
+public :: write1DToGenericFile
 public :: write1DToFile
 public :: write2DToFile
 public :: write3DToFile
@@ -31,7 +35,14 @@ public :: write3DToFile_n3StartsAt
 public :: printElapsedTime, getElapsedTime, getTime
 public :: printHeading
 
+interface writeToFile
+	module procedure write1DToFile, write2DToFile, write3DToFile
+end interface
+
 contains
+	subroutine init_helper()
+		nextGenericFileNumber = 0
+	end subroutine
 
 	subroutine printHeading()
 #ifdef GPU
@@ -57,7 +68,7 @@ contains
 			write(0, *) "  CPU Implementation"
 #endif
 		write (0,*) "**************************************************************"
-	end subroutine printHeading
+	end subroutine
 
 	subroutine findNewFileHandle(mt)
 		implicit none
@@ -85,7 +96,18 @@ contains
 		integer(4), intent(in) :: n
 
 		write(0, *) array
-	end subroutine print1D
+	end subroutine
+
+	subroutine write1DToGenericFile(array, n) bind(c, name="write1DToGenericFile")
+		implicit none
+		real(8), intent(in) :: array(n)
+		integer(4), intent(in) :: n
+		character(len=15) :: path
+
+		write(path, "(A,I3,A)") "./output", nextGenericFileNumber, ".dat"
+		nextGenericFileNumber = nextGenericFileNumber + 1
+		call write1DToFile(path, array, n)
+	end subroutine
 
 	!2012-6-5 michel: helper function to save output
 	subroutine write1DToFile(path, array, n)
@@ -106,7 +128,7 @@ contains
 		open(imt, file = path, form = 'unformatted', status = 'replace')
 		write(imt) array
 		close(imt)
-	end subroutine write1DToFile
+	end subroutine
 
 	!2012-6-5 michel: helper function to save output
 	subroutine write2DToFile(path, array, n1, n2)
@@ -123,7 +145,7 @@ contains
 		open(imt, file = path, form = 'unformatted', status = 'replace')
 		write(imt) array
 		close(imt)
-	end subroutine write2DToFile
+	end subroutine
 
 	subroutine write3DToFile(path, array, n1, n2, n3)
 		implicit none
@@ -149,7 +171,7 @@ contains
 		open(imt, file = path, form = 'unformatted', status = 'replace')
 		write(imt) out_array
 		close(imt)
-	end subroutine write3DToFile
+	end subroutine
 
 	subroutine write3DToFile_n3StartsAt(path, array, n1, n2, n3, start3)
 		implicit none
@@ -176,7 +198,7 @@ contains
 		open(imt, file = path, form = 'unformatted', status = 'replace')
 		write(imt) out_array
 		close(imt)
-	end subroutine write3DToFile_n3StartsAt
+	end subroutine
 
 	subroutine getTime(time)
 #ifdef _OPENMP
@@ -205,7 +227,7 @@ contains
 		call cpu_time(endTime)
 #endif
 		elapsedTime = endTime - startTime
-	end subroutine getElapsedTime
+	end subroutine
 
 	!2012-6-5 michel: take a starttime and return an elapsedtime
 	subroutine printElapsedTime(startTime, prefix)
@@ -215,6 +237,6 @@ contains
 
 		call getElapsedTime(startTime, elapsedTime)
 		write(0, *) prefix, elapsedTime
-	end subroutine printElapsedTime
+	end subroutine
 
 end module helper_functions

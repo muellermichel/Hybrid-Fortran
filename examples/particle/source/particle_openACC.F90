@@ -2,6 +2,7 @@
 #define M_PI 3.14159265358979323846d0
 #define TAU 8.0
 ! #define LOAD_INITIAL_FROM_FILE 1
+! #define SAVE_TO_FILE 1
 
 module particle_push
 contains
@@ -66,13 +67,12 @@ subroutine mainloop(x, y, x_out, y_out, time, dt, numOfStencilsComputed)
 	write(0,"(A,I3,A,E13.5,A,E13.5)") "N:", N, ", time:", time, ", dt:", dt
 	call time_profiling_ini()
 	icnt = 0
-	!$acc data copy(x,y,x_out,y_out)
+	!$acc data copy(x,y), create(x_out,y_out)
 	do
-		icnt = icnt + 1
 		call getTime(t_start_main)
+		icnt = icnt + 1
 		time_factor = 2.0d0 * cos(M_PI * time / TAU) * dt
 		call ppush(x,y,x_out,y_out,time,time_factor,dt)
-		call incrementCounter(counter_timestep, t_start_main)
 		temp_p => x
     	x => x_out
     	x_out => temp_p
@@ -84,8 +84,10 @@ subroutine mainloop(x, y, x_out, y_out, time, dt, numOfStencilsComputed)
 		if(modulo(icnt,100) .eq. 0) then
 			write(0,"(A,I5,A,E13.5)") "time after iteration ", icnt+1, ":",time
 		end if
-		if (time >= 8.0 - 0.5*dt .or. icnt >= 999999) exit
+		call incrementCounter(counter_timestep, t_start_main)
+		if (time >= 20.0 - 0.5*dt .or. icnt >= 999999) exit
 	end do
+	write(0,*) "Simulated Time:", time
 	!$acc end data
 end subroutine
 
@@ -122,7 +124,6 @@ program main
 	integer(4), parameter :: filehandle_y_initial = 31
 	integer(4) :: i
 
-	call printHeading()
 	Lx = 512
 	Ly = 512
 	dt = 1.0d0/100.0d0
@@ -133,6 +134,8 @@ program main
 	allocate(yn(N))
 	xn(:) = 0.0d0
 	yn(:) = 0.0d0
+
+	write(0, "(A,E13.5,A,E13.5)") "N: ", real(N), ", dt: ", dt
 
 #ifdef LOAD_INITIAL_FROM_FILE
 	open(filehandle_x_initial, file='input_x.dat', form='unformatted', status='old', action='read')
@@ -147,8 +150,10 @@ program main
   	call incrementCounter(counter5, time_start)
   	write(0, "(A,F13.5,A)") "Performance= ", real(numOfPointUpdates)/counter5*1E-06, "[million stencils/s]"
   	write(6, "(E13.5,A,F13.5,A,E13.5)") counter_timestep, ",", real(numOfPointUpdates)/counter5*1E-06, ",", counter5
+#ifdef SAVE_TO_FILE
   	call writeToFile('./out/x.dat', x, N)
   	call writeToFile('./out/y.dat', y, N)
+#endif
 	deallocate(x)
 	deallocate(y)
 	deallocate(xn)

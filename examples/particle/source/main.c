@@ -19,6 +19,7 @@
 #include <math.h>
 #include <omp.h>
 #include "ido.h"
+// #define REPEAT_WITH_REFERENCE 1
 
 void print3DArrayToStdout
 // ====================================================================
@@ -129,7 +130,7 @@ int  main(int argc, char *argv[])
 	// write1DToGenericFile(y, &np);
 
     dt = 1.0/100.0;
-
+    aprint("N: %10.4e, dt: %10.4e\n", (float)N, dt);
     mainloop(np,x,y,xn,yn,time,dt);
 
 	dprint("computed x:\n");
@@ -138,6 +139,7 @@ int  main(int argc, char *argv[])
     dprint("computed y:\n");
     print3DArrayToStdout(y, 50, 1, 1);
 
+#ifdef REPEAT_WITH_REFERENCE
 	aprint("Repeating calculation using reference method on cpu\n");
 	FLOAT *x_cpu, *y_cpu, *xn_cpu, *yn_cpu;
 	x_cpu = (FLOAT *) malloc(sizeof(FLOAT) * np);
@@ -151,7 +153,8 @@ int  main(int argc, char *argv[])
 		  cpu_ppush1_ref(np,x_cpu,y_cpu,xn_cpu,yn_cpu,time,dt);
 		  swap(&x_cpu,&xn_cpu);  swap(&y_cpu, &yn_cpu);
 		  time += dt;
-	} while(icnt++ < 999999 && time < 8.0 - 0.5*dt);
+	} while(icnt++ < 999999 && time < 20.0 - 0.5*dt);
+	aprint("Simulated Time: %7.5f\n", time);
 	dprint("computed on cpu x:\n");
 	print3DArrayToStdout(x_cpu, 50, 1, 1);
 	dprint("computed on cpu y:\n");
@@ -164,6 +167,7 @@ int  main(int argc, char *argv[])
 
 	aprint("Accuracy of x calculation: %10.4e\n", accuracy(x, x_cpu, np));
 	aprint("Accuracy of y calculation: %10.4e\n", accuracy(y, y_cpu, np));
+#endif
 
 	free(x);
 	free(y);

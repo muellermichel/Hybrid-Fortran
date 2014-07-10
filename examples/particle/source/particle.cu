@@ -112,7 +112,10 @@ void mainloop
 	long long int numOfPointUpdates = 0;
 
 	double start_time_total, start_computation_time, elapsed_time_total, elapsed_computation_time;
+    clock_t ctime_start_computation_time, ctime_start_total_time;
+    double ctime_elapsed_computation_time, ctime_elapsed_total_time;
     start_time_total = omp_get_wtime();
+    ctime_start_total_time = clock() / CLOCKS_PER_SEC;
     // unsigned int timer;
 
 	FLOAT *x_d, *y_d, *xn_d, *yn_d;
@@ -126,33 +129,41 @@ void mainloop
     cudaMemcpy(y_d,y,np*sizeof(FLOAT), cudaMemcpyHostToDevice);
 	{
 		start_computation_time = omp_get_wtime();
+		ctime_start_computation_time = clock() / CLOCKS_PER_SEC;
 		// cutCreateTimer(&timer);
 		// cutResetTimer(timer);
 		// cutStartTimer(timer);
 
-		do {  if(icnt % 500 == 0) aprint("time(%4d)=%7.5f\n",icnt,time + dt);
+		do {  if(icnt % 100 == 0) aprint("time(%4d)=%7.5f\n",icnt,time + dt);
 
 			  ppush(np,x_d,y_d,xn_d,yn_d,time,dt);
 			  swap(&x_d,&xn_d);  swap(&y_d, &yn_d);
 			  time += dt;
 			  numOfPointUpdates += np;
-		} while(icnt++ < 999999 && time < 8.0 - 0.5*dt);
-
+		} while(icnt++ < 999999 && time < 20.0 - 0.5*dt);
+		aprint("Simulated Time: %7.5f\n", time);
 		// cutStopTimer(timer);
      	// gpu_time = cutGetTimerValue(timer)*1.0e-03;
 		elapsed_computation_time = omp_get_wtime() - start_computation_time;
+		ctime_elapsed_computation_time = (clock() - ctime_start_computation_time) / (double) CLOCKS_PER_SEC;
    	}
    	cudaMemcpy(x, x_d,np*sizeof(FLOAT), cudaMemcpyDeviceToHost);
     cudaMemcpy(y, y_d,np*sizeof(FLOAT), cudaMemcpyDeviceToHost);
-	elapsed_time_total = omp_get_wtime() - start_time_total;
-
 	cudaFree(x_d);
 	cudaFree(y_d);
 	cudaFree(xn_d);
 	cudaFree(yn_d);
+	elapsed_time_total = omp_get_wtime() - start_time_total;
+	ctime_elapsed_total_time = (clock() - ctime_start_total_time) / (double) CLOCKS_PER_SEC;
 
 	aprint("Elapsed Total Time (OMP timer)= %9.3e [sec]\n",elapsed_time_total);
+	aprint("Elapsed Total Time (CTime)= %9.3e [sec]\n",ctime_elapsed_total_time);
 	aprint("Elapsed Computation Time (OMP timer)= %9.3e [sec]\n",elapsed_computation_time);
+	aprint("Elapsed Computation Time (CTime)= %9.3e [sec]\n",ctime_elapsed_computation_time);
+#ifdef CTIME
+	elapsed_time_total = ctime_elapsed_total_time;
+	elapsed_computation_time = ctime_elapsed_computation_time;
+#endif
 	aprint("Performance= %7.2f [million point updates/sec]\n",((double)numOfPointUpdates)/elapsed_time_total*1.0e-06);
 	// aprint("Elapsed Computation Time (CUDA timer)= %9.3e [sec]\n",gpu_time);
 	printf("%9.3e,%7.2f,%9.3e\n", elapsed_computation_time, (double)numOfPointUpdates/elapsed_time_total*1.0e-06, elapsed_time_total);

@@ -119,7 +119,7 @@ void mainloop
 	start_time_total = omp_get_wtime();
 	ctime_start_total_time = clock() / CLOCKS_PER_SEC;
 
-	#pragma acc data copy(x[0:np]), copy(y[0:np]), create(x_out[0:np]), create(y_out[0:np])
+	#pragma acc data copy(x[0:np], y[0:np]), create(x_out[0:np], y_out[0:np])
 	{
 		aprint("Start computation.\n");
 		start_computation_time = omp_get_wtime();
@@ -132,9 +132,9 @@ void mainloop
 			  time += dt;
 			  numOfPointUpdates += np;
 
-		} while(icnt++ < 999999 && time < 8.0 - 0.5*dt);
+		} while(icnt++ < 999999 && time < 20.0 - 0.5*dt);
 		#pragma acc wait
-
+		aprint("Simulated Time: %7.5f\n", time);
 		elapsed_computation_time = omp_get_wtime() - start_computation_time;
 		ctime_elapsed_computation_time = (clock() - ctime_start_computation_time) / (double) CLOCKS_PER_SEC;
    		aprint("Computation done.\n");
@@ -146,6 +146,10 @@ void mainloop
 	aprint("Elapsed Total Time (CTime)= %9.3e [sec]\n",ctime_elapsed_total_time);
 	aprint("Elapsed Computation Time (OMP timer)= %9.3e [sec]\n",elapsed_computation_time);
 	aprint("Elapsed Computation Time (CTime)= %9.3e [sec]\n",ctime_elapsed_computation_time);
+#ifdef CTIME
+	elapsed_time_total = ctime_elapsed_total_time;
+	elapsed_computation_time = ctime_elapsed_computation_time;
+#endif
 	aprint("Performance= %7.2f [million point updates/sec]\n",((double)numOfPointUpdates)/elapsed_time_total*1.0e-06);
 	printf("%9.3e,%7.2f,%9.3e\n", elapsed_computation_time, (double)numOfPointUpdates/elapsed_time_total*1.0e-06, elapsed_time_total);
 }

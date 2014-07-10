@@ -17,6 +17,12 @@
 
 #include "storage_order.F90"
 
+#ifndef CTIME
+#ifdef _OPENMP
+#define USE_OPENMP 1
+#endif
+#endif
+
 module helper_functions
 implicit none
 
@@ -201,11 +207,11 @@ contains
 	end subroutine
 
 	subroutine getTime(time)
-#ifdef _OPENMP
+#ifdef USE_OPENMP
 		use omp_lib
 #endif
 		real(8), intent(out) :: time
-#ifdef _OPENMP
+#ifdef USE_OPENMP
 		time = OMP_get_wtime()
 #else
 		call cpu_time(time)
@@ -214,14 +220,14 @@ contains
 
 	!2012-6-5 michel: take a starttime and return an elapsedtime
 	subroutine getElapsedTime(startTime, elapsedTime)
-#ifdef _OPENMP
+#ifdef USE_OPENMP
 		use omp_lib
 #endif
 		real(8), intent(in) :: startTime
 		real(8), intent(out) :: elapsedTime
 		real(8) endTime
 
-#ifdef _OPENMP
+#ifdef USE_OPENMP
 		endTime = OMP_get_wtime()
 #else
 		call cpu_time(endTime)

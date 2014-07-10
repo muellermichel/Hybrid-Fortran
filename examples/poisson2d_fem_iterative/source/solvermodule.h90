@@ -39,11 +39,11 @@ CONTAINS
     real(RP), intent(out) :: output
 
 #ifdef GPU
-    if (RP .eq. DP) then
-      output = cublasDnrm2(n1 * n2, real(x, DP), 1)
-    else
-      output = cublasSnrm2(n1 * n2, real(x, SP), 1)
-    end if
+#if RP == DP
+    output = cublasDnrm2(n1 * n2, x, 1)
+#else
+    output = cublasSnrm2(n1 * n2, x, 1)
+#endif
 #else
     output = sqrt(sum(x*x))
 #endif

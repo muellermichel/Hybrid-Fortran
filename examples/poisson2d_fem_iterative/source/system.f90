@@ -8,6 +8,7 @@
 !# string/value conversions and auxiliary routines.
 !# </purpose>
 !##############################################################################
+#include "storage_order.F90"
 
 MODULE system
 
@@ -16,19 +17,6 @@ MODULE system
   !<constants>
 
 !<constantblock description="Kind values for floats">
-
-  ! kind value for 32 bit float (single precision)
-  INTEGER, PARAMETER, PUBLIC :: SP = SELECTED_REAL_KIND(6,37)
-
-  ! kind value for 64 bit float (double precision)
-  INTEGER, PARAMETER, PUBLIC :: DP = SELECTED_REAL_KIND(15,307)
-
-! MMU 2014-7-8: QP not supported for GPU version
-!   ! kind value for 80/128 bit float (quad precision)
-!   INTEGER, PARAMETER, PUBLIC :: QP = SELECTED_REAL_KIND(18,4931)
-
-  ! set precision for reals
-  INTEGER, PARAMETER, PUBLIC :: RP = DP
 
   ! Note: Depending on the platform and the compiler, QP is either an 80
   ! or an 128 bit float. The g95 and gfortran compilers use 80 floats

@@ -1,3 +1,5 @@
+#include "storage_order.F90"
+
 !------------------------------------------------------------------------------
 ! 2D Poisson equation on a unit square
 !------------------------------------------------------------------------------
@@ -186,7 +188,7 @@ PROGRAM fempoi2d
 
      ! Calculate flops/memory operations per iteration
      n_flops = 0
-     n_memw  = 2*(n)*(n)
+     n_memw  = 0
      if     ( i_sol==1 ) then
         n_flops = n_flops + n_flops_jac*(n-2)*(n-2)
         n_memw  = n_memw  + n_memw_jac *(n-2)*(n-2)

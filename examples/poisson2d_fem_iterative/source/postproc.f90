@@ -1,3 +1,5 @@
+#include "storage_order.F90"
+
 MODULE postproc
 
 use system
@@ -52,7 +54,7 @@ CONTAINS
 
     ! write node coordinates
     write(munit,*) 'nodes ',n_vt
-    
+
     ! x-coordinates
     x = 0.0_DP
     do j=1,n_vtx

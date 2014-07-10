@@ -3,6 +3,13 @@
 ! whether you need to adapt this file for your needs.
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+#define SP 4
+#define DP 8
+#define _DP _8
+#define _SP _4
+#define RP DP
+#define _RP _8
+
 /* ------ DEBUG configuration --------------- */
 /* Which data point should be printed when    */
 /* program is compiled with DEBUG=1 ?         */

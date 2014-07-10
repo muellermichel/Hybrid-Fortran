@@ -46,8 +46,8 @@ CONTAINS
     n_cx  = n_vtx-1
     n_cy  = n_vty-1
     n_c   = n_cx*n_cy
-    dx    = 1.0_DP/n_cx
-    dy    = 1.0_DP/n_cy
+    dx    = 1.0d0/n_cx
+    dy    = 1.0d0/n_cy
 
 
     write (munit,'(a)') 'gmvinput ascii'
@@ -56,7 +56,7 @@ CONTAINS
     write(munit,*) 'nodes ',n_vt
 
     ! x-coordinates
-    x = 0.0_DP
+    x = 0.0d0
     do j=1,n_vtx
        do i=1,n_vty
           write (munit,'(e15.8)') x
@@ -66,7 +66,7 @@ CONTAINS
 
     ! y-coordinates
     do j=1,n_vtx
-       y = 1.0_DP
+       y = 1.0d0
        do i=1,n_vty
           write (munit,'(e15.8)') y
           y = y-dy
@@ -75,7 +75,7 @@ CONTAINS
 
     ! z-coordinates
     do i=1,n_vt
-       write (munit,'(e15.8)') 0.0_DP
+       write (munit,'(e15.8)') 0.0d0
     end do
 
 
@@ -105,7 +105,7 @@ CONTAINS
 
     write(munit,*)  'endvars'
 
-    write(munit,*)  'probtime ',0.0_DP
+    write(munit,*)  'probtime ',0.0d0
     write(munit,*)  'endgmv'
 
     rewind (munit)

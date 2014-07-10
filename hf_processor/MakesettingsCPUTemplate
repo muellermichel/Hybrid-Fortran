@@ -26,7 +26,6 @@
 #############################################################################
 # common settings                                                           #
 #############################################################################
-#AR=xiar #use this for support of Intel compiler with OpenMP
 AR=ar
 ARFLAGS=rv
 
@@ -59,6 +58,7 @@ LDFLAGS_DEBUG= -L/usr/local/lib -lpp
 # FFLAGS_DEBUG= -g -r8 -I/usr/local/include
 # LDFLAGS_PRODUCTION= -openmp -L/usr/local/lib -lpp
 # LDFLAGS_DEBUG= -L/usr/local/lib -lpp
+# AR=xiar #use this for support of Intel compiler with OpenMP
 
 ifdef DEBUG
 FFLAGS=${FFLAGS_DEBUG}

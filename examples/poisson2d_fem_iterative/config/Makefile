@@ -32,8 +32,9 @@ include ${TOOLSDIR}MakefileForCompilationCommon
 # -------->
 
 system.o:
-fempoi2d.o:	system.o kerneltests.o storage_order.F90 kernels.o solvermodule.o postproc.o ${USER_LIB}
-solvermodule.o:	kernels.o system.o
+fempoi2d.o:	system.o kerneltests.o storage_order.F90 kernels.o solvermodule.o postproc.o time_profiling.o helper_functions.o ${USER_LIB}
+solvermodule.o:	kernels.o system.o time_profiling.o
 kernels.o:	system.o
 kerneltests.o:	system.o kernels.o
 postproc.o:	system.o
+time_profiling.o: helper_functions.o

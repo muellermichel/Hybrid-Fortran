@@ -16,30 +16,13 @@ MODULE kernels
 	!------------------------------------------------------------------------------
 	! Matrix-vecor 9-point 2d stencil (y = c1*A*x + c2*f)
 	!------------------------------------------------------------------------------
-	SUBROUTINE call_matvec(n,m,y,s,x,c,f)
-		integer,                  intent(in)  :: n
-		integer,                  intent(in)  :: m
-		real(RP), dimension(n,m), intent(out) :: y
-		real(RP), dimension(n,m), intent(in)  :: x
-		real(RP), dimension(n,m), intent(in)  :: f
-		real(RP), dimension(3,3), intent(in)  :: s
-		real(RP)                              :: c
-		@domainDependant {attribute(autoDom, present)}
-			y, s, x, f
-		@end domainDependant
-
-		call matvec(n,m,y,s,x,c,f)
-	END SUBROUTINE call_matvec
-	!------------------------------------------------------------------------------
-
-	!MMU 2014-6-25: Please note: I deliberately use a square-only version of matvec in order to test equally sized domains with Hybrid Fortran
 	SUBROUTINE matvec(n,m,y,s,x,c,f)
 		integer,                  intent(in)  :: n
 		integer,                  intent(in)  :: m
-		real(RP), dimension(:,:), intent(out) :: y   ! output vector
-		real(RP), dimension(:,:), intent(in)  :: x   ! input vector
-		real(RP), dimension(:,:), intent(in)  :: f   ! input vector
-		real(RP), dimension(:,:), intent(in)  :: s   ! 3x3 stencil
+		real(RP), dimension(n,m), intent(out) :: y   ! output vector
+		real(RP), dimension(n,m), intent(in)  :: x   ! input vector
+		real(RP), dimension(n,m), intent(in)  :: f   ! input vector
+		real(RP), dimension(3,3), intent(in)  :: s   ! 3x3 stencil
 		real(RP),                 intent(in)  :: c   ! scaling constant
 		real(RP)  :: d11, d12, d13, d21, d22, d23, d31, d32, d33
 		@domainDependant {attribute(autoDom)}
@@ -69,28 +52,13 @@ MODULE kernels
 	!------------------------------------------------------------------------------
 	! Jacobi iteration for 9-point 2d stencil
 	!------------------------------------------------------------------------------
-	SUBROUTINE call_jacobi(n,m,u,u0,f,s)
-		integer,                  intent(in)  :: n
-		integer,                  intent(in)  :: m
-		real(RP), dimension(n,m), intent(out) :: u
-		real(RP), dimension(n,m), intent(in)  :: u0
-		real(RP), dimension(n,m), intent(in)  :: f
-		real(RP), dimension(3,3), intent(in)  :: s
-		@domainDependant {attribute(autoDom, present)}
-			u, u0, f, s
-		@end domainDependant
-
-		call jacobi(n,m,u,u0,f,s)
-	END SUBROUTINE call_jacobi
-
-	!------------------------------------------------------------------------------
 	SUBROUTINE jacobi(n,m,u,u0,f,s)
 		integer,                  intent(in)  :: n
 		integer,                  intent(in)  :: m
-		real(RP), dimension(:,:), intent(out) :: u    ! solution vector
-		real(RP), dimension(:,:), intent(in)  :: u0   ! old solution vector
-		real(RP), dimension(:,:), intent(in)  :: f    ! right hand side/load vector
-		real(RP), dimension(:,:), intent(in)  :: s    ! 3x3 stencil
+		real(RP), dimension(n,m), intent(out) :: u    ! solution vector
+		real(RP), dimension(n,m), intent(in)  :: u0   ! old solution vector
+		real(RP), dimension(n,m), intent(in)  :: f    ! right hand side/load vector
+		real(RP), dimension(3,3), intent(in)  :: s    ! 3x3 stencil
 		real(RP)  :: d11, d12, d13, d21, d23, d31, d32, d33
 		@domainDependant {attribute(autoDom)}
 			 n, m, u, u0, f, s
@@ -113,53 +81,6 @@ MODULE kernels
 			                      d31 + d32 + d33  ) )/s(2,2)
 		@end parallelRegion
 	END SUBROUTINE jacobi
-	!------------------------------------------------------------------------------
-
-	!------------------------------------------------------------------------------
-	! SOR/Gauss-Seidel iteration for 9-point 2d stencil
-	!------------------------------------------------------------------------------
-	SUBROUTINE call_sorgs(n,m,u,f,s)
-		integer,                  intent(in)  :: n
-		integer,                  intent(in)  :: m
-		real(RP), dimension(n,m), intent(out) :: u
-		real(RP), dimension(n,m), intent(in)  :: f
-		real(RP), dimension(3,3), intent(in)  :: s
-		@domainDependant {attribute(autoDom, present)}
-			u, f, s
-		@end domainDependant
-
-		call sorgs(n,m,u,f,s)
-	END SUBROUTINE call_sorgs
-	!------------------------------------------------------------------------------
-
-	SUBROUTINE sorgs(n,m,u,f,s)
-		integer,                  intent(in)    :: n
-		integer,                  intent(in)    :: m
-		real(RP), dimension(:,:), intent(inout) :: u   ! solution vector
-		real(RP), dimension(:,:), intent(in)    :: f   ! right hand side/load vector
-		real(RP), dimension(:,:), intent(in)    :: s   ! 3x3 stencil
-		real(RP)  :: d11, d12, d13, d21, d23, d31, d32, d33
-		@domainDependant {attribute(autoDom)}
-			n, m, u, f, s
-		@end domainDependant
-
-		@parallelRegion{domName(i,j),domSize(n,m),startAt(2,2),endAt(n-1,m-1)}
-			d11 = s(1,1) * u(i-1, j-1)
-			d12 = s(1,2) * u(i-1, j  )
-			d13 = s(1,3) * u(i-1, j+1)
-
-			d21 = s(2,1) * u(i  , j-1)
-			d23 = s(2,3) * u(i  , j+1)
-
-			d31 = s(3,1) * u(i+1, j-1)
-			d32 = s(3,2) * u(i+1, j  )
-			d33 = s(3,3) * u(i+1, j+1)
-
-			u(i,j) = ( f(i,j) - ( d11 + d12 + d13 + &
-			                      d21 +       d23 + &
-			                      d31 + d32 + d33  ) )/s(2,2)
-		@end parallelRegion
-	END SUBROUTINE sorgs
 	!------------------------------------------------------------------------------
 
 END MODULE kernels

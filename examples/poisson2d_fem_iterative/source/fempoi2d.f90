@@ -11,6 +11,8 @@ PROGRAM fempoi2d
   use postproc
   use solvermodule
   use omp_lib
+  use time_profiling
+  use helper_functions
 
   implicit none
 
@@ -20,8 +22,8 @@ PROGRAM fempoi2d
   integer           :: n_ktest =  100              ! number of loops in kernel timing tests
   integer           :: n_maxit = 1000              ! maximum number of solver iterations
   integer           :: i_sol   =    1              ! solver flag (1=jacobi, 2=sor/gauss-seidel)
-  real(RP)          :: tol     = 1.0e-6_RP         ! solver convergence criteria (reduction in defect)
-  real(RP)          :: omega   = 1.0_RP            ! solver relaxation parameter
+  real(RP)          :: tol     = 1.0e-6         ! solver convergence criteria (reduction in defect)
+  real(RP)          :: omega   = 1.0d0            ! solver relaxation parameter
   integer           :: n_dacc  =    5              ! number of digits accuracy in ref sol.
   integer           :: i_print =  100              ! print terminal output (>0 print in # iteration)
   integer           :: i_post  =    1              ! postprocessing flag (!=0=output solution)
@@ -35,11 +37,13 @@ PROGRAM fempoi2d
 
 
   ! local variables
-  integer           :: mdata, it, n, n_flops, n_memw, n_maxthreads
-  real(DP)          :: t0, t1, h_grid, dtmp
+  integer           :: mdata, it, n, n_maxthreads
+  integer(8)        :: n_flops, n_memw
+  real(DP)          :: h_grid, dtmp
   real(RP)          :: dnorm, dnorm0, duchg
   character(len=40) :: cdata
   logical           :: b_file
+  real(8)           :: time_start
 
   interface
      subroutine poisqsol(u,n)
@@ -50,6 +54,8 @@ PROGRAM fempoi2d
   end interface
 
   !==============================================================================
+  call printHeading()
+  call time_profiling_ini()
 
   !------------------------------------------------------------------------------
   ! Input data
@@ -108,9 +114,9 @@ PROGRAM fempoi2d
   ! Initializations
   !------------------------------------------------------------------------------
   n              =  n_cells+1
-  h_grid         =  1.0_RP/n_cells
-  s              = -1.0_RP/3.0_RP
-  s(2,2)         =  8.0_RP/3.0_RP
+  h_grid         =  1.0d0/n_cells
+  s              = -1.0d0/3.0d0
+  s(2,2)         =  8.0d0/3.0d0
   n_bpw          =  realsize()
   write (*,'(A,F11.3,A)') ' memory for array  (MB) : ',dble(n_bpw*n**2)/(1024*1024)
   write (*,*) '---------------------------------------'
@@ -136,15 +142,15 @@ PROGRAM fempoi2d
   allocate(u_p(n,n))
   allocate(f(n,n))
   allocate(h_p(n,n))
-  u_p            =  0.0_RP
-  f              =  0.0_RP
+  u_p            =  0.0d0
+  f              =  0.0d0
   f(2:n-1,2:n-1) =  h_grid**2
-  h_p            =  0.0_RP
+  h_p            =  0.0d0
 
   ! call to solver
-  call ztime(t0)
+  call getTime(time_start)
   call solver(n,n_maxit,i_sol,tol,omega,i_print,u_p,f,h_p,s,duchg,dnorm,it)
-  call ztime(t1)
+  call incrementCounter(counter5, time_start)
 
   ! output solution statistics
   if ( i_print/=0 ) then
@@ -156,11 +162,6 @@ PROGRAM fempoi2d
 
         allocate(u_ref(n,n))
         call poisqsol(u_ref,n_dacc)
-
-        write(*,*) 'Reference'
-        write(*,*) u_ref(17,1:17)
-        write(*,*) "Solution"
-        write(*,*) u_p(17,1:17)
 
         dtmp  = maxval(u_ref)
         u_ref = u_ref-u_p
@@ -180,11 +181,11 @@ PROGRAM fempoi2d
      end if
 
      write (*,'(a,f11.2,a)') &
-          ' Total solver  CPU time : ',t1-t0,' s'
+          ' Total solver  CPU time : ',counter5,' s'
      write (*,'(a,i11)') &
           ' # solver iterations    : ',it
      write (*,'(a,f11.6,a)') &
-          ' CPU time/iteration     : ',(t1-t0)/it,' s'
+          ' CPU time/iteration     : ',(counter5)/it,' s'
 
      ! Calculate flops/memory operations per iteration
      n_flops = 0
@@ -196,7 +197,7 @@ PROGRAM fempoi2d
         n_flops = n_flops + n_flops_sor*(n-2)*(n-2)
         n_memw  = n_memw  + n_memw_sor *(n-2)*(n-2)
      end if
-     if ( omega<1.0_RP ) then
+     if ( omega<1.0d0 ) then
         n_flops = n_flops + 3*(n)*(n)
         n_memw  = n_memw  + 3*(n)*(n)
      end if
@@ -209,13 +210,15 @@ PROGRAM fempoi2d
      n_flops = n_flops + n_flops_l2*(n-2)*(n-2)
      n_memw  = n_memw  + n_memw_l2 *(n-2)*(n-2)
      write (*,'(a,f11.2)') &
-          ' Efficiency   (Gflop/s) : ',n_flops/((t1-t0)/it)/1.0e9_DP
+          ' Efficiency   (Gflop/s) : ',n_flops/((counter5)/it)/1.0e9
      write (*,'(a,f11.2)') &
-          ' Bandwidth      (GiB/s) : ',n_bpw*n_memw/((t1-t0)/it)/(1024**3)
+          ' Bandwidth available to kernel (including cached reads) (GiB/s) : ',n_bpw*n_memw/((counter5)/it)/(1024**3)
 
      write (*,*) '---------------------------------------'
      write (*,*)
   end if
+
+  write(6, "(E13.5,A,E13.5,A,E13.5,A,E13.5,A,E13.5,A,E13.5)") counter_timestep, ",", counter1, ",", counter2, ",", counter3, ",", counter4, ",", counter5
 
 
   ! output solution to file
@@ -249,34 +252,34 @@ END PROGRAM
     real(RP), dimension(:,:), allocatable :: u0
     !------------------------------------------------------------------------------
 
-    pi    = 4.0_RP*atan(1.0_RP)
+    pi    = 4.0d0*atan(1.0d0)
     n_max = 1000   ! max number of Fourier series expansions
     n1    = size(u,1)
     n2    = size(u,2)
     allocate(u0(n1,n2))
-    dx    = 1.0_RP/(n2-1)
-    dy    = 1.0_RP/(n1-1)
+    dx    = 1.0d0/(n2-1)
+    dy    = 1.0d0/(n1-1)
 
 
-    u = 0.0_RP
+    u = 0.0d0
     mainloop: do n=1,n_max,2
 
        u0 = u
 
-       x = 0.0_RP
+       x = 0.0d0
        do j=1,n2
-          y = 1.0_RP
+          y = 1.0d0
           do i=1,n1
 
              jj    = n
-             c     = (2.0_RP/pi)**4/jj
+             c     = (2.0d0/pi)**4/jj
              sinjj = sin(jj*pi*y)
              do ii=1,n,2
                 u(i,j) = u(i,j) + c/(ii*(ii**2+jj**2))*sin(ii*pi*x)*sinjj
              end do
 
              ii    = n
-             c     = (2.0_RP/pi)**4/ii
+             c     = (2.0d0/pi)**4/ii
              sinii = sin(ii*pi*x)
              do jj=1,n-2,2
                 u(i,j) = u(i,j) + c/(jj*(ii**2+jj**2))*sinii*sin(jj*pi*y)
@@ -290,9 +293,9 @@ END PROGRAM
        ! difference checking
        do j=1,n2
           do i=1,n1
-             udiff = ( floor(u0(i,j)*10.0_RP**n_dacc) - floor( u(i,j)*10.0_RP**n_dacc) ) &
-                     /(10.0_RP**n_dacc)
-             if ( udiff/=0.0_RP ) then
+             udiff = ( floor(u0(i,j)*10.0d0**n_dacc) - floor( u(i,j)*10.0d0**n_dacc) ) &
+                     /(10.0d0**n_dacc)
+             if ( udiff/=0.0d0 ) then
                 cycle mainloop
              end if
           end do

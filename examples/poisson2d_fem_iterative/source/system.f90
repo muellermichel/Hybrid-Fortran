@@ -23,9 +23,9 @@ MODULE system
   ! for QP, while the ifc compiler uses 128 bit floats.
 
   ! minimal difference to unity for real values
-!  real(SP), parameter, public :: eps_SP = epsilon(1.0_SP)
-!  real(DP), parameter, public :: eps_DP = epsilon(1.0_DP)
-!  real(QP), parameter, public :: eps_QP = epsilon(1.0_QP)
+!  real(SP), parameter, public :: epsd0 = epsilon(1.0d0)
+!  real(DP), parameter, public :: epsd0 = epsilon(1.0d0)
+!  real(QP), parameter, public :: epsd0 = epsilon(1.0d0)
 
   ! number of bytes per word
   integer,             public :: n_bpw
@@ -69,14 +69,14 @@ CONTAINS
     !       test #1 - compare single(1.0d0+delta) to 1.0d0
 
     do j=1,size(ref)
-       ref(j) = 1.0_RP + 10.0_RP**(-j)
+       ref(j) = 1.0d0 + 10.0d0**(-j)
     end do
 
     do j=1,size(ref)
        test    = ref(j)
        ndigits = j
        call confuse(test,result)
-       if (test.eq.1.0_RP) then
+       if (test.eq.1.0d0) then
           go to 40
        end if
     end do

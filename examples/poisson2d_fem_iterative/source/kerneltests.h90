@@ -8,11 +8,11 @@ implicit none
 
 CONTAINS
 
-  SUBROUTINE testsuite_run(n1, n2, i_test, ctest, n_loops, times, x1, x2, x3, s)
-    real(RP), dimension(n1,n2), intent(inout) :: x1, x2, x3
-    real(RP), dimension(n1,n2), intent(in) :: s
+  SUBROUTINE testsuite_run(n, m, i_test, ctest, n_loops, times, x1, x2, x3, s)
+    real(RP), dimension(n,m), intent(inout) :: x1, x2, x3
+    real(RP), dimension(3,3), intent(in) :: s
     real(DP), dimension(n_loops), intent(out) :: times
-    integer(4), intent(in) :: n1, n2, i_test, n_loops
+    integer(4), intent(in) :: n, m, i_test, n_loops
     character(len=40), intent(out) :: ctest
     real(DP) :: t0, t1
     integer(4) :: i
@@ -26,15 +26,11 @@ CONTAINS
 
          case (1)
             ctest = '    matrix-vector'
-            call call_matvec(n1,n2,x1,s,x2,-1.0_RP,x3)
+            call matvec(n,m,x1,s,x2,-1.0d0,x3)
 
          case (2)
             ctest = '    jacobi iteration'
-            call call_jacobi(n1,n2,x1,x2,x3,s)
-
-         case (3)
-            ctest = '    sor/gauss-seidel iteration'
-            call call_sorgs(n1,n2,x1,x2,s)
+            call jacobi(n,m,x1,x2,x3,s)
 
       end select
       call ztime(t1)
@@ -56,14 +52,14 @@ CONTAINS
     real(DP)  :: times(n_loops), tav, tref
     character(len=40) :: ctest
 
-    s = 2.1_RP
+    s = 2.1d0
 
     write (*,*)
     write (*,*) '---------------------------------------'
     write (*,*) '           kernel timings'
     write (*,*) '---------------------------------------'
 
-    testrun: do i_test=1,3
+    testrun: do i_test=1,2
 
     ! matrix-vector
     do n_threads=1,n_maxthreads
@@ -74,9 +70,9 @@ CONTAINS
        allocate(x1(n1,n2))
        allocate(x2(n1,n2))
        allocate(x3(n1,n2))
-       x1 = 1.2_RP
-       x2 = 1.3_RP
-       x3 = 1.4_RP
+       x1 = 1.2d0
+       x2 = 1.3d0
+       x3 = 1.4d0
 
        call testsuite_run(n1, n2, i_test, ctest, n_loops, times, x1, x2, x3, s)
 
@@ -109,7 +105,7 @@ CONTAINS
     character(len=40) :: ctest
     !------------------------------------------------------------------------------
 
-    bwf  = n_flops*n/t/1.0e9_DP
+    bwf  = n_flops*n/t/1.0e9
     bwm  = n_bpw*n_memw*n/t/(1024**3)
 
     if ( nt==1 ) then

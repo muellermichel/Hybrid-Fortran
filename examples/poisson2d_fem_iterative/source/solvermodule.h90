@@ -30,6 +30,8 @@ MODULE solvermodule
 CONTAINS
 
   SUBROUTINE l2norm2D(n1, n2, x, output)
+    use time_profiling
+    use helper_functions
     integer(4), intent(in) :: n1, n2
 #ifdef GPU
     real(RP), intent(in), dimension(n1, n2), device :: x
@@ -37,7 +39,9 @@ CONTAINS
     real(RP), intent(in), dimension(n1, n2) :: x
 #endif
     real(RP), intent(out) :: output
+    real(DP) :: time_start
 
+    call getTime(time_start)
 #ifdef GPU
 #if RP == DP
     output = cublasDnrm2(n1 * n2, x, 1)
@@ -47,6 +51,7 @@ CONTAINS
 #else
     output = sqrt(sum(x*x))
 #endif
+    call incrementCounter(counter4, time_start)
   END SUBROUTINE l2norm2D
 
   SUBROUTINE relax_and_diff(n, u, h, omega)
@@ -59,8 +64,8 @@ CONTAINS
 
     @parallelRegion{domName(i,j),domSize(n,n)}
     ! relax solution:  u = omega*u + (1-omega)*u0
-    if ( omega<1.0_RP ) then
-      u(i,j) = omega*u(i,j) + (1.0_RP-omega)*h(i,j)
+    if ( omega<1.0d0 ) then
+      u(i,j) = omega*u(i,j) + (1.0d0-omega)*h(i,j)
     end if
 
     ! calculate changes in solution:  u_chg = u-u0
@@ -72,6 +77,8 @@ CONTAINS
   ! Solver module
   !------------------------------------------------------------------------------
   SUBROUTINE solver(n, n_maxit,i_sol,tol,omega,i_print,u_p,f,h_p,s,duchg,dnorm,it)
+    use time_profiling
+    use helper_functions
     integer(4), intent(in) :: n           ! Quadratic matrix size
     integer(4), intent(in) :: n_maxit     ! maximum number of solver iterations
     integer(4), intent(in) :: i_sol       ! solver flag (1=jacobi, 2=sor/gauss-seidel)
@@ -87,8 +94,9 @@ CONTAINS
     integer(4), intent(out) :: it
     real(RP), intent(out) :: duchg, dnorm
     real(RP) :: dnorm0
-    real(DP) :: t0, t1
     real(RP), pointer, dimension(:,:) :: temp_p
+    integer(4) :: m
+    real(DP) :: time_start, time_iteration_start
     !------------------------------------------------------------------------------
     @domainDependant {domName(i,j), domSize(n,n), attribute(autoDom, transferHere)}
       u_p, h_p
@@ -104,9 +112,12 @@ CONTAINS
     call cublasInit()
 #endif
 
+    m = n
     ! calculate initial defect (and corresponding l2 norm)
-    call call_matvec(n,n,h_p,s,u_p,-1.0_RP,f)
-    call l2norm2D(n,n,h_p,dnorm0)
+    call getTime(time_start)
+    call matvec(n,m,h_p,s,u_p,-1.0d0,f)
+    call incrementCounter(counter3, time_start)
+    call l2norm2D(n,m,h_p,dnorm0)
 
     if ( i_print/=0 ) then
        write (*,*)
@@ -117,9 +128,8 @@ CONTAINS
        write (*,*) '--------+--------------+--------------+'
     end if
 
-
+    call getTime(time_iteration_start)
     ! main loop
-    call ztime(t0)
     mainloop: do it=1,n_maxit
       ! store old solution
       temp_p => h_p
@@ -128,19 +138,30 @@ CONTAINS
 
       ! call iterative solver
       if ( i_sol==1 ) then
-        call call_jacobi(n,n,u_p,h_p,f,s)
+        call getTime(time_start)
+        call jacobi(n,m,u_p,h_p,f,s)
+        call incrementCounter(counter2, time_start)
       else if ( i_sol==2 ) then
-        call call_sorgs(n,n,u_p,f,s)
+          !MMU 2014-7-10: Gauss Seidel is not parallelizable, so we don't test it here.
+!         call call_sorgs(n,n,u_p,f,s)
       end if
 
+      call getTime(time_start)
       call relax_and_diff(n,u_p,h_p,omega)
-      call l2norm2D(n,n,h_p,duchg)
+      call incrementCounter(counter1, time_start)
+      call l2norm2D(n,m,h_p,duchg)
 
       ! calculate defect:  d = f - A*u
-      call call_matvec(n,n,h_p,s,u_p,-1.0_RP,f)
+      call getTime(time_start)
+      call matvec(n,m,h_p,s,u_p,-1.0d0,f)
+      call incrementCounter(counter3, time_start)
 
-      call l2norm2D(n,n,h_p,dnorm)
+      call l2norm2D(n,m,h_p,dnorm)
 
+      if (duchg /= duchg .or. dnorm /= dnorm) then
+        write (*,*) "NaN detected in norms at iteration - aborting", it
+        exit
+      end if
       if ( i_print>0 .and. mod(it,i_print)==0 ) then
         write (*,'(i8,a,e12.4,a,e12.4,a)') it,' | ',duchg,' | ',dnorm,' |'
       end if
@@ -150,10 +171,10 @@ CONTAINS
         exit
       end if
     end do  mainloop
-    call ztime(t1)
     if ( it==n_maxit-1 ) then
        it = it-1
     end if
+    call incrementCounter(counter_timestep, time_iteration_start)
 
 #ifdef GPU
     call cublasShutdown()

@@ -31,7 +31,7 @@ program main
   use stencil
   implicit none
   real(8), dimension(:,:), allocatable :: a, b
-  integer(4) :: n, m
+  integer(4) :: n, m, i, j
 
   n = 4
   m = 4
@@ -40,9 +40,18 @@ program main
   a(:,:) = 1.0d0
   b(:,:) = 0.0d0
   call stencil_wrapper(n, m, a, b)
-  write(6,*) b
+  do i=1,n-1
+    do j=1,m
+      if (b(i,j) .ne. 2.0d0) then
+        write(6,*) "test failed, i=", i, "j=", j, "b=", b(i,j)
+        deallocate(a)
+        deallocate(b)
+        stop 1
+      end if
+    end do
+  end do
+  write(6,*) "test ok"
   deallocate(a)
   deallocate(b)
-
   stop
 end program main

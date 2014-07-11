@@ -114,7 +114,7 @@ SOURCE_THIS_AFTER_TESTING=
 #tests, you can create a run-script in a test-subdirectory together with all the input data you need and you can specify these script paths here.
 #separate with spaces and surround the list with double quotes.
 # ! your scripts specified here should take one input argument 'ARCH' and call your executables with _$ARCH postfix in the filename !
-TEST_EXECUTABLES=
+TEST_EXECUTABLES="executables/run.sh"
 
 # !New in Version 0.9
 #OPTIONAL, can be used to specify the naming pattern of files that are being created by your tests, as seen from the respective executable's directory.

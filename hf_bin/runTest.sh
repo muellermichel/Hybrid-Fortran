@@ -69,6 +69,7 @@ else
 fi
 
 extractionAttempted=false
+referenceAvailable=false
 for i in "${!argStringsArr[@]}"; do
 	rm -rf $output_file_pattern
 	mkdir -p "$(dirname $output_file_pattern)"
@@ -106,7 +107,7 @@ for i in "${!argStringsArr[@]}"; do
 	fi
 
 	if [ "$configuration_name" = "validation" ]; then
-		if [ ! -e $refPath ]; then
+		if [ -e ./ref.tar.gz ] && [ ! -e $refPath ]; then
 			if ! $extractionAttempted; then
 				echo "extracting reference data"
 		    	tar -xzvf ./ref.tar.gz > /dev/null
@@ -116,7 +117,7 @@ for i in "${!argStringsArr[@]}"; do
 		    	fi
 		    	extractionAttempted=true
 			fi
-			if [ ! -e $refPath ]; then
+			if [ -e ./ref.tar.gz ] && [ ! -e $refPath ]; then
 				echo "Error with ${configuration_name} tests: Reference data directory $refPath not part of the reference data in ./ref.tar.gz" 1>&2
 				exit 1
 			fi
@@ -135,7 +136,7 @@ for i in "${!argStringsArr[@]}"; do
 		cat ./log_lastRun.txt >> ./log.txt
 	    exit $rc
 	fi
-	if [ "$configuration_name" = "validation" ]; then
+	if [ "$configuration_name" = "validation" ] && [ -e $refPath ]; then
 		${HF_DIR}/hf_bin/allAccuracy.sh $refPath "$output_file_pattern" $source_before $source_after 2>>./log_lastRun.txt
 		rc=$?
 		validationResult=""

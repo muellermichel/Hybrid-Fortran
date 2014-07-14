@@ -33,7 +33,10 @@ endif
 
 SRC_FORT=$(wildcard ./*.f90)
 SRC_PP=$(wildcard ./*.F90)
-SRC=${SRC_FORT} ${SRC_PP}
+SRC_FORT_FIXED=$(wildcard ./*.f)
+SRC_PP=$(wildcard ./*.F90)
+SRC_PP_FIXED=$(wildcard ./*.F)
+SRC=${SRC_FORT} ${SRC_PP} ${SRC_FORT_FIXED} ${SRC_PP_FIXED}
 
 EXECUTABLES_POST=$(subst ",,${EXECUTABLES})
 EXECUTABLES_OUT=$(patsubst %,%.out,${EXECUTABLES_POST})
@@ -41,12 +44,14 @@ EXECUTABLES_O=$(patsubst %,%.o,${EXECUTABLES_POST})
 
 OBJ_PRE1=$(SRC:.f90=.o)
 OBJ_PRE2=$(OBJ_PRE1:.F90=.o)
-OBJ_PRE3=$(patsubst ./%,%,${OBJ_PRE2})
-OBJ=$(filter-out $(EXECUTABLES_O),$(OBJ_PRE3))
+OBJ_PRE3=$(OBJ_PRE2:.f=.o)
+OBJ_PRE4=$(OBJ_PRE3:.F=.o)
+OBJ_PRE5=$(patsubst ./%,%,${OBJ_PRE4})
+OBJ=$(filter-out $(EXECUTABLES_O),$(OBJ_PRE5))
 
 USER_LIB=libpp.a
 
-.SUFFIXES : .out .o .il .F90 .f90
+.SUFFIXES : .out .o .il .F90 .f90 .F .f
 
 VPATH=$OBJDIR
 
@@ -68,6 +73,16 @@ ${USER_LIB}: $(OBJ)
 	@$(FC) $(FFLAGS) -c $< -o $@
 
 %.o: %.f90
+	@echo ..........compiling $< in $(CURDIR)
+	@echo ..calling $(FC) $(FFLAGS) -c $< -o $@ >${DEBUG_OUTPUT}
+	@$(FC) $(FFLAGS) -c $< -o $@
+
+%.o: %.F
+	@echo ..........compiling $< in $(CURDIR)
+	@echo ..calling $(FC) $(FFLAGS) -c $< -o $@ >${DEBUG_OUTPUT}
+	@$(FC) $(FFLAGS) -c $< -o $@
+
+%.o: %.f
 	@echo ..........compiling $< in $(CURDIR)
 	@echo ..calling $(FC) $(FFLAGS) -c $< -o $@ >${DEBUG_OUTPUT}
 	@$(FC) $(FFLAGS) -c $< -o $@

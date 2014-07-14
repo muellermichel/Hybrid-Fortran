@@ -61,7 +61,7 @@ def splitDeclarationSettingsFromSymbols(line, dependantSymbols, patterns, withAn
 		#no :: is used in this declaration line -> we should only have one symbol defined on this line
 		if len(dependantSymbols) > 1:
 			raise Exception("Declaration line without :: has multiple matching dependant symbols.")
-		match = re.match(r"(\s*(?:real|integer|character|logical)(?:.*?))\s*(" + re.escape(dependantSymbols[0].name) + r".*)", line, re.IGNORECASE)
+		match = re.match(r"(\s*(?:double\s+precision|real|integer|character|logical)(?:.*?))\s*(" + re.escape(dependantSymbols[0].name) + r".*)", line, re.IGNORECASE)
 		if not match:
 			raise Exception("When trying to extract a device declaration: This is not a valid declaration: %s" %(line))
 		declarationDirectives = match.group(1)
@@ -129,7 +129,7 @@ class Symbol(object):
 		self.debugPrint = debugPrint
 		self.domains = []
 		self.isMatched = False
-		self.declPattern = re.compile(r'(\s*(?:real|integer|logical).*?[\s,:]+)' + re.escape(name) + r'((?:\s|\,|\(|$)+.*)', \
+		self.declPattern = re.compile(r'(\s*(?:double\s+precision|real|integer|logical).*?[\s,:]+)' + re.escape(name) + r'((?:\s|\,|\(|$)+.*)', \
 			re.IGNORECASE)
 		self.namePattern = re.compile(r'((?:[^\"\']|(?:\".*\")|(?:\'.*\'))*?(?:\W|^))' + re.escape(name) + r'(?:_d)?((?:\W.*)|\Z)', \
 			re.IGNORECASE)
@@ -137,7 +137,7 @@ class Symbol(object):
 			re.IGNORECASE)
 		self.symbolImportMapPattern = re.compile(r'.*?\W' + re.escape(name) + r'\s*\=\>\s*(\w*).*', \
 			re.IGNORECASE)
-		self.pointerDeclarationPattern = re.compile(r'\s*(?:real|integer|logical).*?pointer.*?[\s,:]+' + re.escape(name), re.IGNORECASE)
+		self.pointerDeclarationPattern = re.compile(r'\s*(?:double\s+precision|real|integer|logical).*?pointer.*?[\s,:]+' + re.escape(name), re.IGNORECASE)
 		self.parallelRegionPosition = None
 		self.isUsingDevicePostfix = False
 		self.isOnDevice = False
@@ -529,7 +529,7 @@ Parallel region position: %s"
 		if dimensionMatch:
 			dimensionStr = dimensionMatch.group(2)
 		else:
-			dimensionMatch = re.match(r'\s*(?:real\W|integer\W|logical\W).*?(?:intent\W)*.*?(?:in\W|out\W|inout\W)*.*?(?:\W|^)' + re.escape(self.name) + r'\s*\(\s*(.*?)\s*\)(.*)', \
+			dimensionMatch = re.match(r'\s*(?:double\s+precision\W|real\W|integer\W|logical\W).*?(?:intent\W)*.*?(?:in\W|out\W|inout\W)*.*?(?:\W|^)' + re.escape(self.name) + r'\s*\(\s*(.*?)\s*\)(.*)', \
 				str(prefix + self.name + postfix), re.IGNORECASE)
 			if dimensionMatch:
 				dimensionStr = dimensionMatch.group(1)

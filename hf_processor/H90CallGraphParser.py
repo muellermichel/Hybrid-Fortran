@@ -728,7 +728,7 @@ class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
         accMatch, numberOfDomainsInAccessor = getAccessMatchAndNumberOfDomainsInAccessor([numOfIndependentDomains, len(symbol.domains)], postfix)
         offsets = []
         if accMatch == None and not isInsideSubroutineCall and not isPointerAssignment:
-            raise Exception("Unexpected array access for symbol %s: Please use either %i (number of parallel independant dimensions)\
+            raise Exception("Unexpected array access for symbol %s: Please use either %i (number of parallel independant dimensions) \
 or %i (number of declared dimensions for this array) accessors." %(symbol.name, numOfIndependentDomains, len(symbol.domains)))
         elif accMatch == None:
             #inside a subroutine call

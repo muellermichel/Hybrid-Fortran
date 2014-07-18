@@ -971,6 +971,10 @@ or %i (number of declared dimensions for this array) accessors." %(symbol.name, 
     def processParallelRegionMatch(self, parallelRegionMatch):
         self.prepareLine("", "")
         super(H90toF90Printer, self).processParallelRegionMatch(parallelRegionMatch)
+        if self.debugPrint:
+            sys.stderr.write("...parallel region starts on line %i with active symbols %s" \
+                %(self.lineNo, str(self.currSymbolsByName.values())) \
+            )
         self.prepareActiveParallelRegion('parallelRegionBegin')
 
     def processParallelRegionEndMatch(self, parallelRegionEndMatch):

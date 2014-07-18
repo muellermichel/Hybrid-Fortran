@@ -350,8 +350,12 @@ class Symbol(object):
 
 
 		def getReorderedDomainsAccordingToDeclaration(domains, dimensionSizesInDeclaration):
-			if len(domains) != len(dimensionSizesInDeclaration):
+			if len(domains) != len(dimensionSizesInDeclaration) or len(domains) == 0:
 				return domains
+			if self.debugPrint:
+				sys.stderr.write("reordering domains (%s) for symbol %s according to declaration (%s).\n"
+					%(str(domains), self.name, str(dimensionSizesInDeclaration))
+				)
 			reorderedDomains = [0] * len(domains)
 			usedIndices = []
 			for (domainName, domainSize) in domains:
@@ -391,6 +395,8 @@ class Symbol(object):
 			patterns.dimensionPattern \
 		)
 		dimensionSizes = [sizeStr.strip() for sizeStr in dimensionStr.split(',') if sizeStr.strip() != ""]
+		if self.isAutoDom and self.debugPrint:
+			sys.stderr.write("reordering domains for symbol %s with autoDom option.\n" %(self.name))
 		if self.isAutoDom and self.isPointer:
 			if len(self.domains) == 0:
 				for dimensionSize in dimensionSizes:
@@ -449,18 +455,27 @@ template for symbol %s - automatically inserting it for domain name %s\n"
 			#   Otherwise, insert the dimensions to the declaration       #
 			#   in order of their appearance in the dependant template.   #
 			#   $$$ TODO: enable support for symmetric domain setups where one domain is passed in for vectorization
-			self.domains = [] #throw away the domains we knew before, we want to recheck now depending on information based on the declaration.
+			lastParallelDomainIndex = -1
 			for parallelDomName in self.parallelActiveDims:
 				parallelDomSize = self.aggregatedRegionDomSizesByName[parallelDomName]
 				if parallelDomSize in dimensionSizes and self.parallelRegionPosition == "outside":
 					raise Exception("Parallel domain %s is declared for array %s in a subroutine where the parallel region is positioned outside. \
 	This is not allowed. Note: These domains are inserted automatically if needed. For stencil computations it is recommended to only pass scalars to subroutine calls within the parallel region." \
 						%(parallelDomName, self.name))
-				if self.parallelRegionPosition != "outside":
-					self.domains.append((parallelDomName, parallelDomSize))
+				if self.parallelRegionPosition == "outside":
+					continue
+				for index, (domName, domSize) in enumerate(self.domains):
+					if domName == parallelDomName:
+						lastParallelDomainIndex = index
+						break
+				else:
+					lastParallelDomainIndex += 1
+					self.domains.insert(lastParallelDomainIndex, (parallelDomName, parallelDomSize))
+			if self.parallelRegionPosition == "outside":
+				self.domains = [(domName, domSize) for (domName, domSize) in self.domains if not domName in self.parallelActiveDims]
 
 		#   Now match the declared dimensions to those in the         #
-		#   'parallelInactive' set, using the declared domain sizes.#
+		#   'parallelInactive' set, using the declared domain sizes.  #
 		#   All should be matched, otherwise throw an error.          #
 		#   Insert the dimensions in order of their appearance in     #
 		#   the domainDependant template.                             #
@@ -470,9 +485,14 @@ template for symbol %s - automatically inserting it for domain name %s\n"
 				continue
 			if dependantDomSize not in dimensionSizes:
 				raise Exception("Symbol %s's dependant non-parallel domain size %s is not declared as one of its dimensions." %(self.name, dependantDomSize))
-			if not self.isPointer:
-				self.domains.append((dependantDomName, dependantDomSize))
 			dimensionSizesMatchedInTemplate.append(dependantDomSize)
+			if self.isPointer:
+				continue
+			for (domName, domSize) in self.domains:
+				if dependantDomSize == domSize:
+					break
+			else:
+				self.domains.append((dependantDomName, dependantDomSize))
 		for (dependantDomName, dependantDomSize) in dependantDomNameAndSize:
 			if dependantDomName not in self.parallelActiveDims:
 				continue
@@ -480,7 +500,11 @@ template for symbol %s - automatically inserting it for domain name %s\n"
 				dimensionSizesMatchedInTemplate.append(dependantDomSize)
 		if self.isAutoDom and not self.isPointer:
 			for dimSize in self.parallelInactiveDims:
-				self.domains.append(("HF_GENERIC_PARALLEL_INACTIVE_DIM", dimSize))
+				for (domName, domSize) in self.domains:
+					if dimSize == domSize:
+						break
+				else:
+					self.domains.append(("HF_GENERIC_PARALLEL_INACTIVE_DIM", dimSize))
 
 		#    Sanity checks                                            #
 		if len(self.domains) < len(dimensionSizes):
@@ -659,28 +683,34 @@ Please specify the domains and their sizes with domName and domSize attributes i
 		accPP = self.accPP()
 		if self.numOfParallelDomains != 0 and accPP != "":
 			result = result + accPP + "("
+		nextOffsetIndex = 0
 		for i in range(len(self.domains)):
 			if i != 0:
 				result = result + ","
 			if len(parallelIterators) == 0 and len(offsets) == len(self.domains):
 				result = result + offsets[i]
 				continue
-			elif len(parallelIterators) == 0 and len(offsets) == len(self.domains) - self.numOfParallelDomains and \
-			i < self.numOfParallelDomains:
+			elif len(parallelIterators) == 0 \
+			and len(offsets) == len(self.domains) - self.numOfParallelDomains \
+			and i < self.numOfParallelDomains:
 				result = result + ":"
 				continue
-			elif len(parallelIterators) == 0 and len(offsets) == len(self.domains) - self.numOfParallelDomains and \
-			i >= self.numOfParallelDomains:
+			elif len(parallelIterators) == 0 \
+			and len(offsets) == len(self.domains) - self.numOfParallelDomains \
+			and i >= self.numOfParallelDomains:
 				result = result + offsets[i - self.numOfParallelDomains]
 				continue
 
 			#if we reach this there are parallel iterators specified.
-			if len(offsets) == len(self.domains):
-				result = result + offsets[i]
-			elif i < len(parallelIterators):
-				result = result + parallelIterators[i]
+			if self.domains[i][0] in parallelIterators:
+				result += self.domains[i][0]
+			elif nextOffsetIndex < len(offsets):
+				result += offsets[nextOffsetIndex]
+				nextOffsetIndex += 1
 			else:
-				result = result + offsets[i - self.numOfParallelDomains]
+				raise Exception("Cannot generate access representation for symbol %s: Unknown parallel iterators specified (%s) or not enough offsets (%s)."
+					%(str(self), str(parallelIterators), str(offsets))
+				)
 
 		if self.numOfParallelDomains != 0 and accPP != "":
 			result = result + ")"

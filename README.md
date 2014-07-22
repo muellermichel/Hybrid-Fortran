@@ -21,15 +21,15 @@ Table of Contents
 * [Version History](#version-history)
 * [Why Hybrid Fortran?](#why-hybrid-fortran)
 * [License](#license)
-* [Samples and Results Overview](#samples-and-results-overview)
 * [Code Example](#code-example)
 * [Features](#features)
 * [Dependencies](#dependencies)
 * [Getting Started](#getting-started)
 * [Current Restrictions](#current-restrictions)
-* [Commercial Support and Consulting](#commercial-support-and-consulting)
-* [Documentation and Results](#documentation-and-results)
+* [Samples and Results Overview](#samples-and-results-overview)
+* [Documentation](#documentation)
 * [Credits](#credits)
+* [Commercial Support and Consulting](#commercial-support-and-consulting)
 * [Contact Information](#contact-information)
 
 Version History
@@ -81,6 +81,152 @@ Experiences with [OpenACC](http://www.openacc-standard.org/) have shown that it 
 License
 -------
 Hybrid Fortran is available under GNU Lesser Public License (LGPL).
+
+Code Example
+------------
+
+The following sample code shows a wrapper subroutine and an add subroutine. Please note that storage order inefficiencies are ignored in this example (this would create an implicit copy of the z-dimension in arrays a, b, c).
+
+```Fortran
+module example
+contains
+subroutine wrapper(a, b, c)
+    real, intent(in), dimension(NX, NY, NZ) :: a, b
+    real, intent(out), dimension(NX, NY, NZ) :: c
+    integer(4) :: x, y
+    do y=1,NY
+      do x=1,NX
+        call add(a(x,y,:), b(x,y,:), c(x,y,:))
+      end do
+    end do
+end subroutine
+
+subroutine add(a, b, c)
+    real, intent(in), dimension(NZ) :: a, b, c
+    integer :: z
+    do z=1,NZ
+        c(z) = a(z) + b(z)
+    end do
+end subroutine
+end module example
+```
+
+Here's what this code would look like in Hybrid Fortran, parallelizing the x and y dimensions on both CPU and GPU.
+
+```Fortran
+module example contains
+subroutine wrapper(a, b, c)
+  real, dimension(NZ), intent(in) :: a, b
+  real, dimension(NZ), intent(out) :: c
+  @domainDependant{domName(x,y), domSize(NX,NY), attribute(autoDom)}
+  a, b, c
+  @end domainDependant
+  @parallelRegion{appliesTo(CPU), domName(x,y), domSize(NX, NY)}
+  call add(a, b, c)
+  @end parallelRegion
+end subroutine
+
+subroutine add(a, b, c)
+  real, dimension(NZ), intent(in) :: a, b
+  real, dimension(NZ), intent(out) :: c
+  integer :: z
+  @domainDependant{domName(x,y), domSize(NX,NY), attribute(autoDom)}
+  a, b, c
+  @end domainDependant
+  @parallelRegion{appliesTo(GPU), domName(x,y), domSize(NX, NY)}
+  do z=1,NZ
+      c(z) = a(z) + b(z)
+  end do
+  @end parallelRegion
+end subroutine
+end module example
+```
+
+Please note the following:
+* The x and y dimensions have been abstracted away, even in the wrapper. We don't need to privatize the add subroutine in x and y as we would need to in CUDA or OpenACC. The actual computational code in the add subroutine has been left untouched.
+
+* We now have two parallelizations: For the CPU the program is parallelized at the wrapper level using OpenMP. For GPU the program is parallelized using CUDA Fortran at the callgraph leaf level. In between the two can be an arbitrarily deep callgraph, containing arbitrarily many parallel regions (with some restrictions, see below). The data copying from and to the device as well as the privatization in 3D is all handled by the Hybrid Fortran preprocessor framework.
+
+Features
+--------
+* Separate parallel regions for CPU and GPU at multiple points in the callgraph (if needed). This allows high performance for both CPU and GPU implementations.
+
+* Compile-time defined storage order with different orders for CPU and GPU - all defined in one handy place, the storage_order F90 file. Multiple storage orders are supported through attributes in the Hybrid Fortran directives.
+
+* Automatic compile time array reformatting - Hybrid Fortran reformats your data with respect to privatization and storage order at compile time. This means you can leave existing Fortran code as is, only the setup using the two Hybrid Fortran directives is needed.
+
+* Temporary automatic arrays, module scalars and imported scalars within GPU kernels (aka subroutines containing a GPU `@parallelRegion`) - this functionality is provided in addition to CUDA Fortran's device syntax features.
+
+* Experimental Support for Pointers.
+
+* Seperate build directories for the automatically created CPU and GPU codes, showing you the created F90 files. Get a clear view of what happens in the back end without cluttering up your source directories.
+
+* Use any x86 Fortran compiler for the CPU code (PGI and Intel Fortran have been tested).
+
+* Highly human readable intermediate F90 source files. The callgraph, including subroutine names, remains the same as in the user code you specify. The code in the intermediate source files is auto indented for additional reading comfort.
+
+* All the flexibility you need in order to get the full performance out of your GPUs. Hybrid Fortran both gives you more time to concentrate on the relevant kernels and makes it easy to reason about performance improvements.
+
+* Macro support for your codebase - a separate preprocessor stage is applied even before the hybrid fortran preprocessor comes in, in order to facilitate the DRY principle.
+
+* Automatic creation of your callgraph as a graphviz image, facilitating your code reasoning. Simply type `make graphs` in the command line in your project directory.
+
+* Automatic testing together with your builds - after an initial setup you can run validation tests as well as valgrind automatically after every build (or by running `make tests`). Wouldn't *you* like the compiler to tell you that there is a calculation error in array X at point i=10,j=5,k=3? That's what Hybrid Fortran does for you.
+
+* Automatic 'printf' based device debugging mode. Prints all input arrays, output arrays and temporary arrays at the end of each kernel run at a compile-time specified point in a nicely readable format. This output can then be manually validated against the CPU version (which should already produce correct results at that point). Please note: Since PGI's CUDA Fortran does not yet support real device debugging, Hybrid Fortran cannot support that either at this point. However, since the code runs on CPU as well, the class of bugs that are affected by this restriction is rather small (since computational code can be validated on the CPU first) and the current debug mode has been proven to be sufficient for the time being.
+
+* Automatic linking and installing of executables. Simply specify the executable names in the `MakesettingsGeneral` configuration file and use corresponding filenames for the main files (which can be placed anywhere in your source tree). The Hybrid Fortran build system will automatically generate the executables (each in CPU and GPU version) and install them in subdirectories of your test directory. The test directories are persistant, such that you can put your initialization files, validation scripts and performance test scripts there. All this happens simply through running `make; make install` in your project directory.
+
+Dependencies
+------------
+* PGI CUDA Fortran compatible compiler, available in [PGI Accelerator Fortran products](http://www.pgroup.com/support/download_pgi2013.php?view=current).
+* x86 Fortran compiler (you can use PGI here as well).
+* Python v2.6 or compatible.
+* GNU Make 3.81 or compatible.
+* A POSIX compatible operating system.
+* (optional) `valgrind` if you would like to use the test system shipped with this framework (accessible through `make tests`).
+* (optional) Allinea DDT if you need parallel debugging in device emulated mode.
+* (optional) The `pydot` python package as well as the [Graphviz software](http://www.graphviz.org/Download..php) in case you'd like to use the automatic visual representation of your callgraph.
+* (optional) NetCDF4-Python in case you'd like to use Hybrid Fortran's automated testing together with NetCDF Output.
+* (optional) numpy in case you'd like to use Hybrid Fortran's automated testing together with NetCDF Output.
+
+Getting Started
+---------------
+1. Clone this git to your computer used for development. Make sure your system meets the dependencies specified above.
+2. Set the `HF_DIR` environment variable to point to your Hybrid Fortran directory.
+3. `cd` into the Hybrid Fortran directory you've now installed on your computer. It should contain this README file as well as the GPL licence texts.
+4. Run `make example`. This creates a new project directory named `example`.
+5. Run `cd example`.
+6. Run `make; make install`. If everything worked you should now have a test subdirectory containing the example subdirectory containing two executables, one for CPU and one for GPU execution.
+7. Run `./test/example/example_cpu; ./test/example/example_gpu`. This should execute and validate both versions.
+8. Review the example source files located in `./source` and get a feel for the Hybrid Fortran directive syntax. Notice the storage_order.F90 file which is used as a central point for specifying the data storage orders. Please refer to the documentation for details.
+9. Review the preprocessed source files located in `./build/cpu/source` and `./build/gpu/source`. Notice the OpenMP and CUDA code that has been inserted into the example codebase. These files are important for debugging as well as when you want to do manual performance optimizations (but you should usually never change anything there, since it will get overwritten with the next preprocessor run).
+10. Review the config files located in `./config`. The most important file for integrating your own codebase will be `./config/Makefile`. This file specifies the dependency tree for your source files. Please note that `vpath`'s are not necessary, the Hybrid Fortran build system will find your source files automatically, as long as you use the source directory specified in `./config/MakesettingsGeneral` as the root of your sources (i.e. you may place your sources in an arbitrarily deep subdirectory structure). The `MakesettingsCPU` and `MakesettingsGPU` are used to define the compilers and compiler flags. You may use any CPU compiler, however only `pgf90` is currently supported for CUDA compilation.
+11. Run `make clean; make DEBUG=1; make install` in your example project directory. This replaces the previously compiled executables with debug mode executables. The CPU version can be debugged with a compatible debugger.
+12. Run `./test/example/example_gpu` and notice how this executable now prints debug information for every input and output at a specific data point after every kernel run. You can change the data point in `storage_order.F90`.
+13. Rename the example project directory to your project name and start integrating your codebase. You can move it to any directory you'd like.
+
+Please see the documentation for more details and best practices for porting your codebase.
+
+Current Restrictions
+--------------------
+* Hybrid Fortran has only been tested using Fortran 90 syntax and its GNU Make based build system only supports Fortran 90 files (f90 / F90). Since the Hybrid Fortran preprocessor only operates on subroutines (i.e. it is not affected by OOP specific syntax), this restriction can be lifted soon. Please let me know whether you would like to use Hybrid Fortran for more recent Fortran versions, such that I can prioritize these changes.
+
+* Hybrid Fortran maps your subroutines directly to CUDA Fortran subroutines, which leads to certain restrictions for subroutines calling, containing, or being called within GPU parallel regions:
+   * Subroutines being called within GPU parallel regions must reside in the same h90/H90 file as their caller.
+   * Subroutines containing or being called within GPU parallel regions must not contain `DATA`, `SAVE`, `RECURSIVE`, `PURE` or `ELEMENTAL` statements and must not be recursive.
+   * Subroutines may only contain one GPU parallel region.
+   * Subroutines containing or being called within GPU parallel regions may not call other subroutines containing parallel regions. This restriction, however, may soon be lifted because of recent improvements in CUDA 5.
+
+* Arrays that are declared as domain dependant using `@domainDependant` directives must be of integer, real, character or logical type (however any byte length within the Fortran specification is allowed).
+
+* All source files need to have distinctive filenames since they will be copied into flat build directories by the build system.
+
+* `@domainDependant` directives are required for all arrays in all subroutines called within parallel regions (the preprocessor operates only on local symbol information within each subroutine).
+
+* Currently, only Fortran Subroutines are supported by the Hybrid Fortran preprocessor (e.g. no Functions).
+
+For more details please refer to the documentation.
 
 Samples and Results Overview
 ----------------------------
@@ -238,158 +384,8 @@ For four of the samples there is a performance analysis available. The remaining
 
 [1]: If available, comparing to reference C version, otherwise comparing to Hybrid Fortran CPU implementation. Kepler K20x has been used as GPU, Westmere Xeon X5670 has been used as CPU (TSUBAME 2.5). All results measured in double precision. The CPU cores have been limited to one socket using thread affinity 'compact' with 12 logical threads. For CPU, Intel compilers ifort / icc with '-fast' setting have been used. For GPU, PGI compiler with '-fast' setting and CUDA compute capability 3.x has been used. All GPU results include the memory copy time from host to device.
 
-Code Example
-------------
-
-The following sample code shows a wrapper subroutine and an add subroutine. Please note that storage order inefficiencies are ignored in this example (this would create an implicit copy of the z-dimension in arrays a, b, c).
-
-```Fortran
-module example
-contains
-subroutine wrapper(a, b, c)
-    real, intent(in), dimension(NX, NY, NZ) :: a, b
-    real, intent(out), dimension(NX, NY, NZ) :: c
-    integer(4) :: x, y
-    do y=1,NY
-      do x=1,NX
-        call add(a(x,y,:), b(x,y,:), c(x,y,:))
-      end do
-    end do
-end subroutine
-
-subroutine add(a, b, c)
-    real, intent(in), dimension(NZ) :: a, b, c
-    integer :: z
-    do z=1,NZ
-        c(z) = a(z) + b(z)
-    end do
-end subroutine
-end module example
-```
-
-Here's what this code would look like in Hybrid Fortran, parallelizing the x and y dimensions on both CPU and GPU.
-
-```Fortran
-module example contains
-subroutine wrapper(a, b, c)
-  real, dimension(NZ), intent(in) :: a, b
-  real, dimension(NZ), intent(out) :: c
-  @domainDependant{domName(x,y), domSize(NX,NY), attribute(autoDom)}
-  a, b, c
-  @end domainDependant
-  @parallelRegion{appliesTo(CPU), domName(x,y), domSize(NX, NY)}
-  call add(a, b, c)
-  @end parallelRegion
-end subroutine
-
-subroutine add(a, b, c)
-  real, dimension(NZ), intent(in) :: a, b
-  real, dimension(NZ), intent(out) :: c
-  integer :: z
-  @domainDependant{domName(x,y), domSize(NX,NY), attribute(autoDom)}
-  a, b, c
-  @end domainDependant
-  @parallelRegion{appliesTo(GPU), domName(x,y), domSize(NX, NY)}
-  do z=1,NZ
-      c(z) = a(z) + b(z)
-  end do
-  @end parallelRegion
-end subroutine
-end module example
-```
-
-Please note the following:
-* The x and y dimensions have been abstracted away, even in the wrapper. We don't need to privatize the add subroutine in x and y as we would need to in CUDA or OpenACC. The actual computational code in the add subroutine has been left untouched.
-
-* We now have two parallelizations: For the CPU the program is parallelized at the wrapper level using OpenMP. For GPU the program is parallelized using CUDA Fortran at the callgraph leaf level. In between the two can be an arbitrarily deep callgraph, containing arbitrarily many parallel regions (with some restrictions, see below). The data copying from and to the device as well as the privatization in 3D is all handled by the Hybrid Fortran preprocessor framework.
-
-Features
---------
-* Separate parallel regions for CPU and GPU at multiple points in the callgraph (if needed). This allows high performance for both CPU and GPU implementations.
-
-* Compile-time defined storage order with different orders for CPU and GPU - all defined in one handy place, the storage_order F90 file. Multiple storage orders are supported through attributes in the Hybrid Fortran directives.
-
-* Automatic compile time array reformatting - Hybrid Fortran reformats your data with respect to privatization and storage order at compile time. This means you can leave existing Fortran code as is, only the setup using the two Hybrid Fortran directives is needed.
-
-* Temporary automatic arrays, module scalars and imported scalars within GPU kernels (aka subroutines containing a GPU `@parallelRegion`) - this functionality is provided in addition to CUDA Fortran's device syntax features.
-
-* Experimental Support for Pointers.
-
-* Seperate build directories for the automatically created CPU and GPU codes, showing you the created F90 files. Get a clear view of what happens in the back end without cluttering up your source directories.
-
-* Use any x86 Fortran compiler for the CPU code (PGI and Intel Fortran have been tested).
-
-* Highly human readable intermediate F90 source files. The callgraph, including subroutine names, remains the same as in the user code you specify. The code in the intermediate source files is auto indented for additional reading comfort.
-
-* All the flexibility you need in order to get the full performance out of your GPUs. Hybrid Fortran both gives you more time to concentrate on the relevant kernels and makes it easy to reason about performance improvements.
-
-* Macro support for your codebase - a separate preprocessor stage is applied even before the hybrid fortran preprocessor comes in, in order to facilitate the DRY principle.
-
-* Automatic creation of your callgraph as a graphviz image, facilitating your code reasoning. Simply type `make graphs` in the command line in your project directory.
-
-* Automatic testing together with your builds - after an initial setup you can run validation tests as well as valgrind automatically after every build (or by running `make tests`). Wouldn't *you* like the compiler to tell you that there is a calculation error in array X at point i=10,j=5,k=3? That's what Hybrid Fortran does for you.
-
-* Automatic 'printf' based device debugging mode. Prints all input arrays, output arrays and temporary arrays at the end of each kernel run at a compile-time specified point in a nicely readable format. This output can then be manually validated against the CPU version (which should already produce correct results at that point). Please note: Since PGI's CUDA Fortran does not yet support real device debugging, Hybrid Fortran cannot support that either at this point. However, since the code runs on CPU as well, the class of bugs that are affected by this restriction is rather small (since computational code can be validated on the CPU first) and the current debug mode has been proven to be sufficient for the time being.
-
-* Automatic linking and installing of executables. Simply specify the executable names in the `MakesettingsGeneral` configuration file and use corresponding filenames for the main files (which can be placed anywhere in your source tree). The Hybrid Fortran build system will automatically generate the executables (each in CPU and GPU version) and install them in subdirectories of your test directory. The test directories are persistant, such that you can put your initialization files, validation scripts and performance test scripts there. All this happens simply through running `make; make install` in your project directory.
-
-Dependencies
-------------
-* PGI CUDA Fortran compatible compiler, available in [PGI Accelerator Fortran products](http://www.pgroup.com/support/download_pgi2013.php?view=current).
-* x86 Fortran compiler (you can use PGI here as well).
-* Python v2.6 or compatible.
-* GNU Make 3.81 or compatible.
-* A POSIX compatible operating system.
-* (optional) `valgrind` if you would like to use the test system shipped with this framework (accessible through `make tests`).
-* (optional) Allinea DDT if you need parallel debugging in device emulated mode.
-* (optional) The `pydot` python package as well as the [Graphviz software](http://www.graphviz.org/Download..php) in case you'd like to use the automatic visual representation of your callgraph.
-* (optional) NetCDF4-Python in case you'd like to use Hybrid Fortran's automated testing together with NetCDF Output.
-* (optional) numpy in case you'd like to use Hybrid Fortran's automated testing together with NetCDF Output.
-
-Getting Started
----------------
-1. Clone this git to your computer used for development. Make sure your system meets the dependencies specified above.
-2. Set the `HF_DIR` environment variable to point to your Hybrid Fortran directory.
-3. `cd` into the Hybrid Fortran directory you've now installed on your computer. It should contain this README file as well as the GPL licence texts.
-4. Run `make example`. This creates a new project directory named `example`.
-5. Run `cd example`.
-6. Run `make; make install`. If everything worked you should now have a test subdirectory containing the example subdirectory containing two executables, one for CPU and one for GPU execution.
-7. Run `./test/example/example_cpu; ./test/example/example_gpu`. This should execute and validate both versions.
-8. Review the example source files located in `./source` and get a feel for the Hybrid Fortran directive syntax. Notice the storage_order.F90 file which is used as a central point for specifying the data storage orders. Please refer to the documentation for details.
-9. Review the preprocessed source files located in `./build/cpu/source` and `./build/gpu/source`. Notice the OpenMP and CUDA code that has been inserted into the example codebase. These files are important for debugging as well as when you want to do manual performance optimizations (but you should usually never change anything there, since it will get overwritten with the next preprocessor run).
-10. Review the config files located in `./config`. The most important file for integrating your own codebase will be `./config/Makefile`. This file specifies the dependency tree for your source files. Please note that `vpath`'s are not necessary, the Hybrid Fortran build system will find your source files automatically, as long as you use the source directory specified in `./config/MakesettingsGeneral` as the root of your sources (i.e. you may place your sources in an arbitrarily deep subdirectory structure). The `MakesettingsCPU` and `MakesettingsGPU` are used to define the compilers and compiler flags. You may use any CPU compiler, however only `pgf90` is currently supported for CUDA compilation.
-11. Run `make clean; make DEBUG=1; make install` in your example project directory. This replaces the previously compiled executables with debug mode executables. The CPU version can be debugged with a compatible debugger.
-12. Run `./test/example/example_gpu` and notice how this executable now prints debug information for every input and output at a specific data point after every kernel run. You can change the data point in `storage_order.F90`.
-13. Rename the example project directory to your project name and start integrating your codebase. You can move it to any directory you'd like.
-
-Please see the documentation for more details and best practices for porting your codebase.
-
-Current Restrictions
---------------------
-* Hybrid Fortran has only been tested using Fortran 90 syntax and its GNU Make based build system only supports Fortran 90 files (f90 / F90). Since the Hybrid Fortran preprocessor only operates on subroutines (i.e. it is not affected by OOP specific syntax), this restriction can be lifted soon. Please let me know whether you would like to use Hybrid Fortran for more recent Fortran versions, such that I can prioritize these changes.
-
-* Hybrid Fortran maps your subroutines directly to CUDA Fortran subroutines, which leads to certain restrictions for subroutines calling, containing, or being called within GPU parallel regions:
-   * Subroutines being called within GPU parallel regions must reside in the same h90/H90 file as their caller.
-   * Subroutines containing or being called within GPU parallel regions must not contain `DATA`, `SAVE`, `RECURSIVE`, `PURE` or `ELEMENTAL` statements and must not be recursive.
-   * Subroutines may only contain one GPU parallel region.
-   * Subroutines containing or being called within GPU parallel regions may not call other subroutines containing parallel regions. This restriction, however, may soon be lifted because of recent improvements in CUDA 5.
-
-* Arrays that are declared as domain dependant using `@domainDependant` directives must be of integer, real, character or logical type (however any byte length within the Fortran specification is allowed).
-
-* All source files need to have distinctive filenames since they will be copied into flat build directories by the build system.
-
-* `@domainDependant` directives are required for all arrays in all subroutines called within parallel regions (the preprocessor operates only on local symbol information within each subroutine).
-
-* Currently, only Fortran Subroutines are supported by the Hybrid Fortran preprocessor (e.g. no Functions).
-
-For more details please refer to the documentation.
-
-Commercial Support and Consulting
----------------------------------
-Commercial support as well as Consulting is available through [Typhoon Computing](http://typhooncomputing.com) on a per-call basis. Please contact me if you're interested in this offering.
-
-Documentation and Results
--------------------------
+Documentation
+-------------
 Detailed Documentation is available [here](https://github.com/muellermichel/Hybrid-Fortran/raw/master/doc/Documentation.pdf).
 
 The poster shown at GTC 2013 is available [here](http://on-demand.gputechconf.com/gtc/2013/poster/pdf/P0199_MichelMueller.pdf).
@@ -398,43 +394,6 @@ The slides shown in Michel's talk at GTC 2013 are available [here](https://githu
 
 If you'd like to get the background story (why would I do such a thing), you can read my [Master Thesis from 2012 (slightly updated)](https://github.com/muellermichel/Hybrid-Fortran/raw/master/doc/Thesis_updated_2013-3.pdf). I plan on doing a blog post, explaining the background story of this project soon.
 
-<!-- Roadmap
--------
-Please note: The time frames for this roadmap will depend on your demands (both non-commercial and commercial requests). For this reason I heavily recommend contacting me in case you're waiting on one of the specified features - I will need your feedback for deciding on what to prioritize. Each of the features specified up and including v1.0 could be accomplished within a matter of days, however I can't (yet) make this my fulltime job yet, so I've chosen rather pessimistic time frames.
-
-<table>
-    <tr>
-        <th>Version</th>
-        <th>Expected Time Frame</th>
-        <th>Comment</th>
-    </tr>
-    <tr>
-        <td>v0.9</td>
-        <td>Summer 2014</td>
-        <td>I'm currently doing preliminary work for porting WRF to Hybrid Fortran. Functionality will therefore be extended in the coming months. Especially general stencil compatibility should be achieved soon.</td>
-    </tr>
-    <tr>
-        <td>v1.0</td>
-        <td>Early 2014</td>
-        <td>Functionality extended for dynamical packages with arbitrary stencil data accesses. Halo regions will need to be implemented manually using Hybrid Fortran syntax. In this version, the parallel regions will be required to be at the same place for both CPU and GPU implementation, if used for dynamical code with parallel region offset accesses.</td>
-    </tr>
-    <tr>
-        <td>v1.1</td>
-        <td>Summer 2014</td>
-        <td>Dynamical code supported with different parallel region places for CPU/GPU. Halo regions will be handled automatically for single node, however multinode halo communication will still remain a manual task.</td>
-    </tr>
-    <tr>
-        <td>v2.0</td>
-        <td>Summer 2015</td>
-        <td>New top level parallel region for multinode parallelism using message passing (up to 2.0, multinode support will need to be implemented manually, such as by using MPI). Automatic detection of domain dependant data (@domainDependant directives will only be needed at one place for any symbol, instead of at every subroutine).</td>
-    </tr>
-    <tr>
-        <td>v2.1</td>
-        <td>Late 2015</td>
-        <td>Automatic implementation of halo communication for multinode support.</td>
-    </tr>
-</table> -->
-
 Credits
 -------
 - 'Kracken' module for parsing Fortran program arguments by John S. Urban
@@ -442,6 +401,10 @@ Credits
 - 2D Poisson FEM Solver example by Dr. Johan Hysing, Tokyo Institute of Technology
 - MIDACO solver and original problem code by Dr. Martin Schlueter, [MIDACO-SOLVER](http://www.midaco-solver.com/)
 - Everything else in this repository by Michel Müller, written at Tokyo Institute of Technology (Aoki Laboratory) and RIKEN Advanced Institute for Computational Science, Kobe
+
+Commercial Support and Consulting
+---------------------------------
+Commercial support as well as Consulting is available through [Typhoon Computing](http://typhooncomputing.com) on a per-call basis. Please contact me if you're interested in this offering.
 
 Contact Information
 -------------------

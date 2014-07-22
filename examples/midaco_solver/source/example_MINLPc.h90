@@ -1,0 +1,282 @@
+!CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+!
+!     This is an Example Call of MIDACO 4.0
+!     -------------------------------------
+!
+!     MIDACO solves the general Mixed Integer Non-Linear Program (MINLP):
+!
+!
+!       Minimize     F(X)           where X(1,...N-NI)   is *CONTINUOUS*
+!                                   and   X(N-NI+1,...N) is *DISCRETE*
+!
+!       Subject to:  G_j(X)  =  0   (j=1,...ME)     Equality Constraints
+!                    G_j(X) >=  0   (j=ME+1,...M) Inequality Constraints
+!
+!       And bounds:  XL <= X <= XU
+!
+!
+!     The problem statement of this example is given below in the function
+!     'PROBLEM_FUNCTION(F,G,X)'. You can use this example as a template to
+!     run MIDACO on your own problem. In order to do so: Replace the objective
+!     function 'F' (and in case the constraints 'G') given below with your own
+!     problem functions. Then simply follow the instruction steps 1 to 3 given
+!     in this file.
+!
+!     See the MIDACO Header and MIDACO User Guide for more information.
+!
+!     Author(C): Dr. Martin Schlueter
+!                Information Initiative Center,
+!                Division of Large Scale Computing Systems,
+!                Hokkaido University, Japan.
+!
+!        Email:  info@midaco-solver.com
+!        URL:    http://www.midaco-solver.com
+!
+!    Adapted in July 2014 for Hybrid Fortran by:
+!                Michel Müller, michel@typhooncomputing.com
+!
+!CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      MODULE PROBLEM
+      CONTAINS
+         SUBROUTINE PROBLEM_FUNCTION_KERNEL(M,N,P1,P2,F,G,X)
+            INTEGER(4), intent(in) :: M, N, P1, P2
+            DOUBLE PRECISION, intent(out) :: F
+            DOUBLE PRECISION, intent(out) :: G(M)
+            DOUBLE PRECISION, intent(in) :: X(N)
+            DOUBLE PRECISION sum
+            INTEGER(4) i
+            ! Make Hybrid Fortran aware of scalars passed to this kernel.
+            @domainDependant{attribute(autoDom)}
+            M, N, P1, P2
+            @end domainDependant
+            ! Make Hybrid Fortran aware of data that is dependant on C domain.
+            ! Please note that since we introduce the C1/C2-dependency only through this
+            ! directive, we don't have to privatize the code in the parallelization domains - Hybrid Fortran will do this for us
+            ! automatically in the GPU case.
+            @domainDependant{domName(C1,C2), domSize(P1,P2), attribute(autoDom)}
+            F
+            @end domainDependant
+            ! .. since autoDom functionality is limited to cases where the parallel domains are inserted *before* the independant domains (which Midaco currently isn't compatible with),
+            ! we have to define the domains for X and G explicitely.
+            ! Note that this memory layout is not efficient for GPU, but since this code is heavily compute bound, it doesn't really matter here.
+            @domainDependant{domName(CONSTR,C1,C2), domSize(M,P1,P2)}
+            G
+            @end domainDependant
+            @domainDependant{domName(VAR,C1,C2), domSize(N,P1,P2)}
+            X
+            @end domainDependant
+
+            ! Parallelize here for GPU - we could paralellize here for CPU as well by leaving away the 'appliesTo' attribute,
+            ! but by separating the parallelization like this the generated code for the CPU will be more identical to the pure OpenMP version
+            ! (by parallelizing it outside this subroutine). It also shows off Hybrid Fortran's flexibility and compile-time reshaping.
+            @parallelRegion{domName(C1,C2), domSize(P1,P2), appliesTo(GPU)}
+            ! Synthetically increase the computations to construct an example where GPU makes sense. See HF documentation for formulas on GPU performance increase.
+
+!CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+!
+!     Step 0 : Define your Problem Function
+!
+!CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+            sum = 0.0
+            do i=1,100000
+              sum = sum + 1/dble(i)
+            enddo
+
+            ! Objective function value
+            F = (X(1)-1.0D0)**2 &
+              + (X(2)-2.0D0)**2 &
+              + (X(3)-3.0D0)**2 &
+              + (X(4)-4.0D0)**2 &
+              + 1.23456789D0 &
+              + sum
+
+            ! Equality constraints G(i) = 0 MUST COME FIRST in G(1:ME)
+            G(1) = X(1) - 1.0D0
+            ! Inequality constraints G(i) >= 0 MUST COME SECOND in G(ME+1:M)
+            G(2) = X(2) - 1.333333333D0
+            G(3) = X(3) - 2.666666666D0
+!CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+!
+!     Problem function finished
+!
+!CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+
+            @end parallelRegion
+         END SUBROUTINE
+
+         ! Hybrid Fortran only operates on subroutines, so we put the problem function in its own one.
+         SUBROUTINE PROBLEM_FUNCTION(M,N,P1,P2,F,G,X)
+            INTEGER(4), intent(in) :: M, N, P1, P2
+            DOUBLE PRECISION, intent(out) :: F(P1,P2), G(M,P1,P2)
+            DOUBLE PRECISION, intent(in) :: X(N,P1,P2)
+            @domainDependant{attribute(autoDom)}
+            F, G, X
+            @end domainDependant
+
+            @parallelRegion{domName(C1,C2), domSize(P1,P2), appliesTo(CPU)}
+            CALL PROBLEM_FUNCTION_KERNEL(M,N,P1,P2,F,G,X)
+            @end parallelRegion
+         END SUBROUTINE
+      END MODULE
+
+
+      PROGRAM MAIN
+      USE PROBLEM
+      USE time_profiling
+      USE helper_functions
+      IMPLICIT NONE
+!CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+!     Dimensions of the optimization problem
+!
+!     Step 1.A : Define problem dimensions and number of threads
+!     ************************************
+      INTEGER, parameter :: N = 4     ! Number of variables (in total)
+      INTEGER, parameter :: NI = 2    ! Number of integer variables (0 <= NI <= N)
+      INTEGER, parameter :: M = 3     ! Number of constraints (in total)
+      INTEGER, parameter :: ME = 1    ! Number of equality constraints (0 <= ME <= M)
+      INTEGER, parameter :: P1 = 1024 ! Parallelization Factor 1 (CPU sequential / GPU first order)
+      INTEGER, parameter :: P2 = 32   ! Parallelization Factor 2 (CPU core parallel / GPU second order)
+!     ************************************
+
+!     Lower and upper bounds ('XL' & 'XU') and optimization variable 'X'
+      DOUBLE PRECISION XL(100), XU(100), X(100), XS(N)
+!     Objective 'F(X)' and constraints 'G(X)'
+      DOUBLE PRECISION F(1), G(100)
+!     MIDACO information and stop flags
+      INTEGER IFLAG, ISTOP
+!     MIDACO parameter
+      DOUBLE PRECISION PARAM(9)
+!     MIDACO integer workspace 'IW' and double precision workspace 'RW'
+      INTEGER LIW, LRW
+      PARAMETER (LIW = 2*N+P1*P2+1000, LRW = 200*N+2*M+1000)
+      INTEGER IW(LIW)
+      DOUBLE PRECISION RW(LRW)
+!     Parameter for stopping criteria, printing and license
+      INTEGER MAXTIME, MAXEVAL, PRINTEVAL, SAVE2FILE, I
+      CHARACTER*60 KEY
+
+!     Parallel
+      INTEGER C1, C2
+      DOUBLE PRECISION XXX(N,P1,P2), FFF(P1,P2), GGG(M,P1,P2)
+      DOUBLE PRECISION t_start_main, t_start_midaco, t_start_problem, error
+
+!CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+!     Specify MIDACO License-Key
+      KEY='MIDACO_LIMITED_VERSION___[CREATIVE_COMMONS_BY-NC-ND_LICENSE]'
+!CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+!
+!
+!
+!     Step 1.B : Define lower and upper bounds: 'XL' and 'XU'
+!     *******************************************************
+      DO I = 1,N
+         XL(I) = 1.0D0
+         XU(I) = 4.0D0
+      ENDDO
+!
+!     Step 1.C : Define starting point 'X'
+!     ************************************
+      DO I = 1,N
+          X(I) = XL(I) ! Here for example: starting point = lower bounds
+      ENDDO
+!CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+!
+!     Step 2.A : Define stopping criteria
+!     ***********************************
+      MAXEVAL = P1*P2*8    ! Maximum evaluation budget (e.g. 1000000)
+      MAXTIME = 60*60*24 ! Maximum time limit (e.g. 60*60*24 = 1 Day)
+!
+!     Step 2.B : Choose printing options
+!     **********************************
+      PRINTEVAL = 800 ! Print-Frequency for current best solution (e.g. 1000)
+      SAVE2FILE = 1    ! Save SCREEN and SOLUTION to TXT-files [0=NO/1=YES]
+
+!CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+!
+!     Step 3 : Choose MIDACO parameters (ONLY FOR ADVANCED USERS)
+!     *********************************
+      PARAM( 1) =  0.0D0   ! ACCURACY      (default value is 0.001)
+      PARAM( 2) =  0.0D0   ! RANDOM-SEED   (e.g. 1, 2, 3,... 1000)
+      PARAM( 3) =  0.0D0   ! FSTOP
+      PARAM( 4) =  0.0D0   ! AUTOSTOP      (e.g. 1, 5, 20, 100,... 500)
+      PARAM( 5) =  0.0D0   ! ORACLE
+      PARAM( 6) =  0.0D0   ! FOCUS         (e.g. +/- 10, 500,... 100000)
+      PARAM( 7) =  0.0D0   ! ANTS          (e.g. 2, 10, 50, 100,... 500)
+      PARAM( 8) =  0.0D0   ! KERNEL        (e.g. 2, 5, 15, 30,... 100)
+      PARAM( 9) =  0.0D0   ! CHARACTER
+
+!     Note: The default value for all parameters is 0.
+!           See the MIDACO User Manual for more details.
+
+!CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      PRINT*,' Running MIDACO in Parallel Mode: P1*P2 =', P1*P2
+
+!     Copy starting point X in parallel array XXX
+      DO C1 = 1,P1
+        DO C2 = 1,P2
+          DO I = 1,N
+              XXX(I,C1,C2) = X(I)
+          ENDDO
+        ENDDO
+      ENDDO
+
+!CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+!
+!     Call MIDACO by Reverse Communication
+!
+!CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+!     Print MIDACO headline with basic information
+      CALL MIDACO_PRINT(1,PRINTEVAL,SAVE2FILE,IFLAG,ISTOP,FFF(1,1),GGG,XXX,XL, &
+                       XU,N,NI,M,ME,RW,LRW,MAXEVAL,MAXTIME,PARAM,P1*P2,KEY)
+      CALL getTime(t_start_main)
+      DO WHILE(ISTOP.EQ.0) !~~~~~~~~Start~of~reverse~communication~loop
+        CALL getTime(t_start_problem)
+        CALL PROBLEM_FUNCTION(M,N,P1,P2,FFF,GGG,XXX)
+        CALL incrementCounter(counter2, t_start_problem)
+
+        ! Call MIDACO
+        CALL getTime(t_start_midaco)
+        CALL MIDACO(P1*P2,N,NI,M,ME,XXX,FFF,GGG,XL,XU,IFLAG, &
+                  ISTOP,PARAM,RW,LRW,IW,LIW,KEY)
+        CALL incrementCounter(counter3, t_start_midaco)
+
+        ! Print best solution after every PRINTEVAL evaluation
+        CALL MIDACO_PRINT(2,PRINTEVAL,SAVE2FILE,IFLAG,ISTOP,FFF(1,1),GGG,XXX, &
+                  XL,XU,N,NI,M,ME,RW,LRW,MAXEVAL,MAXTIME,PARAM,P1*P2,KEY)
+      ENDDO !~~~~~~~~~~~~~~~~~~~~~~~~~End~of~reverse~communication~loop
+      call incrementCounter(counter1, t_start_main)
+
+      DO I = 1,N
+          X(I) = XXX(I,1,1)
+      ENDDO
+
+!CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+!     Independent check of the MIDACO solution
+      CALL PROBLEM_FUNCTION(M,N,1,1,F(1),G,X)
+!     Print the MIDACO solution
+      CALL MIDACO_PRINT(3,PRINTEVAL,SAVE2FILE,IFLAG,ISTOP,FFF(1,1),GGG,XXX,XL, &
+                       XU,N,NI,M,ME,RW,LRW,MAXEVAL,MAXTIME,PARAM,P1*P2,KEY)
+!CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+!     PRINT*,'PAUSE'; READ(*,*)
+
+      XS(1) = 1.0D0
+      XS(2) = 2.0D0
+      XS(3) = 3.0D0
+      XS(4) = 4.0D0
+      error = 0
+      DO I = 1,N
+        error = error + (X(I)-XS(I))**2
+      ENDDO
+      error = sqrt(error)
+      write(6, "(E13.5,A,F13.5,A,E13.5,E13.5)") counter1, ",", counter2, ",", counter3, error
+      IF (error > 1E-3) THEN
+        write(0,*) "Solution deviates too much. Root Mean Square Error: ", error
+        stop 1
+      ENDIF
+
+      END
+!     END MAIN PROGRAM
+!     END OF FILE
+
+
+

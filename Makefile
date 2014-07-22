@@ -28,7 +28,7 @@ EXAMPLEDIR=${HF_DIR}/example/
 EXAMPLEDIR_SOURCE=${EXAMPLEDIR}source/
 EXAMPLEDIR_CONFIG=${EXAMPLEDIR}config/
 
-TEST_PROJECTS=examples/simple_stencil examples/strides examples/diffusion3d examples/particle examples/poisson2d_fem_iterative
+TEST_PROJECTS=examples/simple_stencil examples/strides examples/diffusion3d examples/particle examples/poisson2d_fem_iterative examples/midaco_solver
 ADDITIONAL_TEST_PROJECTS=pp
 
 TEST_TARGETS=$(addprefix test_,$(TEST_PROJECTS))

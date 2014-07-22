@@ -1,8 +1,8 @@
 #include "../source/storage.h"
 #define M_PI 3.14159265358979323846d0
 #define TAU 8.0
-! #define LOAD_INITIAL_FROM_FILE 1
-! #define SAVE_TO_FILE 1
+#define LOAD_INITIAL_FROM_FILE 1
+#define SAVE_TO_FILE 1
 
 module particle_push
 contains
@@ -91,7 +91,7 @@ subroutine mainloop(x, y, x_out, y_out, time, dt, numOfStencilsComputed)
 		if(modulo(icnt,100) .eq. 0) then
 			write(0,"(A,I5,A,E13.5)") "time after iteration ", icnt+1, ":",time
 		end if
-		if (time >= 20.0 - 0.5*dt .or. icnt >= 999999) exit
+		if (time >= 8.0d0 - 0.5*dt .or. icnt >= 999999) exit
 	end do
 	write(0,*) "Simulated Time:", time
 end subroutine

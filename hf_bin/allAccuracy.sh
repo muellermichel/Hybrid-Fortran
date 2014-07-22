@@ -50,6 +50,7 @@ for i in $output_file_pattern; do
 	if [[ $extension == "nc" || $extension == "" ]]; then
 		formatParam="--netcdf"
 	fi
+	echo "checking against ${refPath}" 1>&2
 	if [ ! -e ${refPath} ]; then
 		echo "Error in accuracy test: Cannot find file ${refPath}. Please set 'TEST_OUTPUT_FILE_PATTERN' in config/MakesettingsGeneral." 1>&2
 		exit 2

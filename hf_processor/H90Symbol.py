@@ -702,7 +702,10 @@ Please specify the domains and their sizes with domName and domSize attributes i
 				continue
 
 			#if we reach this there are parallel iterators specified.
-			if self.domains[i][0] in parallelIterators:
+			if len(offsets) == len(self.domains):
+				result += offsets[nextOffsetIndex]
+				nextOffsetIndex += 1
+			elif self.domains[i][0] in parallelIterators:
 				result += self.domains[i][0]
 			elif nextOffsetIndex < len(offsets):
 				result += offsets[nextOffsetIndex]

@@ -1,9 +1,9 @@
 ---------------------------------------------------------------------------------
    Input data file for fempoi2d
 --------------------+---------+--------------------------------------------------
-5120                  ! n_cells ! number of cells in x/y-directions
+128                  ! n_cells ! number of cells in x/y-directions
 100                   ! n_ktest ! number of loops in kernel timing tests
-10000                 ! n_maxit ! maximum number of solver iterations
+100000                 ! n_maxit ! maximum number of solver iterations
 1                   ! i_sol   ! solver flag (1=jacobi, 2=sor/gauss-seidel)
 1.0e-6              ! tol     ! solver convergence criteria (reduction in defect)
 1.0                 ! omega   ! solver relaxation parameter

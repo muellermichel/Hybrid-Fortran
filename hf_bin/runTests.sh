@@ -29,14 +29,14 @@ for executable in $executables; do
 	testDir=$(dirname ${executable})
 	executableName=$(basename ${executable})
 	cd ${testDir}
-	if [ "$run_mode" = "debug" ]; then
-		${HF_DIR}/hf_bin/runTest.sh $executableName $architecture valgrind "$output_file_pattern" $source_before $source_after
-		rc=$?
-		if [[ $rc != 0 ]] ; then
-			cd ${currDir}
-			exit $rc
-		fi
-	fi
+	# if [ "$run_mode" = "debug" ]; then
+	# 	${HF_DIR}/hf_bin/runTest.sh $executableName $architecture valgrind "$output_file_pattern" $source_before $source_after
+	# 	rc=$?
+	# 	if [[ $rc != 0 ]] ; then
+	# 		cd ${currDir}
+	# 		exit $rc
+	# 	fi
+	# fi
 	${HF_DIR}/hf_bin/runTest.sh $executableName $architecture validation "$output_file_pattern" $source_before $source_after
 	rc=$?
 	cd ${currDir}

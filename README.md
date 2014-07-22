@@ -354,28 +354,28 @@ For four of the samples there is a performance analysis available. The remaining
     </tr>
     <tr>
         <td>3D Diffusion</td>
-        <td></td>
+        <td><a href="https://github.com/muellermichel/Hybrid-Fortran/blob/master/results/diffusion_results.xlsx">Link</a></td>
         <td>1.06x</td>
         <td>10.94x</td>
         <td>11.66x</td>
     </tr>
     <tr>
         <td>Particle Push</td>
-        <td></td>
+        <td><a href="https://github.com/muellermichel/Hybrid-Fortran/blob/master/results/particle_results.xlsx">Link</a></td>
         <td>9.08x</td>
         <td>21.72x</td>
         <td>152.79x</td>
     </tr>
     <tr>
         <td>Poisson on FEM Solver with Jacobi Approximation</td>
-        <td></td>
+        <td><a href="https://github.com/muellermichel/Hybrid-Fortran/blob/master/results/poisson_results.xlsx">Link</a></td>
         <td>1.41x</td>
         <td>5.13x</td>
         <td>7.28x</td>
     </tr>
     <tr>
         <td>MIDACO Ant Colony Solver with MINLP Example</td>
-        <td></td>
+        <td><a href="https://github.com/muellermichel/Hybrid-Fortran/blob/master/results/midaco_results.xlsx">Link</a></td>
         <td>5.26x</td>
         <td>10.07x</td>
         <td>52.99x</td>

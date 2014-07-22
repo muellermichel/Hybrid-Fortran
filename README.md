@@ -84,11 +84,46 @@ Hybrid Fortran is available under GNU Lesser Public License (LGPL).
 
 Samples and Results Overview
 ----------------------------
-### Samples
+### Characteristics
 <table>
     <tr>
         <th>Name</th>
         <th>Main Characteristics / Demonstrated Features</th>
+    </tr>
+    <tr>
+        <td>3D Diffusion</td>
+        <td>Memory Bandwidth bounded stencil code, full time integration on device</td>
+    </tr>
+    <tr>
+        <td>Particle Push</td>
+        <td>Computationally bounded, full time integration on device.</td>
+    </tr>
+    <tr>
+        <td>Poisson on FEM Solver with Jacobi Approximation</td>
+        <td>Memory bandwidth bounded Jacobi stencil code in a complete solver setup with multiple kernels. Reduction using GPU compatible BLAS calls.</td>
+    </tr>
+    <tr>
+        <td>MIDACO Ant Colony Solver with MINLP Example</td>
+        <td>Heavily computationally bounded problem function, parallelized on two levels for optimal distribution on both CPU and GPU. Automatic privatization of 1D code to 3D version for GPU parallelization. Data is copied between host and device for every iteration (solver currently only running on CPU).</td>
+    </tr>
+    <tr>
+        <td>Simple Stencil Example</td>
+        <td>Stencil code.</td>
+    </tr>
+    <tr>
+        <td>Parallel Vector Example</td>
+        <td>Separate parallelizations for CPU/GPU with unified codebase, parallel vector calculations without communication. Automatic privatization of 1D code to 3D version for GPU parallelization.</td>
+    </tr>
+    <tr>
+        <td>Strides Example</td>
+        <td>Like parallel vector example, uses blocking of data domain (in case GPU memory is too small).</td>
+    </tr>
+</table>
+
+### Link to Sources, Available Versions and Implementation Accuracy
+<table>
+    <tr>
+        <th>Name</th>
         <th>Source</th>
         <th>Root Mean Square Error Bounds</th>
         <th>Reference C Implementation (OpenACC + OpemMP)</th>
@@ -97,7 +132,6 @@ Samples and Results Overview
     </tr>
     <tr>
         <td>3D Diffusion</td>
-        <td>Memory Bandwidth bounded stencil code, full time integration on device</td>
         <td><a href="https://github.com/muellermichel/Hybrid-Fortran/tree/master/examples/diffusion3d">Link</a></td>
         <td>1E-8 [3]</td>
         <td>Yes</td>
@@ -106,7 +140,6 @@ Samples and Results Overview
     </tr>
     <tr>
         <td>Particle Push</td>
-        <td>Computationally bounded, full time integration on device.</td>
         <td><a href="https://github.com/muellermichel/Hybrid-Fortran/tree/master/examples/particle">Link</a></td>
         <td>1E-11</td>
         <td>Yes</td>
@@ -115,7 +148,6 @@ Samples and Results Overview
     </tr>
     <tr>
         <td>Poisson on FEM Solver with Jacobi Approximation</td>
-        <td>Memory bandwidth bounded Jacobi stencil code in a complete solver setup with multiple kernels. Reduction using GPU compatible BLAS calls.</td>
         <td><a href="https://github.com/muellermichel/Hybrid-Fortran/tree/master/examples/poisson2d_fem_iterative">Link</a></td>
         <td>1E-07 [1]</td>
         <td>No</td>
@@ -124,7 +156,6 @@ Samples and Results Overview
     </tr>
     <tr>
         <td>MIDACO Ant Colony Solver with MINLP Example</td>
-        <td>Heavily computationally bounded problem function, parallelized on two levels for optimal distribution on both CPU and GPU. Automatic privatization of 1D code to 3D version for GPU parallelization. Data is copied between host and device for every iteration (solver currently only running on CPU).</td>
         <td><a href="https://github.com/muellermichel/Hybrid-Fortran/tree/master/examples/midaco_solver">Link</a></td>
         <td>1E-3 [3]</td>
         <td>No</td>
@@ -133,7 +164,6 @@ Samples and Results Overview
     </tr>
     <tr>
         <td>Simple Stencil Example</td>
-        <td>Stencil code.</td>
         <td><a href="https://github.com/muellermichel/Hybrid-Fortran/tree/master/examples/simple_stencil">Link</a></td>
         <td>1E-8</td>
         <td>No</td>
@@ -142,7 +172,6 @@ Samples and Results Overview
     </tr>
     <tr>
         <td>Parallel Vector Example</td>
-        <td>Separate parallelizations for CPU/GPU with unified codebase, parallel vector calculations without communication. Automatic privatization of 1D code to 3D version for GPU parallelization.</td>
         <td><a href="https://github.com/muellermichel/Hybrid-Fortran/blob/master/hf_processor/example_example.h90">Link</a> [2]</td>
         <td>1E-8</td>
         <td>No</td>
@@ -151,7 +180,6 @@ Samples and Results Overview
     </tr>
     <tr>
         <td>Strides Example</td>
-        <td>Like parallel vector example, uses blocking of data domain (in case GPU memory is too small).</td>
         <td><a href="https://github.com/muellermichel/Hybrid-Fortran/tree/master/examples/strides">Link</a></td>
         <td>1E-8</td>
         <td>No</td>

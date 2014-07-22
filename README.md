@@ -84,6 +84,7 @@ Hybrid Fortran is available under GNU Lesser Public License (LGPL).
 
 Samples and Results Overview
 ----------------------------
+### Samples
 <table>
     <tr>
         <th>Name</th>
@@ -93,23 +94,15 @@ Samples and Results Overview
         <th>Reference C Implementation (OpenACC + OpemMP)</th>
         <th>Reference CUDA C Implementation</th>
         <th>Reference Fortran Implementation (OpenACC)</th>
-        <th>Performance Results</th>
-        <th>Speedup HF on 6 Core vs. 1 Core [1]</th>
-        <th>Speedup HF on GPU vs 6 Core [1]</th>
-        <th>Speedup HF on GPU vs 1 Core [1]</th>
     </tr>
     <tr>
         <td>3D Diffusion</td>
         <td>Memory Bandwidth bounded stencil code, full time integration on device</td>
         <td><a href="https://github.com/muellermichel/Hybrid-Fortran/tree/master/examples/diffusion3d">Link</a></td>
-        <td>1E-8 [5]</td>
+        <td>1E-8 [3]</td>
         <td>Yes</td>
         <td>Yes</td>
         <td>Yes</td>
-        <td></td>
-        <td>1.06x</td>
-        <td>10.94x</td>
-        <td>11.66x</td>
     </tr>
     <tr>
         <td>Particle Push</td>
@@ -119,36 +112,24 @@ Samples and Results Overview
         <td>Yes</td>
         <td>Yes</td>
         <td>Yes</td>
-        <td></td>
-        <td>9.08x</td>
-        <td>21.72x</td>
-        <td>152.79x</td>
     </tr>
     <tr>
         <td>Poisson on FEM Solver with Jacobi Approximation</td>
         <td>Memory bandwidth bounded Jacobi stencil code in a complete solver setup with multiple kernels. Reduction using GPU compatible BLAS calls.</td>
         <td><a href="https://github.com/muellermichel/Hybrid-Fortran/tree/master/examples/poisson2d_fem_iterative">Link</a></td>
-        <td>1E-07 [2]</td>
+        <td>1E-07 [1]</td>
         <td>No</td>
         <td>No</td>
         <td>No</td>
-        <td></td>
-        <td>1.41x</td>
-        <td>5.13x</td>
-        <td>7.28x</td>
     </tr>
     <tr>
         <td>MIDACO Ant Colony Solver with MINLP Example</td>
         <td>Heavily computationally bounded problem function, parallelized on two levels for optimal distribution on both CPU and GPU. Automatic privatization of 1D code to 3D version for GPU parallelization. Data is copied between host and device for every iteration (solver currently only running on CPU).</td>
         <td><a href="https://github.com/muellermichel/Hybrid-Fortran/tree/master/examples/midaco_solver">Link</a></td>
-        <td>1E-3 [5]</td>
+        <td>1E-3 [3]</td>
         <td>No</td>
         <td>No</td>
         <td>No</td>
-        <td></td>
-        <td>5.26x</td>
-        <td>10.07x</td>
-        <td>52.99x</td>
     </tr>
     <tr>
         <td>Simple Stencil Example</td>
@@ -158,22 +139,15 @@ Samples and Results Overview
         <td>No</td>
         <td>No</td>
         <td>No</td>
-        <td></td>
-        <td>n/a [3]</td>
-        <td>n/a [3]</td>
-        <td>n/a [3]</td>
     </tr>
     <tr>
         <td>Parallel Vector Example</td>
         <td>Separate parallelizations for CPU/GPU with unified codebase, parallel vector calculations without communication. Automatic privatization of 1D code to 3D version for GPU parallelization.</td>
-        <td><a href="https://github.com/muellermichel/Hybrid-Fortran/blob/master/hf_processor/example_example.h90">Link</a> [4]</td>
+        <td><a href="https://github.com/muellermichel/Hybrid-Fortran/blob/master/hf_processor/example_example.h90">Link</a> [2]</td>
         <td>1E-8</td>
         <td>No</td>
         <td>No</td>
         <td>No</td>
-        <td>n/a [3]</td>
-        <td>n/a [3]</td>
-        <td>n/a [3]</td>
     </tr>
     <tr>
         <td>Strides Example</td>
@@ -183,21 +157,58 @@ Samples and Results Overview
         <td>No</td>
         <td>No</td>
         <td>No</td>
-        <td>n/a [3]</td>
-        <td>n/a [3]</td>
-        <td>n/a [3]</td>
+    </tr>
+</table>
+
+[1]: Number of iterations to achieve this error level depends on problem domain sizes. The provided value is an upper bound for the error value after an unspecified long runtime - it 'eventually' converges. Note then that this solver's algorithm is not good enough for production use, it is only included for demonstration purposes here.
+
+[2]: Example obtained when typing 'make example' in the Hybrid Fortran directory.
+
+[3]: Compared to analytic solution
+
+### Results
+
+For four of the samples there is a performance analysis available. The remaining examples are not meant for performance comparisons, but rather to show how to use Hybrid Fortran.
+
+<table>
+    <tr>
+        <th>Name</th>
+        <th>Performance Results</th>
+        <th>Speedup HF on 6 Core vs. 1 Core [1]</th>
+        <th>Speedup HF on GPU vs 6 Core [1]</th>
+        <th>Speedup HF on GPU vs 1 Core [1]</th>
+    </tr>
+    <tr>
+        <td>3D Diffusion</td>
+        <td></td>
+        <td>1.06x</td>
+        <td>10.94x</td>
+        <td>11.66x</td>
+    </tr>
+    <tr>
+        <td>Particle Push</td>
+        <td></td>
+        <td>9.08x</td>
+        <td>21.72x</td>
+        <td>152.79x</td>
+    </tr>
+    <tr>
+        <td>Poisson on FEM Solver with Jacobi Approximation</td>
+        <td></td>
+        <td>1.41x</td>
+        <td>5.13x</td>
+        <td>7.28x</td>
+    </tr>
+    <tr>
+        <td>MIDACO Ant Colony Solver with MINLP Example</td>
+        <td></td>
+        <td>5.26x</td>
+        <td>10.07x</td>
+        <td>52.99x</td>
     </tr>
 </table>
 
 [1]: If available, comparing to reference C version, otherwise comparing to Hybrid Fortran CPU implementation. Kepler K20x has been used as GPU, Westmere Xeon X5670 has been used as CPU (TSUBAME 2.5). All results measured in double precision. The CPU cores have been limited to one socket using thread affinity 'compact' with 12 logical threads. For CPU, Intel compilers ifort / icc with '-fast' setting have been used. For GPU, PGI compiler with '-fast' setting and CUDA compute capability 3.x has been used. All GPU results include the memory copy time from host to device.
-
-[2]: Number of iterations to achieve this error level depends on problem domain sizes. The provided value is an upper bound for the error value after an unspecified long runtime - it 'eventually' converges. Note then that this solver's algorithm is not good enough for production use, it is only included for demonstration purposes here.
-
-[3]: Not measured since this example is not meant as a performance demonstration, but as a code example.
-
-[4]: Example obtained when typing 'make example' in the Hybrid Fortran directory.
-
-[5]: Compared to analytic solution
 
 Code Example
 ------------

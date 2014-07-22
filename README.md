@@ -87,9 +87,8 @@ Samples and Results Overview
 <table>
     <tr>
         <th>Name</th>
-        <th>Main Characteristics</th>
+        <th>Main Characteristics / Demonstrated Features</th>
         <th>Source</th>
-        <th>Demonstrated Features</th>
         <th>Root Mean Square Error Bounds</th>
         <th>Reference C Implementation (OpenACC + OpemMP)</th>
         <th>Reference CUDA C Implementation</th>
@@ -102,7 +101,7 @@ Samples and Results Overview
     <tr>
         <td>3D Diffusion</td>
         <td>Memory Bandwidth bounded stencil code, full time integration on device</td>
-        <td>[Link](https://github.com/muellermichel/Hybrid-Fortran/tree/master/examples/diffusion3d)</td>
+        <td><a href="https://github.com/muellermichel/Hybrid-Fortran/tree/master/examples/diffusion3d">Link</a></td>
         <td>1E-8 [5]</td>
         <td>Yes</td>
         <td>Yes</td>
@@ -115,7 +114,7 @@ Samples and Results Overview
     <tr>
         <td>Particle Push</td>
         <td>Computationally bounded, full time integration on device.</td>
-        <td>[Link](https://github.com/muellermichel/Hybrid-Fortran/tree/master/examples/particle)</td>
+        <td><a href="https://github.com/muellermichel/Hybrid-Fortran/tree/master/examples/particle">Link</a></td>
         <td>1E-11</td>
         <td>Yes</td>
         <td>Yes</td>
@@ -128,7 +127,7 @@ Samples and Results Overview
     <tr>
         <td>Poisson on FEM Solver with Jacobi Approximation</td>
         <td>Memory bandwidth bounded Jacobi stencil code in a complete solver setup with multiple kernels. Reduction using GPU compatible BLAS calls.</td>
-        <td>[Link](https://github.com/muellermichel/Hybrid-Fortran/tree/master/examples/poisson2d_fem_iterative)</td>
+        <td><a href="https://github.com/muellermichel/Hybrid-Fortran/tree/master/examples/poisson2d_fem_iterative">Link</a></td>
         <td>1E-07 [2]</td>
         <td>No</td>
         <td>No</td>
@@ -141,7 +140,7 @@ Samples and Results Overview
     <tr>
         <td>MIDACO Ant Colony Solver with MINLP Example</td>
         <td>Heavily computationally bounded problem function, parallelized on two levels for optimal distribution on both CPU and GPU. Automatic privatization of 1D code to 3D version for GPU parallelization. Data is copied between host and device for every iteration (solver currently only running on CPU).</td>
-        <td>[Link](https://github.com/muellermichel/Hybrid-Fortran/tree/master/examples/midaco_solver)</td>
+        <td><a href="https://github.com/muellermichel/Hybrid-Fortran/tree/master/examples/midaco_solver">Link</a></td>
         <td>1E-3 [5]</td>
         <td>No</td>
         <td>No</td>
@@ -154,7 +153,7 @@ Samples and Results Overview
     <tr>
         <td>Simple Stencil Example</td>
         <td>Stencil code.</td>
-        <td>[Link](https://github.com/muellermichel/Hybrid-Fortran/tree/master/examples/simple_stencil)</td>
+        <td><a href="https://github.com/muellermichel/Hybrid-Fortran/tree/master/examples/simple_stencil">Link</a></td>
         <td>1E-8</td>
         <td>No</td>
         <td>No</td>
@@ -167,7 +166,7 @@ Samples and Results Overview
     <tr>
         <td>Parallel Vector Example</td>
         <td>Separate parallelizations for CPU/GPU with unified codebase, parallel vector calculations without communication. Automatic privatization of 1D code to 3D version for GPU parallelization.</td>
-        <td>[Link](https://github.com/muellermichel/Hybrid-Fortran/blob/master/hf_processor/example_example.h90) [4]</td>
+        <td><a href="https://github.com/muellermichel/Hybrid-Fortran/blob/master/hf_processor/example_example.h90">Link</a> [4]</td>
         <td>1E-8</td>
         <td>No</td>
         <td>No</td>
@@ -179,7 +178,7 @@ Samples and Results Overview
     <tr>
         <td>Strides Example</td>
         <td>Like parallel vector example, uses blocking of data domain (in case GPU memory is too small).</td>
-        <td>[Link](https://github.com/muellermichel/Hybrid-Fortran/tree/master/examples/strides)</td>
+        <td><a href="https://github.com/muellermichel/Hybrid-Fortran/tree/master/examples/strides">Link</a></td>
         <td>1E-8</td>
         <td>No</td>
         <td>No</td>

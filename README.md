@@ -26,6 +26,14 @@ Some sample results:
         <th>Speedup HF on GPU vs 1 Core <a href="#results">[1]</a></th>
     </tr>
     <tr>
+        <td><a href="#characteristics">Japanese Physical Weather Prediction Core (121 Kernels)</a></td>
+        <td><a href="https://github.com/muellermichel/Hybrid-Fortran/raw/master/doc/Slides_GTC2014.pdf">Slides Only</a><br>
+            <a href="http://on-demand.gputechconf.com/gtc/2014/video/S4352-asuca-on-gpu-hybrid-port-japanese-weather-model.mp4">Slidecast</a></td>
+        <td>4.47x</td>
+        <td>3.63x</td>
+        <td>16.22x</td>
+    </tr>
+    <tr>
         <td><a href="#characteristics">3D Diffusion</a></td>
         <td><a href="https://github.com/muellermichel/Hybrid-Fortran/blob/master/results/diffusion_results.xlsx">Link</a></td>
         <td>1.06x</td>
@@ -429,7 +437,7 @@ Detailed Documentation is available [here](https://github.com/muellermichel/Hybr
 
 The poster shown at GTC 2013 is available [here](http://on-demand.gputechconf.com/gtc/2013/poster/pdf/P0199_MichelMueller.pdf).
 
-The slides shown in Michel's talk at GTC 2013 are available [here](https://github.com/muellermichel/Hybrid-Fortran/raw/master/doc/Slides_GTC2013.pdf). You can also watch the recording [here](http://nvidia.fullviewmedia.com/gtc2013/0320-211B-S3326.html).
+The slides shown in Michel's talk at GTC 2014 are available [here](https://github.com/muellermichel/Hybrid-Fortran/raw/master/doc/Slides_GTC2014.pdf). You can also watch the recording [here](http://on-demand.gputechconf.com/gtc/2014/video/S4352-asuca-on-gpu-hybrid-port-japanese-weather-model.mp4).
 
 If you'd like to get the background story (why would I do such a thing), you can read my [Master Thesis from 2012 (slightly updated)](https://github.com/muellermichel/Hybrid-Fortran/raw/master/doc/Thesis_updated_2013-3.pdf). I plan on doing a blog post, explaining the background story of this project soon.
 

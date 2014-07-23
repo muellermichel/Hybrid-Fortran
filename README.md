@@ -16,6 +16,45 @@ Hybrid Fortran has been successfully used for porting the Physical Core of Japan
 
 Hybrid Fortran has been developed since 2012 by Michel Müller, MSc ETH Zurich, as a guest at Prof. Aoki's Gordon Bell award winning [laboratory](http://www.sim.gsic.titech.ac.jp/index-e.html) at the Tokyo Institute of Technology, as well as during a temporary stay with Prof. Maruyama at the [RIKEN Advanced Institute for Computational Science](http://www.aics.riken.jp/en/) in Kobe, Japan.
 
+Some sample results:
+<table>
+    <tr>
+        <th>Name</th>
+        <th>Performance Results</th>
+        <th>Speedup HF on 6 Core vs. 1 Core <a href="#results">[1]</a></th>
+        <th>Speedup HF on GPU vs 6 Core <a href="#results">[1]</a></th>
+        <th>Speedup HF on GPU vs 1 Core <a href="#results">[1]</a></th>
+    </tr>
+    <tr>
+        <td><a href="#characteristics">3D Diffusion</a></td>
+        <td><a href="https://github.com/muellermichel/Hybrid-Fortran/blob/master/results/diffusion_results.xlsx">Link</a></td>
+        <td>1.06x</td>
+        <td>10.94x</td>
+        <td>11.66x</td>
+    </tr>
+    <tr>
+        <td><a href="#characteristics">Particle Push</a></td>
+        <td><a href="https://github.com/muellermichel/Hybrid-Fortran/blob/master/results/particle_results.xlsx">Link</a></td>
+        <td>9.08x</td>
+        <td>21.72x</td>
+        <td>152.79x</td>
+    </tr>
+    <tr>
+        <td><a href="#characteristics">Poisson on FEM Solver with Jacobi Approximation</a></td>
+        <td><a href="https://github.com/muellermichel/Hybrid-Fortran/blob/master/results/poisson_results.xlsx">Link</a></td>
+        <td>1.41x</td>
+        <td>5.13x</td>
+        <td>7.28x</td>
+    </tr>
+    <tr>
+        <td><a href="#characteristics">MIDACO Ant Colony Solver with MINLP Example</a></td>
+        <td><a href="https://github.com/muellermichel/Hybrid-Fortran/blob/master/results/midaco_results.xlsx">Link</a></td>
+        <td>5.26x</td>
+        <td>10.07x</td>
+        <td>52.99x</td>
+    </tr>
+</table>
+
 Table of Contents
 -----------------
 * [Version History](#version-history)
@@ -238,15 +277,15 @@ Samples and Results Overview
     </tr>
     <tr>
         <td>3D Diffusion</td>
-        <td>Memory Bandwidth bounded stencil code, full time integration on device</td>
+        <td>Memory Bandwidth bounded stencil code, full time integration on device. Uses Pointers for device memory swap between timesteps.</td>
     </tr>
     <tr>
         <td>Particle Push</td>
-        <td>Computationally bounded, full time integration on device.</td>
+        <td>Computationally bounded, full time integration on device. Uses Pointers for device memory swap between timesteps. Demonstrates high speedup for trigonometric functions on GPU.</td>
     </tr>
     <tr>
         <td>Poisson on FEM Solver with Jacobi Approximation</td>
-        <td>Memory bandwidth bounded Jacobi stencil code in a complete solver setup with multiple kernels. Reduction using GPU compatible BLAS calls.</td>
+        <td>Memory bandwidth bounded Jacobi stencil code in a complete solver setup with multiple kernels. Reduction using GPU compatible BLAS calls. Uses Pointers for device memory swap between iterations.</td>
     </tr>
     <tr>
         <td>MIDACO Ant Colony Solver with MINLP Example</td>

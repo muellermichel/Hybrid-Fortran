@@ -131,9 +131,9 @@ Version History
 
 Why Hybrid Fortran?
 -------------------
-Experiences with [OpenACC](http://www.openacc-standard.org/) have shown that it is not well suited to port a so called 'physical core' as defined in [1]. The main issue is a decrease in CPU performance because of increased cache misses when using loop structures suitable for GPGPU back on the CPU. Additionally, storage order abstraction is a big missing feature in the OpenACC standard, thus creating lots of additional code when trying to keep it performant on both CPU and GPU (since these architectures often need different storage orders to be efficient). For this reason, Hybrid Fortran supports multiple loop structures (abstracted using the `@parallelRegion` directive) as well as multiple storage orders (defined once per symbol and subroutine using the `@domainDependant` directive - your computational code can be left alone). Additionally, compiler based approaches make debugging typically rather difficult. Hybrid Fortran uses a 1-to-1 mapping of your codebase to Fortran 90 code, i.e. it only inserts some code necessary to run your code on GPU and adjusts your array accesses - this enables you to debug in a familiar language and with code looking very close to what you've written yourself. Hybrid Fortran also provides very helpful debug modes that automatically insert print statements after kernels have been called, or even an emulated mode for printing within kernels. Emulated mode is also compatible with the Allinea DDT parallel debugger.
+The following Blog entry gives insight into why Hybrid Fortran has been created and how it can help you:
 
-[1]: 'Physical core' here means code for high performance computations where the data access dependencies are orthogonal to the parallelized dimensions, resulting in 'loose loops' being optimal on the CPU - as opposed to dynamical packages with general stencil dependencies and tight loops being used on all architectures.
+[Accelerators in HPC – Having the Cake and Eating It Too](http://typhooncomputing.com/?p=416)
 
 License
 -------
@@ -455,11 +455,11 @@ Documentation
 -------------
 Detailed Documentation is available [here](https://github.com/muellermichel/Hybrid-Fortran/raw/master/doc/Documentation.pdf).
 
+If you'd like to get the background story (why would I do such a thing): Read the following blog post [here](http://typhooncomputing.com/?p=416). Even more background: [Master Thesis from 2012 (slightly updated)](https://github.com/muellermichel/Hybrid-Fortran/raw/master/doc/Thesis_updated_2013-3.pdf).
+
 The poster shown at GTC 2013 is available [here](http://on-demand.gputechconf.com/gtc/2013/poster/pdf/P0199_MichelMueller.pdf).
 
 The slides shown in Michel's talk at GTC 2014 are available [here](https://github.com/muellermichel/Hybrid-Fortran/raw/master/doc/Slides_GTC2014.pdf). You can also watch the recording [here](http://on-demand.gputechconf.com/gtc/2014/video/S4352-asuca-on-gpu-hybrid-port-japanese-weather-model.mp4).
-
-If you'd like to get the background story (why would I do such a thing), you can read my [Master Thesis from 2012 (slightly updated)](https://github.com/muellermichel/Hybrid-Fortran/raw/master/doc/Thesis_updated_2013-3.pdf). I plan on doing a blog post, explaining the background story of this project soon.
 
 Credits
 -------

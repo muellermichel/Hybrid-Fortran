@@ -267,7 +267,9 @@ Please see the documentation for more details and best practices for porting you
 
 Current Restrictions
 --------------------
-* Hybrid Fortran has only been tested using Fortran 90 syntax and its GNU Make based build system only supports Fortran 90 files (f90 / F90). Since the Hybrid Fortran preprocessor only operates on subroutines (i.e. it is not affected by OOP specific syntax), this restriction can be lifted soon. Please let me know whether you would like to use Hybrid Fortran for more recent Fortran versions, such that I can prioritize these changes.
+* Hybrid Fortran has only been tested using Fortran free form syntax and its GNU Make based build system only supports Fortran 90 (f90 / F90) files alongside h90/H90 files.
+
+* Kernel routines and routines that interface with kernels or need Hybrid Fortran's compile-time reshaping of data, need to be implemented as subroutines (no functions).
 
 * Hybrid Fortran maps your subroutines directly to CUDA Fortran subroutines, which leads to certain restrictions for subroutines calling, containing, or being called within GPU parallel regions:
    * Subroutines being called within GPU parallel regions must reside in the same h90/H90 file as their caller.
@@ -275,13 +277,13 @@ Current Restrictions
    * Subroutines may only contain one GPU parallel region.
    * Subroutines containing or being called within GPU parallel regions may not call other subroutines containing parallel regions. This restriction, however, may soon be lifted because of recent improvements in CUDA 5.
 
-* Arrays that are declared as domain dependant using `@domainDependant` directives must be of integer, real, character or logical type (however any byte length within the Fortran specification is allowed).
+* Symbols (scalars and arrays) that are declared as domain dependant using `@domainDependant` directives must be of integer, real, character or logical type (however any byte length within the Fortran specification is allowed).
+
+* Derived types are currently not supported to be declared as domain dependant (but this is a feature that is planned for 1.0).
 
 * All source files need to have distinctive filenames since they will be copied into flat build directories by the build system.
 
-* `@domainDependant` directives are required for all arrays in all subroutines called within parallel regions (the preprocessor operates only on local symbol information within each subroutine).
-
-* Currently, only Fortran Subroutines are supported by the Hybrid Fortran preprocessor (e.g. no Functions).
+* `@domainDependant` directives are required for all non-local symbols in all subroutines called within GPU enabled parallel regions (the preprocessor operates only on local symbol information within each subroutine).
 
 For more details please refer to the documentation.
 

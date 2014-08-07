@@ -32,12 +32,12 @@ ARFLAGS=rv
 #############################################################################
 # uncomment these settings to use pgf90                                     #
 #############################################################################
-# FC=pgf90
-# LD=pgf90
-# FFLAGS_PRODUCTION= -Minfo=inline,ipa -Mneginfo -I/usr/local/include -r8 -O4
-# FFLAGS_DEBUG= -g -Mbounds -Mchkptr -Minfo=accel,inline -Mneginfo -Minform=inform -I/usr/local/include -r8
-# LDFLAGS_PRODUCTION= -L/usr/local/lib -lpp
-# LDFLAGS_DEBUG= -L/usr/local/lib -lpp
+FC=pgf90
+LD=pgf90
+FFLAGS_PRODUCTION= -Minfo=inline,ipa -Mneginfo -I/usr/local/include -r8 -O4
+FFLAGS_DEBUG= -g -Mbounds -Mchkptr -Minfo=accel,inline -Mneginfo -Minform=inform -I/usr/local/include -r8
+LDFLAGS_PRODUCTION= -L/usr/local/lib -lpp
+LDFLAGS_DEBUG= -L/usr/local/lib -lpp
 
 #############################################################################
 # uncomment these settings to use pgfortran                                 #
@@ -52,13 +52,13 @@ ARFLAGS=rv
 #############################################################################
 # uncomment these settings to use ifort                                     #
 #############################################################################
-FC=ifort
-LD=ifort
-FFLAGS_PRODUCTION= -fast -openmp -r8 -I/usr/local/include
-FFLAGS_DEBUG= -g -r8 -I/usr/local/include
-LDFLAGS_PRODUCTION= -openmp -L/usr/local/lib -lpp
-LDFLAGS_DEBUG= -L/usr/local/lib -lpp
-AR=xiar #use this for support of Intel compiler with OpenMP
+# FC=ifort
+# LD=ifort
+# FFLAGS_PRODUCTION= -fast -openmp -r8 -I/usr/local/include
+# FFLAGS_DEBUG= -g -r8 -I/usr/local/include
+# LDFLAGS_PRODUCTION= -openmp -L/usr/local/lib -lpp
+# LDFLAGS_DEBUG= -L/usr/local/lib -lpp
+# AR=xiar #use this for support of Intel compiler with OpenMP
 
 ifdef DEBUG
 FFLAGS=${FFLAGS_DEBUG}

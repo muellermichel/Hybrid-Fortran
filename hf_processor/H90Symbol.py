@@ -280,11 +280,11 @@ class Symbol(object):
 		self.parallelRegionPosition = parallelRegionPosition
 
 		dependantDomNameAndSize = getDomNameAndSize(self.template)
-		dependantDomSizeByName = {
-			dependantDomName:dependantDomSize
+		dependantDomSizeByName = dict(
+			(dependantDomName,dependantDomSize)
 			for (dependantDomName, dependantDomSize)
 			in dependantDomNameAndSize
-		}
+		)
 		declarationPrefixFromTemplate = getDeclarationPrefix(self.template)
 		if declarationPrefixFromTemplate != None and declarationPrefixFromTemplate.strip() != "":
 			self.declarationPrefix = declarationPrefixFromTemplate

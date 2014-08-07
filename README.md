@@ -238,7 +238,7 @@ Dependencies
 ------------
 * PGI CUDA Fortran compatible compiler, available in [PGI Accelerator Fortran products](http://www.pgroup.com/support/download_pgi2013.php?view=current).
 * x86 Fortran compiler (you can use PGI here as well).
-* Python v2.6 or compatible.
+* Python v2.6.x, Python v2.7.x or compatible.
 * GNU Make 3.81 or compatible.
 * A POSIX compatible operating system.
 * (optional) `valgrind` if you would like to use the test system shipped with this framework (accessible through `make tests`).
@@ -249,7 +249,7 @@ Dependencies
 
 Getting Started
 ---------------
-1. Clone this git to your computer used for development. Make sure your system meets the dependencies specified above.
+1. Clone this git to your computer used for development (`git clone https://github.com/muellermichel/Hybrid-Fortran.git`). Make sure your system meets the dependencies specified above.
 2. Set the `HF_DIR` environment variable to point to your Hybrid Fortran directory.
 3. `cd` into the Hybrid Fortran directory you've now installed on your computer. It should contain this README file as well as the GPL licence texts.
 4. Run `make example`. This creates a new project directory named `example`.

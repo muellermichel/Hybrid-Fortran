@@ -234,7 +234,7 @@ vpath %.F90 $(SRC_FORT_COMMON_DIRS)
 vpath %.h90 $(SRC_FORT_COMMON_DIRS)
 vpath %.H90 $(SRC_FORT_COMMON_DIRS)
 
-.PHONY: all clean clean_cpu clean_gpu install install_cpu install_gpu install_framework_executables_cpu install_framework_executables_gpu graphs build build_cpu build_gpu create_install_directories source source_cpu source_gpu tests tests_cpu tests_gpu framework_sources framework_sources_cpu framework_sources_gpu build_hybrid_cpu build_hybrid_gpu build_framework_cpu build_framework_gpu install_non_hybrid_framework_executables
+.PHONY: all clean clean_cpu clean_gpu install install_cpu install_gpu install_framework_executables_cpu install_framework_executables_gpu graphs build build_cpu build_gpu create_install_directories source source_cpu source_gpu tests tests_cpu tests_gpu framework_sources framework_sources_cpu framework_sources_gpu build_hybrid_cpu build_hybrid_gpu build_framework_cpu build_framework_gpu install_non_hybrid_framework_executables configfiles_cpu configfiles_gpu
 
 .SUFFIXES: .f90 .F90 .h90 .H90 .f .F
 
@@ -248,9 +248,9 @@ install_gpu: ${INSTALL_TARGETS_GPU}
 
 source: source_cpu source_gpu
 
-source_cpu: ${SRC_DIR_CPU}Makefile ${SRC_DIR_CPU}Makesettings ${SRC_DIR_CPU}MakesettingsGeneral ${SRC_ALL_CPU}
+source_cpu: configfiles_cpu ${SRC_ALL_CPU}
 
-source_gpu: ${SRC_DIR_GPU}Makefile ${SRC_DIR_GPU}Makesettings ${SRC_DIR_GPU}MakesettingsGeneral ${SRC_ALL_GPU}
+source_gpu: configfiles_gpu ${SRC_ALL_GPU}
 
 graphs: ${CG_DIR}CG_CPU.png ${CG_DIR}CG_GPU.png
 
@@ -303,14 +303,14 @@ ${EXECUTABLES_CPU_OUT}: build_hybrid_cpu
 
 ${EXECUTABLES_GPU_OUT}: build_hybrid_gpu
 
-build_hybrid_cpu: ${SRC_DIR_CPU}Makefile ${SRC_DIR_CPU}Makesettings ${SRC_DIR_CPU}MakesettingsGeneral ${SRC_ALL_CPU} framework_sources_cpu ${AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH_CPU}
+build_hybrid_cpu: configfiles_cpu ${SRC_ALL_CPU} framework_sources_cpu ${AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH_CPU}
 	@echo "..entering ${SRC_DIR_CPU}"
-	@echo "..cpu executable dependant on " ${SRC_DIR_CPU}Makefile ${SRC_DIR_CPU}Makesettings ${SRC_DIR_CPU}MakesettingsGeneral ${SRC_ALL_CPU} >${DEBUG_OUTPUT}
+	@echo "..cpu executable dependant on " ${SRC_ALL_CPU} >${DEBUG_OUTPUT}
 	@cd ${SRC_DIR_CPU} && make ${BUILD_ARGS}
 
-build_hybrid_gpu: ${SRC_DIR_GPU}Makefile ${SRC_DIR_GPU}Makesettings ${SRC_DIR_GPU}MakesettingsGeneral ${SRC_ALL_GPU} framework_sources_gpu ${AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH_GPU}
+build_hybrid_gpu: configfiles_gpu ${SRC_ALL_GPU} framework_sources_gpu ${AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH_GPU}
 	@echo "..entering ${SRC_DIR_GPU}"
-	@echo "..gpu executable dependant on " ${SRC_DIR_GPU}Makefile ${SRC_DIR_GPU}Makesettings ${SRC_DIR_GPU}MakesettingsGeneral ${SRC_ALL_GPU} >${DEBUG_OUTPUT}
+	@echo "..gpu executable dependant on " ${SRC_ALL_GPU} >${DEBUG_OUTPUT}
 	@cd ${SRC_DIR_GPU} && make ${BUILD_ARGS}
 
 build_framework_cpu: build_hybrid_cpu framework_sources_cpu
@@ -408,6 +408,20 @@ endif
 tests_gpu: ${INSTALL_TARGETS_GPU}
 	${HF_DIR}/hf_bin/runTests.sh "${TEST_TARGET_GPU}" production gpu ${TEST_OUTPUT_FILE_PATTERN} ${SOURCE_THIS_BEFORE_TESTING} ${SOURCE_THIS_AFTER_TESTING}
 
+configfiles_cpu:
+	@echo ...copying config files to ${SRC_DIR_CPU}
+	@( mkdir -p ${SRC_DIR_CPU} && \
+	   cp -r ${CONFIGDIR}* ${SRC_DIR_CPU} && \
+	   mv ${SRC_DIR_CPU}MakesettingsCPU ${SRC_DIR_CPU}Makesettings && \
+	   rm ${SRC_DIR_CPU}MakesettingsGPU )
+
+configfiles_gpu:
+	@echo ...copying config files to ${SRC_DIR_GPU}
+	@( mkdir -p ${SRC_DIR_GPU} && \
+	   cp -r ${CONFIGDIR}* ${SRC_DIR_GPU} && \
+	   mv ${SRC_DIR_GPU}MakesettingsCPU ${SRC_DIR_GPU}Makesettings && \
+	   rm ${SRC_DIR_GPU}MakesettingsGPU )
+
 ifdef AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH
 ${DIR_CPU}${AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH}: ${SRC_ALL_CPU} framework_sources_cpu
 	cd ${DIR_CPU} && ${AUTO_DEPENDENCY_GENERATOR_SCRIPT} $(addprefix ${SRC_DIR_COMMON}/, $(notdir $(SRC_ALL_CPU))) > ${AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH}
@@ -455,30 +469,6 @@ ${CG_DIR}CG_CPU.png: ${CG_DIR}CG_CPU.xml
 ${CG_DIR}CG_GPU.png: ${CG_DIR}CG_GPU.xml
 	@echo ...creating $@ from $< >${DEBUG_OUTPUT}
 	@python ${TOOLSDIR}/graphVizGraphWithAnalyzedCallGraph.py -i $< ${H90_PREPROCESSOR_ARGS} -o $@
-
-${SRC_DIR_CPU}Makefile:
-	@echo ...copying file into $@ >${DEBUG_OUTPUT}
-	@mkdir -p ${SRC_DIR_CPU}; cp -fp ${CONFIGDIR}Makefile $@
-
-${SRC_DIR_CPU}Makesettings:
-	@echo ...copying file into $@ >${DEBUG_OUTPUT}
-	@mkdir -p ${SRC_DIR_CPU}; cp -fp ${CONFIGDIR}MakesettingsCPU $@
-
-${SRC_DIR_CPU}MakesettingsGeneral:
-	@echo ...copying file into $@ >${DEBUG_OUTPUT}
-	@mkdir -p ${SRC_DIR_CPU}; cp -fp ${CONFIGDIR}MakesettingsGeneral $@
-
-${SRC_DIR_GPU}Makefile:
-	@echo ...copying file into $@ >${DEBUG_OUTPUT}
-	@mkdir -p ${SRC_DIR_GPU}; cp -fp ${CONFIGDIR}Makefile $@
-
-${SRC_DIR_GPU}Makesettings:
-	@echo ...copying file into $@ >${DEBUG_OUTPUT}
-	@mkdir -p ${SRC_DIR_GPU}; cp -fp ${CONFIGDIR}MakesettingsGPU $@
-
-${SRC_DIR_GPU}MakesettingsGeneral:
-	@echo ...copying file into $@ >${DEBUG_OUTPUT}
-	@mkdir -p ${SRC_DIR_GPU}; cp -fp ${CONFIGDIR}MakesettingsGeneral $@
 
 ${SRC_DIR_CPU}%.f90: %.f90
 	@echo ...copying file into $@ >${DEBUG_OUTPUT}

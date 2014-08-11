@@ -419,8 +419,8 @@ configfiles_gpu:
 	@echo ...copying config files to ${SRC_DIR_GPU}
 	@( mkdir -p ${SRC_DIR_GPU} && \
 	   cp -r ${CONFIGDIR}* ${SRC_DIR_GPU} && \
-	   mv ${SRC_DIR_GPU}MakesettingsCPU ${SRC_DIR_GPU}Makesettings && \
-	   rm ${SRC_DIR_GPU}MakesettingsGPU )
+	   mv ${SRC_DIR_GPU}MakesettingsGPU ${SRC_DIR_GPU}Makesettings && \
+	   rm ${SRC_DIR_GPU}MakesettingsCPU )
 
 ifdef AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH
 ${DIR_CPU}${AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH}: ${SRC_ALL_CPU} framework_sources_cpu

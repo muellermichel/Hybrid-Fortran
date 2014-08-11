@@ -214,6 +214,17 @@ INSTALL_TARGETS_GPU= ${INSTALLED_EXECUTABLES_GPU}
 endif
 #############################################################################
 
+#############################################################################
+# Determine dependency generator                                            #
+#############################################################################
+AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH_CPU =
+AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH_GPU =
+ifdef AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH
+	AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH_CPU = ${DIR_CPU}${AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH}
+	AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH_GPU = ${DIR_GPU}${AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH}
+endif
+#############################################################################
+
 SRC_FORT_COMMON_DIRS=$(dir $(SRC_FORT)) $(dir $(SRC_H90_ALL))
 
 vpath %.f $(SRC_FORT_COMMON_DIRS)
@@ -292,11 +303,11 @@ ${EXECUTABLES_CPU_OUT}: build_hybrid_cpu
 
 ${EXECUTABLES_GPU_OUT}: build_hybrid_gpu
 
-build_hybrid_cpu: ${SRC_DIR_CPU}Makefile ${SRC_DIR_CPU}Makesettings ${SRC_DIR_CPU}MakesettingsGeneral ${SRC_ALL_CPU} framework_sources_cpu
+build_hybrid_cpu: ${SRC_DIR_CPU}Makefile ${SRC_DIR_CPU}Makesettings ${SRC_DIR_CPU}MakesettingsGeneral ${SRC_ALL_CPU} framework_sources_cpu ${AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH_CPU}
 	@echo "..cpu executable dependant on " ${SRC_DIR_CPU}Makefile ${SRC_DIR_CPU}Makesettings ${SRC_DIR_CPU}MakesettingsGeneral ${SRC_ALL_CPU} >${DEBUG_OUTPUT}
 	@cd ${SRC_DIR_CPU} && make ${BUILD_ARGS}
 
-build_hybrid_gpu: ${SRC_DIR_GPU}Makefile ${SRC_DIR_GPU}Makesettings ${SRC_DIR_GPU}MakesettingsGeneral ${SRC_ALL_GPU} framework_sources_gpu
+build_hybrid_gpu: ${SRC_DIR_GPU}Makefile ${SRC_DIR_GPU}Makesettings ${SRC_DIR_GPU}MakesettingsGeneral ${SRC_ALL_GPU} framework_sources_gpu ${AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH_GPU}
 	@echo "..gpu executable dependant on " ${SRC_DIR_GPU}Makefile ${SRC_DIR_GPU}Makesettings ${SRC_DIR_GPU}MakesettingsGeneral ${SRC_ALL_GPU} >${DEBUG_OUTPUT}
 	@cd ${SRC_DIR_GPU} && make ${BUILD_ARGS}
 
@@ -394,6 +405,14 @@ endif
 
 tests_gpu: ${INSTALL_TARGETS_GPU}
 	${HF_DIR}/hf_bin/runTests.sh "${TEST_TARGET_GPU}" production gpu ${TEST_OUTPUT_FILE_PATTERN} ${SOURCE_THIS_BEFORE_TESTING} ${SOURCE_THIS_AFTER_TESTING}
+
+ifdef AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH
+${DIR_CPU}${AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH}: ${SRC_ALL_CPU} framework_sources_cpu
+	cd ${DIR_CPU} && ${AUTO_DEPENDENCY_GENERATOR_SCRIPT} $(addprefix ${SRC_DIR_COMMON}/, $(notdir $(SRC_ALL_CPU))) > ${AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH}
+
+${DIR_GPU}${AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH}: ${SRC_ALL_GPU} framework_sources_gpu
+	cd ${DIR_GPU} && ${AUTO_DEPENDENCY_GENERATOR_SCRIPT} $(addprefix ${SRC_DIR_COMMON}/, $(notdir $(SRC_ALL_GPU))) > ${AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH}
+endif
 
 .SECONDEXPANSION:
 ${TESTDIR}/%_cpu: $${DIR_CPU}$$(notdir %).out create_install_directories

@@ -36,8 +36,8 @@ FC=pgf90
 LD=pgf90
 FFLAGS_PRODUCTION= -Minfo=inline,ipa -Mneginfo -I/usr/local/include -O4
 FFLAGS_DEBUG= -g -Mbounds -Mchkptr -Minfo=accel,inline -Mneginfo -Minform=inform -I/usr/local/include
-LDFLAGS_PRODUCTION= -L/usr/local/lib -lpp
-LDFLAGS_DEBUG= -L/usr/local/lib -lpp
+LDFLAGS_PRODUCTION= -L/usr/local/lib -l${HYBRID_LIBRARY_FILENAME_POSTFIX}
+LDFLAGS_DEBUG= -L/usr/local/lib -l${HYBRID_LIBRARY_FILENAME_POSTFIX}
 
 #############################################################################
 # uncomment these settings to use pgfortran                                 #
@@ -46,8 +46,8 @@ LDFLAGS_DEBUG= -L/usr/local/lib -lpp
 # LD=pgfortran
 # FFLAGS_PRODUCTION= -Minfo=inline,ipa -Mneginfo -I/usr/local/include -O4
 # FFLAGS_DEBUG= -g -Mbounds -Mchkptr -Minfo=accel,inline -Mneginfo -Minform=inform -I/usr/local/include
-# LDFLAGS_PRODUCTION= -L/usr/local/lib -lpp
-# LDFLAGS_DEBUG= -L/usr/local/lib -lpp
+# LDFLAGS_PRODUCTION= -L/usr/local/lib -l${HYBRID_LIBRARY_FILENAME_POSTFIX}
+# LDFLAGS_DEBUG= -L/usr/local/lib -l${HYBRID_LIBRARY_FILENAME_POSTFIX}
 
 #############################################################################
 # uncomment these settings to use ifort                                     #
@@ -56,8 +56,8 @@ LDFLAGS_DEBUG= -L/usr/local/lib -lpp
 # LD=ifort
 # FFLAGS_PRODUCTION= -fast -openmp -I/usr/local/include
 # FFLAGS_DEBUG= -g -I/usr/local/include
-# LDFLAGS_PRODUCTION= -openmp -L/usr/local/lib -lpp
-# LDFLAGS_DEBUG= -L/usr/local/lib -lpp
+# LDFLAGS_PRODUCTION= -openmp -L/usr/local/lib -l${HYBRID_LIBRARY_FILENAME_POSTFIX}
+# LDFLAGS_DEBUG= -L/usr/local/lib -l${HYBRID_LIBRARY_FILENAME_POSTFIX}
 # AR=xiar #use this for support of Intel compiler with OpenMP
 
 ifdef DEBUG

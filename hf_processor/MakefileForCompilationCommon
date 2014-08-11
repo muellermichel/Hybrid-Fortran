@@ -92,5 +92,6 @@ helper_functions.o: storage_order.F90
 helper_functions_gpu.o: storage_order.F90
 time_profiling.o: helper_functions.o
 
--include ${AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH}
-
+ifdef AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH
+include ../${AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH}
+endif

@@ -304,10 +304,12 @@ ${EXECUTABLES_CPU_OUT}: build_hybrid_cpu
 ${EXECUTABLES_GPU_OUT}: build_hybrid_gpu
 
 build_hybrid_cpu: ${SRC_DIR_CPU}Makefile ${SRC_DIR_CPU}Makesettings ${SRC_DIR_CPU}MakesettingsGeneral ${SRC_ALL_CPU} framework_sources_cpu ${AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH_CPU}
+	@echo "..entering ${SRC_DIR_CPU}"
 	@echo "..cpu executable dependant on " ${SRC_DIR_CPU}Makefile ${SRC_DIR_CPU}Makesettings ${SRC_DIR_CPU}MakesettingsGeneral ${SRC_ALL_CPU} >${DEBUG_OUTPUT}
 	@cd ${SRC_DIR_CPU} && make ${BUILD_ARGS}
 
 build_hybrid_gpu: ${SRC_DIR_GPU}Makefile ${SRC_DIR_GPU}Makesettings ${SRC_DIR_GPU}MakesettingsGeneral ${SRC_ALL_GPU} framework_sources_gpu ${AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH_GPU}
+	@echo "..entering ${SRC_DIR_GPU}"
 	@echo "..gpu executable dependant on " ${SRC_DIR_GPU}Makefile ${SRC_DIR_GPU}Makesettings ${SRC_DIR_GPU}MakesettingsGeneral ${SRC_ALL_GPU} >${DEBUG_OUTPUT}
 	@cd ${SRC_DIR_GPU} && make ${BUILD_ARGS}
 

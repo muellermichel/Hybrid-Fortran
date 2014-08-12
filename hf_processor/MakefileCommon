@@ -314,11 +314,11 @@ build_hybrid_gpu: configfiles_gpu ${SRC_ALL_GPU} framework_sources_gpu ${AUTO_DE
 	@cd ${SRC_DIR_GPU} && make ${BUILD_ARGS}
 
 build_framework_cpu: build_hybrid_cpu framework_sources_cpu
-	@echo "..building framework with ${FRAMEWORK_MAKEFILE_CPU}"
+	@echo "..building framework with ${FRAMEWORK_MAKEFILE_CPU} and build arguments '${BUILD_ARGS}'"
 	@cd $(dir ${FRAMEWORK_MAKEFILE_CPU}) && make ${BUILD_ARGS}
 
 build_framework_gpu: build_hybrid_gpu framework_sources_gpu
-	@echo "..building framework with ${FRAMEWORK_MAKEFILE_GPU}"
+	@echo "..building framework with ${FRAMEWORK_MAKEFILE_GPU} and build arguments '${BUILD_ARGS}'"
 	@cd $(dir ${FRAMEWORK_MAKEFILE_GPU}) && make GPU=1 ${BUILD_ARGS}
 
 install_non_hybrid_framework_executables: build_cpu

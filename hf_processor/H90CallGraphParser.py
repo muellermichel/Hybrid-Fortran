@@ -774,7 +774,8 @@ or %i (number of declared dimensions for this array) accessors." %(symbol.name, 
             symbol_access = symbol.deviceName()
         else:
             symbol_access = symbol.accessRepresentation(iterators, offsets)
-
+        if self.debugPrint:
+            sys.stderr.write("symbol %s on line %i rewritten to %s" %(str(symbol), self.lineNo, symbol_access))
         return (prefix + symbol_access + postfix).rstrip() + "\n"
 
     def processSymbolsAndGetAdjustedLine(self, line, isInsideSubroutineCall):
@@ -996,7 +997,7 @@ or %i (number of declared dimensions for this array) accessors." %(symbol.name, 
         self.prepareLine("", "")
         super(H90toF90Printer, self).processParallelRegionMatch(parallelRegionMatch)
         if self.debugPrint:
-            sys.stderr.write("...parallel region starts on line %i with active symbols %s" \
+            sys.stderr.write("...parallel region starts on line %i with active symbols %s\n" \
                 %(self.lineNo, str(self.currSymbolsByName.values())) \
             )
         self.prepareActiveParallelRegion('parallelRegionBegin')

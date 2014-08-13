@@ -304,7 +304,11 @@ class Symbol(object):
 			for (regionDomName, regionDomSize) in regionDomNameAndSize:
 				if regionDomName in dependantDomSizeByName.keys() and regionDomName not in self.parallelActiveDims:
 					self.parallelActiveDims.append(regionDomName)
-				self.aggregatedRegionDomSizesByName[regionDomName] = regionDomSize
+				#The same domain name can sometimes have different domain sizes used in different parallel regions, so we build up a list of these sizes.
+				if not regionDomName in self.aggregatedRegionDomSizesByName:
+					self.aggregatedRegionDomSizesByName[regionDomName] = [regionDomSize]
+				else:
+					self.aggregatedRegionDomSizesByName[regionDomName].append(regionDomSize)
 				self.aggregatedRegionDomNames.append(regionDomName)
 
 		for (dependantDomName, dependantDomSize) in dependantDomNameAndSize:
@@ -404,11 +408,17 @@ Automatic reshaping is not supported since this is a pointer type. Domains in Di
 		elif self.isAutoDom:
 			# for the stencil use case: user will still specify the dimensions in the declaration
 			# -> autodom picks them up and integrates them as parallel active dims
+			if self.debugPrint:
+				sys.stderr.write("Loading dimensions for autoDom, non-pointer symbol %s. Declared dimensions: %s, Known dimension sizes used for parallel regions: %s\n" %(
+					str(self), str(dimensionSizes), str(self.aggregatedRegionDomSizesByName)
+				))
 			for dimensionSize in dimensionSizes:
 				missingParallelDomain = None
 				for domName in self.aggregatedRegionDomNames:
-					if self.aggregatedRegionDomSizesByName[domName] != dimensionSize:
+					if not dimensionSize in self.aggregatedRegionDomSizesByName[domName]:
 						continue
+					#we have found the dimension size that this symbol expects for this domain name. -> use it
+					self.aggregatedRegionDomSizesByName[domName] = [dimensionSize]
 					if domName in self.parallelActiveDims:
 						continue
 					missingParallelDomain = domName
@@ -422,11 +432,15 @@ template for symbol %s - automatically inserting it for domain name %s\n"
 					self.parallelActiveDims.append(domName)
 			self.domains = []
 			for parallelDomName in self.parallelActiveDims:
-				parallelDomSize = self.aggregatedRegionDomSizesByName[parallelDomName]
-				self.domains.append((parallelDomName, parallelDomSize))
+				parallelDomSizes = self.aggregatedRegionDomSizesByName.get(parallelDomName)
+				if parallelDomSizes == None or len(parallelDomSizes) == 0:
+					raise Exception("Unexpected Error: No domain size found for domain name %s" %(parallelDomName))
+				elif len(parallelDomSizes) > 1:
+					raise Exception("There are multiple known dimension sizes for domain %s. Cannot insert domain for autoDom symbol %s. Please use explicit declaration" %(parallelDomName, str(self)))
+				self.domains.append((parallelDomName, parallelDomSizes[0]))
 			for dimensionSize in dimensionSizes:
 				for domName in self.aggregatedRegionDomNames:
-					if self.aggregatedRegionDomSizesByName[domName] == dimensionSize:
+					if dimensionSize in self.aggregatedRegionDomSizesByName[domName]:
 						break
 				else:
 					self.parallelInactiveDims.append(dimensionSize)
@@ -452,11 +466,14 @@ template for symbol %s - automatically inserting it for domain name %s\n"
 			#   $$$ TODO: enable support for symmetric domain setups where one domain is passed in for vectorization
 			lastParallelDomainIndex = -1
 			for parallelDomName in self.parallelActiveDims:
-				parallelDomSize = self.aggregatedRegionDomSizesByName[parallelDomName]
-				if parallelDomSize in dimensionSizes and self.parallelRegionPosition == "outside":
-					raise Exception("Parallel domain %s is declared for array %s in a subroutine where the parallel region is positioned outside. \
-	This is not allowed. Note: These domains are inserted automatically if needed. For stencil computations it is recommended to only pass scalars to subroutine calls within the parallel region." \
-						%(parallelDomName, self.name))
+				parallelDomSizes = self.aggregatedRegionDomSizesByName.get(parallelDomName)
+				if parallelDomSizes == None or len(parallelDomSizes) == 0:
+					raise Exception("Unexpected Error: No domain size found for domain name %s" %(parallelDomName))
+				for parallelDomSize in parallelDomSizes:
+					if parallelDomSize in dimensionSizes and self.parallelRegionPosition == "outside":
+						raise Exception("Parallel domain %s is declared for array %s in a subroutine where the parallel region is positioned outside. \
+		This is not allowed. Note: These domains are inserted automatically if needed. For stencil computations it is recommended to only pass scalars to subroutine calls within the parallel region." \
+							%(parallelDomName, self.name))
 				if self.parallelRegionPosition == "outside":
 					continue
 				for index, (domName, domSize) in enumerate(self.domains):
@@ -464,8 +481,10 @@ template for symbol %s - automatically inserting it for domain name %s\n"
 						lastParallelDomainIndex = index
 						break
 				else:
+					if len(parallelDomSizes) > 1:
+						raise Exception("There are multiple known dimension sizes for domain %s. Cannot insert domain for autoDom symbol %s. Please use explicit declaration" %(parallelDomName, str(self)))
 					lastParallelDomainIndex += 1
-					self.domains.insert(lastParallelDomainIndex, (parallelDomName, parallelDomSize))
+					self.domains.insert(lastParallelDomainIndex, (parallelDomName, parallelDomSizes[0]))
 			if self.parallelRegionPosition == "outside":
 				self.domains = [(domName, domSize) for (domName, domSize) in self.domains if not domName in self.parallelActiveDims]
 
@@ -659,6 +678,8 @@ Please specify the domains and their sizes with domName and domSize attributes i
 			sys.stderr.write("producing access representation for symbol %s; parallel iterators: %s, offsets: %s\n" %(self.name, str(parallelIterators), str(offsets)))
 
 		if self.initLevel < Init.ROUTINENODE_ATTRIBUTES_LOADED:
+			if self.debugPrint:
+				sys.stderr.write("only returning name since routine attributes haven't been loaded yet.\n")
 			return self.name
 
 		if len(parallelIterators) == 0 and len(offsets) != len(self.domains) - self.numOfParallelDomains \
@@ -675,11 +696,17 @@ Please specify the domains and their sizes with domName and domSize attributes i
 			result = self.automaticName()
 
 		if len(self.domains) == 0:
+			if self.debugPrint:
+				sys.stderr.write("Symbol has 0 domains - only returning name.\n")
 			return result
 		result = result + "("
 		accPP = self.accPP()
 		if self.numOfParallelDomains != 0 and accPP != "":
 			result = result + accPP + "("
+			if self.debugPrint:
+				sys.stderr.write("Accessor Macro: %s\n" %(accPP))
+		elif self.debugPrint:
+			sys.stderr.write("Accessor Macro not used since this symbol doesn't have parallel domains.")
 		nextOffsetIndex = 0
 		for i in range(len(self.domains)):
 			if i != 0:
@@ -707,6 +734,10 @@ Please specify the domains and their sizes with domName and domSize attributes i
 			elif nextOffsetIndex < len(offsets):
 				result += offsets[nextOffsetIndex]
 				nextOffsetIndex += 1
+			elif len(offsets) + len(parallelIterators) == len(self.domains) and i < len(parallelIterators):
+				result += parallelIterators[i]
+			elif len(offsets) + len(parallelIterators) == len(self.domains):
+				result += offsets[i - len(parallelIterators)]
 			else:
 				raise Exception("Cannot generate access representation for symbol %s: Unknown parallel iterators specified (%s) or not enough offsets (%s)."
 					%(str(self), str(parallelIterators), str(offsets))

@@ -46,7 +46,7 @@ ifdef EMULATED
 #############################################################################
 GPU_IMPLEMENTATION=${GPU_IMPLEMENTATION_EMULATION}
 CPU_IMPLEMENTATION=${CPU_IMPLEMENTATION_DEBUG}
-BUILD_ARGS="EMULATED=1"
+BUILD_ARGS_PRE="EMULATED=1"
 #############################################################################
 
 else
@@ -57,7 +57,7 @@ ifdef DEBUG
 #############################################################################
 GPU_IMPLEMENTATION=${GPU_IMPLEMENTATION_DEBUG}
 CPU_IMPLEMENTATION=${CPU_IMPLEMENTATION_DEBUG}
-BUILD_ARGS="DEBUG=1"
+BUILD_ARGS_PRE="DEBUG=1"
 #############################################################################
 
 else
@@ -67,7 +67,7 @@ else
 #############################################################################
 GPU_IMPLEMENTATION=${GPU_IMPLEMENTATION_PRODUCTION}
 CPU_IMPLEMENTATION=${CPU_IMPLEMENTATION_PRODUCTION}
-BUILD_ARGS=
+BUILD_ARGS_PRE=
 #############################################################################
 
 endif
@@ -76,7 +76,7 @@ endif
 ifdef VERBOSE
 H90_PREPROCESSOR_ARGS="--debug"
 DEBUG_OUTPUT=&1
-BUILD_ARGS="$BUILD_ARGS VERBOSE=1"
+BUILD_ARGS="${BUILD_ARGS_PRE} VERBOSE=1"
 else
 H90_PREPROCESSOR_ARGS=
 DEBUG_OUTPUT=/dev/null

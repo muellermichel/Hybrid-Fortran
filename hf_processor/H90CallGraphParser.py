@@ -391,6 +391,8 @@ class H90XMLCallGraphGenerator(H90CallGraphParser):
     calls = None
     currSubprocNode = None
     currDomainDependantRelationNode = None
+    currParallelRegionTemplateNode = None
+    currParallelRegionRelationNode = None
 
     def __init__(self, doc):
         self.doc = doc
@@ -419,12 +421,25 @@ class H90XMLCallGraphGenerator(H90CallGraphParser):
 
     def processParallelRegionMatch(self, parallelRegionMatch):
         super(H90XMLCallGraphGenerator, self).processParallelRegionMatch(parallelRegionMatch)
-        setTemplateInfos(self.doc, self.currSubprocNode, parallelRegionMatch.group(1), "parallelRegionTemplates", \
-            "parallelRegionTemplate", "parallelRegions")
+        self.currParallelRegionRelationNode, self.currParallelRegionTemplateNode = setTemplateInfos(
+            self.doc,
+            self.currSubprocNode,
+            parallelRegionMatch.group(1),
+            "parallelRegionTemplates",
+            "parallelRegionTemplate",
+            "parallelRegions"
+        )
+        self.currParallelRegionRelationNode.setAttribute("startLine", str(self.lineNo))
+
+    def processParallelRegionEndMatch(self, parallelRegionEndMatch):
+        super(H90XMLCallGraphGenerator, self).processParallelRegionEndMatch(parallelRegionEndMatch)
+        self.currParallelRegionRelationNode.setAttribute("endLine", str(self.lineNo))
+        self.currParallelRegionTemplateNode = None
+        self.currParallelRegionRelationNode = None
 
     def processDomainDependantMatch(self, domainDependantMatch):
         super(H90XMLCallGraphGenerator, self).processDomainDependantMatch(domainDependantMatch)
-        self.currDomainDependantRelationNode = setTemplateInfos(self.doc, self.currSubprocNode, domainDependantMatch.group(1), "domainDependantTemplates", \
+        self.currDomainDependantRelationNode, _ = setTemplateInfos(self.doc, self.currSubprocNode, domainDependantMatch.group(1), "domainDependantTemplates", \
             "domainDependantTemplate", "domainDependants")
 
     def processDomainDependantEndMatch(self, domainDependantEndMatch):
@@ -449,11 +464,14 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
     importsOnCurrentLine = []
     routineNodesByProcName = {}
     parallelRegionTemplatesByProcName = {}
+    parallelRegionTemplateRelationsByProcName = {}
+
 
     def __init__(self, cgDoc):
         self.cgDoc = cgDoc
         self.currSymbolsByName = {}
         self.parallelRegionTemplatesByProcName = {}
+        self.parallelRegionTemplateRelationsByProcName = {}
         self.symbolsOnCurrentLine = []
         self.importsOnCurrentLine = []
 
@@ -479,7 +497,8 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
                 if not regionTemplate:
                     raise Exception("Template relation id %s could not be matched in procedure '%s'" %(idStr, procName))
                 regionTemplates.append(regionTemplate)
-
+            if len(templateRelations) > 0:
+                self.parallelRegionTemplateRelationsByProcName[procName] = templateRelations
             if len(regionTemplates) > 0:
                 self.parallelRegionTemplatesByProcName[procName] = regionTemplates
 
@@ -653,6 +672,8 @@ class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
     implementation = None
     codeSanitizer = None
     stateBeforeBranch = None
+    currParallelRegionRelationNode = None
+    currParallelRegionTemplateNode = None
 
     def __init__(self, cgDoc, implementation):
         self.implementation = implementation
@@ -666,6 +687,8 @@ class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
         self.currAdditionalSubroutineParameters = []
         self.currAdditionalCompactedSubroutineParameters = []
         self.codeSanitizer = FortranCodeSanitizer()
+        self.currParallelRegionRelationNode = None
+        self.currParallelRegionTemplateNode = None
 
         super(H90toF90Printer, self).__init__(cgDoc)
 
@@ -679,13 +702,15 @@ class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
         if not templates or len(templates) == 0:
             raise Exception("Unexpected: no parallel template definition found for routine '%s'" \
                 %(self.currSubprocName))
-        if len(templates) > 1:
-            raise Exception("Unexpected: more than one parallel region templates found for subroutine '%s' containing a parallelRegion directive" \
-                %(self.currSubprocName))
+        if len(templates) > 1 and self.implementation.multipleParallelRegionsPerSubroutineAllowed != True:
+            raise Exception("Unexpected: more than one parallel region templates found for subroutine '%s' containing a parallelRegion directive \
+This is not allowed for implementations using %s.\
+                " %(self.currSubprocName, type(self.implementation).__name__)
+            )
 
         implementationAttr = getattr(self, 'implementation')
         functionAttr = getattr(implementationAttr, implementationFunctionName)
-        self.prepareLine(functionAttr(templates[0]), self.tab_insideSub)
+        self.prepareLine(functionAttr(self.currParallelRegionTemplateNode), self.tab_insideSub)
 
     def processSymbolMatchAndGetAdjustedLine(self, line, symbolMatch, symbol, isInsideSubroutineCall, isPointerAssignment):
         def getAccessPattern(numberOfDimensions):
@@ -823,11 +848,7 @@ or %i (number of declared dimensions for this array) accessors." %(symbol.name, 
                 %(self.currSubprocName, self.currCalleeName, parallelRegionPosition) \
             )
         if self.currCalleeNode and parallelRegionPosition == "within":
-            parallelTemplates = self.parallelRegionTemplatesByProcName.get(self.currCalleeName)
-            if not parallelTemplates or len(parallelTemplates) == 0:
-                raise Exception("Unexpected: Subprocedure %s's parallelRegionPosition is defined as 'within', but no parallel region template could be found." \
-                    %(self.currCalleeName))
-            adjustedLine = self.implementation.kernelCallPreparation(parallelTemplates[0], calleeNode=self.currCalleeNode)
+            adjustedLine = self.implementation.kernelCallPreparation(self.currParallelRegionTemplateNode, calleeNode=self.currCalleeNode)
             adjustedLine = adjustedLine + "call " + self.currCalleeName + " " + self.implementation.kernelCallConfig()
 
         if self.currCalleeNode \
@@ -982,6 +1003,8 @@ or %i (number of declared dimensions for this array) accessors." %(symbol.name, 
         super(H90toF90Printer, self).processParallelRegionEndMatch(parallelRegionEndMatch)
         self.prepareActiveParallelRegion('parallelRegionEnd')
         self.currParallelIterators = []
+        self.currParallelRegionTemplateNode = None
+        self.currParallelRegionRelationNode = None
 
     def processDomainDependantMatch(self, domainDependantMatch):
         super(H90toF90Printer, self).processDomainDependantMatch(domainDependantMatch)
@@ -1139,15 +1162,11 @@ relative to the rest of the program. Please ignore this message if you have inte
 
             if len(self.additionalSymbolsByCalleeName.keys()) > 0:
                 additionalDeclarationsStr = additionalDeclarationsStr + "! ****** end additional symbols\n\n"
-            parallelTemplate = None
-            parallelTemplates = self.parallelRegionTemplatesByProcName.get(self.currSubprocName)
-            if parallelTemplates and len(parallelTemplates) > 0:
-                parallelTemplate = parallelTemplates[0]
             additionalDeclarationsStr = additionalDeclarationsStr + self.implementation.declarationEnd( \
                     self.currSymbolsByName.values(), \
                     self.currRoutineIsCallingParallelRegion, \
                     self.routineNodesByProcName[self.currSubprocName], \
-                    parallelTemplate)
+                    self.parallelRegionTemplatesByProcName.get(self.currSubprocName))
 
             #########################################################################
             # additional symbols to be packed into arrays                           #
@@ -1229,22 +1248,37 @@ relative to the rest of the program. Please ignore this message if you have inte
             return
 
         parallelRegionMatch = self.patterns.parallelRegionPattern.match(str(line))
-        if (parallelRegionMatch):
+        if (parallelRegionMatch) \
+        and self.routineNodesByProcName[self.currSubprocName].getAttribute('parallelRegionPosition') == "within":
+            templateRelations = self.parallelRegionTemplateRelationsByProcName.get(self.currSubprocName)
+            if templateRelations == None or len(templateRelations) == 0:
+                raise Exception("Unexpected Error: No parallel region template relation found for this region.")
+            for templateRelation in templateRelations:
+                if int(templateRelation.getAttribute("startLine")) == self.lineNo:
+                    self.currParallelRegionRelationNode = templateRelation
+                    break
+            else:
+                raise Exception("Unexpected Error: No parallel region template relation was matched for the current linenumber.")
             templates = self.parallelRegionTemplatesByProcName.get(self.currSubprocName)
-            if not templates or len(templates) == 0:
-                sys.stderr.write("WARNING: Routine %s contains an @parallelRegion statement but no parallel region information \
-was found in the current callgraph.\n" %(self.currSubprocName))
-            elif len(templates) != 1:
-                raise Exception("Multiple parallel region templates found for subroutine %s. It is not allowed to have multiple \
-parallel regions defined in the same subroutine in Hybrid Fortran." %(self.currSubprocName))
-            elif self.routineNodesByProcName[self.currSubprocName].getAttribute('parallelRegionPosition') == "within":
-                #to reach this block we have exactly one parallel region template
-                self.currParallelIterators = self.implementation.getIterators(templates[0])
-                if len(self.currParallelIterators) > 0:
-                    self.processParallelRegionMatch(parallelRegionMatch)
-                    self.state = 'inside_parallelRegion'
-            if self.state != 'inside_parallelRegion':
+            if templates == None or len(templates) == 0:
+                raise Exception("Unexpected Error: No parallel region template found for this region.")
+            activeTemplateID = self.currParallelRegionRelationNode.getAttribute("id")
+            for template in templates:
+                if template.getAttribute("id") == activeTemplateID:
+                    self.currParallelRegionTemplateNode = template
+                    break
+            else:
+                raise Exception("Unexpected Error: No parallel region template has matched the active template ID.")
+            self.currParallelIterators = self.implementation.getIterators(self.currParallelRegionTemplateNode)
+            if len(self.currParallelIterators) > 0:
+                self.processParallelRegionMatch(parallelRegionMatch)
+                self.state = 'inside_parallelRegion'
+            else:
                 self.prepareLine("","")
+            return
+        elif parallelRegionMatch:
+            #this parallel region does not apply to us
+            self.prepareLine("","")
             return
 
         if (self.patterns.parallelRegionEndPattern.match(str(line))):

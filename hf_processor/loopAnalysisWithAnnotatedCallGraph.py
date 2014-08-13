@@ -197,7 +197,7 @@ def analyseParallelRegions(doc, appliesTo):
 		children = parallelRegionNode.childNodes
 		newRegionNode = doc.createElement("activeParallelRegions")
 		for child in children:
-			newRegionNode.appendChild(child)
+			newRegionNode.appendChild(child.cloneNode(deep=True))
 		routine.removeChild(parallelRegionNode)
 		routine.appendChild(newRegionNode)
 

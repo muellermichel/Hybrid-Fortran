@@ -295,9 +295,6 @@ class Symbol(object):
 		if not parallelRegionTemplates or len(parallelRegionTemplates) == 0:
 			sys.stderr.write("WARNING: No active parallel region found, in subroutine %s where dependants are defined\n" %(routineName))
 			return
-		if len(parallelRegionTemplates) > 1 and parallelRegionPosition != "inside":
-			raise Exception("Only one active parallel region definition allowed within a subroutines or in an outside callgraph position. %i found for %s" \
-				%(len(parallelRegionTemplates), self.currSubprocName))
 		self.parallelActiveDims = []
 		self.parallelInactiveDims = []
 		self.aggregatedRegionDomNames = []

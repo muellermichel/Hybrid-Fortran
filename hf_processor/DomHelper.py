@@ -210,7 +210,7 @@ def setTemplateInfos(doc, parent, specText, templateParentNodeName, templateNode
     entry = doc.createElement("templateRelation")
     entry.setAttribute("id", templateID)
     referenceParentNode.appendChild(entry)
-    return entry
+    return entry, templateNode
 
 def regionTemplatesByID(cgDoc, templateTypeName):
     templateNodes = cgDoc.getElementsByTagName(templateTypeName)

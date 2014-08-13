@@ -302,7 +302,7 @@ class Symbol(object):
 		for parallelRegionTemplate in parallelRegionTemplates:
 			regionDomNameAndSize = getDomNameAndSize(parallelRegionTemplate)
 			for (regionDomName, regionDomSize) in regionDomNameAndSize:
-				if regionDomName in dependantDomSizeByName and regionDomName not in self.parallelActiveDims:
+				if regionDomName in dependantDomSizeByName.keys() and regionDomName not in self.parallelActiveDims:
 					self.parallelActiveDims.append(regionDomName)
 				self.aggregatedRegionDomSizesByName[regionDomName] = regionDomSize
 				self.aggregatedRegionDomNames.append(regionDomName)
@@ -440,8 +440,6 @@ template for symbol %s - automatically inserting it for domain name %s\n"
 			self.checkIntegrityOfDomains()
 			return
 
-		dimensionSizesMatchedInTemplate = []
-
 		if not self.isPointer:
 			#   compare the declared dimensions with those in the         #
 			#   'parallelActive' set using the declared domain sizes.     #
@@ -476,6 +474,7 @@ template for symbol %s - automatically inserting it for domain name %s\n"
 		#   All should be matched, otherwise throw an error.          #
 		#   Insert the dimensions in order of their appearance in     #
 		#   the domainDependant template.                             #
+		dimensionSizesMatchedInTemplate = []
 		dependantDomNameAndSize = getDomNameAndSize(self.template)
 		for (dependantDomName, dependantDomSize) in dependantDomNameAndSize:
 			if dependantDomName not in self.parallelInactiveDims:
@@ -505,8 +504,9 @@ template for symbol %s - automatically inserting it for domain name %s\n"
 
 		#    Sanity checks                                            #
 		if len(self.domains) < len(dimensionSizes):
-			raise Exception("Unexpected error: Symbol %s got less dimensions after finishing the initialization \
-from the standard declaration. Declared domain: %s, Domain after init: %s, Parallel dims: %s, Independant dims: %s, \
+			raise Exception("Something is wrong with autoDom Symbol %s's declaration: Cannot match its dimension sizes to the parallel regions it is being used in. \
+Please make sure to use the same string names for its dimensions both in the parallel region as well as in its declarations -or- declare its dimensions explicitely (without autoDom).\
+Declared domain: %s, Domain after init: %s, Parallel dims: %s, Independant dims: %s, \
 Parallel region position: %s"
 				%(self.name, str(dimensionSizes), str(self.domains), str(self.parallelActiveDims), str(self.parallelInactiveDims), self.parallelRegionPosition)
 			)

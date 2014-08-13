@@ -848,7 +848,10 @@ or %i (number of declared dimensions for this array) accessors." %(symbol.name, 
                 %(self.currSubprocName, self.currCalleeName, parallelRegionPosition) \
             )
         if self.currCalleeNode and parallelRegionPosition == "within":
-            adjustedLine = self.implementation.kernelCallPreparation(self.currParallelRegionTemplateNode, calleeNode=self.currCalleeNode)
+            parallelRegionTemplates = self.parallelRegionTemplatesByProcName.get(self.currCalleeName)
+            if parallelRegionTemplates == None or len(parallelRegionTemplates) == 0:
+                raise Exception("Unexpected error: No parallel region templates found for subroutine %s" %(self.currCalleeName))
+            adjustedLine = self.implementation.kernelCallPreparation(parallelRegionTemplates[0], calleeNode=self.currCalleeNode)
             adjustedLine = adjustedLine + "call " + self.currCalleeName + " " + self.implementation.kernelCallConfig()
 
         if self.currCalleeNode \

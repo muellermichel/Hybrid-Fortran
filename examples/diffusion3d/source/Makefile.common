@@ -111,7 +111,8 @@ HF_EXE = ${PROGRAM_NAME_PREFIX}_hf_version
 #--------------------------------------------------------#
 #--------  MAKE HIERARCHY -------------------------------#
 #--------------------------------------------------------#
-all: ${OPENACC_EXE} ${OPENACC_FORTRAN_EXE} ${C_EXE_INTEL} ${C_EXE_PGI} ${CUDA_EXE} ${HF_EXE}
+#all: ${OPENACC_EXE} ${OPENACC_FORTRAN_EXE} ${C_EXE_INTEL} ${C_EXE_PGI} ${CUDA_EXE} ${HF_EXE}
+all: ${HF_EXE}
 
 ${OPENACC_EXE}: etc.o main.o ${PROGRAM_NAME_PREFIX}_openacc.o
 	${OPENACC_LINKER} ${OPENACC_LINKER_FLAGS} etc.o ${PROGRAM_NAME_PREFIX}_openacc.o main.o -o ${OPENACC_EXE}
@@ -135,7 +136,7 @@ ${HF_EXE}: ../hybrid_source/${PROGRAM_NAME_PREFIX}.o
 	pgf90 -Mcuda=5.5,cc3x -ta=nvidia,cc3x,time -fast ../hybrid_source/${PROGRAM_NAME_PREFIX}.o ../hybrid_source/time_profiling.o ../hybrid_source/helper_functions.o -o ${HF_EXE}
 else
 ${HF_EXE}: ../hybrid_source/${PROGRAM_NAME_PREFIX}.o
-	ifort -openmp ../hybrid_source/${PROGRAM_NAME_PREFIX}.o ../hybrid_source/time_profiling.o ../hybrid_source/helper_functions.o -o ${HF_EXE}
+	pgf90 -fast ../hybrid_source/${PROGRAM_NAME_PREFIX}.o ../hybrid_source/time_profiling.o ../hybrid_source/helper_functions.o -o ${HF_EXE}
 endif
 
 ${CUDA_EXE}: etc.o main.o ${PROGRAM_NAME_PREFIX}_cuda.o

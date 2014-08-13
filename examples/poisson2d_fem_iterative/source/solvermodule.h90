@@ -87,7 +87,7 @@ CONTAINS
     integer, intent(in)    :: i_print     ! print terminal output (>0 print in # iteration)
 
     real(RP), intent(inout), dimension(:,:), pointer :: u_p  ! solution vector
-    real(RP), intent(in), dimension(n,n)             :: f    ! right hand side/load vector
+    real(RP), intent(in), dimension(n,m)             :: f    ! right hand side/load vector
     real(RP), intent(inout), dimension(:,:), pointer :: h_p  ! help vector (old solution)
     real(RP), intent(in), dimension(3,3)             :: s    ! matrix stencil
 
@@ -98,7 +98,7 @@ CONTAINS
     integer(4) :: m
     real(DP) :: time_start, time_iteration_start
     !------------------------------------------------------------------------------
-    @domainDependant {domName(i,j), domSize(n,n), attribute(autoDom, transferHere)}
+    @domainDependant {domName(i,j), domSize(n,m), attribute(autoDom, transferHere)}
       u_p, h_p
     @end domainDependant
     @domainDependant {attribute(autoDom, transferHere)}

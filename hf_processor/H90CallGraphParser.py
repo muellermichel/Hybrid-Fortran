@@ -150,6 +150,7 @@ class H90CallGraphParser(object):
     state = 'none'
     stateBeforeCall = "undefined"
     currSubprocName = None
+    currModuleName = None
     currBracketAnalyzer = None
     currCalleeName = None
     patterns = None
@@ -204,6 +205,12 @@ class H90CallGraphParser(object):
     def processDomainDependantEndMatch(self, domainDependantEndMatch):
         return
 
+    def processModuleBeginMatch(self, moduleBeginMatch):
+        return
+
+    def processModuleEndMatch(self, moduleEndMatch):
+        return
+
     def processNoMatch(self):
         return
 
@@ -212,7 +219,31 @@ class H90CallGraphParser(object):
 
     def processNoneState(self, line):
         specificationsBeginHere = False
+        moduleBeginMatch = self.patterns.moduleBeginPattern.match(str(line))
         subProcBeginMatch = self.patterns.subprocBeginPattern.match(str(line))
+        if moduleBeginMatch:
+            self.currModuleName = moduleBeginMatch.group(1)
+            self.state = 'inside_module'
+            self.processModuleBeginMatch(moduleBeginMatch)
+        elif subProcBeginMatch:
+            raise Exception("please put this Hybrid Fortran subroutine into a module")
+        else:
+            self.processNoMatch()
+
+        if specificationsBeginHere:
+            self.processSpecificationBeginning()
+
+    def processInsideBranch(self, line):
+        return
+
+    def processInsideIgnore(self, line):
+        return
+
+    def processInsideModuleState(self, line):
+        specificationsBeginHere = False
+        subProcBeginMatch = self.patterns.subprocBeginPattern.match(str(line))
+        moduleEndMatch = self.patterns.moduleEndPattern.match(str(line))
+        domainDependantMatch = self.patterns.domainDependantPattern.match(str(line))
         if self.currBracketAnalyzer:
             level = self.currBracketAnalyzer.currLevelAfterString(line)
             if level == 0:
@@ -220,6 +251,15 @@ class H90CallGraphParser(object):
                 self.currBracketAnalyzer = None
                 specificationsBeginHere = True
             self.processNoMatch()
+
+        elif domainDependantMatch:
+            self.state = 'inside_moduleDomainDependantRegion'
+            self.processDomainDependantMatch(domainDependantMatch)
+
+        elif moduleEndMatch:
+            self.processModuleEndMatch(moduleEndMatch)
+            self.currModuleName = None
+            self.state = 'none'
 
         elif subProcBeginMatch:
             if (not subProcBeginMatch.group(1) or subProcBeginMatch.group(1) == ''):
@@ -242,12 +282,6 @@ class H90CallGraphParser(object):
         if specificationsBeginHere:
             self.processSpecificationBeginning()
 
-    def processInsideBranch(self, line):
-        return
-
-    def processInsideIgnore(self, line):
-        return
-
     def processInsideSubroutineCall(self, line):
         level = self.currBracketAnalyzer.currLevelAfterString(line)
         if level == 0:
@@ -262,13 +296,13 @@ class H90CallGraphParser(object):
         subProcEndMatch = self.patterns.subprocEndPattern.match(str(line))
 
         if (domainDependantMatch):
-            self.processDomainDependantMatch(domainDependantMatch)
             self.state = 'inside_domainDependantRegion'
+            self.processDomainDependantMatch(domainDependantMatch)
         elif subProcCallMatch:
             self.processCallMatch(subProcCallMatch)
         elif (subProcEndMatch):
             self.processProcEndMatch(subProcEndMatch)
-            self.state = 'none'
+            self.state = 'inside_module'
             self.currBracketAnalyzer = None
             self.currSubprocName = None
         elif (parallelRegionMatch):
@@ -286,13 +320,13 @@ class H90CallGraphParser(object):
         subProcEndMatch = self.patterns.subprocEndPattern.match(str(line))
 
         if domainDependantMatch:
-            self.processDomainDependantMatch(domainDependantMatch)
             self.state = 'inside_domainDependantRegion'
+            self.processDomainDependantMatch(domainDependantMatch)
         elif subProcCallMatch:
             self.processCallMatch(subProcCallMatch)
         elif subProcEndMatch:
             self.processProcEndMatch(subProcEndMatch)
-            self.state = 'none'
+            self.state = 'inside_module'
             self.currBracketAnalyzer = None
             self.currSubprocName = None
         elif parallelRegionMatch:
@@ -319,8 +353,25 @@ class H90CallGraphParser(object):
         else:
             self.processNoMatch()
 
+    def processInsideModuleDomainDependantRegionState(self, line):
+        domainDependantEndMatch = self.patterns.domainDependantEndPattern.match(str(line))
+        if domainDependantEndMatch:
+            self.processDomainDependantEndMatch(domainDependantEndMatch)
+            self.state = "inside_module"
+        elif self.patterns.subprocCallPattern.match(str(line)):
+            raise Exception("subprocedure call within domainDependants not allowed")
+        elif (self.patterns.parallelRegionEndPattern.match(str(line)) or self.patterns.parallelRegionPattern.match(str(line))):
+            raise Exception("parallelRegion within domainDependants not allowed")
+        elif (self.patterns.subprocEndPattern.match(str(line))):
+            raise Exception("subprocedure end before @end domainDependant")
+        elif (self.patterns.subprocBeginPattern.match(str(line))):
+            raise Exception("subprocedure within subprocedure not allowed")
+        return
+
     def processInsideDomainDependantRegionState(self, line):
-        if self.patterns.domainDependantEndPattern.match(str(line)):
+        domainDependantEndMatch = self.patterns.domainDependantEndPattern.match(str(line))
+        if domainDependantEndMatch:
+            self.processDomainDependantEndMatch(domainDependantEndMatch)
             self.state = "inside_subroutine_body"
         elif self.patterns.subprocCallPattern.match(str(line)):
             raise Exception("subprocedure call within domainDependants not allowed")
@@ -339,13 +390,15 @@ class H90CallGraphParser(object):
         #define the states and their respective handlers
         stateSwitch = {
            'none': self.processNoneState,
+           'inside_module': self.processInsideModuleState,
+           'inside_moduleDomainDependantRegion': self.processInsideModuleDomainDependantRegionState,
            'inside_declarations': self.processInsideDeclarationsState,
            'inside_parallelRegion': self.processInsideParallelRegionState,
            'inside_domainDependantRegion': self.processInsideDomainDependantRegionState,
-           'inside_subroutine_body':self.processInsideSubroutineBodyState,
-           'inside_subroutine_call':self.processInsideSubroutineCall,
-           'inside_branch':self.processInsideBranch,
-           'inside_ignore':self.processInsideIgnore
+           'inside_subroutine_body': self.processInsideSubroutineBodyState,
+           'inside_subroutine_call': self.processInsideSubroutineCall,
+           'inside_branch': self.processInsideBranch,
+           'inside_ignore': self.processInsideIgnore
          }
         #exclude commented lines from analysis
         if (self.patterns.commentedPattern.match(str(line))):
@@ -388,8 +441,10 @@ class H90CallGraphParser(object):
 class H90XMLCallGraphGenerator(H90CallGraphParser):
     doc = None
     routines = None
+    modules = None
     calls = None
     currSubprocNode = None
+    currModuleNode = None
     currDomainDependantRelationNode = None
     currParallelRegionTemplateNode = None
     currParallelRegionRelationNode = None
@@ -398,6 +453,7 @@ class H90XMLCallGraphGenerator(H90CallGraphParser):
         self.doc = doc
         self.routines = createOrGetFirstNodeWithName('routines', doc)
         self.calls = createOrGetFirstNodeWithName('calls', doc)
+        self.modules = createOrGetFirstNodeWithName('modules', doc)
         super(H90XMLCallGraphGenerator, self).__init__()
 
     def processCallMatch(self, subProcCallMatch):
@@ -411,9 +467,15 @@ class H90XMLCallGraphGenerator(H90CallGraphParser):
         if (not firstDuplicateChild(self.calls, call)):
             self.calls.appendChild(call)
 
+    def processModuleBeginMatch(self, moduleBeginMatch):
+        super(H90XMLCallGraphGenerator, self).processModuleBeginMatch(moduleBeginMatch)
+        module = self.doc.createElement('module')
+        module.setAttribute('name', self.currModuleName)
+        self.modules.appendChild(module)
+        self.currModuleNode = module
+
     def processProcBeginMatch(self, subProcBeginMatch):
         super(H90XMLCallGraphGenerator, self).processProcBeginMatch(subProcBeginMatch)
-
         routine = self.doc.createElement('routine')
         routine.setAttribute('name', self.currSubprocName)
         self.routines.appendChild(routine)
@@ -439,8 +501,14 @@ class H90XMLCallGraphGenerator(H90CallGraphParser):
 
     def processDomainDependantMatch(self, domainDependantMatch):
         super(H90XMLCallGraphGenerator, self).processDomainDependantMatch(domainDependantMatch)
-        self.currDomainDependantRelationNode, _ = setTemplateInfos(self.doc, self.currSubprocNode, domainDependantMatch.group(1), "domainDependantTemplates", \
-            "domainDependantTemplate", "domainDependants")
+        self.currDomainDependantRelationNode, _ = setTemplateInfos(
+            self.doc,
+            self.currModuleNode if self.state == 'inside_moduleDomainDependantRegion' else self.currSubprocNode,
+            domainDependantMatch.group(1),
+            "domainDependantTemplates",
+            "domainDependantTemplate",
+            "domainDependants"
+        )
 
     def processDomainDependantEndMatch(self, domainDependantEndMatch):
         super(H90XMLCallGraphGenerator, self).processDomainDependantEndMatch(domainDependantEndMatch)
@@ -449,6 +517,16 @@ class H90XMLCallGraphGenerator(H90CallGraphParser):
     def processProcEndMatch(self, subProcEndMatch):
         super(H90XMLCallGraphGenerator, self).processProcEndMatch(subProcEndMatch)
         self.currSubprocNode = None
+
+    def processModuleEndMatch(self, moduleEndMatch):
+        super(H90XMLCallGraphGenerator, self).processModuleEndMatch(moduleEndMatch)
+        self.currModuleNode = None
+
+    def processInsideModuleDomainDependantRegionState(self, line):
+        super(H90XMLCallGraphGenerator, self).processInsideModuleDomainDependantRegionState(line)
+        if self.state != 'inside_moduleDomainDependantRegion':
+            return
+        appendSeparatedTextAsNodes(line, ',', self.doc, self.currDomainDependantRelationNode, 'entry')
 
     def processInsideDomainDependantRegionState(self, line):
         super(H90XMLCallGraphGenerator, self).processInsideDomainDependantRegionState(line)
@@ -463,9 +541,9 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
     symbolsOnCurrentLine = []
     importsOnCurrentLine = []
     routineNodesByProcName = {}
+    moduleNodesByName = {}
     parallelRegionTemplatesByProcName = {}
     parallelRegionTemplateRelationsByProcName = {}
-
 
     def __init__(self, cgDoc):
         self.cgDoc = cgDoc
@@ -501,41 +579,44 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
                 self.parallelRegionTemplateRelationsByProcName[procName] = templateRelations
             if len(regionTemplates) > 0:
                 self.parallelRegionTemplatesByProcName[procName] = regionTemplates
+        modules = cgDoc.getElementsByTagName('module')
+        for module in modules:
+            moduleName = module.getAttribute('name')
+            if not moduleName or moduleName == '':
+                raise Exception("Module without name.")
+            self.moduleNodesByName[moduleName] = module
 
         super(H90CallGraphAndSymbolDeclarationsParser, self).__init__()
 
-    def processSymbolDeclMatch(self, paramDeclMatch, symbol):
-        '''process everything that happens per h90 declaration symbol'''
-        symbol.isMatched = True
-        symbol.loadDeclaration(paramDeclMatch, self.patterns)
+    def loadSymbolsFromTemplate(self, parentNode, parallelRegionTemplates, isModuleSymbols=False):
+        templatesAndEntries = getDomainDependantTemplatesAndEntries(self.cgDoc, parentNode)
+        for template, entry in templatesAndEntries:
+            dependantName = entry.firstChild.nodeValue
+            symbol = Symbol(dependantName, template, debugPrint=self.debugPrint)
+            symbol.isModuleSymbol = isModuleSymbols
+            symbol.loadDomainDependantEntryNodeAttributes(entry)
+            if isModuleSymbols:
+                symbol.loadModuleNodeAttributes(parentNode)
+            else:
+                symbol.loadRoutineNodeAttributes(parentNode, parallelRegionTemplates)
+            self.currSymbolsByName[dependantName] = symbol
+        if self.debugPrint:
+            sys.stderr.write("Symbols loaded from template. Symbols currently active in scope: %s\n" %(str(self.currSymbolsByName.values())))
 
-    def processSymbolImportMatch(self, importMatch, symbol):
-        symbol.isMatched = True
-        symbol.loadImportInformation(importMatch)
-
-    def processInsideDeclarationsState(self, line):
-        '''process everything that happens per h90 declaration line'''
-        super(H90CallGraphAndSymbolDeclarationsParser, self).processInsideDeclarationsState(line)
-        if self.state != "inside_declarations":
-            return
-
-        branchMatch = self.patterns.branchPattern.match(str(line))
-        if branchMatch:
-            self.processBranchMatch(branchMatch)
-            return
-
+    def analyseSymbolInformationOnCurrentLine(self, line, analyseImports=True):
         symbolNames = self.currSymbolsByName.keys()
         for symbolName in symbolNames:
             symbol = self.currSymbolsByName[symbolName]
             declMatch = symbol.getDeclarationMatch(str(line))
-            importMatch = symbol.symbolImportPattern.match(str(line))
+            importMatch = None
+            if analyseImports:
+                importMatch = symbol.symbolImportPattern.match(str(line))
             if declMatch:
                 self.symbolsOnCurrentLine.append(symbol)
                 self.processSymbolDeclMatch(declMatch, symbol)
             elif importMatch:
                 self.importsOnCurrentLine.append(symbol)
                 self.processSymbolImportMatch(importMatch, symbol)
-
         #validate the symbols on the current declaration line: Do they match the requirements for Hybrid Fortran?
         lineDeclarationType = DeclarationType.UNDEFINED
         for symbol in self.symbolsOnCurrentLine:
@@ -545,6 +626,59 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
                 raise Exception("Symbols with different declaration types have been matched on the same line. This is invalid in Hybrid Fortran.\n" + \
                     "Example: Local arrays cannot be mixed with local scalars on the same declaration line. Please move apart these declarations.")
 
+    def processSymbolDeclMatch(self, paramDeclMatch, symbol):
+        '''process everything that happens per h90 declaration symbol'''
+        symbol.isMatched = True
+        symbol.loadDeclaration(paramDeclMatch, self.patterns)
+
+    def processSymbolImportMatch(self, importMatch, symbol):
+        symbol.isMatched = True
+        moduleName = importMatch.group(1)
+        moduleNode = self.moduleNodesByName.get(moduleName)
+        symbol.loadImportInformation(importMatch, self.cgDoc, moduleNode)
+
+    def processInsideModuleState(self, line):
+        super(H90CallGraphAndSymbolDeclarationsParser, self).processInsideModuleState(line)
+        self.analyseSymbolInformationOnCurrentLine(line, analyseImports=False)
+
+    def processInsideDeclarationsState(self, line):
+        '''process everything that happens per h90 declaration line'''
+        super(H90CallGraphAndSymbolDeclarationsParser, self).processInsideDeclarationsState(line)
+        if self.state != "inside_declarations":
+            return
+        branchMatch = self.patterns.branchPattern.match(str(line))
+        if branchMatch:
+            self.processBranchMatch(branchMatch)
+            return
+        self.analyseSymbolInformationOnCurrentLine(line)
+
+    def processModuleBeginMatch(self, moduleBeginMatch):
+        super(H90CallGraphAndSymbolDeclarationsParser, self).processModuleBeginMatch(moduleBeginMatch)
+        moduleName = moduleBeginMatch.group(1)
+        moduleNode = self.moduleNodesByName.get(moduleName)
+        if not moduleNode:
+            return
+        self.loadSymbolsFromTemplate(moduleNode, None, isModuleSymbols=True)
+
+    def processModuleEndMatch(self, moduleEndMatch):
+        super(H90CallGraphAndSymbolDeclarationsParser, self).processProcEndMatch(moduleEndMatch)
+        dependants = self.currSymbolsByName.keys()
+        unmatched = []
+        for dependant in dependants:
+            if not self.currSymbolsByName[dependant].isModuleSymbol:
+                raise Exception("Dependant %s has been referenced in a domain dependant region inside a procedure, but has never been matched." %(dependant))
+            if self.currSymbolsByName[dependant].isMatched:
+                continue
+            unmatched.append(dependant)
+        if len(unmatched) != 0:
+            raise Exception("The following non-scalar domain dependant declarations could not be found within module %s: %s;\n\
+                domains of first unmatched: %s"
+                %(self.currModuleName, unmatched, str(self.currSymbolsByName[unmatched[0]].domains))
+            )
+        if self.debugPrint:
+            sys.stderr.write("Clearing current symbol scope since the module definition is finished\n")
+        self.currSymbolsByName = {}
+
     def processProcBeginMatch(self, subProcBeginMatch):
         super(H90CallGraphAndSymbolDeclarationsParser, self).processProcBeginMatch(subProcBeginMatch)
         subprocName = subProcBeginMatch.group(1)
@@ -552,24 +686,23 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
         if not routineNode:
             return
         parallelRegionTemplates = self.parallelRegionTemplatesByProcName.get(self.currSubprocName)
-        templatesAndEntries = getDomainDependantTemplatesAndEntries(self.cgDoc, routineNode)
-        for template, entry in templatesAndEntries:
-            dependantName = entry.firstChild.nodeValue
-            symbol = Symbol(dependantName, template, debugPrint=self.debugPrint)
-            symbol.loadDomainDependantEntryNodeAttributes(entry)
-            symbol.loadRoutineNodeAttributes(routineNode, parallelRegionTemplates)
-            self.currSymbolsByName[dependantName] = symbol
+        self.loadSymbolsFromTemplate(routineNode, parallelRegionTemplates)
 
     def processProcEndMatch(self, subProcEndMatch):
         super(H90CallGraphAndSymbolDeclarationsParser, self).processProcEndMatch(subProcEndMatch)
         dependants = self.currSymbolsByName.keys()
         unmatched = []
         for dependant in dependants:
+            if self.currSymbolsByName[dependant].isModuleSymbol:
+                continue
             if self.currSymbolsByName[dependant].isMatched:
+                del self.currSymbolsByName[dependant]
                 continue
             if len(self.currSymbolsByName[dependant].domains) == 0:
                 #scalars that haven't been declared: Assume that they're from the local module
                 self.currSymbolsByName[dependant].sourceModule = "HF90_LOCAL_MODULE"
+                self.currSymbolsByName[dependant].isModuleSymbol = True
+                del self.currSymbolsByName[dependant]
                 continue
             unmatched.append(dependant)
         if len(unmatched) != 0:
@@ -577,7 +710,6 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
                 domains of first unmatched: %s"
                 %(self.currSubprocName, unmatched, str(self.currSymbolsByName[unmatched[0]].domains))
             )
-        self.currSymbolsByName = {}
 
     def processBranchMatch(self, branchMatch):
         branchSettingText = branchMatch.group(1).strip()
@@ -611,24 +743,30 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
         self.importsOnCurrentLine = []
 
 class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
-
     entryNodesBySymbolName = {}
     currSymbols = []
 
-    def processSymbolAttributes(self):
+    def processSymbolAttributes(self, isModule=False):
         currSymbolNames = self.currSymbolsByName.keys()
+        self.currSymbols = []
         if len(currSymbolNames) == 0:
             return
-        self.currSymbols = [self.currSymbolsByName[symbolName] for symbolName in currSymbolNames]
-
-        routineNode = self.routineNodesByProcName[self.currSubprocName]
-        domainDependantsParentNodes = routineNode.getElementsByTagName("domainDependants")
+        self.currSymbols = [self.currSymbolsByName[symbolName] for symbolName in currSymbolNames if self.currSymbolsByName[symbolName].isModuleSymbol == isModule]
+        if len(self.currSymbols) == 0:
+            return
+        currParentName = self.currSubprocName if not isModule else self.currModuleName
+        parentNode = self.routineNodesByProcName[currParentName] if not isModule else self.moduleNodesByName[currParentName]
+        domainDependantsParentNodes = parentNode.getElementsByTagName("domainDependants")
         if domainDependantsParentNodes == None or len(domainDependantsParentNodes) == 0:
-            raise Exception("Unexpected error: No domain dependant parent node found for routine %s where it has been identified before." %(self.currSubprocName))
+            raise Exception("Unexpected error: No domain dependant parent node found for parent %s where it has been identified before. Parent node: %s. Looking for symbols %s" %(
+                currParentName, parentNode.toxml(), str(self.currSymbols)
+            ))
         domainDependantsParentNode = domainDependantsParentNodes[0]
         domainDependantEntryNodes = domainDependantsParentNode.getElementsByTagName("entry")
         if domainDependantEntryNodes == None or len(domainDependantEntryNodes) == 0:
-            raise Exception("Unexpected error: No domain dependants found for routine %s where they have been identified before." %(self.currSubprocName))
+            raise Exception("Unexpected error: No domain dependants found for parent %s where they have been identified before. Looking for symbols %s" %(
+                currParentName, parentNode.toxml(), str(self.currSymbols)
+            ))
         self.entryNodesBySymbolName = {}
         for domainDependantEntryNode in domainDependantEntryNodes:
             self.entryNodesBySymbolName[domainDependantEntryNode.firstChild.nodeValue.strip()] = domainDependantEntryNode
@@ -637,20 +775,39 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
             raise Exception("Unexpected error: %i domain dependant entry nodes found, when %i expected." \
                 %(len(self.entryNodesBySymbolName.keys())), len(currSymbolNames))
 
-    def processProcEndMatch(self, subProcEndMatch):
-        #get handles to currently active symbols -> temporarily save the handles
-        self.processSymbolAttributes()
-
-        #finish parsing -> superclass destroys handles
-        super(H90XMLSymbolDeclarationExtractor, self).processProcEndMatch(subProcEndMatch)
-
+    def storeCurrentSymbolAttributes(self, isModule=False):
         #store our symbol informations to the xml
         for symbol in self.currSymbols:
+            if symbol.isModuleSymbol and isModule == False:
+                continue
             entryNode = self.entryNodesBySymbolName[symbol.name]
             if not entryNode:
                 raise Exception("Unexpected error: symbol named %s not expected" %(symbol.name))
             symbol.storeDomainDependantEntryNodeAttributes(entryNode)
 
+    def processModuleEndMatch(self, moduleEndMatch):
+        #get handles to currently active symbols -> temporarily save the handles
+        self.processSymbolAttributes(isModule=True)
+        if self.debugPrint:
+            sys.stderr.write("exiting module %s. Storing informations for symbols %s\n" %(self.currModuleName, str(self.currSymbols)))
+        #finish parsing -> superclass destroys handles
+        super(H90XMLSymbolDeclarationExtractor, self).processModuleEndMatch(moduleEndMatch)
+        #store our symbol informations to the xml
+        self.storeCurrentSymbolAttributes(isModule=True)
+        #throw away our handles
+        self.entryNodesBySymbolName = {}
+        self.currSymbols = []
+
+
+    def processProcEndMatch(self, subProcEndMatch):
+        #get handles to currently active symbols -> temporarily save the handles
+        self.processSymbolAttributes()
+        if self.debugPrint:
+            sys.stderr.write("exiting procedure %s. Storing informations for symbols %s\n" %(self.currSubprocName, str(self.currSymbols)))
+        #finish parsing -> superclass destroys handles
+        super(H90XMLSymbolDeclarationExtractor, self).processProcEndMatch(subProcEndMatch)
+        #store our symbol informations to the xml
+        self.storeCurrentSymbolAttributes()
         #throw away our handles
         self.entryNodesBySymbolName = {}
         self.currSymbols = []
@@ -1070,7 +1227,7 @@ relative to the rest of the program. Please ignore this message if you have inte
                 self.prepareLine("! " + line, "")
             return
 
-        if self.state != "inside_declarations" and self.state != "none" and self.state != "inside_subroutine_call":
+        if self.state != "inside_declarations" and self.state != "inside_module" and self.state != "inside_subroutine_call":
             additionalDeclarationsStr = ""
             if len(self.additionalSymbolsByCalleeName.keys()) > 0:
                 additionalDeclarationsStr = "\n" + self.tab_insideSub + \
@@ -1243,7 +1400,7 @@ relative to the rest of the program. Please ignore this message if you have inte
         subProcEndMatch = self.patterns.subprocEndPattern.match(str(line))
         if (subProcEndMatch):
             self.processProcEndMatch(subProcEndMatch)
-            self.state = 'none'
+            self.state = 'inside_module'
             self.currSubprocName = None
             return
 
@@ -1330,7 +1487,11 @@ relative to the rest of the program. Please ignore this message if you have inte
         if (self.patterns.subprocBeginPattern.match(str(line))):
             raise Exception("subprocedure within subprocedure not allowed")
 
-        adjustedLine = self.processSymbolsAndGetAdjustedLine(line, isInsideSubroutineCall=False)
+        adjustedLine = ""
+        loopMatch = self.patterns.loopPattern.match(str(line))
+        if loopMatch:
+            adjustedLine += self.implementation.loopPreparation().strip() + '\n'
+        adjustedLine += self.processSymbolsAndGetAdjustedLine(line, isInsideSubroutineCall=False)
         self.prepareLine(adjustedLine, self.tab_insideSub)
 
     def processInsideSubroutineCall(self, line):

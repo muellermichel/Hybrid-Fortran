@@ -43,6 +43,9 @@ class H90RegExPatterns:
     symbolDeclTestPattern = None
     symbolDeclPattern = None
     pointerAssignmentPattern = None
+    loopPattern = None
+    moduleBeginPattern = None
+    moduleEndPattern = None
 
     def __init__(self):
         self.blankPattern = re.compile(r'\s', re.IGNORECASE)
@@ -64,3 +67,6 @@ class H90RegExPatterns:
         self.symbolDeclTestPattern = re.compile(r'.*?::.*', re.IGNORECASE)
         self.symbolDeclPattern = re.compile(r"(\s*(?:double\s+precision|real|integer|character|logical)(?:.*?))\s*::(.*)", re.IGNORECASE)
         self.pointerAssignmentPattern = re.compile(r"^\s*\w+\s*\=\>\s*\w+.*", re.IGNORECASE)
+        self.loopPattern = re.compile(r"\s*do\W.*", re.IGNORECASE)
+        self.moduleBeginPattern = re.compile(r'\s*module\s*(\w*).*', re.IGNORECASE)
+        self.moduleEndPattern = re.compile(r'\s*end\s*module.*', re.IGNORECASE)

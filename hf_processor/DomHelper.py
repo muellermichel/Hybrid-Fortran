@@ -30,6 +30,8 @@ from GeneralHelper import BracketAnalyzer, enum
 import uuid
 import re
 
+domainDependantAttributes = ["autoDom", "present", "transferHere"]
+
 class ParallelRegionDomain(object):
     def __init__(self, name, size, startsAt=None, endsAt=None):
         self.name = name
@@ -162,6 +164,28 @@ def firstDuplicateChild(parent, newNode):
             return node
 
     return None
+
+def getAttributesDomainsAndDeclarationPrefixFromModuleTemplateAndProcedureTemplateForProcedure(moduleTemplate, procedureTemplate):
+    attributesModule = getAttributes(moduleTemplate)
+    attributesProcedure = getAttributes(procedureTemplate)
+    finalAttributes = []
+    domainsFromTemplate = []
+    if "autoDom" in attributesModule and "autoDom" in attributesProcedure:
+        finalAttributes.append("autoDom")
+        finalDomains = getDomNameAndSize(procedureTemplate)
+    elif not "autoDom" in attributesModule:
+        finalDomains = getDomNameAndSize(moduleTemplate)
+    elif not "autoDom" in attributesProcedure:
+        finalDomains = getDomNameAndSize(procedureTemplate)
+    for attribute in domainDependantAttributes:
+        if attribute == "autoDom":
+            continue
+        if attribute in attributesProcedure:
+            finalAttributes.append(attribute)
+    moduleDeclarationPrefix = getDeclarationPrefix(moduleTemplate)
+    procedureDeclarationPrefix = getDeclarationPrefix(procedureTemplate)
+    finalDeclarationPrefix = moduleDeclarationPrefix if procedureDeclarationPrefix == None else procedureDeclarationPrefix
+    return finalAttributes, domainsFromTemplate, finalDeclarationPrefix
 
 def setTemplateInfos(doc, parent, specText, templateParentNodeName, templateNodeName, referenceParentNodeName):
     templateLibraries = doc.getElementsByTagName(templateParentNodeName)

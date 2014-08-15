@@ -33,7 +33,13 @@ from DomHelper import *
 import os
 import sys
 import re
-import pdb
+
+def getVectorSizePPNames(parallelRegionTemplate):
+    template = getTemplate(parallelRegionTemplate)
+    template_prefix = ''
+    if template != '':
+        template_prefix = '_' + template
+    return ["CUDA_BLOCKSIZE_X" + template_prefix, "CUDA_BLOCKSIZE_Y" + template_prefix, "CUDA_BLOCKSIZE_Z" + template_prefix]
 
 def getIteratorDeclaration(currRoutineNode, currParallelRegionTemplates, architectures):
     result = ""
@@ -199,6 +205,9 @@ class FortranImplementation(object):
     def safetyOutsideRegion(self, domains):
         return ""
 
+    def loopPreparation(self):
+        return ""
+
     def parallelRegionBegin(self, parallelRegionTemplate):
         domains = getDomainsWithParallelRegionTemplate(parallelRegionTemplate)
         regionStr = ''
@@ -208,7 +217,7 @@ class FortranImplementation(object):
             endsAt = domain.endsAt if domain.endsAt != None else domain.size
             regionStr = regionStr + 'do %s=%s,%s' %(domain.name, startsAt, endsAt)
             if pos != 0:
-                regionStr = regionStr + '; '
+                regionStr = regionStr + '\n '
             pos = pos + 1
         return regionStr
 
@@ -219,7 +228,7 @@ class FortranImplementation(object):
         for domain in domains:
             regionStr = regionStr + 'end do'
             if pos != len(domains) - 1:
-                regionStr = regionStr + '; '
+                regionStr = regionStr + '\n '
             pos = pos + 1
         return regionStr
 
@@ -255,22 +264,54 @@ class OpenMPFortranImplementation(FortranImplementation):
 class PGIOpenACCFortranImplementation(FortranImplementation):
     onDevice = True
 
+    def declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates):
+        result = ""
+        result += getIteratorDeclaration(currRoutineNode, currParallelRegionTemplates, ["GPU"])
+        dataDeclarations = ""
+        dataDeclarations += "!$acc declare "
+        dataDeclarationsRequired = False
+        for index, symbol in enumerate(dependantSymbols):
+            if not symbol.domains or len(symbol.domains) == 0:
+                continue
+            if index != 0:
+                dataDeclarations += ", "
+            if symbol.isPresent:
+                dataDeclarations += "present(%s)" %(symbol.name)
+            elif (symbol.intent == "in") \
+            and (routineIsKernelCaller or symbol.isToBeTransfered):
+                dataDeclarations += "copyin(%s)" %(symbol.name)
+            elif (symbol.intent == "inout") \
+            and (routineIsKernelCaller or symbol.isToBeTransfered):
+                dataDeclarations += "copy(%s)" %(symbol.name)
+            elif (symbol.intent == "out") \
+            and (routineIsKernelCaller or symbol.isToBeTransfered):
+                dataDeclarations += "copyout(%s)" %(symbol.name)
+            elif not routineIsKernelCaller and symbol.intent in ["in", "inout", "out"]:
+                dataDeclarations += "present(%s)" %(symbol.name)
+            else:
+                dataDeclarations += "create(%s)" %(symbol.name)
+            dataDeclarationsRequired = True
+        dataDeclarations += "\n"
+        if dataDeclarationsRequired == True:
+            result += dataDeclarations
+        return result
+
     def getIterators(self, parallelRegionTemplate):
         if not appliesTo(["GPU"], parallelRegionTemplate):
             return []
         return [domain.name for domain in getDomainsWithParallelRegionTemplate(parallelRegionTemplate)]
 
-    def declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates):
-        return getIteratorDeclaration(currRoutineNode, currParallelRegionTemplates, ["GPU"])
+    def loopPreparation(self):
+        return "!$acc loop seq"
 
     def parallelRegionBegin(self, parallelRegionTemplate):
-        # if self.currDependantSymbols == None:
-        #     raise Exception("parallel region without any dependant arrays")
+        vectorSizePPNames = getVectorSizePPNames(parallelRegionTemplate)
         regionStr = "!$acc kernels\n"
-        # openACCLines += "SHARED(%s)\n" %(', '.join([symbol.deviceName() for symbol in self.currDependantSymbols]))
         domains = getDomainsWithParallelRegionTemplate(parallelRegionTemplate)
+        if len(domains) > 3 or len(domains) < 1:
+            raise Exception("Invalid number of parallel domains in parallel region definition.")
         for pos in range(len(domains)-1,-1,-1): #use inverted order (optimization of accesses for fortran storage order)
-            regionStr += "!$acc loop independent\n"
+            regionStr += "!$acc loop independent vector(%s)\n" %(vectorSizePPNames[pos])
             domain = domains[pos]
             startsAt = domain.startsAt if domain.startsAt != None else "1"
             endsAt = domain.endsAt if domain.endsAt != None else domain.size
@@ -281,12 +322,8 @@ class PGIOpenACCFortranImplementation(FortranImplementation):
         return regionStr
 
     def parallelRegionEnd(self, parallelRegionTemplate):
-        openMPLines = "\n!$acc end kernels\n"
-        return FortranImplementation.parallelRegionEnd(self, parallelRegionTemplate) + openMPLines
-
-    # def subroutineEnd(self, dependantSymbols, routineIsKernelCaller):
-    #     self.currDependantSymbols = None
-    #     return FortranImplementation.subroutineEnd(self, dependantSymbols, routineIsKernelCaller)
+        additionalStatements = "\n!$acc end kernels\n"
+        return FortranImplementation.parallelRegionEnd(self, parallelRegionTemplate) + additionalStatements
 
 class CUDAFortranImplementation(FortranImplementation):
     onDevice = True
@@ -313,11 +350,7 @@ class CUDAFortranImplementation(FortranImplementation):
     \twrite(0, *) 'CUDA error when setting cache configuration for kernel %s:', cudaGetErrorString(cuerror)\n \
     stop 1\n\
 end if\n" %(calleeNode.getAttribute('name'))
-        template = getTemplate(parallelRegionTemplate)
-        template_prefix = ''
-        if template != '':
-            template_prefix = '_' + template
-        blockSizePPNames = ["CUDA_BLOCKSIZE_X" + template_prefix, "CUDA_BLOCKSIZE_Y" + template_prefix, "CUDA_BLOCKSIZE_Z" + template_prefix]
+        blockSizePPNames = getVectorSizePPNames(parallelRegionTemplate)
         gridSizeVarNames = ["cugridSizeX", "cugridSizeY", "cugridSizeZ"]
         domains = getDomainsWithParallelRegionTemplate(parallelRegionTemplate)
         if len(domains) > 3 or len(domains) < 1:

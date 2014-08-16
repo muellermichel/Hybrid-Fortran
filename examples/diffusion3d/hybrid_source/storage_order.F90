@@ -72,3 +72,9 @@
 /*-> give it two seperate names to make the intention of the code clearer */
 #define DOM(iParam, jParam, kParam) AT(iParam, jParam, kParam)
 #define DOM4(iParam, jParam, kParam, lParam) AT4(iParam, jParam, kParam, lParam)
+
+#define AT_BOUNDARY(iParam, jParam, kParam) AT(iParam, jParam, kParam)
+#define AT4_BOUNDARY(iParam, jParam, kParam, lParam) AT4(iParam, jParam, kParam, lParam)
+
+#define DOM_BOUNDARY(iParam, jParam, kParam) AT(iParam, jParam, kParam)
+#define DOM4_BOUNDARY(iParam, jParam, kParam, lParam) AT4(iParam, jParam, kParam, lParam)

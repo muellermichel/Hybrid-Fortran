@@ -601,7 +601,10 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
                 symbol.loadRoutineNodeAttributes(parentNode, parallelRegionTemplates)
             self.currSymbolsByName[dependantName] = symbol
         if self.debugPrint:
-            sys.stderr.write("Symbols loaded from template. Symbols currently active in scope: %s\n" %(str(self.currSymbolsByName.values())))
+            sys.stderr.write("Symbols loaded from template. Symbols currently active in scope: %s. Module Symbol Property: %s\n" %(
+                str(self.currSymbolsByName.values()),
+                str([self.currSymbolsByName[symbolName].isModuleSymbol for symbolName in self.currSymbolsByName.keys()])
+            ))
 
     def analyseSymbolInformationOnCurrentLine(self, line, analyseImports=True):
         symbolNames = self.currSymbolsByName.keys()
@@ -930,9 +933,9 @@ or %i (number of declared dimensions for this array) accessors." %(symbol.name, 
         if isPointerAssignment:
             symbol_access = symbol.deviceName()
         else:
-            symbol_access = symbol.accessRepresentation(iterators, offsets)
+            symbol_access = symbol.accessRepresentation(iterators, offsets, self.currParallelRegionTemplateNode)
         if self.debugPrint:
-            sys.stderr.write("symbol %s on line %i rewritten to %s" %(str(symbol), self.lineNo, symbol_access))
+            sys.stderr.write("symbol %s on line %i rewritten to %s\n" %(str(symbol), self.lineNo, symbol_access))
         return (prefix + symbol_access + postfix).rstrip() + "\n"
 
     def processSymbolsAndGetAdjustedLine(self, line, isInsideSubroutineCall):
@@ -1510,6 +1513,10 @@ relative to the rest of the program. Please ignore this message if you have inte
 
     def processInsideDomainDependantRegionState(self, line):
         super(H90toF90Printer, self).processInsideDomainDependantRegionState(line)
+        self.prepareLine("", "")
+
+    def processInsideModuleDomainDependantRegionState(self, line):
+        super(H90toF90Printer, self).processInsideModuleDomainDependantRegionState(line)
         self.prepareLine("", "")
 
     def processSpecificationBeginning(self):

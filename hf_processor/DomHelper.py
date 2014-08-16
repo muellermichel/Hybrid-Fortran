@@ -172,11 +172,11 @@ def getAttributesDomainsAndDeclarationPrefixFromModuleTemplateAndProcedureTempla
     domainsFromTemplate = []
     if "autoDom" in attributesModule and "autoDom" in attributesProcedure:
         finalAttributes.append("autoDom")
-        finalDomains = getDomNameAndSize(procedureTemplate)
-    elif not "autoDom" in attributesModule:
-        finalDomains = getDomNameAndSize(moduleTemplate)
+        domainsFromTemplate = getDomNameAndSize(procedureTemplate)
     elif not "autoDom" in attributesProcedure:
-        finalDomains = getDomNameAndSize(procedureTemplate)
+        domainsFromTemplate = getDomNameAndSize(procedureTemplate)
+    elif not "autoDom" in attributesModule:
+        domainsFromTemplate = getDomNameAndSize(moduleTemplate)
     for attribute in domainDependantAttributes:
         if attribute == "autoDom":
             continue

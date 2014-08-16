@@ -37,6 +37,57 @@ Init = enum("NOTHING_LOADED",
     "DECLARATION_LOADED"
 )
 
+#   Boxes = Symbol States
+#   X -> Transition Texts = Methods being called by parser
+#   Other Texts = Helper Functions
+#
+#                                        +----------------+
+#                                        | NOTHING_LOADED |
+#                                        +------+---------+
+#                                               |                 X -> (routine entry)
+#                                               |  loadDomainDependantEntryNodeAttributes
+#                                               |                              ^
+#                              +----------------v-----------------------+      |
+#                              | DEPENDANT_ENTRYNODE_ATTRIBUTES_LOADED  |      | (module entry)
+#                              +----+-----------+-----------------------+      |
+#                     X ->          +           |           X ->               |
+# +-------------+  loadRoutineNodeAttributes    |   loadModuleNodeAttributes  +-----------+
+# |                                 +           |                              |          |
+# |                                 |           |                              |          |
+# |                                +v-----------v------------------+           |          |
+# |                                | ROUTINENODE_ATTRIBUTES_LOADED |    +------+          |
+# |                                +---+--------+------------------+    |                 |
+# |                                    |        |            X ->       +                 |
+# |                                    |        |    loadImportInformation+----------------------------------+
+# |             X -> loadDeclaration   |        |               +      +                  |                  |
+# |                       +            |        |               |      |                  |                  |
+# |                       |           +v--------v-----------+   |      |                  |                  |
+# |                       |           | DECLARATION_LOADED  |   |      |                  |                  |
+# |                       |           +---------------------+   |      |                  |                  |
+# |                       |                                     |      |                  |                  |
+# |                       |                                     |      |                  |                  |
+# |                       v                                     v      |                  |                  |
+# |                       getReorderedDomainsAccordingToDeclaration    |                  |                  |
+# |                                                                    |                  |                  |
+# |                                                                    |                  |                  |
+# |                                                                    |                  |                  |
+# |                                                                    |                  |                  |
+# |                                                                    |                  |                  |
+# +-----------------------------------> loadTemplateAttributes <--------------------------+                  |
+#                                         +       +                    |                                     |
+#                                         |       |                    |                                     |
+#                                         |       |                    |                                     |
+#                                         |       |                    |                                     |
+#                                         |       |                    |                                     v
+#   loadDomains <-------------------------+       +----------------------------------------------------->  loadDeclarationPrefixFromString
+#        ^                                                             |
+#        |                                                             |
+#        |                                                             |
+#        |                                                             |
+#        +-------------------------------------------------------------+
+
+
+
 #Set of declaration types that are mutually exlusive for
 #declaration lines in Hybrid Fortran.
 #-> You cannot mix and match declarations of different types
@@ -78,6 +129,39 @@ def splitDeclarationSettingsFromSymbols(line, dependantSymbols, patterns, withAn
         declarationDirectivesWithoutIntent = declarationDirectives
 
     return declarationDirectivesWithoutIntent, declarationDirectives, symbolDeclarationStr
+
+def getReorderedDomainsAccordingToDeclaration(domains, dimensionSizesInDeclaration):
+    def getNextUnusedIndexForDimensionSize(domainSize, dimensionSizesInDeclaration, usedIndices):
+        index_candidate = None
+        startAt = 0
+        while True:
+            if startAt > len(dimensionSizesInDeclaration) - 1:
+                return None
+            try:
+                index_candidate = dimensionSizesInDeclaration[startAt:].index(domainSize) + startAt
+            except ValueError:
+                return None #example: happens when domains are declared for allocatables with :
+            if index_candidate in usedIndices:
+                startAt = index_candidate + 1
+            else:
+                break;
+        return index_candidate
+
+    if len(domains) != len(dimensionSizesInDeclaration) or len(domains) == 0:
+        return domains
+    reorderedDomains = [0] * len(domains)
+    usedIndices = []
+    fallBackToCurrentOrder = False
+    for (domainName, domainSize) in domains:
+        index = getNextUnusedIndexForDimensionSize(domainSize, dimensionSizesInDeclaration, usedIndices)
+        if index == None:
+            fallBackToCurrentOrder = True
+            break
+        usedIndices.append(index)
+        reorderedDomains[index] = (domainName, domainSize)
+    if fallBackToCurrentOrder:
+        return domains
+    return reorderedDomains
 
 def purgeDimensionAndGetAdjustedLine(line, patterns):
     match = patterns.dimensionPattern.match(line)
@@ -172,8 +256,8 @@ class Symbol(object):
         if len(self.domains) == 0:
             return result
         try:
-            domPP = self.domPP()
-            if self.parallelRegionPosition != "outside" and domPP != "":
+            domPP, isExplicit = self.domPP()
+            if domPP != "" and ((isExplicit and self.activeDomainsSameAsTemplate) or self.parallelRegionPosition != "outside"):
                 result = result + "(" + domPP + "("
             else:
                 result = result + "("
@@ -211,6 +295,15 @@ class Symbol(object):
         if self.parallelRegionPosition == "outside":
             return 0
         return len(self.parallelActiveDims)
+
+    @property
+    def activeDomainsSameAsTemplate(self):
+        if not self.template:
+            return False
+        templateDomains = getDomNameAndSize(self.template)
+        if len(self.domains) == len(templateDomains):
+            return True
+        return False
 
     def setOptionsFromAttributes(self, attributes):
         if "present" in attributes:
@@ -252,7 +345,10 @@ class Symbol(object):
         self.sourceModule = domainDependantEntryNode.getAttribute("sourceModule")
         self.sourceSymbol = domainDependantEntryNode.getAttribute("sourceSymbol")
         self.isPointer = domainDependantEntryNode.getAttribute("isPointer") == "yes"
-        for dimSize in domainDependantEntryNode.getAttribute("declaredDimensionSizes").split(","):
+        self.declaredDimensionSizes = domainDependantEntryNode.getAttribute("declaredDimensionSizes").split(",")
+        if len(self.declaredDimensionSizes) > 0:
+            self.domains = []
+        for dimSize in self.declaredDimensionSizes:
             if dimSize.strip() != "":
                 self.domains.append(('HF_GENERIC_DIM', dimSize))
         self.initLevel = max(self.initLevel, Init.DEPENDANT_ENTRYNODE_ATTRIBUTES_LOADED)
@@ -266,6 +362,9 @@ class Symbol(object):
         dependantDomNameAndSize = getDomNameAndSize(self.template)
         declarationPrefixFromTemplate = getDeclarationPrefix(self.template)
         self.loadDeclarationPrefixFromString(declarationPrefixFromTemplate)
+        if not self.isModuleSymbol and (not parallelRegionTemplates or len(parallelRegionTemplates) == 0):
+            sys.stderr.write("WARNING: No active parallel region found, in subroutine %s where dependants are defined\n" %(self.routineNode.getAttribute("name")))
+            return
         self.loadDomains(dependantDomNameAndSize, parallelRegionTemplates)
 
     def loadDeclarationPrefixFromString(self, declarationPrefixFromTemplate):
@@ -282,9 +381,6 @@ class Symbol(object):
         #   the currently active parallel regions?                    #
         #   -> put them in the 'parallelActive' set, put the          #
         #   others in the 'parallelInactive' set.                     #
-        if not self.isModuleSymbol and (not parallelRegionTemplates or len(parallelRegionTemplates) == 0):
-            sys.stderr.write("WARNING: No active parallel region found, in subroutine %s where dependants are defined\n" %(self.routineNode.getAttribute("name")))
-            return
         self.parallelActiveDims = []
         self.parallelInactiveDims = []
         self.aggregatedRegionDomNames = []
@@ -314,9 +410,16 @@ class Symbol(object):
                     %(self.name, dependantDomSize))
             self.domains.append((dependantDomName, dependantDomSize))
         if self.isAutoDom and not self.isPointer:
-            for dim in dimsBeforeReset:
-                self.domains.append(dim)
+            alreadyEstablishedDomSizes = [domSize for (domName, domSize) in self.domains]
+            for (domName, domSize) in dimsBeforeReset:
+                if len(dimsBeforeReset) == len(self.domains) and domSize in alreadyEstablishedDomSizes:
+                    continue
+                self.domains.append((domName, domSize))
         self.checkIntegrityOfDomains()
+        if self.debugPrint:
+            sys.stderr.write("Domains loaded from callgraph information for symbol %s. Parallel active: %s. Parallel Inactive: %s." %(
+                str(self), str(self.parallelActiveDims), str(self.parallelInactiveDims)
+            ))
 
     def loadModuleNodeAttributes(self, moduleNode):
         if self.initLevel < Init.DEPENDANT_ENTRYNODE_ATTRIBUTES_LOADED:
@@ -360,44 +463,6 @@ class Symbol(object):
             sys.stderr.write("routine node attributes loaded for symbol %s. Domains at this point: %s\n" %(self.name, str(self.domains)))
 
     def loadDeclaration(self, paramDeclMatch, patterns):
-        def getNextUnusedIndexForDimensionSize(domainSize, dimensionSizesInDeclaration, usedIndices):
-            index_candidate = None
-            startAt = 0
-            while True:
-                if startAt > len(dimensionSizesInDeclaration) - 1:
-                    return None
-                try:
-                    index_candidate = dimensionSizesInDeclaration[startAt:].index(domainSize) + startAt
-                except ValueError:
-                    return None #example: happens when domains are declared for allocatables with :
-                if index_candidate in usedIndices:
-                    startAt = index_candidate + 1
-                else:
-                    break;
-            return index_candidate
-
-
-        def getReorderedDomainsAccordingToDeclaration(domains, dimensionSizesInDeclaration):
-            if len(domains) != len(dimensionSizesInDeclaration) or len(domains) == 0:
-                return domains
-            if self.debugPrint:
-                sys.stderr.write("reordering domains (%s) for symbol %s according to declaration (%s).\n"
-                    %(str(domains), self.name, str(dimensionSizesInDeclaration))
-                )
-            reorderedDomains = [0] * len(domains)
-            usedIndices = []
-            fallBackToCurrentOrder = False
-            for (domainName, domainSize) in domains:
-                index = getNextUnusedIndexForDimensionSize(domainSize, dimensionSizesInDeclaration, usedIndices)
-                if index == None:
-                    fallBackToCurrentOrder = True
-                    break
-                usedIndices.append(index)
-                reorderedDomains[index] = (domainName, domainSize)
-            if fallBackToCurrentOrder:
-                return domains
-            return reorderedDomains
-
         if self.initLevel > Init.ROUTINENODE_ATTRIBUTES_LOADED:
             sys.stderr.write("WARNING: symbol %s's declaration is loaded when the initialization level has already advanced further.\n" \
                 %(str(self))
@@ -611,22 +676,32 @@ Parallel region position: %s"
                 continue
             self.loadDomainDependantEntryNodeAttributes(entry, warnOnOverwrite=False)
             moduleTemplate = template
-        if moduleTemplate != None:
-            informationLoadedFromModule = True
-            if self.debugPrint:
-                sys.stderr.write(
-                    "Loading symbol information for %s imported from %s\n\
+            break
+        else:
+            raise Exception("Symbol %s not found in module information available to Hybrid Fortran. Please use an appropriate @domainDependant specification.")
+        informationLoadedFromModule = True
+        if self.debugPrint:
+            sys.stderr.write(
+                "Loading symbol information for %s imported from %s\n\
 Procedure @domainDependant specification: %s\n\
-Imported specification: %s\n" %(self.name, self.sourceModule, routineTemplate.toxml(), moduleTemplate.toxml())
+Imported specification: %s\n\
+Current Domains: %s\n" %(
+                    self.name, sourceModuleName, routineTemplate.toxml(), moduleTemplate.toxml(), str(self.domains)
                 )
+            )
         attributes, domains, declarationPrefix = getAttributesDomainsAndDeclarationPrefixFromModuleTemplateAndProcedureTemplateForProcedure(moduleTemplate, routineTemplate)
         self.setOptionsFromAttributes(attributes)
         self.loadDeclarationPrefixFromString(declarationPrefix)
         self.loadDomains(domains, self.parallelRegionTemplates if self.parallelRegionTemplates != None else [])
+        self.domains = getReorderedDomainsAccordingToDeclaration(self.domains, self.declaredDimensionSizes)
         self.initLevel = max(self.initLevel, Init.DECLARATION_LOADED)
         if self.debugPrint:
             sys.stderr.write(
-                "Symbol %s's initialization completed using module information.\n" %(str(self))
+                "Symbol %s's initialization completed using module information.\nDomains found in module: %s.\nParallel Region Templates: %s\n" %(
+                    str(self),
+                    str(domains),
+                    str([template.toxml() for template in self.parallelRegionTemplates]) if self.parallelRegionTemplates != None else "None"
+                )
             )
 
     def getDimensionStringAndRemainderFromDeclMatch(self, paramDeclMatch, dimensionPattern):
@@ -727,8 +802,9 @@ EXAMPLE:\n\
         if len(self.domains) == 0:
             return result
         result += "("
-        domPP = self.domPP()
-        if self.numOfParallelDomains != 0 and domPP != "":
+        domPP, isExplicit = self.domPP()
+        if domPP != "" and ((isExplicit and self.activeDomainsSameAsTemplate) or self.numOfParallelDomains != 0):
+            #$$$ we need to include the template here to make pointers compatible with templating
             result += domPP + "("
         for index, domain in enumerate(self.domains):
             if index != 0:
@@ -743,7 +819,7 @@ Please specify the domains and their sizes with domName and domSize attributes i
         result += ")"
         return result
 
-    def accessRepresentation(self, parallelIterators, offsets):
+    def accessRepresentation(self, parallelIterators, offsets, parallelRegionNode):
         if self.debugPrint:
             sys.stderr.write("producing access representation for symbol %s; parallel iterators: %s, offsets: %s\n" %(self.name, str(parallelIterators), str(offsets)))
 
@@ -770,13 +846,15 @@ Please specify the domains and their sizes with domName and domSize attributes i
                 sys.stderr.write("Symbol has 0 domains - only returning name.\n")
             return result
         result = result + "("
-        accPP = self.accPP()
-        if self.numOfParallelDomains != 0 and accPP != "":
+        accPP, accPPIsExplicit = self.accPP()
+        if (not accPPIsExplicit or not self.activeDomainsSameAsTemplate) and self.numOfParallelDomains != 0 and accPP != "":
+            if parallelRegionNode:
+                template = getTemplate(parallelRegionNode)
+                if template != '':
+                    accPP += "_" + template
             result = result + accPP + "("
-            if self.debugPrint:
-                sys.stderr.write("Accessor Macro: %s\n" %(accPP))
-        elif self.debugPrint:
-            sys.stderr.write("Accessor Macro not used since this symbol doesn't have parallel domains.")
+        elif accPPIsExplicit and self.activeDomainsSameAsTemplate and accPP != "":
+            result = result + accPP + "("
         nextOffsetIndex = 0
         for i in range(len(self.domains)):
             if i != 0:
@@ -854,7 +932,7 @@ Please specify the domains and their sizes with domName and domSize attributes i
     def domPP(self):
         domPPEntries = self.getTemplateEntryNodeValues("domPP")
         if domPPEntries and len(domPPEntries) > 0:
-            return domPPEntries[0]
+            return domPPEntries[0], True
 
         if self.isAutoDom:
             numOfDimensions = len(self.domains)
@@ -865,15 +943,15 @@ Please specify the domains and their sizes with domName and domSize attributes i
                 domPPName = "DOM"
             else:
                 domPPName = "DOM%i" %(numOfDimensions)
-            return domPPName
+            return domPPName, False
         else:
-            return ""
+            return "", False
 
 
     def accPP(self):
         accPPEntries = self.getTemplateEntryNodeValues("accPP")
         if accPPEntries and len(accPPEntries) > 0:
-            return accPPEntries[0]
+            return accPPEntries[0], True
 
         if self.isAutoDom:
             numOfDimensions = len(self.domains)
@@ -884,9 +962,9 @@ Please specify the domains and their sizes with domName and domSize attributes i
                 accPPName = "AT"
             else:
                 accPPName = "AT%i" %(numOfDimensions)
-            return accPPName
+            return accPPName, False
         else:
-            return ""
+            return "", False
 
 class FrameworkArray(Symbol):
 

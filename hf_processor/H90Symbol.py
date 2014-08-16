@@ -256,9 +256,11 @@ class Symbol(object):
         if len(self.domains) == 0:
             return result
         try:
+            needsAdditionalClosingBracket = False
             domPP, isExplicit = self.domPP()
             if domPP != "" and ((isExplicit and self.activeDomainsSameAsTemplate) or self.parallelRegionPosition != "outside"):
                 result = result + "(" + domPP + "("
+                needsAdditionalClosingBracket = True
             else:
                 result = result + "("
             for i in range(len(self.domains)):
@@ -269,7 +271,7 @@ class Symbol(object):
                 else:
                     (domName, domSize) = self.domains[i]
                     result += domSize
-            if self.parallelRegionPosition != "outside" and domPP != "":
+            if needsAdditionalClosingBracket:
                 result = result + "))"
             else:
                 result = result + ")"
@@ -801,10 +803,12 @@ EXAMPLE:\n\
         result = self.deviceName()
         if len(self.domains) == 0:
             return result
+        needsAdditionalClosingBracket = False
         result += "("
         domPP, isExplicit = self.domPP()
         if domPP != "" and ((isExplicit and self.activeDomainsSameAsTemplate) or self.numOfParallelDomains != 0):
             #$$$ we need to include the template here to make pointers compatible with templating
+            needsAdditionalClosingBracket = True
             result += domPP + "("
         for index, domain in enumerate(self.domains):
             if index != 0:
@@ -814,7 +818,7 @@ EXAMPLE:\n\
                 raise Exception("Cannot generate allocation call for symbol %s on the device - one or more dimension sizes are unknown at this point. \
 Please specify the domains and their sizes with domName and domSize attributes in the corresponding @domainDependant directive." %(self.name))
             result += dimSize
-        if self.numOfParallelDomains != 0 and domPP != "":
+        if needsAdditionalClosingBracket:
             result += ")"
         result += ")"
         return result
@@ -845,6 +849,7 @@ Please specify the domains and their sizes with domName and domSize attributes i
             if self.debugPrint:
                 sys.stderr.write("Symbol has 0 domains - only returning name.\n")
             return result
+        needsAdditionalClosingBracket = False
         result = result + "("
         accPP, accPPIsExplicit = self.accPP()
         if (not accPPIsExplicit or not self.activeDomainsSameAsTemplate) and self.numOfParallelDomains != 0 and accPP != "":
@@ -853,8 +858,10 @@ Please specify the domains and their sizes with domName and domSize attributes i
                 if template != '':
                     accPP += "_" + template
             result = result + accPP + "("
+            needsAdditionalClosingBracket = True
         elif accPPIsExplicit and self.activeDomainsSameAsTemplate and accPP != "":
             result = result + accPP + "("
+            needsAdditionalClosingBracket = True
         nextOffsetIndex = 0
         for i in range(len(self.domains)):
             if i != 0:
@@ -891,7 +898,7 @@ Please specify the domains and their sizes with domName and domSize attributes i
                     %(str(self), str(parallelIterators), str(offsets))
                 )
 
-        if self.numOfParallelDomains != 0 and accPP != "":
+        if needsAdditionalClosingBracket:
             result = result + ")"
         result = result + ")"
         return result

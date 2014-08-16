@@ -161,6 +161,9 @@ class FortranImplementation(object):
     onDevice = False
     multipleParallelRegionsPerSubroutineAllowed = True
 
+    def filePreparation(self, filename):
+        return '''#include "storage_order.F90"\n'''
+
     def warningOnUnrecognizedSubroutineCallInParallelRegion(self, callerName, calleeName):
         return ""
 
@@ -263,6 +266,15 @@ class OpenMPFortranImplementation(FortranImplementation):
 
 class PGIOpenACCFortranImplementation(FortranImplementation):
     onDevice = True
+
+    def filePreparation(self, filename):
+        additionalStatements = '''
+attributes(global) subroutine HF_DUMMYKERNEL_%s()
+use cudafor
+!This ugly hack is used because otherwise as of PGI 14.7, OpenACC kernels could not be used in code that is compiled with CUDA flags.
+end subroutine
+        ''' %(os.path.basename(filename).split('.')[0])
+        return FortranImplementation.filePreparation(self, filename) + additionalStatements
 
     def declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates):
         result = ""

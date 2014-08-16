@@ -1548,7 +1548,7 @@ or %i (number of declared dimensions for this array) accessors." %(symbol.name, 
         sys.stdout.write(self.currentLine)
 
     def processFile(self, fileName):
-        sys.stdout.write('''#include "storage_order.F90"\n''')
+        sys.stdout.write(self.implementation.filePreparation(fileName))
         super(H90toF90Printer, self).processFile(fileName)
 
     #TODO: remove tab argument everywhere

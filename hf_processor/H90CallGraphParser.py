@@ -1015,13 +1015,13 @@ or %i (number of declared dimensions for this array) accessors." %(symbol.name, 
             adjustedLine = self.implementation.kernelCallPreparation(parallelRegionTemplates[0], calleeNode=self.currCalleeNode)
             adjustedLine = adjustedLine + "call " + self.currCalleeName + " " + self.implementation.kernelCallConfig()
 
-        if self.currCalleeNode \
-        and getRoutineNodeInitStage(self.currCalleeNode) == RoutineNodeInitStage.DIRECTIVES_WITHOUT_PARALLELREGION_POSITION:
-            #special case. see also processBeginMatch.
-            self.prepareLine("! " + subProcCallMatch.group(0), "")
-            self.symbolsPassedInCurrentCallByName = {}
-            self.currCalleeNode = None
-            return
+        # if self.currCalleeNode \
+        # and getRoutineNodeInitStage(self.currCalleeNode) == RoutineNodeInitStage.DIRECTIVES_WITHOUT_PARALLELREGION_POSITION:
+        #     #special case. see also processBeginMatch.
+        #     self.prepareLine("! " + subProcCallMatch.group(0), "")
+        #     self.symbolsPassedInCurrentCallByName = {}
+        #     self.currCalleeNode = None
+        #     return
 
         arguments = subProcCallMatch.group(2)
         paramListMatch = self.patterns.subprocFirstLineParameterListPattern.match(arguments)
@@ -1211,24 +1211,24 @@ or %i (number of declared dimensions for this array) accessors." %(symbol.name, 
         '''process everything that happens per h90 declaration line'''
         super(H90toF90Printer, self).processInsideDeclarationsState(line)
         routineNode = self.routineNodesByProcName.get(self.currSubprocName)
-        if routineNode \
-        and getRoutineNodeInitStage(routineNode) == RoutineNodeInitStage.DIRECTIVES_WITHOUT_PARALLELREGION_POSITION \
-        and self.implementation.onDevice:
-            #during analysis we've found that this routine had a parallel region directive but now
-            #there is no relation to a parallel region anymore in the callgraph.
-            #This is a special case where the programmer most probably commented out the call to this subroutine
-            #=> go into skipped state where the whole subroutine body is printed out commented (don't compile the body)
-            if self.currSubroutineImplementationNeedsToBeCommented != True:
-                sys.stderr.write("WARNING: subroutine body for %s is getting commented out by HF - can't determine the position of its parallel region \
-relative to the rest of the program. Please ignore this message if you have intentionally commented out a call to the respective subroutine \n" \
-                    %(self.currSubprocName) \
-                )
-                self.currSubroutineImplementationNeedsToBeCommented = True
-            if self.state == "inside_declarations":
-                self.prepareLine(line, "")
-            else:
-                self.prepareLine("! " + line, "")
-            return
+#         if routineNode \
+#         and getRoutineNodeInitStage(routineNode) == RoutineNodeInitStage.DIRECTIVES_WITHOUT_PARALLELREGION_POSITION \
+#         and self.implementation.onDevice:
+#             #during analysis we've found that this routine had a parallel region directive but now
+#             #there is no relation to a parallel region anymore in the callgraph.
+#             #This is a special case where the programmer most probably commented out the call to this subroutine
+#             #=> go into skipped state where the whole subroutine body is printed out commented (don't compile the body)
+#             if self.currSubroutineImplementationNeedsToBeCommented != True:
+#                 sys.stderr.write("WARNING: subroutine body for %s is getting commented out by HF - can't determine the position of its parallel region \
+# relative to the rest of the program. Please ignore this message if you have intentionally commented out a call to the respective subroutine \n" \
+#                     %(self.currSubprocName) \
+#                 )
+#                 self.currSubroutineImplementationNeedsToBeCommented = True
+#             if self.state == "inside_declarations":
+#                 self.prepareLine(line, "")
+#             else:
+#                 self.prepareLine("! " + line, "")
+#             return
 
         if self.state != "inside_declarations" and self.state != "inside_module" and self.state != "inside_subroutine_call":
             additionalDeclarationsStr = ""
@@ -1501,11 +1501,11 @@ relative to the rest of the program. Please ignore this message if you have inte
         super(H90toF90Printer, self).processInsideSubroutineCall(line)
         adjustedLine = ""
 
-        if self.currCalleeNode and getRoutineNodeInitStage(self.currCalleeNode) == RoutineNodeInitStage.DIRECTIVES_WITHOUT_PARALLELREGION_POSITION:
-            #special case. see also processBeginMatch.
-            adjustedLine = "! " + line
-        else:
-            adjustedLine = self.processSymbolsAndGetAdjustedLine(line, isInsideSubroutineCall=True)
+        # if self.currCalleeNode and getRoutineNodeInitStage(self.currCalleeNode) == RoutineNodeInitStage.DIRECTIVES_WITHOUT_PARALLELREGION_POSITION:
+        #     #special case. see also processBeginMatch.
+        #     adjustedLine = "! " + line
+        # else:
+        adjustedLine = self.processSymbolsAndGetAdjustedLine(line, isInsideSubroutineCall=True)
 
         if self.currCalleeNode and self.state != "inside_subroutine_call":
             adjustedLine = self.processCallPostAndGetAdjustedLine(adjustedLine)

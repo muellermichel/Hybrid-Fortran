@@ -33,6 +33,19 @@
 EXECUTABLES="example"
 
 #############################################################################
+# Option flags used in the code transformation step (new in 0.93)           #
+#############################################################################
+# Add the following options, comma separated, if needed.
+#
+# DO_NOT_TOUCH_GPU_CACHE_SETTINGS:
+# Adding this flag will set the GPU cache to L1preferred for each kernel.
+# (Hybrid Fortran does not automate shared memory usage at the moment, so if you don't
+# program shared memory specifically, this setting makes more sense).
+# If you need Device capabilities below 3.x, you should add this flag because of
+# incompatibilities with the HF cache setup with older CUDA versions.
+OPTION_FLAGS=
+
+#############################################################################
 # directories as seen from project directory.                               #
 # PLEASE ALWAYS SPECIFY WITHOUT TRAILING SLASH                              #
 #############################################################################

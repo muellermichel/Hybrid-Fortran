@@ -73,15 +73,9 @@ BUILD_ARGS_PRE=
 endif
 endif
 
-ifdef VERBOSE
-H90_PREPROCESSOR_ARGS="--debug"
-DEBUG_OUTPUT=&1
-BUILD_ARGS="${BUILD_ARGS_PRE} VERBOSE=1"
-else
-H90_PREPROCESSOR_ARGS=
-DEBUG_OUTPUT=/dev/null
-endif
-
+#############################################################################
+# Determine whether tests should be performed with build                    #
+#############################################################################
 ifeq ($(TEST_WITH_EVERY_BUILD),true)
 ADDITIONAL_BUILD_TARGETS_CPU=tests_cpu
 ADDITIONAL_BUILD_TARGETS_GPU=tests_gpu
@@ -89,6 +83,7 @@ else
 ADDITIONAL_BUILD_TARGETS_CPU=
 ADDITIONAL_BUILD_TARGETS_GPU=
 endif
+#############################################################################
 
 #############################################################################
 # Determine sources and directories                                         #
@@ -217,13 +212,28 @@ endif
 #############################################################################
 # Determine dependency generator                                            #
 #############################################################################
-AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH_CPU =
-AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH_GPU =
+AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH_CPU=
+AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH_GPU=
 ifdef AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH
-	AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH_CPU = ${DIR_CPU}${AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH}
-	AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH_GPU = ${DIR_GPU}${AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH}
+	AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH_CPU= ${DIR_CPU}${AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH}
+	AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH_GPU= ${DIR_GPU}${AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH}
 endif
 #############################################################################
+
+#############################################################################
+# Determine arguments to preprocessor and to compiler                       #
+#############################################################################
+ifdef VERBOSE
+H90_PREPROCESSOR_ARGS="--debug"
+DEBUG_OUTPUT=&1
+BUILD_ARGS="${BUILD_ARGS_PRE} VERBOSE=1"
+else
+H90_PREPROCESSOR_ARGS=
+DEBUG_OUTPUT=/dev/null
+endif
+#############################################################################
+
+
 
 SRC_FORT_COMMON_DIRS=$(dir $(SRC_FORT)) $(dir $(SRC_H90_ALL))
 
@@ -526,14 +536,14 @@ ${SRC_DIR_HFPP}%.h90: %.h90
 	@mkdir -p ${SRC_DIR_HFPP}; cp -fp $< $@
 
 ${SRC_DIR_CPU}%.F90: ${SRC_DIR_HFPP}%.h90
-	@echo ...........converting $< to $@ using ${CPU_CALLGRAPH_FILE} and ${CPU_IMPLEMENTATION}
-	@echo ..calling generateF90fromH90AndAnalyzedCallGraph.py -i $< -c ${CG_DIR}${CPU_CALLGRAPH_FILE} --implementation ${CPU_IMPLEMENTATION} ${H90_PREPROCESSOR_ARGS} >${DEBUG_OUTPUT}
-	@python ${TOOLSDIR}/generateF90fromH90AndAnalyzedCallGraph.py -i $< -c ${CG_DIR}${CPU_CALLGRAPH_FILE} --implementation ${CPU_IMPLEMENTATION} ${H90_PREPROCESSOR_ARGS} > $@ ;\
+	@echo ...........converting $< to $@ using ${CPU_CALLGRAPH_FILE} and ${CPU_IMPLEMENTATION} using flags ${OPTION_FLAGS}
+	@echo ..calling generateF90fromH90AndAnalyzedCallGraph.py -i $< -c ${CG_DIR}${CPU_CALLGRAPH_FILE} --implementation=${CPU_IMPLEMENTATION} --optionFlags=${OPTION_FLAGS} ${H90_PREPROCESSOR_ARGS} >${DEBUG_OUTPUT}
+	@python ${TOOLSDIR}/generateF90fromH90AndAnalyzedCallGraph.py -i $< -c ${CG_DIR}${CPU_CALLGRAPH_FILE} --implementation=${CPU_IMPLEMENTATION} ${H90_PREPROCESSOR_ARGS} > $@ ;\
 
 ${SRC_DIR_GPU}%.F90: ${SRC_DIR_HFPP}%.h90
-	@echo ...........converting $< to $@ using ${GPU_CALLGRAPH_FILE} and ${GPU_IMPLEMENTATION}
-	@echo ..calling generateF90fromH90AndAnalyzedCallGraph.py -i $< -c ${CG_DIR}${GPU_CALLGRAPH_FILE} --implementation ${GPU_IMPLEMENTATION} ${H90_PREPROCESSOR_ARGS} >${DEBUG_OUTPUT}
-	@python ${TOOLSDIR}/generateF90fromH90AndAnalyzedCallGraph.py -i $< -c ${CG_DIR}${GPU_CALLGRAPH_FILE} --implementation ${GPU_IMPLEMENTATION} ${H90_PREPROCESSOR_ARGS} > $@ ;\
+	@echo ...........converting $< to $@ using ${GPU_CALLGRAPH_FILE} and ${GPU_IMPLEMENTATION} using flags ${OPTION_FLAGS}
+	@echo ..calling generateF90fromH90AndAnalyzedCallGraph.py -i $< -c ${CG_DIR}${GPU_CALLGRAPH_FILE} --implementation=${GPU_IMPLEMENTATION} --optionFlags=${OPTION_FLAGS} ${H90_PREPROCESSOR_ARGS} >${DEBUG_OUTPUT}
+	@python ${TOOLSDIR}/generateF90fromH90AndAnalyzedCallGraph.py -i $< -c ${CG_DIR}${GPU_CALLGRAPH_FILE} --implementation=${GPU_IMPLEMENTATION} --optionFlags=${OPTION_FLAGS} ${H90_PREPROCESSOR_ARGS} > $@ ;\
 
 ${SRC_DIR_HFPP}%.h90: %.H90
 	@echo ...........preprocessing file $@

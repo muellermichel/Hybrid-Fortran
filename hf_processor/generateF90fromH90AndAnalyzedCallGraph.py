@@ -47,7 +47,11 @@ parser.add_option("-d", "--debug", action="store_true", dest="debug",
                   help="show debug print in standard error output")
 parser.add_option("-m", "--implementation", dest="implementation",
                   help="specify a FortranImplementation classname as specified in FortranImplementation.py", metavar="IMP")
+parser.add_option("--optionFlags", dest="optionFlags",
+                  help="can be used to switch on or off the following flags (comma separated): DO_NOT_TOUCH_GPU_CACHE_SETTINGS")
 (options, args) = parser.parse_args()
+
+optionFlags = options.optionFlags.split(',') if options.optionFlags != None else []
 
 if (not options.sourceFile):
     sys.stderr.write("sourceH90File option is mandatory. Use '--help' for informations on how to use this module\n")
@@ -69,7 +73,7 @@ cgFile.close()
 
 try:
   implementationAttr = getattr(FortranImplementation, options.implementation)
-  implementation = implementationAttr()
+  implementation = implementationAttr(optionFlags)
   f90printer = H90toF90Printer(cgDoc, implementation)
   f90printer.debugPrint = options.debug
   f90printer.processFile(options.sourceFile)

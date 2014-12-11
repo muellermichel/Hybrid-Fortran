@@ -160,6 +160,12 @@ def getRuntimeDebugPrintStatements(symbolsByName, calleeRoutineNode):
 class FortranImplementation(object):
     onDevice = False
     multipleParallelRegionsPerSubroutineAllowed = True
+    optionFlags = []
+
+    def __init__(self, optionFlags):
+        self.currDependantSymbols = None
+        if type(optionFlags) == list:
+            self.optionFlags = optionFlags
 
     def filePreparation(self, filename):
         return '''#include "storage_order.F90"\n'''
@@ -242,8 +248,9 @@ class FortranImplementation(object):
         return ''
 
 class OpenMPFortranImplementation(FortranImplementation):
-    def __init__(self):
+    def __init__(self, optionFlags):
         self.currDependantSymbols = None
+        FortranImplementation.__init__(self, optionFlags)
 
     def declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates):
         self.currDependantSymbols = dependantSymbols
@@ -360,8 +367,9 @@ class CUDAFortranImplementation(FortranImplementation):
     onDevice = True
     multipleParallelRegionsPerSubroutineAllowed = False
 
-    def __init__(self):
+    def __init__(self, optionFlags):
         self.currRoutineNode = None
+        FortranImplementation.__init__(self, optionFlags)
 
     def warningOnUnrecognizedSubroutineCallInParallelRegion(self, callerName, calleeName):
         return "WARNING: subroutine %s called inside %s's parallel region, but it is not defined in a h90 file.\n" \
@@ -374,7 +382,7 @@ class CUDAFortranImplementation(FortranImplementation):
         if not appliesTo(["GPU"], parallelRegionTemplate):
             return ""
         gridPreparationStr = ""
-        if calleeNode != None:
+        if calleeNode != None and "DO_NOT_TOUCH_GPU_CACHE_SETTINGS" not in self.optionFlags:
             gridPreparationStr += "cuerror = cudaFuncSetCacheConfig(%s, cudaFuncCachePreferL1)\n" %(calleeNode.getAttribute('name'))
             gridPreparationStr += "cuerror = cudaGetLastError()\n"
             gridPreparationStr += "if(cuerror .NE. cudaSuccess) then\n \
@@ -688,6 +696,7 @@ class DebugEmulatedCUDAFortranImplementation(DebugCUDAFortranImplementation):
 
     def __init__(self):
         self.currDependantSymbols = None
+        DebugCUDAFortranImplementation.__init__(self, optionFlags)
 
     def declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates):
         self.currDependantSymbols = dependantSymbols

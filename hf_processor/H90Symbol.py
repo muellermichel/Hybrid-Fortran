@@ -201,6 +201,7 @@ class Symbol(object):
     sourceSymbol = None
     debugPrint = None
     parallelRegionTemplates = None
+    declaredDimensionSizes = None
 
     def __init__(self, name, template, isAutomatic=False, debugPrint=False):
         if not name or name == "":
@@ -238,10 +239,12 @@ class Symbol(object):
         self.sourceSymbol = None
         self.isModuleSymbol = False
         self.parallelRegionTemplates = None
+        self.declaredDimensionSizes = None
 
         self.isPresent = False
         self.isAutoDom = False
         self.isToBeTransfered = False
+        self.isHostSymbol = False
         self.isCompacted = False
         attributes = getAttributes(self.template)
         self.setOptionsFromAttributes(attributes)
@@ -258,7 +261,7 @@ class Symbol(object):
         try:
             needsAdditionalClosingBracket = False
             domPP, isExplicit = self.domPP()
-            if domPP != "" and ((isExplicit and self.activeDomainsSameAsTemplate) or self.parallelRegionPosition != "outside"):
+            if domPP != "" and ((isExplicit and self.activeDomainsMatchSpecification) or self.parallelRegionPosition != "outside"):
                 result = result + "(" + domPP + "("
                 needsAdditionalClosingBracket = True
             else:
@@ -299,11 +302,19 @@ class Symbol(object):
         return len(self.parallelActiveDims)
 
     @property
-    def activeDomainsSameAsTemplate(self):
+    def activeDomainsMatchSpecification(self):
+        if not self.domains:
+            return False
+        if not self.template and not self.declaredDimensionSizes:
+            return False
+        if self.declaredDimensionSizes and len(self.domains) == len(self.declaredDimensionSizes):
+            return True
         if not self.template:
             return False
         templateDomains = getDomNameAndSize(self.template)
         if len(self.domains) == len(templateDomains):
+            return True
+        if len(self.domains) == len(templateDomains) + len(self.parallelInactiveDims):
             return True
         return False
 
@@ -312,6 +323,8 @@ class Symbol(object):
             self.isPresent = True
         if "autoDom" in attributes:
             self.isAutoDom = True
+        if "host" in attributes:
+            self.isHostSymbol = True
         if "transferHere" in attributes:
             if self.isPresent:
                 raise Exception("Symbol %s has contradicting attributes 'transferHere' and 'present'" %(self))
@@ -342,12 +355,12 @@ class Symbol(object):
                 %(str(self))
             )
 
-        self.intent = domainDependantEntryNode.getAttribute("intent")
-        self.declarationPrefix = domainDependantEntryNode.getAttribute("declarationPrefix")
-        self.sourceModule = domainDependantEntryNode.getAttribute("sourceModule")
-        self.sourceSymbol = domainDependantEntryNode.getAttribute("sourceSymbol")
-        self.isPointer = domainDependantEntryNode.getAttribute("isPointer") == "yes"
-        self.declaredDimensionSizes = domainDependantEntryNode.getAttribute("declaredDimensionSizes").split(",")
+        self.intent = domainDependantEntryNode.getAttribute("intent") if self.intent == None else self.intent
+        self.declarationPrefix = domainDependantEntryNode.getAttribute("declarationPrefix") if self.declarationPrefix == None else self.declarationPrefix
+        self.sourceModule = domainDependantEntryNode.getAttribute("sourceModule") if self.sourceModule == None else self.sourceModule
+        self.sourceSymbol = domainDependantEntryNode.getAttribute("sourceSymbol") if self.sourceSymbol == None else self.sourceSymbol
+        self.isPointer = domainDependantEntryNode.getAttribute("isPointer") == "yes" if not self.isPointer else self.isPointer
+        self.declaredDimensionSizes = domainDependantEntryNode.getAttribute("declaredDimensionSizes").split(",") if self.declaredDimensionSizes == None else self.declaredDimensionSizes
         if len(self.declaredDimensionSizes) > 0:
             self.domains = []
         for dimSize in self.declaredDimensionSizes:
@@ -364,9 +377,6 @@ class Symbol(object):
         dependantDomNameAndSize = getDomNameAndSize(self.template)
         declarationPrefixFromTemplate = getDeclarationPrefix(self.template)
         self.loadDeclarationPrefixFromString(declarationPrefixFromTemplate)
-        if not self.isModuleSymbol and (not parallelRegionTemplates or len(parallelRegionTemplates) == 0):
-            sys.stderr.write("WARNING: No active parallel region found, in subroutine %s where dependants are defined\n" %(self.routineNode.getAttribute("name")))
-            return
         self.loadDomains(dependantDomNameAndSize, parallelRegionTemplates)
 
     def loadDeclarationPrefixFromString(self, declarationPrefixFromTemplate):
@@ -395,7 +405,7 @@ class Symbol(object):
                 #The same domain name can sometimes have different domain sizes used in different parallel regions, so we build up a list of these sizes.
                 if not regionDomName in self.aggregatedRegionDomSizesByName:
                     self.aggregatedRegionDomSizesByName[regionDomName] = [regionDomSize]
-                else:
+                elif regionDomSize not in self.aggregatedRegionDomSizesByName[regionDomName]:
                     self.aggregatedRegionDomSizesByName[regionDomName].append(regionDomSize)
                 self.aggregatedRegionDomNames.append(regionDomName)
 
@@ -419,7 +429,7 @@ class Symbol(object):
                 self.domains.append((domName, domSize))
         self.checkIntegrityOfDomains()
         if self.debugPrint:
-            sys.stderr.write("Domains loaded from callgraph information for symbol %s. Parallel active: %s. Parallel Inactive: %s." %(
+            sys.stderr.write("Domains loaded from callgraph information for symbol %s. Parallel active: %s. Parallel Inactive: %s.\n" %(
                 str(self), str(self.parallelActiveDims), str(self.parallelInactiveDims)
             ))
 
@@ -453,13 +463,14 @@ class Symbol(object):
         if not routineName:
             raise Exception("Unexpected error: routine node without name: %s" %(routineNode.toxml()))
         parallelRegionPosition = routineNode.getAttribute("parallelRegionPosition")
-        if not parallelRegionPosition or parallelRegionPosition == "":
-            return #when this routine is called in the declaraton extractor script (stage 1) -> parallel regions not analyzed yet.
-        if parallelRegionPosition not in ["inside", "outside", "within"]:
-            raise Exception("Invalid parallel region position definition ('%s') for routine %s" %(parallelRegionPosition, routineName))
-        self.parallelRegionPosition = parallelRegionPosition
-        self.parallelRegionTemplates = parallelRegionTemplates
-        self.loadTemplateAttributes(parallelRegionTemplates)
+        parallelRegionTemplatesUsedForLoading = []
+        if parallelRegionPosition and parallelRegionPosition != "":
+            self.parallelRegionPosition = parallelRegionPosition
+            self.parallelRegionTemplates = parallelRegionTemplates
+            if parallelRegionPosition not in ["inside", "outside", "within"]:
+                raise Exception("Invalid parallel region position definition ('%s') for routine %s" %(parallelRegionPosition, routineName))
+            parallelRegionTemplatesUsedForLoading = parallelRegionTemplates
+        self.loadTemplateAttributes(parallelRegionTemplatesUsedForLoading)
         self.initLevel = max(self.initLevel, Init.ROUTINENODE_ATTRIBUTES_LOADED)
         if self.debugPrint:
             sys.stderr.write("routine node attributes loaded for symbol %s. Domains at this point: %s\n" %(self.name, str(self.domains)))
@@ -651,9 +662,10 @@ Parallel region position: %s"
             )
 
         sourceModuleName = importMatch.group(1)
-        if sourceModuleName == "":
-            raise Exception("Invalid module in use statement for symbol %s" %(symbol.name))
         self.sourceModule = sourceModuleName
+        if type(self.sourceModule) != str or self.sourceModule == "":
+            raise Exception("Invalid module in use statement for symbol %s" %(symbol.name))
+
         mapMatch = self.symbolImportMapPattern.match(importMatch.group(0))
         sourceSymbolName = ""
         if mapMatch:
@@ -680,15 +692,13 @@ Parallel region position: %s"
             moduleTemplate = template
             break
         else:
-            raise Exception("Symbol %s not found in module information available to Hybrid Fortran. Please use an appropriate @domainDependant specification.")
+            raise Exception("Symbol %s not found in module information available to Hybrid Fortran. Please use an appropriate @domainDependant specification." %(self.name))
         informationLoadedFromModule = True
         if self.debugPrint:
             sys.stderr.write(
-                "Loading symbol information for %s imported from %s\n\
-Procedure @domainDependant specification: %s\n\
-Imported specification: %s\n\
+                "Loading symbol information for %s imported from %s (import line: '%s')\n\
 Current Domains: %s\n" %(
-                    self.name, sourceModuleName, routineTemplate.toxml(), moduleTemplate.toxml(), str(self.domains)
+                    self.name, self.sourceModule, importMatch.group(0), str(self.domains)
                 )
             )
         attributes, domains, declarationPrefix = getAttributesDomainsAndDeclarationPrefixFromModuleTemplateAndProcedureTemplateForProcedure(moduleTemplate, routineTemplate)
@@ -699,10 +709,9 @@ Current Domains: %s\n" %(
         self.initLevel = max(self.initLevel, Init.DECLARATION_LOADED)
         if self.debugPrint:
             sys.stderr.write(
-                "Symbol %s's initialization completed using module information.\nDomains found in module: %s.\nParallel Region Templates: %s\n" %(
+                "Symbol %s's initialization completed using module information.\nDomains found in module: %s.\n" %(
                     str(self),
-                    str(domains),
-                    str([template.toxml() for template in self.parallelRegionTemplates]) if self.parallelRegionTemplates != None else "None"
+                    str(domains)
                 )
             )
 
@@ -806,7 +815,7 @@ EXAMPLE:\n\
         needsAdditionalClosingBracket = False
         result += "("
         domPP, isExplicit = self.domPP()
-        if domPP != "" and ((isExplicit and self.activeDomainsSameAsTemplate) or self.numOfParallelDomains != 0):
+        if domPP != "" and ((isExplicit and self.activeDomainsMatchSpecification) or self.numOfParallelDomains != 0):
             #$$$ we need to include the template here to make pointers compatible with templating
             needsAdditionalClosingBracket = True
             result += domPP + "("
@@ -852,14 +861,19 @@ Please specify the domains and their sizes with domName and domSize attributes i
         needsAdditionalClosingBracket = False
         result = result + "("
         accPP, accPPIsExplicit = self.accPP()
-        if (not accPPIsExplicit or not self.activeDomainsSameAsTemplate) and self.numOfParallelDomains != 0 and accPP != "":
+        if self.debugPrint:
+            sys.stderr.write("accPP Macro: %s, Explicit Macro: %s, Active Domains matching domain dependant template: %s, Number of Parallel Domains: %i\n\
+Currently loaded template: %s\n" %(
+                accPP, str(accPPIsExplicit), self.activeDomainsMatchSpecification, self.numOfParallelDomains, self.template.toxml() if self.template != None else "None"
+            ))
+        if (not accPPIsExplicit or not self.activeDomainsMatchSpecification) and self.numOfParallelDomains != 0 and accPP != "":
             if parallelRegionNode:
                 template = getTemplate(parallelRegionNode)
                 if template != '':
                     accPP += "_" + template
             result = result + accPP + "("
             needsAdditionalClosingBracket = True
-        elif accPPIsExplicit and self.activeDomainsSameAsTemplate and accPP != "":
+        elif accPPIsExplicit and self.activeDomainsMatchSpecification and accPP != "":
             result = result + accPP + "("
             needsAdditionalClosingBracket = True
         nextOffsetIndex = 0

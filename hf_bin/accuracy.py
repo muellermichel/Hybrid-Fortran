@@ -115,6 +115,7 @@ def run_accuracy_test_for_datfile(options, eps):
 		else:
 			sys.stderr.write("WARNING: No reference file specified - doing some basic checks on the input only\n")
 		i = 0
+		errorState=False
 		while True:
 			passedStr = "pass"
 			i = i + 1
@@ -153,13 +154,10 @@ def run_accuracy_test_for_datfile(options, eps):
 					sys.exit(1)
 				#analyse unpacked data
 				[err, firstErr, firstErrVal, expectedVal] = rootMeanSquareDeviation(unpacked, unpackedRef, eps)
-				errorState=False
 				if firstErr != -1 or err > eps:
 					errorState=True
 					passedStr = "first error value: %s; expected: %s; FAIL <-------" %(firstErrVal, expectedVal)
 				sys.stderr.write("%s, record %i: Mean square error: %e; First Error at: %i; %s\n" %(options.inFile, i, err, firstErr, passedStr))
-				if errorState:
-					sys.exit(1)
 	except(Exception), e:
 		sys.stderr.write("Error: %s\n" %(e))
 		sys.exit(1)
@@ -169,6 +167,8 @@ def run_accuracy_test_for_datfile(options, eps):
 			inFile.close()
 		if refFile != None:
 			refFile.close()
+	if errorState:
+		sys.exit(1)
 
 def run_accuracy_test_for_netcdf(options, eps):
 	def get_array_from_netcdf_variable(netcdf_variable):
@@ -188,6 +188,7 @@ def run_accuracy_test_for_netcdf(options, eps):
 	import numpy
 	inFile = Dataset(options.inFile)
 	refFile = Dataset(options.refFile)
+	error_found = False
 	for key in inFile.variables.keys():
 		try:
 			in_array = None
@@ -211,13 +212,19 @@ def run_accuracy_test_for_netcdf(options, eps):
 			ref_array = get_array_from_netcdf_variable(ref_variable)
 			absolute_difference = numpy.abs(in_array - ref_array)
 			greater_than_epsilon = absolute_difference > eps
-			error_found = False
 			passed_string = "pass"
+			if numpy.count_nonzero(ref_array) == 0:
+				passed_string += "(WARNING:Reference is Zero Matrix!)"
 			root_mean_square_deviation = numpy.sqrt(numpy.mean((in_array - ref_array)**2))
 			if numpy.any(greater_than_epsilon):
 				error_found = True
 				# first_error = numpy.unravel_index(numpy.argmax(greater_than_epsilon), greater_than_epsilon.shape)[0]
-				passed_string = "input: \n%s\nexpected:\n%s\nerrors found at:%s\nFAIL <-------" %(in_array, ref_array, greater_than_epsilon)
+				number_of_elements = numpy.prod(in_array.shape)
+				if number_of_elements <= 8:
+					passed_string = "input: \n%s\nexpected:\n%s\nerrors found at:%s\nFAIL <-------" %(in_array, ref_array, greater_than_epsilon)
+				else:
+					first_occurrence = numpy.argmax(greater_than_epsilon==True)
+					passed_string = "first error at:%s; FAIL <-------" %(first_occurrence)
 			elif root_mean_square_deviation > eps:
 				error_found = True
 				passed_string = "FAIL <-------"
@@ -227,12 +234,12 @@ def run_accuracy_test_for_netcdf(options, eps):
 				root_mean_square_deviation,
 				passed_string
 			))
-			if error_found:
-				sys.exit(1)
 		except Exception as e:
 			message = "Variable %s\nError Message: %s\n%s\ninarray:%s\nrefarray:%s" %(key, str(e), traceback.format_tb(sys.exc_info()[2]), str(in_array), str(ref_array))
 			e.args = (message,)+e.args[1:]
 			raise e
+	if error_found:
+		sys.exit(1)
 
 ##################### MAIN ##############################
 #get all program arguments

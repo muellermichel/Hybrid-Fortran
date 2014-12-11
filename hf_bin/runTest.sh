@@ -98,7 +98,7 @@ for i in "${!argStringsArr[@]}"; do
 			echo "fail"
 			echo "The output of the last failed run have been logged in 'log_lastRun.txt'"
 			echo "--------------------- output of tail log_lastRun.txt -----------------------------"
-			tail ./log_lastRun.txt
+			tail -n 30 ./log_lastRun.txt
 			echo "----------------------------------------------------------------------------------"
 			cat ./log_lastRun.txt >> ./log.txt
 			exit 1
@@ -131,7 +131,7 @@ for i in "${!argStringsArr[@]}"; do
 		echo "Profiled program has returned error code $rc. The error output of the last failed run have been logged in 'log_lastRun.txt' in the ${executable_name} test directory."
 		echo "stdout: $timingResult"
 		echo "--------------------- output of tail log_lastRun.txt -----------------------------"
-		tail ./log_lastRun.txt
+		tail -n 30 ./log_lastRun.txt
 		echo "----------------------------------------------------------------------------------"
 		cat ./log_lastRun.txt >> ./log.txt
 	    exit $rc
@@ -151,7 +151,7 @@ for i in "${!argStringsArr[@]}"; do
 			echo "fail"
 			echo "The output of the last failed validation has been logged in 'log_lastRun.txt' in the ${executable_name} test directory."
 			echo "--------------------- output of tail log_lastRun.txt -----------------------------"
-			tail ./log_lastRun.txt
+			tail -n 30 ./log_lastRun.txt
 			echo "----------------------------------------------------------------------------------"
 			exit 1
 		fi

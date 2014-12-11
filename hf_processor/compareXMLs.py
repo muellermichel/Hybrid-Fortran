@@ -66,7 +66,7 @@ def isEqualElement(a, b, ignoreAttributes):
   for ac, bc in zip(a.childNodes, b.childNodes):
     if ac.nodeType != bc.nodeType:
       return False
-    if ac.nodeType ==ac.TEXT_NODE and ac.data != bc.data:
+    if ac.nodeType == ac.TEXT_NODE and ac.data != bc.data:
       return False
     if ac.nodeType == ac.ELEMENT_NODE and not isEqualElement(ac, bc, ignoreAttributes):
       return False

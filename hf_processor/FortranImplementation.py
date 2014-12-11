@@ -282,27 +282,46 @@ end subroutine
         dataDeclarations = ""
         dataDeclarations += "!$acc declare "
         dataDeclarationsRequired = False
+        commaRequired = False
         for index, symbol in enumerate(dependantSymbols):
+            #Rules that lead to a symbol not being touched by directives
             if not symbol.domains or len(symbol.domains) == 0:
                 continue
-            if index != 0:
-                dataDeclarations += ", "
+
+            #Rules for symbols that are declared present
+            newDataDeclarations = ""
             if symbol.isPresent:
-                dataDeclarations += "present(%s)" %(symbol.name)
+                newDataDeclarations += "present(%s)" %(symbol.name)
+
+            #Rules for kernel wrapper routines and symbols declared to be transfered
             elif (symbol.intent == "in") \
             and (routineIsKernelCaller or symbol.isToBeTransfered):
-                dataDeclarations += "copyin(%s)" %(symbol.name)
-            elif (symbol.intent == "inout") \
+                newDataDeclarations += "copyin(%s)" %(symbol.name)
+            elif (symbol.intent == "inout" or not symbol.sourceModule in [None,""] or symbol.isHostSymbol) \
             and (routineIsKernelCaller or symbol.isToBeTransfered):
-                dataDeclarations += "copy(%s)" %(symbol.name)
+                newDataDeclarations += "copy(%s)" %(symbol.name)
             elif (symbol.intent == "out") \
             and (routineIsKernelCaller or symbol.isToBeTransfered):
-                dataDeclarations += "copyout(%s)" %(symbol.name)
-            elif not routineIsKernelCaller and symbol.intent in ["in", "inout", "out"]:
-                dataDeclarations += "present(%s)" %(symbol.name)
+                newDataDeclarations += "copyout(%s)" %(symbol.name)
+
+            #Rules for other routines
+            elif not routineIsKernelCaller \
+            and currRoutineNode.getAttribute('parallelRegionPosition') != 'within':
+                continue
+
+            #Rules for kernels
+            elif currRoutineNode.getAttribute('parallelRegionPosition') == 'within' \
+            and (symbol.intent in ["in", "inout", "out"] or not symbol.sourceModule in [None,""] or symbol.isHostSymbol):
+                newDataDeclarations += "present(%s)" %(symbol.name)
             else:
-                dataDeclarations += "create(%s)" %(symbol.name)
+                newDataDeclarations += "create(%s)" %(symbol.name)
+
+            #Wrapping up
+            if commaRequired == True:
+                newDataDeclarations = ", " + newDataDeclarations
+            dataDeclarations += newDataDeclarations
             dataDeclarationsRequired = True
+            commaRequired = True
         dataDeclarations += "\n"
         if dataDeclarationsRequired == True:
             result += dataDeclarations

@@ -204,7 +204,7 @@ endif
 ifdef FRAMEWORK_MAKEFILE
 
 INSTALL_TARGETS_CPU= install_framework_executables_cpu install_non_hybrid_framework_executables
-INSTALL_TARGETS_GPU= install_framework_executables_gpu install_non_hybrid_framework_executables
+INSTALL_TARGETS_GPU= install_framework_executables_gpu
 
 else
 
@@ -248,9 +248,9 @@ install_gpu: ${INSTALL_TARGETS_GPU}
 
 source: source_cpu source_gpu
 
-source_cpu: configfiles_cpu ${SRC_ALL_CPU}
+source_cpu: ${CG_DIR}CG_CPU.xml configfiles_cpu ${SRC_ALL_CPU}
 
-source_gpu: configfiles_gpu ${SRC_ALL_GPU}
+source_gpu: ${CG_DIR}CG_GPU.xml configfiles_gpu ${SRC_ALL_GPU}
 
 graphs: ${CG_DIR}CG_CPU.png ${CG_DIR}CG_GPU.png
 
@@ -303,12 +303,12 @@ ${EXECUTABLES_CPU_OUT}: build_hybrid_cpu
 
 ${EXECUTABLES_GPU_OUT}: build_hybrid_gpu
 
-build_hybrid_cpu: configfiles_cpu ${SRC_ALL_CPU} framework_sources_cpu ${AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH_CPU}
+build_hybrid_cpu: ${CG_DIR}CG_CPU.xml configfiles_cpu ${SRC_ALL_CPU} framework_sources_cpu ${AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH_CPU}
 	@echo "..entering ${SRC_DIR_CPU}"
 	@echo "..cpu executable dependant on " ${SRC_ALL_CPU} >${DEBUG_OUTPUT}
 	@cd ${SRC_DIR_CPU} && make ${BUILD_ARGS}
 
-build_hybrid_gpu: configfiles_gpu ${SRC_ALL_GPU} framework_sources_gpu ${AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH_GPU}
+build_hybrid_gpu: ${CG_DIR}CG_GPU.xml configfiles_gpu ${SRC_ALL_GPU} framework_sources_gpu ${AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH_GPU}
 	@echo "..entering ${SRC_DIR_GPU}"
 	@echo "..gpu executable dependant on " ${SRC_ALL_GPU} >${DEBUG_OUTPUT}
 	@cd ${SRC_DIR_GPU} && make ${BUILD_ARGS}
@@ -424,10 +424,10 @@ configfiles_gpu:
 
 ifdef AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH
 ${DIR_CPU}${AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH}: ${SRC_ALL_CPU} framework_sources_cpu
-	cd ${DIR_CPU} && ${AUTO_DEPENDENCY_GENERATOR_SCRIPT} $(addprefix ${SRC_DIR_COMMON}/, $(notdir $(SRC_ALL_CPU))) > ${AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH}
+	@cd ${DIR_CPU} && ${AUTO_DEPENDENCY_GENERATOR_SCRIPT} $(addprefix ${SRC_DIR_COMMON}/, $(notdir $(SRC_ALL_CPU))) > ${AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH} 2>${DEBUG_OUTPUT}
 
 ${DIR_GPU}${AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH}: ${SRC_ALL_GPU} framework_sources_gpu
-	cd ${DIR_GPU} && ${AUTO_DEPENDENCY_GENERATOR_SCRIPT} $(addprefix ${SRC_DIR_COMMON}/, $(notdir $(SRC_ALL_GPU))) > ${AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH}
+	@cd ${DIR_GPU} && ${AUTO_DEPENDENCY_GENERATOR_SCRIPT} $(addprefix ${SRC_DIR_COMMON}/, $(notdir $(SRC_ALL_GPU))) > ${AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH} 2>${DEBUG_OUTPUT}
 endif
 
 .SECONDEXPANSION:
@@ -440,27 +440,46 @@ ${TESTDIR}/%_gpu: $${DIR_GPU}$$(notdir %).out create_install_directories
 	@echo "...........creating $@ from $<"
 	@cp -fp $< $@
 
-${CG_DIR}rawCG.xml: ${CG_DIR}touchedWhenUpdateNeeded
-	@echo "...........callgraph has changed, need to recompile all h90 files"
-	@mv ${CG_DIR}temp.xml $@
-
-${CG_DIR}touchedWhenUpdateNeeded: ${CG_DIR}temp.xml
-	@${TOOLSDIR}/testCG.sh ${CG_DIR} ${TOOLSDIR} ${H90_PREPROCESSOR_ARGS}
-
-${CG_DIR}temp.xml: ${SRC_H90TGT_HFPP}
+${CG_DIR}rawCG.xml: ${SRC_H90TGT_HFPP}
 	@echo "...........hybrid files have been modified => building and testing hybrid callgraph"
 	@echo ..calling python ${TOOLSDIR}/annotatedCallGraphFromH90SourceDir.py -i ${SRC_DIR_COMMON} ${H90_PREPROCESSOR_ARGS} >${DEBUG_OUTPUT}
 	@mkdir -p ${CG_DIR}; python ${TOOLSDIR}/annotatedCallGraphFromH90SourceDir.py -i ${SRC_DIR_HFPP} ${H90_PREPROCESSOR_ARGS} > $@
 
 ${CG_DIR}CG_CPU.xml: ${CG_DIR}rawCG.xml
 	@echo "...........building CPU callgraph"
+	@(set -e && \
+		if [ -e $@ ]; then \
+			mv $@ $@.ref ; \
+		fi )
 	@echo ..calling python ${TOOLSDIR}/loopAnalysisWithAnnotatedCallGraph.py -i $< ${H90_PREPROCESSOR_ARGS} -a CPU >${DEBUG_OUTPUT}
 	@mkdir -p ${CG_DIR}; python ${TOOLSDIR}/loopAnalysisWithAnnotatedCallGraph.py -i $< ${H90_PREPROCESSOR_ARGS} -a CPU > $@
+	@(set -e && \
+		mkdir -p ${SRC_DIR_GPU} && \
+		SOURCES_TO_REGENERATE=`python ${TOOLSDIR}/getSourcesToBeProcessed.py -i $@ -r $@.ref ${H90_PREPROCESSOR_ARGS}` && \
+		PATHS_TO_REGENERATE="" && \
+		for SOURCE in $${SOURCES_TO_REGENERATE[*]} ; do \
+	   	PATHS_TO_REGENERATE="$${PATHS_TO_REGENERATE} ${SRC_DIR_CPU}$${SOURCE}.F90" ; \
+	  done ; \
+		echo "Need to regenerate $${PATHS_TO_REGENERATE}" ; \
+		rm -f $${PATHS_TO_REGENERATE} )
 
 ${CG_DIR}CG_GPU.xml: ${CG_DIR}rawCG.xml
 	@echo "...........building GPU callgraph"
+	@(set -e && \
+		if [ -e $@ ]; then \
+			mv $@ $@.ref ; \
+		fi )
 	@echo ..calling python ${TOOLSDIR}/loopAnalysisWithAnnotatedCallGraph.py -i $< ${H90_PREPROCESSOR_ARGS} -a GPU >${DEBUG_OUTPUT}
 	@mkdir -p ${CG_DIR}; python ${TOOLSDIR}/loopAnalysisWithAnnotatedCallGraph.py -i $< ${H90_PREPROCESSOR_ARGS} -a GPU > $@
+	@(set -e && \
+		mkdir -p ${SRC_DIR_GPU} && \
+		SOURCES_TO_REGENERATE=`python ${TOOLSDIR}/getSourcesToBeProcessed.py -i $@ -r $@.ref ${H90_PREPROCESSOR_ARGS}` && \
+		PATHS_TO_REGENERATE= && \
+		for SOURCE in $${SOURCES_TO_REGENERATE[*]} ; do \
+	   	PATHS_TO_REGENERATE="$${PATHS_TO_REGENERATE} ${SRC_DIR_GPU}$${SOURCE}.F90" ; \
+	  done ; \
+		echo "Need to regenerate $${PATHS_TO_REGENERATE}" ; \
+		rm -f $${PATHS_TO_REGENERATE} )
 
 ${CG_DIR}CG_CPU.png: ${CG_DIR}CG_CPU.xml
 	@echo ...creating $@ from $< >${DEBUG_OUTPUT}
@@ -506,12 +525,12 @@ ${SRC_DIR_HFPP}%.h90: %.h90
 	@echo ...copying file into $@ >${DEBUG_OUTPUT}
 	@mkdir -p ${SRC_DIR_HFPP}; cp -fp $< $@
 
-${SRC_DIR_CPU}%.F90: ${SRC_DIR_HFPP}%.h90 ${CG_DIR}${CPU_CALLGRAPH_FILE}
+${SRC_DIR_CPU}%.F90: ${SRC_DIR_HFPP}%.h90
 	@echo ...........converting $< to $@ using ${CPU_CALLGRAPH_FILE} and ${CPU_IMPLEMENTATION}
 	@echo ..calling generateF90fromH90AndAnalyzedCallGraph.py -i $< -c ${CG_DIR}${CPU_CALLGRAPH_FILE} --implementation ${CPU_IMPLEMENTATION} ${H90_PREPROCESSOR_ARGS} >${DEBUG_OUTPUT}
 	@python ${TOOLSDIR}/generateF90fromH90AndAnalyzedCallGraph.py -i $< -c ${CG_DIR}${CPU_CALLGRAPH_FILE} --implementation ${CPU_IMPLEMENTATION} ${H90_PREPROCESSOR_ARGS} > $@ ;\
 
-${SRC_DIR_GPU}%.F90: ${SRC_DIR_HFPP}%.h90 ${CG_DIR}${GPU_CALLGRAPH_FILE}
+${SRC_DIR_GPU}%.F90: ${SRC_DIR_HFPP}%.h90
 	@echo ...........converting $< to $@ using ${GPU_CALLGRAPH_FILE} and ${GPU_IMPLEMENTATION}
 	@echo ..calling generateF90fromH90AndAnalyzedCallGraph.py -i $< -c ${CG_DIR}${GPU_CALLGRAPH_FILE} --implementation ${GPU_IMPLEMENTATION} ${H90_PREPROCESSOR_ARGS} >${DEBUG_OUTPUT}
 	@python ${TOOLSDIR}/generateF90fromH90AndAnalyzedCallGraph.py -i $< -c ${CG_DIR}${GPU_CALLGRAPH_FILE} --implementation ${GPU_IMPLEMENTATION} ${H90_PREPROCESSOR_ARGS} > $@ ;\

@@ -1,0 +1,12 @@
+*.pyc
+pp/*
+example/*
+doc/src*
+doc/Slides_JMA2013-4_Final.pdf
+cosmo_phys/*
+*batch_run.sh
+*batch_submit.sh
+*build
+*executables
+*test
+sync_to_*

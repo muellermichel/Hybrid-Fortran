@@ -24,7 +24,6 @@
 #  Author           Michel Müller (AOKI Laboratory)                    #
 #**********************************************************************#
 
-
 from xml.dom.minidom import Document, parseString
 from GeneralHelper import openFile
 from optparse import OptionParser

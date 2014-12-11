@@ -71,13 +71,17 @@ def addAttributeToAllCallGraphAncestors(routines, callNodesByCalleeName, routine
 		#we got a match. search the caller routine
 		callerName = call.getAttribute("caller")
 		for routine in routines:
-			if routine.getAttribute("name") == callerName:
-				callerNode = routine
-				routine.setAttribute(attributeName, attributeValue)
-				for templateRelation in templateRelations:
-					addTemplateRelation(routine, templateRelation)
-				addAttributeToAllCallGraphAncestors(routines, callNodesByCalleeName, callerNode, attributeName, attributeValue)
-				break
+			if routine.getAttribute("name") != callerName:
+				continue
+			if attributeName == 'parallelRegionPosition' and not routine.getAttribute(attributeName) in [None, '', attributeValue]:
+				raise Exception("Routine %s contains one or more kernels and at the same time has one or more kernels in its inner callgraph. \
+This is not allowed in Hybrid Fortran. Please turn this subroutine into a kernel wrapper, putting its own parallel regions into seperate subroutines." %(callerName))
+			callerNode = routine
+			routine.setAttribute(attributeName, attributeValue)
+			for templateRelation in templateRelations:
+				addTemplateRelation(routine, templateRelation)
+			addAttributeToAllCallGraphAncestors(routines, callNodesByCalleeName, callerNode, attributeName, attributeValue)
+			break
 
 
 def addAttributeToAllCallGraphHeirs(routines, callNodesByCallerName, routineNode, attributeName, attributeValue):
@@ -96,13 +100,17 @@ def addAttributeToAllCallGraphHeirs(routines, callNodesByCallerName, routineNode
 		#we got a match. search the caller routine
 		calleeName = call.getAttribute("callee")
 		for routine in routines:
-			if routine.getAttribute("name") == calleeName:
-				calleeNode = routine
-				routine.setAttribute(attributeName, attributeValue)
-				for templateRelation in templateRelations:
-					addTemplateRelation(routine, templateRelation)
-				addAttributeToAllCallGraphHeirs(routines, callNodesByCallerName, calleeNode, attributeName, attributeValue)
-				break
+			if routine.getAttribute("name") != calleeName:
+				continue
+			if attributeName == 'parallelRegionPosition' and not routine.getAttribute(attributeName) in [None, '', attributeValue]:
+				raise Exception("Routine %s contains one or more kernels and at the same time is being called inside a kernel. \
+This is not allowed in Hybrid Fortran. Please call this subroutine in a wrapper function instead, moving the other kernel into its own subroutine." %(callerName))
+			calleeNode = routine
+			routine.setAttribute(attributeName, attributeValue)
+			for templateRelation in templateRelations:
+				addTemplateRelation(routine, templateRelation)
+			addAttributeToAllCallGraphHeirs(routines, callNodesByCallerName, calleeNode, attributeName, attributeValue)
+			break
 
 #returns the first kernel caller that's being found in the calls by routine with name 'routineName'
 def getFirstKernelCallerInCalleesOf(routineName, callNodesByCallerName, parallelRegionNodesByRoutineName):
@@ -184,7 +192,11 @@ def analyseParallelRegions(doc, appliesTo):
 	for parallelRegionNode in parallelRegionNodes:
 		if not parallelRegionNode.parentNode.tagName == "routine":
 			raise Exception("Parallel region not within routine.")
-
+		if not parallelRegionNode.parentNode.getAttribute("parallelRegionPosition") in [None, '', 'within']:
+			raise Exception("Routine %s contains one or more kernels and at the same time is either called by or calls one or more other kernels. \
+This is not allowed in Hybrid Fortran. Please separate kernel routines from wrapper and inner routines." %(
+				parallelRegionNode.parentNode.getAttribute('name')
+			))
 		parallelRegionNode.parentNode.setAttribute("parallelRegionPosition", "within")
 		routine = parallelRegionNode.parentNode
 		routineName = routine.getAttribute("name")
@@ -195,11 +207,19 @@ def analyseParallelRegions(doc, appliesTo):
 
 		#rename this parallelRegion node to 'activeParallelRegion'
 		children = parallelRegionNode.childNodes
-		newRegionNode = doc.createElement("activeParallelRegions")
+		existingActiveParallelRegions = routine.getElementsByTagName("activeParallelRegions")
+		newRegionNode = None
+		newRegionNodeNeedsAppending = False
+		if len(existingActiveParallelRegions) > 0:
+			newRegionNode = existingActiveParallelRegions[0]
+		else:
+			newRegionNode = doc.createElement("activeParallelRegions")
+			newRegionNodeNeedsAppending = True
 		for child in children:
 			newRegionNode.appendChild(child.cloneNode(deep=True))
 		routine.removeChild(parallelRegionNode)
-		routine.appendChild(newRegionNode)
+		if newRegionNodeNeedsAppending:
+			routine.appendChild(newRegionNode)
 
 		if appliesTo != "GPU":
 			continue

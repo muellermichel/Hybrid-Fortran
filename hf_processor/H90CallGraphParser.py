@@ -59,6 +59,7 @@ class FortranCodeSanitizer:
         self.tabDecreasingPattern = re.compile(r'(end\s|enddo).*', re.IGNORECASE)
         self.commentedPattern = re.compile(r'\s*\!', re.IGNORECASE)
         self.openMPLinePattern = re.compile(r'\s*\!\$OMP.*', re.IGNORECASE)
+        self.openACCLinePattern = re.compile(r'\s*\!\$acc.*', re.IGNORECASE)
         self.preprocessorPattern = re.compile(r'\s*\#', re.IGNORECASE)
         self.currNumOfTabs = 0
 
@@ -83,7 +84,8 @@ class FortranCodeSanitizer:
             currLine = codeLine
             while len(currLine) > howManyCharsPerLine - len(lineSep):
                 isOpenMPDirectiveLine = self.openMPLinePattern.match(currLine) != None
-                if commentChar in currLine and not isOpenMPDirectiveLine:
+                isOpenACCDirectiveLine = self.openACCLinePattern.match(currLine) != None
+                if commentChar in currLine and not isOpenMPDirectiveLine and not isOpenACCDirectiveLine:
                     commentPos = currLine.find(commentChar)
                     if commentPos <= howManyCharsPerLine:
                         break
@@ -96,6 +98,8 @@ class FortranCodeSanitizer:
                 sanitizedCodeLines.append(currLine[:blankPos] + lineSep)
                 if isOpenMPDirectiveLine:
                     currLine = '!$OMP& ' + currLine[blankPos:]
+                elif isOpenACCDirectiveLine:
+                    currLine = '!$acc& ' + currLine[blankPos:]
                 else:
                     currLine = currLine[blankPos:]
             if toBeCommented:
@@ -478,6 +482,7 @@ class H90XMLCallGraphGenerator(H90CallGraphParser):
         super(H90XMLCallGraphGenerator, self).processProcBeginMatch(subProcBeginMatch)
         routine = self.doc.createElement('routine')
         routine.setAttribute('name', self.currSubprocName)
+        routine.setAttribute('source', os.path.basename(self.fileName).split('.')[0])
         self.routines.appendChild(routine)
         self.currSubprocNode = routine
 
@@ -774,10 +779,6 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
         for domainDependantEntryNode in domainDependantEntryNodes:
             self.entryNodesBySymbolName[domainDependantEntryNode.firstChild.nodeValue.strip()] = domainDependantEntryNode
 
-        if len(self.entryNodesBySymbolName.keys()) != len(currSymbolNames):
-            raise Exception("Unexpected error: %i domain dependant entry nodes found, when %i expected." \
-                %(len(self.entryNodesBySymbolName.keys())), len(currSymbolNames))
-
     def storeCurrentSymbolAttributes(self, isModule=False):
         #store our symbol informations to the xml
         for symbol in self.currSymbols:
@@ -880,7 +881,7 @@ This is not allowed for implementations using %s.\
             for i in range(numberOfDimensions):
                 if i != 0:
                     accPatternStr = accPatternStr + r"\,"
-                accPatternStr = accPatternStr + r"\s*([\w\s\+\*\/\-\:]*)\s*"
+                accPatternStr = accPatternStr + r"\s*([\w\s\+\*\/\-\:]*?)\s*"
             accPatternStr = accPatternStr + r"\)(.*)"
             return accPatternStr
 
@@ -898,39 +899,47 @@ This is not allowed for implementations using %s.\
         #match the symbol's postfix again in the current given line. (The prefix could have changed from the last match.)
         postfix = symbolMatch.group(2)
         postfixEscaped = re.escape(postfix)
-        pattern1 = r"(.*?(?:\W|^))" + re.escape(symbol.deviceName()) + postfixEscaped + r"\s*"
-        currMatch = re.match(pattern1, line, re.IGNORECASE)
+
+        accessPatternChangeRequired = False
+        presentPattern = r"(.*?present\s*\(\s*)" + re.escape(symbol.deviceName()) + postfixEscaped + r"\s*"
+        currMatch = re.match(presentPattern, line, re.IGNORECASE)
         if not currMatch:
-            pattern2 = r"(.*?(?:\W|^))" + re.escape(symbol.name) + postfixEscaped + r"\s*"
-            currMatch = re.match(pattern2, line, re.IGNORECASE)
+            pattern1 = r"(.*?(?:\W|^))" + re.escape(symbol.deviceName()) + postfixEscaped + r"\s*"
+            currMatch = re.match(pattern1, line, re.IGNORECASE)
+            accessPatternChangeRequired = True
             if not currMatch:
-                raise Exception(\
-                    "Symbol %s is accessed in an unexpected way. Note: '_d' postfix is reserved for internal use. Cannot match one of the following patterns: \npattern1: '%s'\npattern2: '%s'" \
-                    %(symbol.name, pattern1, pattern2))
-
+                pattern2 = r"(.*?(?:\W|^))" + re.escape(symbol.name) + postfixEscaped + r"\s*"
+                currMatch = re.match(pattern2, line, re.IGNORECASE)
+                if not currMatch:
+                    raise Exception(\
+                        "Symbol %s is accessed in an unexpected way. Note: '_d' postfix is reserved for internal use. Cannot match one of the following patterns: \npattern1: '%s'\npattern2: '%s'" \
+                        %(symbol.name, pattern1, pattern2))
         prefix = currMatch.group(1)
-        numOfIndependentDomains = len(symbol.domains) - symbol.numOfParallelDomains
-        accMatch, numberOfDomainsInAccessor = getAccessMatchAndNumberOfDomainsInAccessor([numOfIndependentDomains, len(symbol.domains)], postfix)
-        offsets = []
-        if accMatch == None and not isInsideSubroutineCall and not isPointerAssignment:
-            raise Exception("Unexpected array access for symbol %s: Please use either %i (number of parallel independant dimensions) \
-or %i (number of declared dimensions for this array) accessors." %(symbol.name, numOfIndependentDomains, len(symbol.domains)))
-        elif accMatch == None:
-            #inside a subroutine call
-            for i in range(numOfIndependentDomains):
-                offsets.append(":")
-        else:
-            postfix = accMatch.group(numberOfDomainsInAccessor + 1)
-            for i in range(numberOfDomainsInAccessor):
-                offsets.append(accMatch.group(i + 1))
+        if accessPatternChangeRequired:
+            numOfIndependentDomains = len(symbol.domains) - symbol.numOfParallelDomains
+            accMatch, numberOfDomainsInAccessor = getAccessMatchAndNumberOfDomainsInAccessor([numOfIndependentDomains, len(symbol.domains)], postfix)
+            offsets = []
+            if accMatch == None and not isInsideSubroutineCall and not isPointerAssignment:
+                raise Exception("Unexpected array access for symbol %s: Please use either %i (number of parallel independant dimensions) \
+    or %i (number of declared dimensions for this array) accessors. Symbol Init Level: %i; Parallel Region Position: %s; Symbol template:\n%s\n" %(
+                    symbol.name, numOfIndependentDomains, len(symbol.domains), symbol.initLevel, str(symbol.parallelRegionPosition), symbol.template.toxml()
+                ))
+            elif accMatch == None:
+                #inside a subroutine call
+                for i in range(numOfIndependentDomains):
+                    offsets.append(":")
+            else:
+                postfix = accMatch.group(numberOfDomainsInAccessor + 1)
+                for i in range(numberOfDomainsInAccessor):
+                    offsets.append(accMatch.group(i + 1))
 
-        iterators = self.currParallelIterators
-        if isInsideSubroutineCall:
-            calleeNode = self.routineNodesByProcName.get(self.currCalleeName)
-            if calleeNode and calleeNode.getAttribute("parallelRegionPosition") != "outside":
-                iterators = []
+            iterators = self.currParallelIterators
+            if isInsideSubroutineCall:
+                calleeNode = self.routineNodesByProcName.get(self.currCalleeName)
+                if calleeNode and calleeNode.getAttribute("parallelRegionPosition") != "outside":
+                    iterators = []
         symbol_access = None
-        if isPointerAssignment:
+        if isPointerAssignment or not accessPatternChangeRequired:
             symbol_access = symbol.deviceName()
         else:
             symbol_access = symbol.accessRepresentation(iterators, offsets, self.currParallelRegionTemplateNode)
@@ -949,7 +958,13 @@ or %i (number of declared dimensions for this array) accessors." %(symbol.name, 
             work = adjustedLine
             nextMatch = symbol.namePattern.match(work)
             while nextMatch:
-                if symbol.domains and len(symbol.domains) > 0 and not isInsideSubroutineCall and not isPointerAssignment and self.state != "inside_parallelRegion" \
+                if symbol.domains \
+                and len(symbol.domains) > 0 \
+                and not isInsideSubroutineCall \
+                and not isPointerAssignment \
+                and not symbol.isModuleSymbol \
+                and not symbol.isHostSymbol \
+                and self.state != "inside_parallelRegion" \
                 and self.routineNodesByProcName[self.currSubprocName].getAttribute("parallelRegionPosition") != "outside":
                     sys.stderr.write("WARNING: Dependant symbol %s accessed outside of a parallel region or subroutine call in subroutine %s(%s:%i)\n" \
                     %(symbol.name, self.currSubprocName, self.fileName, self.lineNo))
@@ -1418,11 +1433,27 @@ or %i (number of declared dimensions for this array) accessors." %(symbol.name, 
             if templateRelations == None or len(templateRelations) == 0:
                 raise Exception("Unexpected Error: No parallel region template relation found for this region.")
             for templateRelation in templateRelations:
-                if int(templateRelation.getAttribute("startLine")) == self.lineNo:
+                startLine = templateRelation.getAttribute("startLine")
+                if startLine in [None, '']:
+                    continue
+                startLineInt = 0
+                try:
+                    startLineInt = int(startLine)
+                except ValueError:
+                    raise Exception("Unexpected Error: Invalid startLine definition for parallel region template relation: %s\n. All active template relations: %s\nRoutine node: %s" %(
+                        templateRelation.toxml(),
+                        [templateRelation.toxml() for templateRelation in templateRelations],
+                        self.routineNodesByProcName[self.currSubprocName].toprettyxml()
+                    ))
+                if startLineInt == self.lineNo:
                     self.currParallelRegionRelationNode = templateRelation
                     break
             else:
                 raise Exception("Unexpected Error: No parallel region template relation was matched for the current linenumber.")
+            if self.debugPrint:
+                sys.stderr.write("parallel region detected on line %i with template relation %s\n" \
+                    %(self.lineNo, self.currParallelRegionRelationNode.toxml()) \
+                )
             templates = self.parallelRegionTemplatesByProcName.get(self.currSubprocName)
             if templates == None or len(templates) == 0:
                 raise Exception("Unexpected Error: No parallel region template found for this region.")
@@ -1554,3 +1585,7 @@ or %i (number of declared dimensions for this array) accessors." %(symbol.name, 
     #TODO: remove tab argument everywhere
     def prepareLine(self, line, tab):
         self.currentLine = self.codeSanitizer.sanitizeLines(line)
+        if self.debugPrint:
+            sys.stderr.write("[%s]:%i:%s\n" \
+                %(self.state,self.lineNo,self.currentLine) \
+            )

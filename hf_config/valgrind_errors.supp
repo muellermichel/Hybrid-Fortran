@@ -1,0 +1,22 @@
+{
+   LIB_NUMA_MEMCHECK
+   Memcheck:Cond
+   fun:strlen
+   obj:/usr/lib64/libnuma.so.1
+   fun:call_init
+   fun:_dl_init
+   obj:/lib64/ld-2.11.1.so
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+{
+   LIB_NUMA_MEMCHECK2
+   Memcheck:Cond
+   fun:strlen
+   obj:/usr/lib64/libnuma.so.1
+   fun:call_init
+   fun:_dl_init
+   obj:/lib64/ld-2.11.1.so
+}

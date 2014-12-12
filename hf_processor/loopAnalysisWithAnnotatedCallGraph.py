@@ -28,6 +28,7 @@
 
 
 from xml.dom.minidom import Document, parseString
+from xml.dom import NotFoundErr
 from DomHelper import firstDuplicateChild, getNodeValue, getCalleesByCallerName, getCallersByCalleeName
 from GeneralHelper import openFile
 from optparse import OptionParser
@@ -136,9 +137,15 @@ def getFirstKernelCallerInCalleesOf(routineName, callNodesByCallerName, parallel
 def filterParallelRegionNodes(doc, routineNode, appliesTo):
 	def purgeTemplateRelation(routineNode, regionsNode, templateRelation):
 		regionsNode.removeChild(templateRelation)
-		remainingTemplateRelations = regionsNode.getElementsByTagName("parallelRegions")
+		remainingTemplateRelations = regionsNode.getElementsByTagName("templateRelation")
 		if not remainingTemplateRelations or len(remainingTemplateRelations) == 0:
-			routineNode.removeChild(regionsNode)
+			try:
+				routineNode.removeChild(regionsNode)
+			except NotFoundErr:
+				sys.stderr.write('Error when analysing callgraph file file %s: region node %s not found in routine node %s\n'
+					%(str(options.source), str(regionsNode.toprettyxml()), str(routineNode.toprettyxml()))
+				)
+				sys.exit(1)
 
 	templates = doc.getElementsByTagName("parallelRegionTemplate")
 	regionsNodes = routineNode.getElementsByTagName("parallelRegions")
@@ -275,7 +282,7 @@ doc = parseString(data)
 
 try:
 	analyseParallelRegions(doc, appliesTo)
-except Exception, e:
+except Exception as e:
 	sys.stderr.write('Error when analysing callgraph file file %s: %s\n'
 		%(str(options.source), str(e))
 	)

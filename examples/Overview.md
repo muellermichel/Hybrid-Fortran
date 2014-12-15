@@ -34,6 +34,10 @@ See also the [results overview](../results/Overview.md).
         <td>Separate parallelizations for CPU/GPU with unified codebase, parallel vector calculations without communication. Automatic privatization of 1D code to 3D version for GPU parallelization.</td>
     </tr>
     <tr>
+        <td>Simple OpenACC Example</td>
+        <td>Based on Parallel Vector Example, shows off the OpenACC backend and using multiple parallel regions in one subroutine.</td>
+    </tr>
+    <tr>
         <td>Strides Example</td>
         <td>Like parallel vector example, uses blocking of data domain (in case GPU memory is too small).</td>
     </tr>
@@ -92,6 +96,14 @@ See also the [results overview](../results/Overview.md).
     <tr>
         <td>Parallel Vector Example</td>
         <td><a href="https://github.com/muellermichel/Hybrid-Fortran/blob/master/hf_processor/example_example.h90">Link</a> [2]</td>
+        <td>1E-8</td>
+        <td>No</td>
+        <td>No</td>
+        <td>No</td>
+    </tr>
+    <tr>
+        <td>Simple OpenACC Example</td>
+        <td><a href="https://github.com/muellermichel/Hybrid-Fortran/tree/master/examples/simple_openACC">Link</a></td>
         <td>1E-8</td>
         <td>No</td>
         <td>No</td>

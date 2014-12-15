@@ -1,6 +1,6 @@
 # -*- coding: UTF-8 -*-
 
-# Copyright (C) 2013 Michel Müller (Typhoon Computing), RIKEN Advanced Institute for Computational Science (AICS)
+# Copyright (C) 2014 Michel Müller, Tokyo Institute of Technology
 
 # This file is part of Hybrid Fortran.
 

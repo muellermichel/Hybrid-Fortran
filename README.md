@@ -37,47 +37,47 @@ Sample Results
         <th>Speedup HF on GPU vs 1 Core <a href="#results">[1]</a></th>
     </tr>
     <tr>
-        <td><a href="https://github.com/muellermichel/Hybrid-Fortran/raw/master/doc/Slides_GTC2014.pdf">Japanese Physical Weather Prediction Core (121 Kernels)</a></td>
-        <td><a href="https://github.com/muellermichel/Hybrid-Fortran/raw/master/doc/Slides_GTC2014.pdf">Slides Only</a><br>
+        <td><a href="doc/Slides_GTC2014.pdf">Japanese Physical Weather Prediction Core (121 Kernels)</a></td>
+        <td><a href="doc/Slides_GTC2014.pdf">Slides Only</a><br>
             <a href="http://on-demand.gputechconf.com/gtc/2014/video/S4352-asuca-on-gpu-hybrid-port-japanese-weather-model.mp4">Slidecast</a></td>
         <td>4.47x</td>
         <td>3.63x</td>
         <td>16.22x</td>
     </tr>
     <tr>
-        <td><a href="#characteristics">3D Diffusion</a></td>
-        <td><a href="https://github.com/muellermichel/Hybrid-Fortran/raw/master/results/diffusion_results.xlsx">Link</a></td>
+        <td><a href="examples/Overview.md#characteristics">3D Diffusion</a></td>
+        <td><a href="results/diffusion_results.xlsx">Link</a></td>
         <td>1.06x<br>
-            <a href="https://github.com/muellermichel/Hybrid-Fortran/raw/master/results/diffusion_perf_comparison_6core.png">Compare Performance</a>
+            <a href="results/diffusion_perf_comparison_6core.png">Compare Performance</a>
         </td>
         <td>10.94x<br>
-            <a href="https://github.com/muellermichel/Hybrid-Fortran/raw/master/results/diffusion_perf_comparison_gpu.png">Compare Performance</a><br>
-            <a href="https://github.com/muellermichel/Hybrid-Fortran/raw/master/results/diffusion_speedup_comparison_gpu.png">Compare Speedup</a>
+            <a href="results/diffusion_perf_comparison_gpu.png">Compare Performance</a><br>
+            <a href="results/diffusion_speedup_comparison_gpu.png">Compare Speedup</a>
         </td>
         <td>11.66x</td>
     </tr>
     <tr>
-        <td><a href="#characteristics">Particle Push</a></td>
-        <td><a href="https://github.com/muellermichel/Hybrid-Fortran/raw/master/results/particle_results.xlsx">Link</a></td>
+        <td><a href="examples/Overview.md#characteristics">Particle Push</a></td>
+        <td><a href="results/particle_results.xlsx">Link</a></td>
         <td>9.08x<br>
-            <a href="https://github.com/muellermichel/Hybrid-Fortran/raw/master/results/particle_perf_comparison_6core.png">Compare Performance</a>
+            <a href="results/particle_perf_comparison_6core.png">Compare Performance</a>
         </td>
         <td>21.72x<br>
-            <a href="https://github.com/muellermichel/Hybrid-Fortran/raw/master/results/particle_perf_comparison_gpu.png">Compare Performance</a><br>
-            <a href="https://github.com/muellermichel/Hybrid-Fortran/raw/master/results/particle_speedup_comparison_gpu.png">Compare Speedup</a>
+            <a href="results/particle_perf_comparison_gpu.png">Compare Performance</a><br>
+            <a href="results/particle_speedup_comparison_gpu.png">Compare Speedup</a>
         </td>
         <td>152.79x</td>
     </tr>
     <tr>
-        <td><a href="#characteristics">Poisson on FEM Solver with Jacobi Approximation</a></td>
-        <td><a href="https://github.com/muellermichel/Hybrid-Fortran/raw/master/results/poisson_results.xlsx">Link</a></td>
+        <td><a href="examples/Overview.md#characteristics">Poisson on FEM Solver with Jacobi Approximation</a></td>
+        <td><a href="results/poisson_results.xlsx">Link</a></td>
         <td>1.41x</td>
         <td>5.13x</td>
         <td>7.28x</td>
     </tr>
     <tr>
-        <td><a href="#characteristics">MIDACO Ant Colony Solver with MINLP Example</a></td>
-        <td><a href="https://github.com/muellermichel/Hybrid-Fortran/raw/master/results/midaco_results.xlsx">Link</a></td>
+        <td><a href="examples/Overview.md#characteristics">MIDACO Ant Colony Solver with MINLP Example</a></td>
+        <td><a href="results/midaco_results.xlsx">Link</a></td>
         <td>5.26x</td>
         <td>10.07x</td>
         <td>52.99x</td>

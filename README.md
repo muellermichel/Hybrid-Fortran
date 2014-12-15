@@ -32,9 +32,9 @@ Sample Results
     <tr>
         <th>Name</th>
         <th>Performance Results</th>
-        <th>Speedup HF on 6 Core vs. 1 Core <a href="#results">[1]</a></th>
-        <th>Speedup HF on GPU vs 6 Core <a href="#results">[1]</a></th>
-        <th>Speedup HF on GPU vs 1 Core <a href="#results">[1]</a></th>
+        <th>Speedup HF on 6 Core vs. 1 Core <a href="results/Overview.md">[1]</a></th>
+        <th>Speedup HF on GPU vs 6 Core <a href="results/Overview.md">[1]</a></th>
+        <th>Speedup HF on GPU vs 1 Core <a href="results/Overview.md">[1]</a></th>
     </tr>
     <tr>
         <td><a href="doc/Slides_GTC2014.pdf">Japanese Physical Weather Prediction Core (121 Kernels)</a></td>

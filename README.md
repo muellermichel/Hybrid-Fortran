@@ -164,4 +164,4 @@ Published Materials
 * [Talk GTC 2014 (Voice + Slides)](http://on-demand.gputechconf.com/gtc/2014/video/S4352-asuca-on-gpu-hybrid-port-japanese-weather-model.mp4)
 * [Poster GTC 2013](http://on-demand.gputechconf.com/gtc/2013/poster/pdf/P0199_MichelMueller.pdf)
 * [Talk GTC 2013](http://on-demand.gputechconf.com/gtc/2013/presentations/S3326-Hybrid-Fortran-GPGPUs-For-Weather-Prediction.pdf)
-* [Master Thesis (2012)](ftp://129.132.2.212/pub/students/2012-FS/MA-2012-23_signed.pdf)
+* Master Thesis (2012): ftp://129.132.2.212/pub/students/2012-FS/MA-2012-23_signed.pdf

@@ -158,7 +158,7 @@ Documentation
 -------------
 * [Samples Overview](examples/Overview.md)
 * [Results Overview](results/Overview.md)
-* [Full Documentation For Installation, Getting Started, Usage and Design (PDF)](doc/Documentation.pdf)
+* [Full Documentation For Installation, Getting Started, Usage and Design (PDF)](doc/Documentation.pdf?raw=true)
 * [Credits](CREDITS.md)
 * [Contact Information](CONTACT.md)
 * [Version History](HISTORY.md)

@@ -9,7 +9,7 @@ Version History
     <tr>
         <td>v0.93</td>
         <td>2014-12-15</td>
-        <td>OpenACC backend available, including new example. Module data handling supported.Templates for parallel regions in order to support mixed backends.</td>
+        <td>OpenACC backend available, including new example. Module data handling supported. Separate CUDA blocksizes can be specified for each parallel region. Cleaned up and updated documentation.</td>
     </tr>
     <tr>
         <td>v0.92</td>

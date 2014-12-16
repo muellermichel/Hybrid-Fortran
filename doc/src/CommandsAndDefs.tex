@@ -1,0 +1,22 @@
+
+% This alters the numbering of theorems and lemmas.
+\theoremsymbol{\ensuremath{\scriptstyle \Diamond}}
+\renewtheorem{theorem}{Theorem}[chapter]
+\renewtheorem{lemma}[theorem]{Lemma}
+\renewtheorem{corollary}[theorem]{Corollary}
+\renewtheorem{definition}[theorem]{Definition}
+
+% This creates a two new theorem-like environments
+\theoremsymbol{}
+\newtheorem{notation}[theorem]{Notation}
+\theorembodyfont{}
+\newtheorem*{problem}{Problem}
+
+% This changes the comment style of the "algorithmic" pseudocode package
+\renewcommand\algorithmiccomment[1]{\hfill \small \(\triangleright\) #1}
+
+% This creates four commands to leave annotations in your document
+\newcommand{\TODO}[1]{\noindent {{\color{red}\fbox{\sffamily \bfseries TODO}} \sffamily #1}}
+\newcommand{\FIXME}[1]{\noindent {{\color{green}\fbox{\sffamily \bfseries FIXME}} \sffamily #1}}
+\newcommand{\CONSIDER}[1]{\noindent {{\color{blue}\fbox{\sffamily \bfseries CONSIDER}} \sffamily #1}}
+\newcommand{\RW}[1]{\noindent \color{blue}#1}

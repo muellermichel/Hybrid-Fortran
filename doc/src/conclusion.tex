@@ -1,0 +1,28 @@
+\chapter{Achievements and Future Work} \label{cha:achievements}
+
+In this chapter the achievements of this thesis will be laid out (sec.~\ref{sec:achievements}) and possible future improvements will be listed (sec.~\ref{sec:futureWork}).
+
+\section{Achievements} \label{sec:achievements}
+
+By implementing the \textbf{Hybrid Fortran} framework as well as validating its usability and performance properties through a number of the ASUCA physical core's submodules, the goals of this thesis, as presented in sec.~\ref{sub:thesisMotivation}, have been achieved. Namely, using this new framework, the physical core of ASUCA can be ported to GPU while
+
+\begin{enumerate}
+ \item keeping a familiar development for the JMA researchers, i.e. Fortran 90. 
+ \item using a well manageable amount of code modifications.
+ \item keeping the code executable on the CPU.
+ \item having the potential for optimal GPU performance.
+ \item keeping the CPU performance on par with the original CPU optimized code base.
+\end{enumerate}
+
+We have also shown that \textbf{Hybrid Fortran} is the superior choice for the ASUCA physical processes compared to OpenACC in its current stage, in terms of usability (sec.~\ref{sec:usabilityValidation}), performance (sec.~\ref{sec:performanceValidation}) and flexibility (sec.~\ref{sec:featureComparisonFrameworks}).
+
+\clearpage
+\section{Future Work} \label{sec:futureWork}
+
+There are three major areas where \textbf{Hybrid Fortran} can be improved in the future: 
+
+\begin{description}
+ \item [General Stencil Compatibility] While the framework in its current form is suitable for JMA's needs when it comes to the physical core of ASUCA, it will have to be extended for general stencil computation compatibility, i.e. it will have to support stencil accesses with offsets in the parallel domains. For this matter a third directive will have to be introduced in order to define the offsets per array access. As an example, \verb|myArray(i+1,j,k)| will then become \verb|myArray@{i+1,j}(k)| in order to keep the \verb|IJ| domain dependencies abstracted from the user code. For the CPU version, the ``vertical''\footnote{as in orthogonal to the parallel domains, in this example the ``K'' dimension.} arrays at offset positions could be passed as additional, automatically introduced input parameters, thus enabling automatic optimization for CPU caches through outside loops even with more complex memory access patterns.
+ \item [Automatic Array Allocation and Parameter Mapping] Currently the \textbf{Hybrid Fortran} framework shares many code restrictions with CUDA Fortran for the kernel and inside kernel subroutines, most prominently the inability to allocate local arrays. Lifting this restriction by implementing automatic array allocation in the wrapper routine and passing these arrays to the kernel, would reduce the portation cost to \textbf{Hybrid Fortran} even further.
+ \item [Support for More Implementations] The flexibility of this framework will become even clearer, when OpenCL is supported as an alternative GPU implementation, thus giving the option to change accelerator hardware vendors. We expect OpenCL support to be achievable with low implementation cost because of the abstracted nature of the implementation, shown in sec.~\ref{sub:archHierarchy}. In sec.~\ref{sub:switchImplementation} a blueprint for such an adaptation has already been layed out.
+\end{description}

@@ -1,7 +1,6 @@
 *.pyc
 pp/*
 example/*
-doc/src*
 doc/Slides_JMA2013-4_Final.pdf
 cosmo_phys/*
 *batch_run.sh
@@ -10,3 +9,17 @@ cosmo_phys/*
 *executables
 *test
 sync_to_*
+*~
+*.aux
+*.bbl
+*.blg
+*.lof
+*.out
+*.thm
+*.toc
+*.lot
+*.tex.backup
+*.kilepr
+Thesis.*
+csthesis.*
+doc/src/declarationOfOriginality.pdf

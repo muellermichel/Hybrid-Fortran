@@ -1,0 +1,221 @@
+\documentclass[a4paper, oneside, openright]{documentationTemplate}
+
+% package to be able to use special characters
+\usepackage[latin1]{inputenc}
+
+% Sophisticated math package
+\usepackage{amsmath}
+\newcommand{\unit}[1]{\ensuremath{\, \mathrm{#1}}}
+
+% Special symbols
+\usepackage{amssymb}
+
+% nicely render theorems and proofs
+\usepackage[standard,thmmarks,amsmath]{ntheorem}
+
+\usepackage{graphicx}
+\usepackage{rotating}
+
+% package to format pseudo-code. Check the package documentation.
+\usepackage{algorithmic}
+\usepackage{algorithm}
+\usepackage{listings}
+
+\usepackage{rotating}
+
+% Provides \xspace command that evaluates to a space if the next character in the source is a blank and
+% no space if next character is no blank. Useful in command definitions.
+\usepackage{xspace}
+
+% Provides a more flexible tabular environment
+\usepackage{tabularx}
+
+% Enables the use of the H location specifier for float environments that puts the float exactly where it is located in the source.
+\usepackage{float}
+
+% Enables the use of colours
+\usepackage{color}
+\usepackage{xcolor}
+
+\definecolor{darkblue}{rgb}{0,0,.5}
+\definecolor{Brown}{cmyk}{0,0.81,1,0.60}
+\definecolor{OliveGreen}{cmyk}{0.64,0,0.95,0.40}
+\definecolor{CadetBlue}{cmyk}{0.62,0.57,0.23,0}
+\definecolor{lightlightgray}{gray}{0.9}
+\definecolor{lightgreen}{rgb}{0.67, 1, 0.32}
+
+
+% Enables clickable links in the PDF and additional PDF specific configuration options.
+\usepackage[
+            colorlinks=true,
+            linkcolor=darkblue, urlcolor=darkblue, citecolor=darkblue,
+						raiselinks=true,
+            bookmarks=true,
+            bookmarksopenlevel=1,
+            bookmarksopen=true,
+            bookmarksnumbered=true,
+            hyperindex=true,
+            plainpages=false,
+            pdfpagelabels=true,
+            pdfstartview=FitH,
+            pdfstartpage=1,
+            pdfpagelayout=OneColumn
+            ]{hyperref}
+
+% Enables references to description names
+\usepackage{nameref}
+\makeatletter
+\let\orgdescriptionlabel\descriptionlabel
+\renewcommand*{\descriptionlabel}[1]{%
+  \let\orglabel\label
+  \let\label\@gobble
+  \phantomsection
+  \edef\@currentlabel{#1}%
+  %\edef\@currentlabelname{#1}%
+  \let\label\orglabel
+  \orgdescriptionlabel{#1}%
+}
+\makeatother
+
+\usepackage{footnote}
+\usepackage{pdfpages}
+
+% Load own command definitions, a few helpful ones are already defined there.
+\input{CommandsAndDefs}
+\newcommand{\clear}{\newpage{\pagestyle{empty}\cleardoublepage}}
+
+% ---------------- highlight inside listings ------------------------------------
+\usepackage{etex}
+\usepackage{atbegshi,ifthen,tikz}
+
+\tikzstyle{highlighterGreen} = [
+  lightgreen,
+  line width = \baselineskip,
+]
+
+\tikzstyle{highlighterYellow} = [
+  yellow,
+  line width = \baselineskip,
+]
+
+% % implementation Green Highlighter
+% \newcounter{highlightGreen}[page]
+% \newcommand{\tikzhighlightanchorGreen}[1]{\ensuremath{\vcenter{\hbox{\tikz[remember picture, overlay]{\coordinate (#1 highlightGreen \arabic{highlightGreen});}}}}}
+% \newcommand{\bHighlightGreen}[0]{\stepcounter{highlightGreen}\tikzhighlightanchorGreen{begin}}
+% \newcommand{\eHighlightGreen}[0]{\tikzhighlightanchorGreen{end}}
+% \AtBeginShipout{\AtBeginShipoutUpperLeft{\ifthenelse{\value{highlightGreen} > 0}{\tikz[remember picture, overlay]{\foreach \stroke in {1,...,\arabic{highlightGreen}} \draw[highlighterGreen] (begin highlightGreen \stroke) -- (end highlightGreen \stroke);}}{}}}
+%
+% % implementation Yellow Highlighter
+% \newcounter{highlightYellow}[page]
+% \newcommand{\tikzhighlightanchorYellow}[1]{\ensuremath{\vcenter{\hbox{\tikz[remember picture, overlay]{\coordinate (#1 highlightYellow \arabic{highlightYellow});}}}}}
+% \newcommand{\bHighlightYellow}[0]{\stepcounter{highlightYellow}\tikzhighlightanchorYellow{begin}}
+% \newcommand{\eHighlightYellow}[0]{\tikzhighlightanchorYellow{end}}
+% \AtBeginShipout{\AtBeginShipoutUpperLeft{\ifthenelse{\value{highlightYellow} > 0}{\tikz[remember picture, overlay]{\foreach \stroke in {1,...,\arabic{highlightYellow}} \draw[highlighterYellow] (begin highlightYellow \stroke) -- (end highlightYellow \stroke);}}{}}}
+
+%new implementation
+\usepackage{highlighter}
+\renewcommand{\thepage}{\roman{page}}
+
+% ---------------- end highlight inside listings -------------------------------
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% DOCUMENT METADATA
+
+\thesistype{Documentation}
+\title{Hybrid Fortran v0.93}
+
+\author{Michel M\"uller}
+\email{michel@typhooncomputing.com}
+\institute{Tokyo Institute of Technology, GSIC \\[2pt]
+Typhoon Computing}
+
+% You can put in your own logo here "\includegraphics{...}" or just comment the command
+% \logo{}
+
+% You can comment the following two commands if you don't need them
+\keywords{Fortran, Weather Prediction, GPGPU, Hybrid, OpenACC, CUDA, TSUBAME, Fermi, Kepler, Tesla, NVIDIA, Westmere, Xeon, Intel, ASUCA}
+% \categories{ACM categories go here.}
+
+\date{\today}
+
+% disable hyphenation for a bunch of words
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{document}
+
+\lstdefinestyle{codestyle} {
+  basicstyle=\footnotesize\ttfamily,                   % Code font, Examples: \footnotesize, \ttfamily
+  keywordstyle=\color{OliveGreen},        % Keywords font ('*' = uppercase)
+  commentstyle=\color{gray},              % Comments font
+  numbers=left,                           % Line nums position
+  numberstyle=\tiny,                      % Line-numbers fonts
+  stepnumber=1,                           % Step between two line-numbers
+  numbersep=5pt,                          % How far are line-numbers from code
+  %backgroundcolor=\color{lightlightgray}, % Choose background color
+  frame=none,                             % A frame around the code
+  tabsize=2,                              % Default tab size
+  captionpos=b,                           % Caption-position = bottom
+  breaklines=true,                        % Automatic line breaking?
+  breakatwhitespace=false,                % Automatic breaks only at whitespace?
+  showspaces=false,                       % Dont make spaces visible
+  showtabs=false,                         % Column format
+  morekeywords={},
+}
+
+\lstdefinestyle{fortranStyle}{
+  language=[90]Fortran,
+  style=codestyle
+}
+
+\lstdefinestyle{cStyle}{
+  language=C,
+  style=codestyle
+}
+
+\lstset{
+  language=[90]Fortran,
+  style=codestyle
+}
+
+\lstset{emph={
+    @parallelRegion, parallelRegion, @domainDependant, domainDependant, @end
+    },emphstyle={\color{darkblue}\bfseries}
+}
+
+\hyphenation{fortran openacc asuca}
+
+\frontmatter
+\maketitle % do not remove this line
+
+\clear
+\tableofcontents
+
+\clear
+\listoffigures
+
+\clear
+\listoftables
+
+\clear
+\mainmatter % do not remove this line
+
+\clear
+\include{framework}
+
+\clear
+\include{usage}
+
+\clear
+\include{implementation}
+
+% This displays the bibliography for all cited external documents. All references have to be defined in the file references.bib and can then be cited from within this document.
+\clear
+\bibliographystyle{ieeetr}
+\bibliography{references}
+
+% This creates an appendix chapter, comment if not needed.
+% \clear
+% \appendix
+
+\end{document}

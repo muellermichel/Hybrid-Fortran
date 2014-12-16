@@ -1,0 +1,70 @@
+\RequirePackage{atbegshi}
+\RequirePackage{forloop}
+\RequirePackage{ifthen}
+\RequirePackage{tikz}
+\RequirePackage{zref-abspage}
+\RequirePackage{zref-abspos}
+\RequirePackage{xcolor}
+
+\definecolor{lightgreen}{rgb}{0.67, 1, 0.32}
+\tikzstyle{highlighterGreen} = [
+  lightgreen,
+  line width = \baselineskip,
+]
+\tikzstyle{highlighterYellow} = [
+  yellow,
+  line width = \baselineskip,
+]
+
+% anchor placement, with @highlight counting upward to generate unique names
+\newcounter{@highlight}
+\newcommand{\@HighlightAnchor}[1]{\ensuremath{\vcenter{\zsavepos{highlight-#1}}}}
+\newcommand{\HighlightFrom}[0]{\stepcounter{@highlight}\@HighlightAnchor{begin-\the@highlight}}
+\newcommand{\HighlightTo}[0]{\@HighlightAnchor{end-\the@highlight}}
+
+% highlight painting, with @@highlight counting upward to consider all defined highlights
+\newcounter{@@highlight}
+\newcommand{\@HighlightPage}[1]{\zref@extract{highlight-#1-\the@@highlight}{abspage}}
+\newcommand{\@HighlightCoords}[2]{(#1\zposx{highlight-#2-\the@@highlight}sp, #1\zposy{highlight-#2-\the@@highlight}sp)}
+
+% anchor placement, with @highlight counting upward to generate unique names
+\newcounter{@highlightGreen}
+\newcommand{\@HighlightAnchorGreen}[1]{\ensuremath{\vcenter{\zsavepos{highlightGreen-#1}}}}
+\newcommand{\HighlightGreenFrom}[0]{\stepcounter{@highlightGreen}\@HighlightAnchorGreen{begin-\the@highlightGreen}}
+\newcommand{\HighlightGreenTo}[0]{\@HighlightAnchorGreen{end-\the@highlightGreen}}
+
+% highlight painting, with @@highlight counting upward to consider all defined highlights
+\newcounter{@@highlightGreen}
+\newcommand{\@HighlightPageGreen}[1]{\zref@extract{highlightGreen-#1-\the@@highlightGreen}{abspage}}
+\newcommand{\@HighlightCoordsGreen}[2]{(#1\zposx{highlightGreen-#2-\the@@highlightGreen}sp, #1\zposy{highlightGreen-#2-\the@@highlightGreen}sp)}
+
+\AtBeginShipout{
+  \AtBeginShipoutUpperLeft{
+    % consider every highlight until reaching one that is undefined
+    \forloop{@@highlight}{1}{\@HighlightPage{begin} > 0}{
+      % page highlight if it begins and ends on the current page
+      \ifthenelse{\@HighlightPage{begin} = \value{abspage}}{
+        \ifthenelse{\@HighlightPage{end} = \value{abspage}}{
+          % drop an anchor here so we compute the proper (x, y) offsets
+          \zsavepos{highlight-draw-\the@@highlight}%
+          \tikz[overlay, shift={\@HighlightCoords{-}{draw}}]{
+            \draw [highlighterYellow] \@HighlightCoords{}{begin} -- \@HighlightCoords{}{end};
+          }}
+        {\PackageWarning{highlighter}{highlight \protect#\the@@highlight\space crosses from page \@HighlightPage{begin} to page \@HighlightPage{end}}}}
+      {}}
+    % consider every highlight until reaching one that is undefined
+    \forloop{@@highlightGreen}{1}{\@HighlightPageGreen{begin} > 0}{
+      % page highlight if it begins and ends on the current page
+      \ifthenelse{\@HighlightPageGreen{begin} = \value{abspage}}{
+        \ifthenelse{\@HighlightPageGreen{end} = \value{abspage}}{
+          % drop an anchor here so we compute the proper (x, y) offsets
+          \zsavepos{highlightGreen-draw-\the@@highlightGreen}%
+          \tikz[overlay, shift={\@HighlightCoordsGreen{-}{draw}}]{
+            \draw [highlighterGreen] \@HighlightCoordsGreen{}{begin} -- \@HighlightCoordsGreen{}{end};
+          }}
+        {\PackageWarning{highlighter}{highlight \protect#\the@@highlightGreen\space crosses from page \@HighlightPageGreen{begin} to page \@HighlightPageGreen{end}}}}
+      {}}
+  }
+}
+    
+      

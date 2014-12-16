@@ -124,6 +124,7 @@ subroutine wrapper(a, b, c)
   @end domainDependant
   @parallelRegion{appliesTo(CPU), domName(x,y), domSize(NX, NY)}
   call add(a, b, c)
+  call mult(a, b, c)
   @end parallelRegion
 end subroutine
 
@@ -140,6 +141,11 @@ subroutine add(a, b, c)
   end do
   @end parallelRegion
 end subroutine
+
+subroutine mult(a, b, c)
+  !...
+end subroutine
+
 end module example
 ```
 

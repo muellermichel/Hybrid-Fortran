@@ -302,7 +302,7 @@ clean_installed_non_hybrid_framework_executables:
 	      target_path=$${install_path}/$${filename} ; \
 	    fi && \
 	    echo "removing installed executable: $$target_path" && \
-	    rm -f $$target_path $${target_path}.dSYM && \
+	    rm -rf $$target_path $${target_path}.dSYM && \
 	    index=$$[index + 1] ; \
 	  done )
 
@@ -324,7 +324,7 @@ clean_installed_framework_executables_cpu:
 	      target_path=$${install_path}/$${filename}_cpu ; \
 	    fi && \
 	    echo "removing installed executable: $$target_path" && \
-	    rm -f $$target_path $${target_path}.dSYM && \
+	    rm -rf $$target_path $${target_path}.dSYM && \
 	    index=$$[index + 1] ; \
 	  done )
 

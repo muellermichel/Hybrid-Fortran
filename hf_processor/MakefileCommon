@@ -200,11 +200,14 @@ ifdef FRAMEWORK_MAKEFILE
 
 INSTALL_TARGETS_CPU= install_framework_executables_cpu install_non_hybrid_framework_executables
 INSTALL_TARGETS_GPU= install_framework_executables_gpu
-
+ADDITIONAL_CLEANUPS_CPU= clean_installed_framework_executables_cpu clean_installed_non_hybrid_framework_executables
+ADDITIONAL_CLEANUPS_GPU= clean_installed_framework_executables_gpu
 else
 
 INSTALL_TARGETS_CPU= ${INSTALLED_EXECUTABLES_CPU}
 INSTALL_TARGETS_GPU= ${INSTALLED_EXECUTABLES_GPU}
+ADDITIONAL_CLEANUPS_CPU= clean_installed_executables_cpu
+ADDITIONAL_CLEANUPS_GPU= clean_installed_executables_gpu
 
 endif
 #############################################################################
@@ -232,8 +235,6 @@ H90_PREPROCESSOR_ARGS=
 DEBUG_OUTPUT=/dev/null
 endif
 #############################################################################
-
-
 
 SRC_FORT_COMMON_DIRS=$(dir $(SRC_FORT)) $(dir $(SRC_H90_ALL))
 
@@ -269,15 +270,85 @@ clean: clean_cpu clean_gpu
 	rm -rf ${SRC_DIR_HFPP}
 	rm -rf ${BASEDIR_POST}
 
-clean_cpu:
-	rm -f ${INSTALLED_EXECUTABLES_CPU}
+clean_cpu: ${ADDITIONAL_CLEANUPS_CPU}
 	rm -rf ${DIR_CPU}
 	rm -f ${CG_DIR}${CPU_CALLGRAPH_FILE}
 
-clean_gpu:
-	rm -f ${INSTALLED_EXECUTABLES_GPU}
+clean_gpu: ${ADDITIONAL_CLEANUPS_GPU}
 	rm -rf ${DIR_GPU}
 	rm -f ${CG_DIR}${GPU_CALLGRAPH_FILE}
+
+clean_installed_executables_cpu:
+	rm -f ${INSTALLED_EXECUTABLES_CPU}
+
+clean_installed_executables_gpu:
+	rm -f ${INSTALLED_EXECUTABLES_GPU}
+
+clean_installed_non_hybrid_framework_executables:
+	@( set -e && \
+	  executable_list=( ${NON_HYBRID_EXECUTABLES} ) && \
+	  install_path_list=( ${FRAMEWORK_NON_HYBRID_INSTALLED_EXECUTABLE_PATHS_POST} ) && \
+	  index=0 && \
+	  for executable in $${executable_list[*]} ; do \
+	    target_path="" && \
+	    install_path=$${install_path_list[$$index]} && \
+	    if [[ $executable == *.* ]] ; then \
+	      filename_with_extension=$${executable##*/} && \
+	      extension=$${filename_with_extension##*.} && \
+	      filename=$${filename_with_extension%.*} && \
+	      target_path=$${install_path}/$${filename}.$${extension} ; \
+	    else \
+	      filename=$${executable##*/} && \
+	      target_path=$${install_path}/$${filename} ; \
+	    fi && \
+	    echo "removing installed executable: $$target_path" && \
+	    rm -f $$target_path && \
+	    index=$$[index + 1] ; \
+	  done )
+
+clean_installed_framework_executables_cpu:
+	@( set -e && \
+	  executable_list=( ${EXECUTABLES_CPU_OUT} ) && \
+	  install_path_list=( ${FRAMEWORK_INSTALLED_EXECUTABLE_PATHS_POST} ) && \
+	  index=0 && \
+	  for executable in $${executable_list[*]} ; do \
+	    target_path="" && \
+	    install_path=$${install_path_list[$$index]} && \
+	    if [[ $executable == *.* ]] ; then \
+	      filename_with_extension=$${executable##*/} && \
+	      extension=$${filename_with_extension##*.} && \
+	      filename=$${filename_with_extension%.*} && \
+	      target_path=$${install_path}/$${filename}_cpu.$${extension} ; \
+	    else \
+	      filename=$${executable##*/} && \
+	      target_path=$${install_path}/$${filename}_cpu ; \
+	    fi && \
+	    echo "removing installed executable: $$target_path" && \
+	    rm -f $$target_path && \
+	    index=$$[index + 1] ; \
+	  done )
+
+clean_installed_framework_executables_gpu:
+	@( set -e && \
+	  executable_list=( ${EXECUTABLES_GPU_OUT} ) && \
+	  install_path_list=( ${FRAMEWORK_INSTALLED_EXECUTABLE_PATHS_POST} ) && \
+	  index=0 && \
+	  for executable in $${executable_list[*]} ; do \
+	    target_path="" && \
+	    install_path=$${install_path_list[$$index]} && \
+	    if [[ $executable == *.* ]] ; then \
+	      filename_with_extension=$${executable##*/} && \
+	      extension=$${filename_with_extension##*.} && \
+	      filename=$${filename_with_extension%.*} && \
+	      target_path=$${install_path}/$${filename}_gpu.$${extension} ; \
+	    else \
+	      filename=$${executable##*/} && \
+	      target_path=$${install_path}/$${filename}_gpu ; \
+	    fi && \
+	    echo "removing installed executable: $$target_path" && \
+	    rm -f $$target_path && \
+	    index=$$[index + 1] ; \
+	  done )
 
 build: build_cpu build_gpu
 

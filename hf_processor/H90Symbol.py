@@ -412,6 +412,8 @@ class Symbol(object):
         for (dependantDomName, dependantDomSize) in dependantDomNameAndSize:
             if dependantDomName not in self.parallelActiveDims:
                 self.parallelInactiveDims.append(dependantDomName)
+            if dependantDomName in self.aggregatedRegionDomSizesByName:
+                self.aggregatedRegionDomSizesByName[dependantDomName][0] = dependantDomSize
 
         dimsBeforeReset = self.domains
         self.domains = []
@@ -520,8 +522,8 @@ Automatic reshaping is not supported since this is a pointer type. Domains in Di
             # for the stencil use case: user will still specify the dimensions in the declaration
             # -> autodom picks them up and integrates them as parallel active dims
             if self.debugPrint:
-                sys.stderr.write("Loading dimensions for autoDom, non-pointer symbol %s. Declared dimensions: %s, Known dimension sizes used for parallel regions: %s\n" %(
-                    str(self), str(dimensionSizes), str(self.aggregatedRegionDomSizesByName)
+                sys.stderr.write("Loading dimensions for autoDom, non-pointer symbol %s. Declared dimensions: %s, Known dimension sizes used for parallel regions: %s, Parallel Active Dims: %s, Parallel Inactive Dims: %s\n" %(
+                    str(self), str(dimensionSizes), str(self.aggregatedRegionDomSizesByName), str(self.parallelActiveDims), str(self.parallelInactiveDims)
                 ))
             for dimensionSize in dimensionSizes:
                 missingParallelDomain = None
@@ -556,6 +558,8 @@ template for symbol %s - automatically inserting it for domain name %s\n"
                 else:
                     self.parallelInactiveDims.append(dimensionSize)
                     self.domains.append(("HF_GENERIC_PARALLEL_INACTIVE_DIM", dimensionSize))
+            if self.debugPrint:
+                sys.stderr.write("done loading autoDom dimensions for symbol %s\n" %(str(self)))
 
         # at this point we may not go further if the parallel region data
         # has not yet been analyzed.
@@ -598,6 +602,8 @@ template for symbol %s - automatically inserting it for domain name %s\n"
                     self.domains.insert(lastParallelDomainIndex, (parallelDomName, parallelDomSizes[0]))
             if self.parallelRegionPosition == "outside":
                 self.domains = [(domName, domSize) for (domName, domSize) in self.domains if not domName in self.parallelActiveDims]
+            if self.debugPrint:
+                sys.stderr.write("parallel active dims analysed for symbol %s\n" %(str(self)))
 
         #   Now match the declared dimensions to those in the         #
         #   'parallelInactive' set, using the declared domain sizes.  #
@@ -631,6 +637,8 @@ template for symbol %s - automatically inserting it for domain name %s\n"
                         break
                 else:
                     self.domains.append(("HF_GENERIC_PARALLEL_INACTIVE_DIM", dimSize))
+        if self.debugPrint:
+            sys.stderr.write("dependant directive analysed for symbol %s\n" %(str(self)))
 
         #    Sanity checks                                            #
         if len(self.domains) < len(dimensionSizes):

@@ -1,0 +1,76 @@
+module stencil
+contains
+  subroutine stencil(n, m, nz, a, b)
+    implicit none
+    integer(4), intent(in) :: n, m, nz
+    real(8), intent(in), dimension(n,m) :: a
+    real(8), intent(out), dimension(n,m) :: b
+
+    integer(4):: k
+    real(8), dimension(nz) :: c
+    @domainDependant{attribute(autoDom)}
+    a, b, n, m
+    @end domainDependant
+
+    ! The following tells hybrid fortran that 'c' is to be privatized in i,j -> c will be dimensioned (n-1,m,nz)
+    @domainDependant{domName(i,j), domSize(n-1,m), attribute(autoDom)}
+    c
+    @end domainDependant
+
+    ! This is a unit test used for Hybrid Fortran: Does it shape the local array like we told it to with the domainDependant directive?
+    if (size(c, 1) .ne. n-1 .or. size(c, 2) .ne. m) then
+      write(6,*) "local array does not have the expected shape:", size(c), "instead of", n-1, "x", m
+      stop 2
+    end if
+
+    @parallelRegion{domName(i,j), domSize(n,m), endAt(n-1,m)}
+    c(1) = a(i,j)
+    do k = 2, nz
+      c(k) = c(k-1) * 2
+    end do
+    b(i,j) = a(i,j) + a(i+1,j) + c(nz)
+    @end parallelRegion
+  end subroutine
+
+  subroutine stencil_wrapper(n, m, nz, a, b)
+    implicit none
+    integer(4), intent(in) :: n, m, nz
+    real(8), intent(in), dimension(n,m) :: a
+    real(8), intent(out), dimension(n,m) :: b
+    @domainDependant{attribute(autoDom)}
+    a, b
+    @end domainDependant
+
+    call stencil(n, m, nz, a, b)
+  end subroutine
+end module
+
+program main
+  use stencil
+  implicit none
+  real(8), dimension(:,:), allocatable :: a, b
+  integer(4) :: n, m, nz, i, j
+
+  n = 4
+  m = 4
+  nz = 3
+  allocate(a(n,m))
+  allocate(b(n,m))
+  a(:,:) = 1.0d0
+  b(:,:) = 0.0d0
+  call stencil_wrapper(n, m, nz, a, b)
+  do i=1,n-1
+    do j=1,m
+      if (b(i,j) .ne. 6.0d0) then
+        write(6,*) "test failed, i=", i, "j=", j, "b=", b(i,j)
+        deallocate(a)
+        deallocate(b)
+        stop 1
+      end if
+    end do
+  end do
+  write(6,*) "test ok"
+  deallocate(a)
+  deallocate(b)
+  stop
+end program main

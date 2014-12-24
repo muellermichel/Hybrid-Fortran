@@ -1,0 +1,60 @@
+# Copyright (C) 2014 Michel Müller, Tokyo Institute of Technology
+
+# This file is part of Hybrid Fortran.
+
+# Hybrid Fortran is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# Hybrid Fortran is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU Lesser General Public License for more details.
+
+# You should have received a copy of the GNU Lesser General Public License
+# along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
+
+#--------------------------------------------------------#
+#-- GNU Make settings for GPU compilation ---------------#
+#-- created:   2012-9-3 ---------------------------------#
+#-- author:    Michel Müller ----------------------------#
+#-- place:     Tokyo Institute of Technology ------------#
+#--------------------------------------------------------#
+
+FC=pgf90
+LD=pgf90
+
+ifdef EMULATED
+
+#############################################################################
+# emulation mode settings                                                   #
+#############################################################################
+# EMULATED in Fortran-only code as well as device execution in mixed C/Fortran code works fine.
+# Please note: EMULATED mode does not work together with calling CUDA Fortran files from C - it always throws segmentation fault
+# when accessing any memory in a kernel, even if that memory has been set separately in Fortran. For some reason it seems to mess with the
+# subroutine specification memory layout, so it passes in dimensions for arrays as the value of by-value-inputs for example.
+FFLAGS= -Mcuda=emu -g -DGPU -I/usr/local/include -I/home/usr1/A2400653/software/include -r8
+LDFLAGS= -Mcuda=emu -L/usr/local/lib -L/home/usr1/A2400653/software/lib -Minfo=accel,inline -Mneginfo -lpp
+
+else
+ifdef DEBUG
+#############################################################################
+# debug settings                                                            #
+#############################################################################
+FFLAGS= -g -DGPU -Mcuda=cc3x -ta=nvidia,cc3x,keepgpu,keepbin,time -Minfo=accel,inline,ipa -Mneginfo -Minform=inform -I/usr/local/include -r8
+LDFLAGS= -g -Mcuda=cc3x -ta=nvidia,cc3x,time -L/usr/local/lib -Minfo=accel,inline -Mneginfo -lpp
+
+else
+#############################################################################
+# production settings                                                       #
+#############################################################################
+FFLAGS= -DGPU -Mcuda=cc3x -ta=nvidia,cc3x -Minline=levels:5,reshape ‑Mipa=inline,reshape -Minfo=accel,inline,ipa -Mneginfo -Minform=inform -I/usr/local/include -r8 -O4
+LDFLAGS= -Mcuda=cc3x -ta=nvidia,cc3x,time -Mipa=inline,reshape -L/usr/local/lib -Minfo=accel,inline -Mneginfo -lpp
+
+endif
+endif
+
+
+
+

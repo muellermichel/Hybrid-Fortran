@@ -900,6 +900,19 @@ This is not allowed for implementations using %s.\
         postfix = symbolMatch.group(2)
         postfixEscaped = re.escape(postfix)
 
+        if symbol.domains \
+        and len(symbol.domains) > 0 \
+        and not isInsideSubroutineCall \
+        and not isPointerAssignment \
+        and not symbol.isModuleSymbol \
+        and not symbol.isHostSymbol \
+        and self.state != "inside_parallelRegion" \
+        and self.routineNodesByProcName[self.currSubprocName].getAttribute("parallelRegionPosition") != "outside":
+            accMatch, _ = getAccessMatchAndNumberOfDomainsInAccessor([0], postfix)
+            if accMatch == None:
+                sys.stderr.write("WARNING: Dependant symbol %s accessed with accessor domains outside of a parallel region or subroutine call in subroutine %s(%s:%i)\n" \
+                %(symbol.name, self.currSubprocName, self.fileName, self.lineNo))
+
         accessPatternChangeRequired = False
         presentPattern = r"(.*?present\s*\(\s*)" + re.escape(symbol.deviceName()) + postfixEscaped + r"\s*"
         currMatch = re.match(presentPattern, line, re.IGNORECASE)
@@ -915,9 +928,10 @@ This is not allowed for implementations using %s.\
                         "Symbol %s is accessed in an unexpected way. Note: '_d' postfix is reserved for internal use. Cannot match one of the following patterns: \npattern1: '%s'\npattern2: '%s'" \
                         %(symbol.name, pattern1, pattern2))
         prefix = currMatch.group(1)
+        numberOfDomainsInAccessor = 0
         if accessPatternChangeRequired:
             numOfIndependentDomains = len(symbol.domains) - symbol.numOfParallelDomains
-            accMatch, numberOfDomainsInAccessor = getAccessMatchAndNumberOfDomainsInAccessor([numOfIndependentDomains, len(symbol.domains)], postfix)
+            accMatch, numberOfDomainsInAccessor = getAccessMatchAndNumberOfDomainsInAccessor([numOfIndependentDomains, len(symbol.domains), 0], postfix)
             offsets = []
             if accMatch == None and not isInsideSubroutineCall and not isPointerAssignment:
                 raise Exception("Unexpected array access for symbol %s: Please use either %i (number of parallel independant dimensions) \
@@ -939,7 +953,7 @@ This is not allowed for implementations using %s.\
                 if calleeNode and calleeNode.getAttribute("parallelRegionPosition") != "outside":
                     iterators = []
         symbol_access = None
-        if isPointerAssignment or not accessPatternChangeRequired:
+        if isPointerAssignment or not accessPatternChangeRequired or numberOfDomainsInAccessor == 0:
             symbol_access = symbol.deviceName()
         else:
             symbol_access = symbol.accessRepresentation(iterators, offsets, self.currParallelRegionTemplateNode)
@@ -958,17 +972,6 @@ This is not allowed for implementations using %s.\
             work = adjustedLine
             nextMatch = symbol.namePattern.match(work)
             while nextMatch:
-                if symbol.domains \
-                and len(symbol.domains) > 0 \
-                and not isInsideSubroutineCall \
-                and not isPointerAssignment \
-                and not symbol.isModuleSymbol \
-                and not symbol.isHostSymbol \
-                and self.state != "inside_parallelRegion" \
-                and self.routineNodesByProcName[self.currSubprocName].getAttribute("parallelRegionPosition") != "outside":
-                    sys.stderr.write("WARNING: Dependant symbol %s accessed outside of a parallel region or subroutine call in subroutine %s(%s:%i)\n" \
-                    %(symbol.name, self.currSubprocName, self.fileName, self.lineNo))
-
                 symbolWasMatched = True
                 prefix = nextMatch.group(1)
                 lineSections.append(prefix)

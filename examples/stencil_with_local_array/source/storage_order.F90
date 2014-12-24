@@ -45,11 +45,7 @@
 
 /* ------ Switch between storage orders ------  */
 #define CURR_ORDER IJK_ORDER
-#ifndef GPU
-#if (CURRENT_SCHEME == PARALLEL_VECTOR_SCHEME)
-#define CURR_ORDER KIJ_ORDER
-#endif
-#endif
+!here we specifically don't do storage order changes between CPU and GPU because we want to want to be able to make assumptions about the order at runtime for testing reasons.
 
 /* ------ Order dependent macros -------------  */
 ! (2) Does your data have more dimensions than 4? if so, define AT5, AT6, ... accordingly

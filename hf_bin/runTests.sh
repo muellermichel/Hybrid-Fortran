@@ -29,19 +29,28 @@ for executable in $executables; do
 	testDir=$(dirname ${executable})
 	executableName=$(basename ${executable})
 	cd ${testDir}
-	# if [ "$run_mode" = "debug" ]; then
-	# 	${HF_DIR}/hf_bin/runTest.sh $executableName $architecture valgrind "$output_file_pattern" $source_before $source_after
-	# 	rc=$?
-	# 	if [[ $rc != 0 ]] ; then
-	# 		cd ${currDir}
-	# 		exit $rc
-	# 	fi
-	# fi
 	${HF_DIR}/hf_bin/runTest.sh $executableName $architecture validation "$output_file_pattern" $source_before $source_after
 	rc=$?
-	cd ${currDir}
-	if [[ $rc != 0 ]] ; then
+	if [[ $rc != 0 ]] && [[ "$run_mode" != "debug" ]] ; then
+		cd ${currDir}
 		exit $rc
 	fi
+	validation_rc=${rc}
+	if [ "$run_mode" = "debug" ]; then
+		if [[ $validation_rc != 0 ]] ; then
+			echo "There was an error during the validation run. Since we're in debug mode, repeating the test with valgrind running. This might take a while."
+		fi
+		${HF_DIR}/hf_bin/runTest.sh $executableName $architecture valgrind "$output_file_pattern" $source_before $source_after
+		rc=$?
+		if [[ $rc != 0 ]] ; then
+			cd ${currDir}
+			exit $rc
+		fi
+		if [[ $validation_rc != 0 ]] ; then
+			cd ${currDir}
+			exit $validation_rc
+		fi
+	fi
+	cd ${currDir}
 done
 echo "All your tests have passed!"

@@ -81,8 +81,9 @@ for i in "${!argStringsArr[@]}"; do
 	fi
 	refPath=./ref${refPostfixesArr[$i]}/
 
-	if [ "$configuration_name" = "valgrind" ]; then
+	if [[ "$configuration_name" = "valgrind" ]] && [[ -n `file ./${executable_name} | grep -i "executable"` ]]; then
 		echo -n "valgrind with parameters${argString},"
+		touch ./log_lastRun.txt
 		`valgrind --log-file='./log_lastRun.txt' --suppressions=../../../hf_config/valgrind_errors.supp ./${executable_name} ${argString} &>/dev/null`
 		cat ./log_lastRun.txt 2>&1 | grep 'Unrecognised instruction' &> './log_temp.txt'
 		if [[ -s './log_temp.txt' ]]; then
@@ -123,7 +124,11 @@ for i in "${!argStringsArr[@]}"; do
 			fi
 		fi
 	fi
-	echo -n "$calling ${executable_name} ( with parameters ${argString} ) for ${configuration_name} ,"
+	if [ "$configuration_name" = "valgrind" ]; then
+		argString="${argString} valgrind"
+	fi
+
+	echo -n "calling ${executable_name} ( with parameters ${argString} ) for ${configuration_name} ,"
 	timingResult=$(./${executable_name} ${argString} 2>./log_lastRun.txt)
 	rc=$?
 	if [[ $rc != 0 ]] ; then

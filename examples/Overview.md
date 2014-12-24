@@ -30,6 +30,10 @@ See also the [results overview](../results/Overview.md).
         <td>Stencil code.</td>
     </tr>
     <tr>
+        <td>Stencil With Local Array Example</td>
+        <td>Stencil code with local array. Tests Hybrid Fortran's array reshaping in conjunction with stencil codes.</td>
+    </tr>
+    <tr>
         <td>Parallel Vector Example</td>
         <td>Separate parallelizations for CPU/GPU with unified codebase, parallel vector calculations without communication. Automatic privatization of 1D code to 3D version for GPU parallelization.</td>
     </tr>
@@ -88,6 +92,14 @@ See also the [results overview](../results/Overview.md).
     <tr>
         <td>Simple Stencil Example</td>
         <td><a href="https://github.com/muellermichel/Hybrid-Fortran/tree/master/examples/simple_stencil">Link</a></td>
+        <td>1E-8</td>
+        <td>No</td>
+        <td>No</td>
+        <td>No</td>
+    </tr>
+    <tr>
+        <td>Stencil With Local Array Example</td>
+        <td><a href="https://github.com/muellermichel/Hybrid-Fortran/tree/master/examples/simple_stencil_with_local_array">Link</a></td>
         <td>1E-8</td>
         <td>No</td>
         <td>No</td>

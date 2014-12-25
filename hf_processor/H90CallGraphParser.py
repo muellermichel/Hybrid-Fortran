@@ -933,13 +933,12 @@ This is not allowed for implementations using %s.\
             numOfIndependentDomains = len(symbol.domains) - symbol.numOfParallelDomains
             accMatch, numberOfDomainsInAccessor = getAccessMatchAndNumberOfDomainsInAccessor([numOfIndependentDomains, len(symbol.domains), 0], postfix)
             offsets = []
-            if accMatch == None and not isInsideSubroutineCall and not isPointerAssignment:
+            if accMatch == None:
                 raise Exception("Unexpected array access for symbol %s: Please use either %i (number of parallel independant dimensions) \
     or %i (number of declared dimensions for this array) accessors. Symbol Init Level: %i; Parallel Region Position: %s; Symbol template:\n%s\n" %(
                     symbol.name, numOfIndependentDomains, len(symbol.domains), symbol.initLevel, str(symbol.parallelRegionPosition), symbol.template.toxml()
                 ))
-            elif accMatch == None:
-                #inside a subroutine call
+            elif isInsideSubroutineCall or isPointerAssignment:
                 for i in range(numOfIndependentDomains):
                     offsets.append(":")
             else:
@@ -953,7 +952,16 @@ This is not allowed for implementations using %s.\
                 if calleeNode and calleeNode.getAttribute("parallelRegionPosition") != "outside":
                     iterators = []
         symbol_access = None
-        if isPointerAssignment or not accessPatternChangeRequired or numberOfDomainsInAccessor == 0:
+        if isPointerAssignment \
+        or not accessPatternChangeRequired \
+        or ( \
+            self.state != "inside_parallelRegion" \
+            and not isInsideSubroutineCall \
+            and not isPointerAssignment \
+            and not symbol.isModuleSymbol \
+            and not symbol.isHostSymbol \
+            and numberOfDomainsInAccessor == 0 \
+        ):
             symbol_access = symbol.deviceName()
         else:
             symbol_access = symbol.accessRepresentation(iterators, offsets, self.currParallelRegionTemplateNode)

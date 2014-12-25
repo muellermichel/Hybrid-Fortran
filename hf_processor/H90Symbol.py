@@ -849,11 +849,13 @@ Please specify the domains and their sizes with domName and domSize attributes i
                 sys.stderr.write("only returning name since routine attributes haven't been loaded yet.\n")
             return self.name
 
-        if len(parallelIterators) == 0 and len(offsets) != len(self.domains) - self.numOfParallelDomains \
+        if len(parallelIterators) == 0 \
+        and len(offsets) != len(self.domains) - self.numOfParallelDomains \
         and len(offsets) != len(self.domains):
             raise Exception("Unexpected number of offsets specified for symbol %s; Offsets: %s, Expected domains: %s" \
                 %(self.name, offsets, self.domains))
-        elif len(parallelIterators) != 0 and len(offsets) + len(parallelIterators) != len(self.domains) \
+        elif len(parallelIterators) != 0 \
+        and len(offsets) + len(parallelIterators) != len(self.domains) \
         and len(offsets) != len(self.domains):
             raise Exception("Unexpected number of offsets and iterators specified for symbol %s; Offsets: %s, Iterators: %s, Expected domains: %s" \
                 %(self.name, offsets, parallelIterators, self.domains))

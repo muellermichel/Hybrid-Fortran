@@ -101,7 +101,7 @@ def getDebugOffsetString(domainTuple):
         offset = "1"
     return offset
 
-def getRuntimeDebugPrintStatements(symbolsByName, calleeRoutineNode):
+def getRuntimeDebugPrintStatements(symbolsByName, calleeRoutineNode, parallelRegionNode):
     routineName = calleeRoutineNode.getAttribute('name')
     if not routineName:
         raise Exception("Callee routine name undefined.")
@@ -131,7 +131,7 @@ def getRuntimeDebugPrintStatements(symbolsByName, calleeRoutineNode):
                     symbol.domains[i]
                 )
             )
-        result = result + "cuTemp = %s\n" %(symbol.accessRepresentation(iterators, offsets))
+        result = result + "cuTemp = %s\n" %(symbol.accessRepresentation(iterators, offsets, parallelRegionNode))
         #michel 2013-4-18: the Fortran-style memcopy as used right now in the above line creates a runtime error immediately
         #                  if we'd like to catch such errors ourselves, we need to use the cuda API memcopy calls - however we
         #                  then also need information about the symbol size, which isn't available in the current implementation
@@ -369,6 +369,7 @@ class CUDAFortranImplementation(FortranImplementation):
 
     def __init__(self, optionFlags):
         self.currRoutineNode = None
+        self.currParallelRegionTemplateNode = None
         FortranImplementation.__init__(self, optionFlags)
 
     def warningOnUnrecognizedSubroutineCallInParallelRegion(self, callerName, calleeName):
@@ -381,6 +382,7 @@ class CUDAFortranImplementation(FortranImplementation):
     def kernelCallPreparation(self, parallelRegionTemplate, calleeNode=None):
         if not appliesTo(["GPU"], parallelRegionTemplate):
             return ""
+        self.currParallelRegionTemplateNode = parallelRegionTemplate
         gridPreparationStr = ""
         if calleeNode != None and "DO_NOT_TOUCH_GPU_CACHE_SETTINGS" not in self.optionFlags:
             gridPreparationStr += "cuerror = cudaFuncSetCacheConfig(%s, cudaFuncCachePreferL1)\n" %(calleeNode.getAttribute('name'))
@@ -412,6 +414,7 @@ end if\n" %(calleeNode.getAttribute('name'))
         return result
 
     def kernelCallPost(self, symbolsByName, calleeRoutineNode):
+        self.currParallelRegionTemplateNode = None
         if calleeRoutineNode.getAttribute('parallelRegionPosition') != 'within':
             return ""
         result = getErrorHandlingAfterKernelCall(calleeRoutineNode)
@@ -614,12 +617,14 @@ Symbols vs transferHere attributes:\n%s" %(str([(symbol.name, symbol.transferHer
         return result
 
     def parallelRegionBegin(self, parallelRegionTemplate):
+        self.currParallelRegionTemplateNode = parallelRegionTemplate
         domains = getDomainsWithParallelRegionTemplate(parallelRegionTemplate)
         regionStr = self.iteratorDefinitionBeforeParallelRegion(domains)
         regionStr += self.safetyOutsideRegion(domains)
         return regionStr
 
     def parallelRegionEnd(self, parallelRegionTemplate):
+        self.currParallelRegionTemplateNode = None
         return ""
 
     def declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates):
@@ -684,7 +689,7 @@ class DebugCUDAFortranImplementation(CUDAFortranImplementation):
         #michel 2013-4-18: Note, that doing the stop *after* trying to print the memory state hasn't really helped so far.
         #CUDA seems to fail any memcopy attempts after a kernel fails - maybe there is some method to clear the error state before
         #doing memcopy?
-        result = result + getRuntimeDebugPrintStatements(symbolsByName, calleeRoutineNode)
+        result = result + getRuntimeDebugPrintStatements(symbolsByName, calleeRoutineNode, self.currParallelRegionTemplateNode)
         result = result + "if(cuerror .NE. cudaSuccess) then\n"\
                 "\tstop 1\n" \
             "end if\n"

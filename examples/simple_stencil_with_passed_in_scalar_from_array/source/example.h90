@@ -1,0 +1,69 @@
+module stencil
+contains
+  subroutine stencil(n, m, nz, a, c, c_start, b)
+    implicit none
+    integer(4), intent(in) :: n, m, nz
+    real(8), intent(in), dimension(n,m) :: a
+    real(8), intent(in), dimension(n,m,nz) :: c
+    real(8), intent(in) :: c_start
+    real(8), intent(out), dimension(n,m) :: b
+    @domainDependant{attribute(autoDom)}
+    a, c, c_start, b, n, m, nz
+    @end domainDependant
+
+    @parallelRegion{domName(i,j), domSize(n,m), endAt(n-1,m)}
+    b(i,j) = a(i,j) + a(i+1,j) + c_start
+    do k = 2, nz
+      b(i,j) = b(i,j) + c(i,j,k)
+    end do
+    @end parallelRegion
+  end subroutine
+
+  subroutine stencil_wrapper(n, m, nz, a, c, b)
+    implicit none
+    integer(4), intent(in) :: n, m, nz
+    real(8), intent(in), dimension(n,m) :: a
+    real(8), intent(in), dimension(n,m,nz) :: c
+    real(8), intent(out), dimension(n,m) :: b
+    @domainDependant{attribute(autoDom)}
+    a, c, b
+    @end domainDependant
+
+    call stencil(n, m, nz, a, c, c(1,1,1), b)
+  end subroutine
+end module
+
+program main
+  use stencil
+  implicit none
+  real(8), dimension(:,:), allocatable :: a, b
+  real(8), dimension(:,:,:), allocatable :: c
+  integer(4) :: n, m, i, j
+
+  n = 4
+  m = 4
+  nz = 3
+  allocate(a(n,m))
+  allocate(b(n,m))
+  allocate(c(n,m,nk))
+  a(:,:) = 1.0d0
+  b(:,:) = 0.0d0
+  c(:,:,:) = 1.0d0
+  call stencil_wrapper(n, m, nz, a, c, b)
+  do i=1,n-1
+    do j=1,m
+      if (b(i,j) .ne. 5.0d0) then
+        write(6,*) "test failed, i=", i, "j=", j, "b=", b(i,j)
+        deallocate(a)
+        deallocate(b)
+        deallocate(c)
+        stop 1
+      end if
+    end do
+  end do
+  write(6,*) "test ok"
+  deallocate(a)
+  deallocate(b)
+  deallocate(c)
+  stop
+end program main

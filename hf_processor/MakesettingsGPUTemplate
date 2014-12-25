@@ -39,10 +39,12 @@ ifdef EMULATED
 #############################################################################
 # emulation mode settings                                                   #
 #############################################################################
-# EMULATED in Fortran-only code as well as device execution in mixed C/Fortran code works fine.
-# Please note: EMULATED mode does not work together with calling CUDA Fortran files from C - it always throws segmentation fault
-# when accessing any memory in a kernel, even if that memory has been set separately in Fortran. For some reason it seems to mess with the
-# subroutine specification memory layout, so it passes in dimensions for arrays as the value of by-value-inputs for example.
+#EMULATED in Fortran-only code as well as device execution in mixed C/Fortran code works fine.
+#Notes:
+# 1) EMULATED mode does not work together with calling CUDA Fortran files from C - it always throws segmentation fault
+#when accessing any memory in a kernel, even if that memory has been set separately in Fortran. For some reason it seems to mess with the
+#subroutine specification memory layout, so it passes in dimensions for arrays as the value of by-value-inputs for example.
+# 2) EMULATED mode does not work together with cublas (therefore it cannot be used in this example)
 FFLAGS= -Mcuda=emu -g -DGPU -I/usr/local/include -I/home/usr1/A2400653/software/include
 LDFLAGS= -Mcuda=emu -L/usr/local/lib -L/home/usr1/A2400653/software/lib -Minfo=accel,inline -Mneginfo -l${HYBRID_LIBRARY_FILENAME_POSTFIX}
 

@@ -699,7 +699,7 @@ class DebugCUDAFortranImplementation(CUDAFortranImplementation):
 
 class DebugEmulatedCUDAFortranImplementation(DebugCUDAFortranImplementation):
 
-    def __init__(self):
+    def __init__(self, optionFlags):
         self.currDependantSymbols = None
         DebugCUDAFortranImplementation.__init__(self, optionFlags)
 
@@ -747,7 +747,7 @@ class DebugEmulatedCUDAFortranImplementation(DebugCUDAFortranImplementation):
             for i in range(len(symbol.domains) - len(offsets)):
                 offsets.append("1")
             if symbol.intent == "in" or symbol.intent == "inout":
-                symbol_access = symbol.accessRepresentation(iterators, offsets)
+                symbol_access = symbol.accessRepresentation(iterators, offsets, parallelRegionTemplate)
                 regionStr += "if %s then\n\twrite(0,*) '%s', %s\nend if\n" %(conditional, symbol_access, symbol_access)
 
         regionStr += "if %s write(0,*) '**********************************************'\n" %(conditional)

@@ -84,30 +84,30 @@ PROGRAM fempoi2d
 
   !------------------------------------------------------------------------------
 
-  write (*,*)
-  write (*,*) '---------------------------------------'
-  write (*,*) ' 2D Poisson equation on a unit square'
-  write (*,*) '---------------------------------------'
-  write (*,'(a,i4,a,i4)') &
+  write(0,*)
+  write(0,*) '---------------------------------------'
+  write(0,*) ' 2D Poisson equation on a unit square'
+  write(0,*) '---------------------------------------'
+  write(0,'(a,i4,a,i4)') &
               ' grid size              : ',n_cells,' x ',n_cells
-  write (*,'(a,i11)') &
+  write(0,'(a,i11)') &
               ' max number of iter.    : ',n_maxit
-  write (*,'(a,i11)') &
+  write(0,'(a,i11)') &
               ' solver                 : ',i_sol
-  write (*,'(a,e11.2)') &
+  write(0,'(a,e11.2)') &
               ' convergence criteria   : ',tol
-  write (*,'(a,f11.1)') &
+  write(0,'(a,f11.1)') &
               ' relaxation parameter   : ',omega
-  write (*,'(a,i11)') &
+  write(0,'(a,i11)') &
               ' # digits in ref. sol.  : ',n_dacc
-  write (*,'(a,i11)') &
+  write(0,'(a,i11)') &
               ' print every # iter.    : ',i_print
-  write (*,'(a,i11)') &
+  write(0,'(a,i11)') &
               ' output postproc. data  : ',i_post
   n_maxthreads = omp_get_max_threads()
-  write (*,'(a,i11)') &
+  write(0,'(a,i11)') &
               ' max number of threads  : ',n_maxthreads
-  write (*,*) '---------------------------------------'
+  write(0,*) '---------------------------------------'
 
 
   !------------------------------------------------------------------------------
@@ -118,8 +118,8 @@ PROGRAM fempoi2d
   s              = -1.0d0/3.0d0
   s(2,2)         =  8.0d0/3.0d0
   n_bpw          =  realsize()
-  write (*,'(A,F11.3,A)') ' memory for array  (MB) : ',dble(n_bpw*n**2)/(1024*1024)
-  write (*,*) '---------------------------------------'
+  write(0,'(A,F11.3,A)') ' memory for array  (MB) : ',dble(n_bpw*n**2)/(1024*1024)
+  write(0,*) '---------------------------------------'
 
 
   !------------------------------------------------------------------------------
@@ -135,7 +135,7 @@ PROGRAM fempoi2d
   ! Solver
   !------------------------------------------------------------------------------
   if ( n_maxit==0 ) then
-     write (*,*)
+     write(0,*)
      stop
   end if
 
@@ -149,16 +149,16 @@ PROGRAM fempoi2d
 
   ! call to solver
   call getTime(time_start)
-  call solver(n,n_maxit,i_sol,tol,omega,i_print,u_p,f,h_p,s,duchg,dnorm,it)
+  call solver(n,n,n_maxit,i_sol,tol,omega,i_print,u_p,f,h_p,s,duchg,dnorm,it)
   call incrementCounter(counter5, time_start)
 
   ! output solution statistics
   if ( i_print/=0 ) then
 
      if ( n_dacc>0 ) then
-        write (*,*) '--------+--------------+--------------+'
-        write (*,'(i8,a,e12.4,a,e12.4,a)') it,' | ',duchg,' | ',dnorm,' |'
-        write (*,*) '--------+--------------+--------------+'
+        write(0,*) '--------+--------------+--------------+'
+        write(0,'(i8,a,e12.4,a,e12.4,a)') it,' | ',duchg,' | ',dnorm,' |'
+        write(0,*) '--------+--------------+--------------+'
 
         allocate(u_ref(n,n))
         call poisqsol(u_ref,n_dacc)
@@ -166,25 +166,25 @@ PROGRAM fempoi2d
         dtmp  = maxval(u_ref)
         u_ref = u_ref-u_p
         dnorm = sqrt(sum(u_ref*u_ref))
-        write (*,'(a,e11.2)') &
+        write(0,'(a,e11.2)') &
              ' l2 norm (u-u_ref)      : ',dnorm
-        write (*,'(a,f11.8)') &
+        write(0,'(a,f11.8)') &
              ' max(u)                 : ',maxval(u_p)
-        write (*,'(a,f11.8)') &
+        write(0,'(a,f11.8)') &
              ' max(u_ref)             : ',dtmp
-        write (*,*) '--------+--------------+--------------+'
+        write(0,*) '--------+--------------+--------------+'
         deallocate(u_ref)
      else
-        write (*,*) '--------+--------------+--------------+'
-        write (*,'(i8,a,e12.4,a,e12.4,a)') it,' | ',duchg,' | ',dnorm,' |'
-        write (*,*) '--------+--------------+--------------+'
+        write(0,*) '--------+--------------+--------------+'
+        write(0,'(i8,a,e12.4,a,e12.4,a)') it,' | ',duchg,' | ',dnorm,' |'
+        write(0,*) '--------+--------------+--------------+'
      end if
 
-     write (*,'(a,f11.2,a)') &
+     write(0,'(a,f11.2,a)') &
           ' Total solver  CPU time : ',counter5,' s'
-     write (*,'(a,i11)') &
+     write(0,'(a,i11)') &
           ' # solver iterations    : ',it
-     write (*,'(a,f11.6,a)') &
+     write(0,'(a,f11.6,a)') &
           ' CPU time/iteration     : ',(counter5)/it,' s'
 
      ! Calculate flops/memory operations per iteration
@@ -209,13 +209,13 @@ PROGRAM fempoi2d
      n_memw  = n_memw  + n_memw_mv *(n-2)*(n-2)
      n_flops = n_flops + n_flops_l2*(n-2)*(n-2)
      n_memw  = n_memw  + n_memw_l2 *(n-2)*(n-2)
-     write (*,'(a,f11.2)') &
+     write(0,'(a,f11.2)') &
           ' Efficiency   (Gflop/s) : ',n_flops/((counter5)/it)/1.0e9
-     write (*,'(a,f11.2)') &
+     write(0,'(a,f11.2)') &
           ' Bandwidth available to kernel (including cached reads) (GiB/s) : ',n_bpw*n_memw/((counter5)/it)/(1024**3)
 
-     write (*,*) '---------------------------------------'
-     write (*,*)
+     write(0,*) '---------------------------------------'
+     write(0,*)
   end if
 
   write(6, "(E13.5,A,E13.5,A,E13.5,A,E13.5,A,E13.5,A,E13.5)") counter_timestep, ",", counter1, ",", counter2, ",", counter3, ",", counter4, ",", counter5

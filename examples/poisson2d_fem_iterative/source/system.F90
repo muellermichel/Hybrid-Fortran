@@ -83,9 +83,9 @@ CONTAINS
     go to 50
 
 40  continue
-!    write (*,fmt='(a)') &
+!    write(0,fmt='(a)') &
 !       ' ---------------------------------------'
-    write (*,fmt='(1x,a,i2,a)') 'RP appears to have ', &
+    write(0,fmt='(1x,a,i2,a)') 'RP appears to have ', &
        ndigits,' digits of accu-'
     if (ndigits.le.8) then
        realsize = 4
@@ -94,9 +94,9 @@ CONTAINS
     else
        realsize = 16
     end if
-    write (*,fmt='(1x,a,i2,a)') 'racy assuming ',realsize, &
+    write(0,fmt='(1x,a,i2,a)') 'racy assuming ',realsize, &
        ' bytes per RP word'
-!    write (*,fmt='(a)') &
+!    write(0,fmt='(a)') &
 !      ' ---------------------------------------'
     return
 
@@ -113,7 +113,7 @@ CONTAINS
     end if
     print *,'you have manually entered a size of ',realsize, &
             ' bytes per double precision number'
-    write (*,fmt='(a)') &
+    write(0,fmt='(a)') &
        '----------------------------------------------'
   END FUNCTION realsize
 

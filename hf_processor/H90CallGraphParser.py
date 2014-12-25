@@ -1344,7 +1344,7 @@ This is not allowed for implementations using %s.\
 
             if len(self.additionalSymbolsByCalleeName.keys()) > 0:
                 additionalDeclarationsStr = additionalDeclarationsStr + "! ****** end additional symbols\n\n"
-            additionalDeclarationsStr = additionalDeclarationsStr + self.implementation.declarationEnd( \
+            additionalDeclarationsStr += self.implementation.declarationEnd( \
                     self.currSymbolsByName.values(), \
                     self.currRoutineIsCallingParallelRegion, \
                     self.routineNodesByProcName[self.currSubprocName], \

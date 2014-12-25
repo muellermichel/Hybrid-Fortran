@@ -45,8 +45,8 @@ ifdef DEBUG
 #############################################################################
 # debug settings                                                            #
 #############################################################################
-FFLAGS= -g -DGPU -Mcuda=cc3x -ta=nvidia,cc3x,keepgpu,keepbin,time -Minfo=accel,inline,ipa -Mneginfo -Minform=inform -I/usr/local/include -r8
-LDFLAGS= -g -Mcuda=cc3x -ta=nvidia,cc3x,time -lcublas -L/usr/local/lib -Minfo=accel,inline -Mneginfo -lpp
+FFLAGS= -g -traceback -DGPU -Mcuda=cc3x -ta=nvidia,cc3x,keepgpu,keepbin,time -Minfo=accel,inline,ipa -Mneginfo -Minform=inform -I/usr/local/include -r8
+LDFLAGS= -g -traceback -Mcuda=cc3x -ta=nvidia,cc3x,time -lcublas -L/usr/local/lib -Minfo=accel,inline -Mneginfo -lpp
 
 else
 #############################################################################

@@ -54,10 +54,10 @@ CONTAINS
 
     s = 2.1d0
 
-    write (*,*)
-    write (*,*) '---------------------------------------'
-    write (*,*) '           kernel timings'
-    write (*,*) '---------------------------------------'
+    write(0,*)
+    write(0,*) '---------------------------------------'
+    write(0,*) '           kernel timings'
+    write(0,*) '---------------------------------------'
 
     testrun: do i_test=1,2
 
@@ -88,7 +88,7 @@ CONTAINS
 
     end do
 
-    write (*,*) '---------------------------------------'
+    write(0,*) '---------------------------------------'
     end do testrun
 
   END SUBROUTINE testsuite
@@ -109,13 +109,13 @@ CONTAINS
     bwm  = n_bpw*n_memw*n/t/(1024**3)
 
     if ( nt==1 ) then
-       write (*,'(a)') ctest
-       write (*,*) '---------------------------------------'
-       write (*,*) 'nt |  CPU time |   Gf/s |   GB/s |   x '
-       write (*,*) '---------------------------------------'
+       write(0,'(a)') ctest
+       write(0,*) '---------------------------------------'
+       write(0,*) 'nt |  CPU time |   Gf/s |   GB/s |   x '
+       write(0,*) '---------------------------------------'
     end if
 
-    write (*,'(I3,A,E9.2,A,F6.1,A,F6.1,A,F4.1,A)') &
+    write(0,'(I3,A,E9.2,A,F6.1,A,F6.1,A,F4.1,A)') &
          nt,' | ',t,' | ',bwf,' | ',bwm,' | ',xfac
 
   END SUBROUTINE output

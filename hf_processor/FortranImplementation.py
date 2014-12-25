@@ -633,8 +633,10 @@ Symbols vs transferHere attributes:\n%s" %(str([(symbol.name, symbol.transferHer
         result += getIteratorDeclaration(currRoutineNode, currParallelRegionTemplates, ["GPU"])
 
         if routineIsKernelCaller:
-            result = result + "type(dim3) :: cugrid, cublock\n"
-            result = result + "integer(4) :: cugridSizeX, cugridSizeY, cugridSizeZ, cuerror, cuErrorMemcopy\n"
+            result += "type(dim3) :: cugrid, cublock\n"
+            result += "integer(4) :: cugridSizeX, cugridSizeY, cugridSizeZ, cuerror, cuErrorMemcopy\n"
+
+        result += self.declarationEndPrintStatements()
 
         deviceInitStatements = ""
         for symbol in dependantSymbols:
@@ -657,6 +659,9 @@ Symbols vs transferHere attributes:\n%s" %(str([(symbol.name, symbol.transferHer
                 deviceInitStatements += symbol.selectAllRepresentation() + " = 0\n"
 
         return result + deviceInitStatements
+
+    def declarationEndPrintStatements(self):
+        return ""
 
     def additionalIncludes(self):
         return "use cudafor\n"
@@ -695,6 +700,14 @@ class DebugCUDAFortranImplementation(CUDAFortranImplementation):
             "end if\n"
         #TODO: remove
         #result = result + getTempDeallocationsAfterKernelCall(symbolsByName)
+        return result
+
+    def declarationEndPrintStatements(self):
+        if self.currRoutineNode.getAttribute('parallelRegionPosition') != 'inside':
+            return ""
+        result = CUDAFortranImplementation.declarationEndPrintStatements(self)
+        routineName = self.currRoutineNode.getAttribute('name')
+        result += "write(0,*) 'entering subroutine %s'\n" %(routineName)
         return result
 
 class DebugEmulatedCUDAFortranImplementation(DebugCUDAFortranImplementation):

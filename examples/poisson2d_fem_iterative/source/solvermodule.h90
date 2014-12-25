@@ -76,10 +76,10 @@ CONTAINS
   !------------------------------------------------------------------------------
   ! Solver module
   !------------------------------------------------------------------------------
-  SUBROUTINE solver(n, n_maxit,i_sol,tol,omega,i_print,u_p,f,h_p,s,duchg,dnorm,it)
+  SUBROUTINE solver(n, m, n_maxit,i_sol,tol,omega,i_print,u_p,f,h_p,s,duchg,dnorm,it)
     use time_profiling
     use helper_functions
-    integer(4), intent(in) :: n           ! Quadratic matrix size
+    integer(4), intent(in) :: n, m           ! Quadratic matrix size
     integer(4), intent(in) :: n_maxit     ! maximum number of solver iterations
     integer(4), intent(in) :: i_sol       ! solver flag (1=jacobi, 2=sor/gauss-seidel)
     real(RP), intent(in)   :: tol         ! solver convergence criteria (reduction in defect)
@@ -112,7 +112,6 @@ CONTAINS
     call cublasInit()
 #endif
 
-    m = n
     ! calculate initial defect (and corresponding l2 norm)
     call getTime(time_start)
     call matvec(n,m,h_p,s,u_p,-1.0d0,f)
@@ -120,12 +119,12 @@ CONTAINS
     call l2norm2D(n,m,h_p,dnorm0)
 
     if ( i_print/=0 ) then
-       write (*,*)
-       write (*,*) '--------+--------------+--------------+'
-       write (*,*) '  iter. | sol. changes |  sol. defect |'
-       write (*,*) '--------+--------------+--------------+'
-       write (*,'(a,e12.4,a)') '       0 |              | ',dnorm0,' |'
-       write (*,*) '--------+--------------+--------------+'
+       write(0,*)
+       write(0,*) '--------+--------------+--------------+'
+       write(0,*) '  iter. | sol. changes |  sol. defect |'
+       write(0,*) '--------+--------------+--------------+'
+       write(0,'(a,e12.4,a)') '       0 |              | ',dnorm0,' |'
+       write(0,*) '--------+--------------+--------------+'
     end if
 
     call getTime(time_iteration_start)
@@ -159,11 +158,11 @@ CONTAINS
       call l2norm2D(n,m,h_p,dnorm)
 
       if (duchg /= duchg .or. dnorm /= dnorm) then
-        write (*,*) "NaN detected in norms at iteration - aborting", it
+        write(0,*) "NaN detected in norms at iteration - aborting", it
         exit
       end if
       if ( i_print>0 .and. mod(it,i_print)==0 ) then
-        write (*,'(i8,a,e12.4,a,e12.4,a)') it,' | ',duchg,' | ',dnorm,' |'
+        write(0,'(i8,a,e12.4,a,e12.4,a)') it,' | ',duchg,' | ',dnorm,' |'
       end if
 
       ! check for convergence

@@ -7,6 +7,7 @@ contains
     real(8), intent(in), dimension(n,m,nz) :: c
     real(8), intent(in) :: c_start
     real(8), intent(out), dimension(n,m) :: b
+    integer(4) :: k
     @domainDependant{attribute(autoDom)}
     a, c, c_start, b, n, m, nz
     @end domainDependant

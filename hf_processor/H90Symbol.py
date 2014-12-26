@@ -860,10 +860,12 @@ Please specify the domains and their sizes with domName and domSize attributes i
             raise Exception("Unexpected number of offsets and iterators specified for symbol %s; Offsets: %s, Iterators: %s, Expected domains: %s" \
                 %(self.name, offsets, parallelIterators, self.domains))
 
-        if len(offsets) == len(self.domains):
+        if len(offsets) == len(self.domains) and not all([offset == ':' for offset in offsets]):
             result = self.name
         elif self.isAutomatic:
             result = self.automaticName()
+        elif self.isUsingDevicePostfix and len(offsets) > 0 and any([offset == ':' for offset in offsets]) and not all([offset == ':' for offset in offsets]):
+            raise Exception("Cannot reshape the array %s at this point, it needs to be accessed either at a single value or for the entire array; offsets: %s" %(self, offsets))
         else:
             result = self.deviceName()
 

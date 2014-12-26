@@ -8,6 +8,7 @@ cosmo_phys/*
 *build
 *executables
 *test
+*build_log.txt
 sync_to_*
 *~
 *.aux

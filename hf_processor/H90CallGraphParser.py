@@ -935,10 +935,10 @@ This is not allowed for implementations using %s.\
             offsets = []
             if accMatch == None:
                 raise Exception("Unexpected array access for symbol %s: Please use either %i (number of parallel independant dimensions) \
-    or %i (number of declared dimensions for this array) accessors. Symbol Init Level: %i; Parallel Region Position: %s; Symbol template:\n%s\n" %(
+    or %i (number of declared dimensions for this array) or zero accessors. Symbol Init Level: %i; Parallel Region Position: %s; Symbol template:\n%s\n" %(
                     symbol.name, numOfIndependentDomains, len(symbol.domains), symbol.initLevel, str(symbol.parallelRegionPosition), symbol.template.toxml()
                 ))
-            elif isInsideSubroutineCall or isPointerAssignment:
+            if numberOfDomainsInAccessor == 0 and (isInsideSubroutineCall or isPointerAssignment):
                 for i in range(numOfIndependentDomains):
                     offsets.append(":")
             else:

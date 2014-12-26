@@ -12,6 +12,7 @@
 /* x, y, nz, i, j, vertical, verticalPlus, KMAX_CONST, KMP1_CONST */
 #define DEBUG_OUT_i 1
 #define DEBUG_OUT_j 1
+#define DEBUG_OUT_nz 1
 
 /* ------ CUDA run configuration ------------ */
 #define CUDA_BLOCKSIZE_X 32

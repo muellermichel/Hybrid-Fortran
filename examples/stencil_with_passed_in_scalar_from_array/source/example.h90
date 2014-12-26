@@ -39,14 +39,14 @@ program main
   implicit none
   real(8), dimension(:,:), allocatable :: a, b
   real(8), dimension(:,:,:), allocatable :: c
-  integer(4) :: n, m, i, j
+  integer(4) :: n, m, i, j, nz
 
   n = 4
   m = 4
   nz = 3
   allocate(a(n,m))
   allocate(b(n,m))
-  allocate(c(n,m,nk))
+  allocate(c(n,m,nz))
   a(:,:) = 1.0d0
   b(:,:) = 0.0d0
   c(:,:,:) = 1.0d0

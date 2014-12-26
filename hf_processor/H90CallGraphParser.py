@@ -897,7 +897,7 @@ This is not allowed for implementations using %s.\
             return accMatch, numberOfDomainsInAccessor
 
         #match the symbol's postfix again in the current given line. (The prefix could have changed from the last match.)
-        postfix = symbolMatch.group(2)
+        postfix = symbolMatch.group(3)
         postfixEscaped = re.escape(postfix)
 
         if symbol.domains \
@@ -983,13 +983,13 @@ This is not allowed for implementations using %s.\
                 symbolWasMatched = True
                 prefix = nextMatch.group(1)
                 lineSections.append(prefix)
-                lineSections.append(symbol.deviceName())
-                postfix = nextMatch.group(2)
+                postfix = nextMatch.group(3)
                 processed = self.processSymbolMatchAndGetAdjustedLine(work, nextMatch, symbol, isInsideSubroutineCall, isPointerAssignment)
                 adjustedMatch = symbol.namePattern.match(processed)
                 if not adjustedMatch:
                     raise Exception("Unexpected error: symbol %s can't be matched again after adjustment. Adjusted portion: %s" %(symbol.name, processed))
-                work = adjustedMatch.group(2)
+                lineSections.append(adjustedMatch.group(2))
+                work = adjustedMatch.group(3)
                 nextMatch = symbol.namePattern.match(work)
             #whatever is left now as "work" is the unmatched trailer of the line
             lineSections.append(work)

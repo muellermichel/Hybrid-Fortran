@@ -218,7 +218,7 @@ class Symbol(object):
         self.isMatched = False
         self.declPattern = re.compile(r'(\s*(?:double\s+precision|real|integer|logical).*?[\s,:]+)' + re.escape(name) + r'((?:\s|\,|\(|$)+.*)', \
             re.IGNORECASE)
-        self.namePattern = re.compile(r'((?:[^\"\']|(?:\".*\")|(?:\'.*\'))*?(?:\W|^))' + re.escape(name) + r'(?:_d)?((?:\W.*)|\Z)', \
+        self.namePattern = re.compile(r'((?:[^\"\']|(?:\".*\")|(?:\'.*\'))*?(?:\W|^))(' + re.escape(name) + r'(?:_d)?)((?:\W.*)|\Z)', \
             re.IGNORECASE)
         self.symbolImportPattern = re.compile(r'^\s*use\s*(\w*)[,\s]*only\s*\:.*?\W' + re.escape(name) + r'\W.*', \
             re.IGNORECASE)
@@ -860,9 +860,12 @@ Please specify the domains and their sizes with domName and domSize attributes i
             raise Exception("Unexpected number of offsets and iterators specified for symbol %s; Offsets: %s, Iterators: %s, Expected domains: %s" \
                 %(self.name, offsets, parallelIterators, self.domains))
 
-        result = self.deviceName()
-        if self.isAutomatic:
+        if len(offsets) == len(self.domains):
+            result = self.name
+        elif self.isAutomatic:
             result = self.automaticName()
+        else:
+            result = self.deviceName()
 
         if len(self.domains) == 0:
             if self.debugPrint:

@@ -158,7 +158,7 @@ In \textbf{Hybrid Fortran} terms then, a scalar is a domain dependant without do
   \item Callgraph Analysis (Based on the Parser, produces a callgraph coloured by the subroutines' position relative to the parallel regions for CPU and GPU case).
   \item Backend Implementation (For each relevant code point, the Parser calls implementation hooks for the transformation).
  \end{enumerate}
- 
+
  This separation of concerns allows different implementations to be passed in and used, thus enabling portability to different hardware platforms as well as flexibility during development and testing. The implementation class can be chosen using the \verb|MakesettingsGeneral| file in your project's config folder (see also sec. \ref{sub:userDefined}). Table \ref{table:backendImplementationComparison} gives you an overview over the capabilities of each implementation. Adding your own implementation class is as easy as implementing the class in the file \verb|hf_processor/FortranImplementation.py|, using any of the provided classes as a base class and specifying your class name in \verb|MakesettingsGeneral|. For a more detailed look at how to do this, please see also sec. \ref{sub:switchImplementation}.
 
 \tabcolsep=0.11cm
@@ -166,32 +166,32 @@ In \textbf{Hybrid Fortran} terms then, a scalar is a domain dependant without do
         \centering
         \footnotesize
         \begin{tabular}{lllllll}
-                Capability/ & \verb|Fortran*| & \verb|OpenMPFortran*| & \verb|PGIOpenACC*| & \verb|CUDAFortran*| & \verb|DebugCUDAFortran*| & \verb|DebugEmulated-| \\
-                Class name & & & & & & \verb|CUDAFortran*| \\
-                (*='Implementation') & & & & & & \\
+                Capability/ & \verb|Fortran*| & \verb|OpenMPFortran*| & \verb|PGIOpenACC*| & \verb|DebugPGIOpenACC*| & \verb|CUDAFortran*| & \verb|DebugCUDAFortran*| & \verb|DebugEmulated-| \\
+                Class name & & & & & & & \verb|CUDAFortran*| \\
+                (*='Implementation') & & & & & & & \\
                 \\
                 \hline \hline
-                Tested target platforms & Intel x86 & Intel x86 & Nvidia Kepler & Nvidia Kepler & Nvidia Kepler & CUDA emulation mode \\
+                Tested target platforms & Intel x86 & Intel x86 & Nvidia Kepler & Nvidia Kepler & Nvidia Kepler & Nvidia Kepler & CUDA emulation mode \\
                 \hline
-                Tested compilers & Intel, PGI & Intel, PGI & PGI & PGI & PGI & PGI \\
+                Tested compilers & Intel, PGI & Intel, PGI & PGI & PGI & PGI & PGI & PGI \\
                 \hline
-                Goal & Basic & OpenMP & OpenACC & CUDA Fortran & Debugging & Debugging \\
-                & sequential & CPU & GPU & GPU & CUDA Fortran by & in device \\
-                & implementation & Parallelization & Parallelization  & Parallelization & printing one & emulated mode \\
-                & & & & & data point for & (allowing \verb|write| \\
-                & & & & & each array after & statements within \\
-                & & & & & each kernel returns & kernels) \\
+                Goal & Basic          & OpenMP          & OpenACC          & Debugging       & CUDA Fortran        & Debugging             & Debugging                         \\
+                     & sequential     & CPU             & GPU              & OpenACC GPU     & GPU                 & CUDA Fortran by       & in device                         \\
+                     & implementation & Parallelization & Parallelization  & Parallelization & Parallelization     & printing one          & emulated mode                     \\
+                     &                &                 &                  & (shows          &                     & data point for        & (allowing \verb|write|            \\
+                     &                &                 &                  &  callstack)     &                     & each array after      & statements within                 \\
+                     &                &                 &                  &                 &                     & each kernel returns   & kernels)                          \\
                 \hline
-                Parallel regions & Loops & Loops w/ & Loops w/ & CUDA kernels & CUDA kernels & CUDA kernels \\
-                implementation & & OpenMP & OpenACC & & & \\
-                & & directives & directives & & & \\
+                Parallel regions & Loops & Loops w/ & Loops w/ & Loops w/ & CUDA kernels & CUDA kernels & CUDA kernels \\
+                implementation & & OpenMP & OpenACC & OpenACC & & & \\
+                & & directives & directives & directives & & & \\
                 \hline
-                Base class & \verb|object| & \verb|Fortran*| & \verb|Fortran*| & \verb|Fortran*| & \verb|CUDAFortran*| & \verb|DebugCUDAFortran*| \\
+                Base class & \verb|object| & \verb|Fortran*| & \verb|Fortran*| & \verb|Fortran*| & \verb|PGIOpenACC*| & \verb|CUDAFortran*| & \verb|DebugCUDAFortran*| \\
                 \hline
-                Allows multiple & Yes & Yes & Yes & No & No & No \\
-                parallel regions & & & & & & \\
-                per subroutine & & & & & & \\                
-                \hline \hline            
+                Allows multiple & Yes & Yes & Yes & Yes & No & No & No \\
+                parallel regions & & & & & & & \\
+                per subroutine & & & & & & & \\
+                \hline \hline
         \end{tabular}
         \caption{Backend Implementations in Hybrid Fortran}
         \label{table:backendImplementationComparison}
@@ -437,7 +437,7 @@ The goal of device data handling is to hide and abstract code that is only neces
   \item If the current subroutine contains calls to kernel subroutines and the domain dependant symbol is declared using the \verb|intent(out)| or \verb|intent(inout)| statement, a device version of the symbol will be allocated and set to zero and the device array's content will be copied to the original array at the end of the subroutine.
   \item If the domain dependant symbol is local for this subroutine, it will be allocated as a device symbol and its content will be set to zero at the beginning of the subroutine.
   \item In case the domain dependant directive contains an \verb|attribute(present)| statement, no data will be copied and the original symbol will be declared as a device symbol.
-  \item In case the domain dependant directive contains an \verb|attribute(transferHere)| statement, the data will always copied over to the device, following the specified intents (as in (1), (2)). 
+  \item In case the domain dependant directive contains an \verb|attribute(transferHere)| statement, the data will always copied over to the device, following the specified intents (as in (1), (2)).
 \end{enumerate}
 
 \subsection{Module Data}

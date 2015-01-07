@@ -217,6 +217,9 @@ class FortranImplementation(object):
     def loopPreparation(self):
         return ""
 
+    def declarationEndPrintStatements(self):
+        return ""
+
     def parallelRegionBegin(self, parallelRegionTemplate):
         domains = getDomainsWithParallelRegionTemplate(parallelRegionTemplate)
         regionStr = ''
@@ -274,6 +277,9 @@ class OpenMPFortranImplementation(FortranImplementation):
 class PGIOpenACCFortranImplementation(FortranImplementation):
     onDevice = True
 
+    def __init__(self, optionFlags):
+        self.currRoutineNode = None
+
     def filePreparation(self, filename):
         additionalStatements = '''
 attributes(global) subroutine HF_DUMMYKERNEL_%s()
@@ -284,7 +290,8 @@ end subroutine
         return FortranImplementation.filePreparation(self, filename) + additionalStatements
 
     def declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates):
-        result = ""
+        self.currRoutineNode = currRoutineNode
+        result = FortranImplementation.declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates)
         result += getIteratorDeclaration(currRoutineNode, currParallelRegionTemplates, ["GPU"])
         dataDeclarations = ""
         dataDeclarations += "!$acc declare "
@@ -332,6 +339,7 @@ end subroutine
         dataDeclarations += "\n"
         if dataDeclarationsRequired == True:
             result += dataDeclarations
+        result += self.declarationEndPrintStatements()
         return result
 
     def getIterators(self, parallelRegionTemplate):
@@ -362,6 +370,27 @@ end subroutine
     def parallelRegionEnd(self, parallelRegionTemplate):
         additionalStatements = "\n!$acc end kernels\n"
         return FortranImplementation.parallelRegionEnd(self, parallelRegionTemplate) + additionalStatements
+
+    def subroutineEnd(self, dependantSymbols, routineIsKernelCaller):
+        self.currRoutineNode = None
+        return FortranImplementation.subroutineEnd(self, dependantSymbols, routineIsKernelCaller)
+
+class DebugPGIOpenACCFortranImplementation(PGIOpenACCFortranImplementation):
+
+    def kernelCallPreparation(self, parallelRegionTemplate, calleeNode=None):
+        result = PGIOpenACCFortranImplementation.kernelCallPreparation(self, parallelRegionTemplate, calleeNode)
+        if calleeNode != None:
+            routineName = calleeNode.getAttribute('name')
+            result += "write(0,*) 'calling kernel %s'\n" %(routineName)
+        return result
+
+    def declarationEndPrintStatements(self):
+        if self.currRoutineNode.getAttribute('parallelRegionPosition') != 'inside':
+            return ""
+        result = PGIOpenACCFortranImplementation.declarationEndPrintStatements(self)
+        routineName = self.currRoutineNode.getAttribute('name')
+        result += "write(0,*) 'entering subroutine %s'\n" %(routineName)
+        return result
 
 class CUDAFortranImplementation(FortranImplementation):
     onDevice = True
@@ -660,9 +689,6 @@ Symbols vs transferHere attributes:\n%s" %(str([(symbol.name, symbol.transferHer
 
         return result + deviceInitStatements
 
-    def declarationEndPrintStatements(self):
-        return ""
-
     def additionalIncludes(self):
         return "use cudafor\n"
 
@@ -676,15 +702,16 @@ class DebugCUDAFortranImplementation(CUDAFortranImplementation):
 
     def kernelCallPreparation(self, parallelRegionTemplate, calleeNode=None):
         result = CUDAFortranImplementation.kernelCallPreparation(self, parallelRegionTemplate, calleeNode)
-        iterators = self.getIterators(parallelRegionTemplate)
-        gridSizeVarNames = ["cugridSizeX", "cugridSizeY", "cugridSizeZ"]
-        routineName = self.currRoutineNode.getAttribute('name')
-        result += "write(0,*) 'calling kernel %s with grid size', " %(routineName)
-        for i in range(len(iterators)):
-            if i != 0:
-                result += ", "
-            result += "%s" %(gridSizeVarNames[i])
-        result += "\n"
+        if calleeNode != None:
+            iterators = self.getIterators(parallelRegionTemplate)
+            gridSizeVarNames = ["cugridSizeX", "cugridSizeY", "cugridSizeZ"]
+            routineName = calleeNode.getAttribute('name')
+            result += "write(0,*) 'calling kernel %s with grid size', " %(routineName)
+            for i in range(len(iterators)):
+                if i != 0:
+                    result += ", "
+                result += "%s" %(gridSizeVarNames[i])
+            result += "\n"
         return result
 
     def kernelCallPost(self, symbolsByName, calleeRoutineNode):

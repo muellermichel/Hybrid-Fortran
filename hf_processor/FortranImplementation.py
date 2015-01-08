@@ -291,7 +291,7 @@ end subroutine
 
     def declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates):
         self.currRoutineNode = currRoutineNode
-        result = FortranImplementation.declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates)
+        result = ""
         result += getIteratorDeclaration(currRoutineNode, currParallelRegionTemplates, ["GPU"])
         dataDeclarations = ""
         dataDeclarations += "!$acc declare "

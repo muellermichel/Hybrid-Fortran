@@ -61,7 +61,7 @@ for i in $output_file_pattern; do
 		    errorVal=$rc
 		fi
 		if [ $rc -ne 0 ] ; then
-		    echo "Accuracy test has returned error $rc"
+		    echo "Accuracy test has returned error $rc" 1>&2
 		    exit $rc
 		fi
 	fi
@@ -71,7 +71,7 @@ if [ -n "$source_after" ]; then
 	source $source_after
 	rc=$?
 	if [ $rc -ne 0 ] ; then
-	    echo "postscript has returned error $rc"
+	    echo "postscript has returned error $rc" 1>&2
 	    exit $rc
 	fi
 fi

@@ -90,6 +90,10 @@ Sample Results
     </tr>
 </table>
 
+![CPU Sample Result (Diffusion)](/../master/doc/CPUPerf.png)
+
+![GPU Sample Result (Diffusion)](/../master/doc/GPUPerf.png)
+
 Code Example
 ------------
 The following sample code shows a wrapper subroutine and an add subroutine. Please note that storage order inefficiencies are ignored in this example (this would create an implicit copy of the z-dimension in arrays a, b, c).

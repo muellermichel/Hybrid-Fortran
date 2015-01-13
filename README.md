@@ -22,8 +22,8 @@ Hybrid Fortran has been successfully used for porting the Physical Core of Japan
 
 Hybrid Fortran has been developed since 2012 by Michel Müller, MSc ETH Zurich, as a guest at Prof. Aoki's Gordon Bell award winning [laboratory](http://www.sim.gsic.titech.ac.jp/index-e.html) at the Tokyo Institute of Technology, as well as during a temporary stay with Prof. Maruyama at the [RIKEN Advanced Institute for Computational Science](http://www.aics.riken.jp/en/) in Kobe, Japan.
 
-Why Hybrid Fortran?
--------------------
+Even More Words
+---------------
 The following Blog entry gives insight into why Hybrid Fortran has been created and how it can help you:
 
 [Accelerators in HPC – Having the Cake and Eating It Too](http://typhooncomputing.com/?p=416)

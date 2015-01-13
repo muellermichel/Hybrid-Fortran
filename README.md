@@ -1,6 +1,24 @@
 Hybrid Fortran v0.93
 ====================
-#### Performance Portable Parallel Programming - Target CUDA and OpenMP in a Unified Codebase
+
+What & Why
+----------
+![Problems With Accelerator Programming](/../master/doc/Problem.gif)
+
+![The Idea Behind Hybrid Fortran](/../master/doc/The%20Idea%20Behind%20Hybrid%20Fortran.gif)
+
+Performance
+-----------
+![Performance Overview](/../master/doc/PerfOverview.png)
+
+(see more details [here](results/Overview.md))
+
+![CPU Performance Example](/../master/doc/CPUPerf.png)
+
+![GPU Performance Example](/../master/doc/GPUPerf.png)
+
+In a few more words
+-------------------
 
 Hybrid Fortran is ..
 * .. a directive based extension for the Fortran language.
@@ -9,8 +27,6 @@ Hybrid Fortran is ..
 * .. a build system that handles building two separate versions (CPU / GPU) of your codebase automatically, including all the preprocessing.
 * .. a test system that handles verification of your outputs automatically after setup.
 * .. a framework for you to build your own parallel code implementations (OpenCL, ARM, FPGA, Hamster Wheel.. as long as it has some parallel Fortran support you're good) while keeping the same source files.
-
-![The Idea Behind Hybrid Fortran](/../master/doc/The%20Idea%20Behind%20Hybrid%20Fortran.gif)
 
 Hybrid Fortran has been successfully used for porting the Physical Core of Japan's national next generation weather prediction model to GPGPU. We're currently planning to port the internationally used Open Source weather model WRF to Hybrid Fortran as well.
 

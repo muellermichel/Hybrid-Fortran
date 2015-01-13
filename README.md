@@ -7,16 +7,6 @@ What & Why
 
 ![The Idea Behind Hybrid Fortran](/../master/doc/The%20Idea%20Behind%20Hybrid%20Fortran.gif)
 
-Performance
------------
-![Performance Overview](/../master/doc/PerfOverview.png)
-
-(see more details [here](results/Overview.md))
-
-![CPU Performance Example](/../master/doc/CPUPerf.png)
-
-![GPU Performance Example](/../master/doc/GPUPerf.png)
-
 In a few more words
 -------------------
 

@@ -164,6 +164,7 @@ Documentation
 -------------
 * [Samples Overview](examples/Overview.md)
 * [Results Overview](results/Overview.md)
+* [Screencast](https://www.youtube.com/watch?v=3Of4kFQQRi4)
 * [Full Documentation For Installation, Getting Started, Usage and Design (PDF)](doc/Documentation.pdf?raw=true)
 * [Credits](CREDITS.md)
 * [Contact Information](CONTACT.md)

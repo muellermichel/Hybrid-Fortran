@@ -1,0 +1,97 @@
+! Copyright (C) 2014 Michel Müller, Tokyo Institute of Technology
+
+! This file is part of Hybrid Fortran.
+
+! Hybrid Fortran is free software: you can redistribute it and/or modify
+! it under the terms of the GNU Lesser General Public License as published by
+! the Free Software Foundation, either version 3 of the License, or
+! (at your option) any later version.
+
+! Hybrid Fortran is distributed in the hope that it will be useful,
+! but WITHOUT ANY WARRANTY; without even the implied warranty of
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+! GNU Lesser General Public License for more details.
+
+! You should have received a copy of the GNU Lesser General Public License
+! along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
+
+#define GET_FUNCTION_NAME(name, datatype, bytes) name ## _ ## datatype ## _ ## bytes
+
+module example
+contains
+
+#define GET_TESTER_IMPLEMENTATION(datatype, bytes) \
+  subroutine GET_FUNCTION_NAME(tester, datatype, bytes)() `\
+    datatype(bytes), dimension(DOM(NX, NY, NZ)) :: a, b, c `\
+    integer :: x, y, z `\
+    a(:,:,:) = 1 `\
+    b(:,:,:) = 2 `\
+    c(:,:,:) = 0 `\
+    call GET_FUNCTION_NAME(wrapper, datatype, bytes)(a, b, c) `\
+    do y=1,NY `\
+    do x=1,NX `\
+    do z=1,NZ `\
+      if (test .EQ. .TRUE. .AND. c(AT(x,y,z)) .NE. 3) then `\
+        write(0,*) "test failed ", #datatype, #bytes `\
+        write(0,*) "fails at", x, y, z, "C:", c(AT(fail_x,fail_y,fail_z)) `\
+        stop 2 `\
+      end if `\
+    end do `\
+    end do `\
+    end do `\
+    write(0,*) "test ok ", #datatype, #bytes `\
+  end subroutine
+
+#define GET_WRAPPER_IMPLEMENTATION(datatype, bytes) \
+  subroutine GET_FUNCTION_NAME(wrapper, datatype, bytes)(a, b, c) `\
+    datatype(bytes), dimension(NZ), intent(in) :: a, b `\
+    datatype(bytes), dimension(NZ), intent(out) :: c `\
+    @domainDependant{domName(x,y,z), domSize(NX,NY,NZ), domPP(DOM), accPP(AT)} `\
+    a, b, c `\
+    @end domainDependant `\
+    @parallelRegion{appliesTo(CPU), domName(x,y), domSize(NX, NY)} `\
+    call GET_FUNCTION_NAME(add, datatype, bytes)(a, b, c) `\
+    @end parallelRegion `\
+  end subroutine
+
+#define GET_ADD_IMPLEMENTATION(datatype, bytes) \
+  subroutine GET_FUNCTION_NAME(add, datatype, bytes)(a, b, c) `\
+    datatype(bytes), dimension(NZ), intent(in) :: a, b `\
+    datatype(bytes), dimension(NZ), intent(out) :: c `\
+    integer :: z `\
+    @domainDependant{domName(x,y,z), domSize(NX,NY,NZ), domPP(DOM), accPP(AT)} `\
+    a, b, c `\
+    @end domainDependant `\
+    @parallelRegion{appliesTo(GPU), domName(x,y), domSize(NX, NY)} `\
+    do z=1,NZ `\
+      c(z) = a(z) + b(z) `\
+    end do `\
+    @end parallelRegion `\
+  end subroutine
+
+  GET_TESTER_IMPLEMENTATION(real, 4)
+  GET_TESTER_IMPLEMENTATION(real, 8)
+  GET_TESTER_IMPLEMENTATION(integer, 4)
+  GET_TESTER_IMPLEMENTATION(integer, 8)
+
+  GET_WRAPPER_IMPLEMENTATION(real, 4)
+  GET_WRAPPER_IMPLEMENTATION(real, 8)
+  GET_WRAPPER_IMPLEMENTATION(integer, 4)
+  GET_WRAPPER_IMPLEMENTATION(integer, 8)
+
+  GET_ADD_IMPLEMENTATION(real, 4)
+  GET_ADD_IMPLEMENTATION(real, 8)
+  GET_ADD_IMPLEMENTATION(integer, 4)
+  GET_ADD_IMPLEMENTATION(integer, 8)
+end module example
+
+program main
+  use example
+
+  call GET_FUNCTION_NAME(tester, real, 4)
+  call GET_FUNCTION_NAME(tester, real, 8)
+  call GET_FUNCTION_NAME(tester, integer, 4)
+  call GET_FUNCTION_NAME(tester, integer, 8)
+
+  stop
+end program main

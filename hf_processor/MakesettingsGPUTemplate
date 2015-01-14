@@ -45,7 +45,7 @@ ifdef EMULATED
 #when accessing any memory in a kernel, even if that memory has been set separately in Fortran. For some reason it seems to mess with the
 #subroutine specification memory layout, so it passes in dimensions for arrays as the value of by-value-inputs for example.
 # 2) EMULATED mode does not work together with cublas (therefore it cannot be used in this example)
-FFLAGS= -Mcuda=emu -g -DGPU -I/usr/local/include -I/home/usr1/A2400653/software/include
+FFLAGS= -Mcuda=emu -g -I/usr/local/include -I/home/usr1/A2400653/software/include
 LDFLAGS= -Mcuda=emu -L/usr/local/lib -L/home/usr1/A2400653/software/lib -Minfo=accel,inline -Mneginfo -l${HYBRID_LIBRARY_FILENAME_POSTFIX}
 
 else
@@ -53,14 +53,14 @@ ifdef DEBUG
 #############################################################################
 # debug settings                                                            #
 #############################################################################
-FFLAGS= -g -DGPU -Mcuda=cc3x -ta=nvidia,cc3x,keepgpu,keepbin,time -Minfo=accel,inline,ipa -Mneginfo -Minform=inform -I/usr/local/include
+FFLAGS= -g -Mcuda=cc3x -ta=nvidia,cc3x,keepgpu,keepbin,time -Minfo=accel,inline,ipa -Mneginfo -Minform=inform -I/usr/local/include
 LDFLAGS= -g -Mcuda=cc3x -ta=nvidia,cc3x,time -L/usr/local/lib -Minfo=accel,inline -Mneginfo -l${HYBRID_LIBRARY_FILENAME_POSTFIX}
 
 else
 #############################################################################
 # production settings                                                       #
 #############################################################################
-FFLAGS= -DGPU -Mcuda=cc3x -ta=nvidia,cc3x -Minline=levels:5,reshape ‑Mipa=inline,reshape -Minfo=accel,inline,ipa -Mneginfo -Minform=inform -I/usr/local/include -O4
+FFLAGS= -Mcuda=cc3x -ta=nvidia,cc3x -Minline=levels:5,reshape ‑Mipa=inline,reshape -Minfo=accel,inline,ipa -Mneginfo -Minform=inform -I/usr/local/include -O4
 LDFLAGS= -Mcuda=cc3x -ta=nvidia,cc3x,time -Mipa=inline,reshape -L/usr/local/lib -Minfo=accel,inline -Mneginfo -l${HYBRID_LIBRARY_FILENAME_POSTFIX}
 
 endif

@@ -392,7 +392,7 @@ build_hybrid_cpu: ${CG_DIR}CG_CPU.xml configfiles_cpu ${SRC_ALL_CPU} framework_s
 build_hybrid_gpu: ${CG_DIR}CG_GPU.xml configfiles_gpu ${SRC_ALL_GPU} framework_sources_gpu ${AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH_GPU}
 	@echo "..entering ${SRC_DIR_GPU}"
 	@echo "..gpu executable dependant on " ${SRC_ALL_GPU} >${DEBUG_OUTPUT}
-	@cd ${SRC_DIR_GPU} && make ${BUILD_ARGS}
+	@cd ${SRC_DIR_GPU} && make ${BUILD_ARGS} GPU_BUILD=1
 
 build_framework_cpu: build_hybrid_cpu framework_sources_cpu
 	@echo "..building framework with ${FRAMEWORK_MAKEFILE_CPU} and build arguments '${BUILD_ARGS}'"
@@ -400,7 +400,7 @@ build_framework_cpu: build_hybrid_cpu framework_sources_cpu
 
 build_framework_gpu: build_hybrid_gpu framework_sources_gpu
 	@echo "..building framework with ${FRAMEWORK_MAKEFILE_GPU} and build arguments '${BUILD_ARGS}'"
-	@cd $(dir ${FRAMEWORK_MAKEFILE_GPU}) && make GPU=1 ${BUILD_ARGS}
+	@cd $(dir ${FRAMEWORK_MAKEFILE_GPU}) && make GPU=1 ${BUILD_ARGS} GPU_BUILD=1
 
 install_non_hybrid_framework_executables: build_cpu
 	@( set -e && \

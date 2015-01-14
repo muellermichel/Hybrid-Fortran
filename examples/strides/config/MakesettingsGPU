@@ -30,7 +30,7 @@ ifdef EMULATED
 #############################################################################
 # emulation mode settings                                                   #
 #############################################################################
-FFLAGS= -Mcuda=emu -g -DGPU -I/usr/local/include -I/home/usr1/A2400653/software/include -r8
+FFLAGS= -Mcuda=emu -g -I/usr/local/include -I/home/usr1/A2400653/software/include -r8
 LDFLAGS= -Mcuda=emu -L/usr/local/lib -L/home/usr1/A2400653/software/lib -Minfo=accel,inline -Mneginfo -lpp
 
 else
@@ -38,14 +38,14 @@ ifdef DEBUG
 #############################################################################
 # debug settings                                                            #
 #############################################################################
-FFLAGS= -g -DGPU -Mcuda=cc3x -ta=nvidia,cc3x,keepgpu,keepbin,time -Minfo=accel,inline,ipa -Mneginfo -Minform=inform -I/usr/local/include -r8
+FFLAGS= -g -Mcuda=cc3x -ta=nvidia,cc3x,keepgpu,keepbin,time -Minfo=accel,inline,ipa -Mneginfo -Minform=inform -I/usr/local/include -r8
 LDFLAGS= -g -Mcuda=cc3x -ta=nvidia,cc3x,time -L/usr/local/lib -Minfo=accel,inline -Mneginfo -lpp
 
 else
 #############################################################################
 # production settings                                                       #
 #############################################################################
-FFLAGS= -DGPU -Mcuda=cc3x -ta=nvidia,cc3x -Minline=levels:5,reshape ‑Mipa=inline,reshape -Minfo=accel,inline,ipa -Mneginfo -Minform=inform -I/usr/local/include -r8 -O4
+FFLAGS= -Mcuda=cc3x -ta=nvidia,cc3x -Minline=levels:5,reshape ‑Mipa=inline,reshape -Minfo=accel,inline,ipa -Mneginfo -Minform=inform -I/usr/local/include -r8 -O4
 LDFLAGS= -Mcuda=cc3x -ta=nvidia,cc3x,time -Mipa=inline,reshape -L/usr/local/lib -Minfo=accel,inline -Mneginfo -lpp
 
 endif

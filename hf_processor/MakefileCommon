@@ -524,7 +524,7 @@ ${TESTDIR}/%_gpu: $${DIR_GPU}$$(notdir %).out create_install_directories
 ${CG_DIR}rawCG.xml: ${SRC_H90TGT_HFPP}
 	@echo "...........hybrid files have been modified => building and testing hybrid callgraph"
 	@echo ..calling python ${TOOLSDIR}/annotatedCallGraphFromH90SourceDir.py -i ${SRC_DIR_COMMON} ${H90_PREPROCESSOR_ARGS} >${DEBUG_OUTPUT}
-	@mkdir -p ${CG_DIR}; python ${TOOLSDIR}/annotatedCallGraphFromH90SourceDir.py -i ${SRC_DIR_HFPP} ${H90_PREPROCESSOR_ARGS} > $@
+	@mkdir -p ${CG_DIR} && python ${TOOLSDIR}/annotatedCallGraphFromH90SourceDir.py -i ${SRC_DIR_HFPP} ${H90_PREPROCESSOR_ARGS} > $@
 
 ${CG_DIR}CG_CPU.xml: ${CG_DIR}rawCG.xml
 	@echo "...........building CPU callgraph"
@@ -533,7 +533,7 @@ ${CG_DIR}CG_CPU.xml: ${CG_DIR}rawCG.xml
 			mv $@ $@.ref ; \
 		fi )
 	@echo ..calling python ${TOOLSDIR}/loopAnalysisWithAnnotatedCallGraph.py -i $< ${H90_PREPROCESSOR_ARGS} -a CPU >${DEBUG_OUTPUT}
-	@mkdir -p ${CG_DIR}; python ${TOOLSDIR}/loopAnalysisWithAnnotatedCallGraph.py -i $< ${H90_PREPROCESSOR_ARGS} -a CPU > $@
+	@mkdir -p ${CG_DIR} && python ${TOOLSDIR}/loopAnalysisWithAnnotatedCallGraph.py -i $< ${H90_PREPROCESSOR_ARGS} -a CPU > $@
 	@(set -e && \
 		mkdir -p ${SRC_DIR_GPU} && \
 		SOURCES_TO_REGENERATE=`python ${TOOLSDIR}/getSourcesToBeProcessed.py -i $@ -r $@.ref ${H90_PREPROCESSOR_ARGS}` && \
@@ -541,7 +541,7 @@ ${CG_DIR}CG_CPU.xml: ${CG_DIR}rawCG.xml
 		for SOURCE in $${SOURCES_TO_REGENERATE[*]} ; do \
 	   	PATHS_TO_REGENERATE="$${PATHS_TO_REGENERATE} ${SRC_DIR_CPU}$${SOURCE}.F90" ; \
 	  done ; \
-		echo "Need to regenerate $${PATHS_TO_REGENERATE}" ; \
+		echo "Need to regenerate $${PATHS_TO_REGENERATE}" && \
 		rm -f $${PATHS_TO_REGENERATE} )
 
 ${CG_DIR}CG_GPU.xml: ${CG_DIR}rawCG.xml
@@ -551,7 +551,7 @@ ${CG_DIR}CG_GPU.xml: ${CG_DIR}rawCG.xml
 			mv $@ $@.ref ; \
 		fi )
 	@echo ..calling python ${TOOLSDIR}/loopAnalysisWithAnnotatedCallGraph.py -i $< ${H90_PREPROCESSOR_ARGS} -a GPU >${DEBUG_OUTPUT}
-	@mkdir -p ${CG_DIR}; python ${TOOLSDIR}/loopAnalysisWithAnnotatedCallGraph.py -i $< ${H90_PREPROCESSOR_ARGS} -a GPU > $@
+	@mkdir -p ${CG_DIR} && python ${TOOLSDIR}/loopAnalysisWithAnnotatedCallGraph.py -i $< ${H90_PREPROCESSOR_ARGS} -a GPU > $@
 	@(set -e && \
 		mkdir -p ${SRC_DIR_GPU} && \
 		SOURCES_TO_REGENERATE=`python ${TOOLSDIR}/getSourcesToBeProcessed.py -i $@ -r $@.ref ${H90_PREPROCESSOR_ARGS}` && \
@@ -559,7 +559,7 @@ ${CG_DIR}CG_GPU.xml: ${CG_DIR}rawCG.xml
 		for SOURCE in $${SOURCES_TO_REGENERATE[*]} ; do \
 	   	PATHS_TO_REGENERATE="$${PATHS_TO_REGENERATE} ${SRC_DIR_GPU}$${SOURCE}.F90" ; \
 	  done ; \
-		echo "Need to regenerate $${PATHS_TO_REGENERATE}" ; \
+		echo "Need to regenerate $${PATHS_TO_REGENERATE}" && \
 		rm -f $${PATHS_TO_REGENERATE} )
 
 ${CG_DIR}CG_CPU.png: ${CG_DIR}CG_CPU.xml
@@ -572,39 +572,39 @@ ${CG_DIR}CG_GPU.png: ${CG_DIR}CG_GPU.xml
 
 ${SRC_DIR_CPU}%.f90: %.f90
 	@echo ...copying file into $@ >${DEBUG_OUTPUT}
-	@mkdir -p ${SRC_DIR_CPU}; cp -fp $< $@
+	@mkdir -p ${SRC_DIR_CPU} && cp -fp $< $@
 
 ${SRC_DIR_CPU}%.F90: %.F90
 	@echo ...copying file into $@ >${DEBUG_OUTPUT}
-	@mkdir -p ${SRC_DIR_CPU}; cp -fp $< $@
+	@mkdir -p ${SRC_DIR_CPU} && cp -fp $< $@
 
 ${SRC_DIR_GPU}%.f90: %.f90
 	@echo ...copying file into $@ >${DEBUG_OUTPUT}
-	@mkdir -p ${SRC_DIR_GPU}; cp -fp $< $@
+	@mkdir -p ${SRC_DIR_GPU} && cp -fp $< $@
 
 ${SRC_DIR_GPU}%.F90: %.F90
 	@echo ...copying file into $@ >${DEBUG_OUTPUT}
-	@mkdir -p ${SRC_DIR_GPU}; cp -fp $< $@
+	@mkdir -p ${SRC_DIR_GPU} && cp -fp $< $@
 
 ${SRC_DIR_CPU}%.f: %.f
 	@echo ...copying file into $@ >${DEBUG_OUTPUT}
-	@mkdir -p ${SRC_DIR_CPU}; cp -fp $< $@
+	@mkdir -p ${SRC_DIR_CPU} && cp -fp $< $@
 
 ${SRC_DIR_CPU}%.F: %.F
 	@echo ...copying file into $@ >${DEBUG_OUTPUT}
-	@mkdir -p ${SRC_DIR_CPU}; cp -fp $< $@
+	@mkdir -p ${SRC_DIR_CPU} && cp -fp $< $@
 
 ${SRC_DIR_GPU}%.f: %.f
 	@echo ...copying file into $@ >${DEBUG_OUTPUT}
-	@mkdir -p ${SRC_DIR_GPU}; cp -fp $< $@
+	@mkdir -p ${SRC_DIR_GPU} && cp -fp $< $@
 
 ${SRC_DIR_GPU}%.F: %.F
 	@echo ...copying file into $@ >${DEBUG_OUTPUT}
-	@mkdir -p ${SRC_DIR_GPU}; cp -fp $< $@
+	@mkdir -p ${SRC_DIR_GPU} && cp -fp $< $@
 
 ${SRC_DIR_HFPP}%.h90: %.h90
 	@echo ...copying file into $@ >${DEBUG_OUTPUT}
-	@mkdir -p ${SRC_DIR_HFPP}; cp -fp $< $@
+	@mkdir -p ${SRC_DIR_HFPP} && cp -fp $< $@
 
 ${SRC_DIR_CPU}%.F90: ${SRC_DIR_HFPP}%.h90
 	@echo ...........converting $< to $@ using ${CPU_CALLGRAPH_FILE} and ${CPU_IMPLEMENTATION} using flags ${OPTION_FLAGS}
@@ -618,4 +618,4 @@ ${SRC_DIR_GPU}%.F90: ${SRC_DIR_HFPP}%.h90
 
 ${SRC_DIR_HFPP}%.h90: %.H90
 	@echo ...........preprocessing file $@
-	@mkdir -p ${SRC_DIR_HFPP}; pgcc -E $< | tr "\`" '\n' > $@
+	@mkdir -p ${SRC_DIR_HFPP} && pgcc -E $< | tr "\`" '\n' > $@

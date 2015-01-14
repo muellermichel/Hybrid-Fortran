@@ -68,10 +68,12 @@ ${USER_LIB}: $(OBJ)
 	@echo ..calling $(AR) $(ARFLAGS) $@ $(OBJ) >${DEBUG_OUTPUT}
 	@$(AR) $(ARFLAGS) $@ $(OBJ)
 
+# we first preprocess with pgcc so we get concatenation / stringification.
+# since this only works with files that don't have the F90 prefix, we need to rename first.
 %.o: %.F90
 	@echo ..........compiling $< in $(CURDIR)
-	@echo ..calling $(FC) $(FFLAGS) -c $< -o $@ >${DEBUG_OUTPUT}
-	@$(FC) $(FFLAGS) -c $< -o $@
+	@echo ..calling "cp $< temp.P90 && pgcc $(FFLAGS) -E temp.P90 | tr "\`" '\n' > temp_$< && rm temp.P90 && $(FC) $(FFLAGS) -c temp_$< -o $@ && rm temp_$<" >${DEBUG_OUTPUT}
+	@cp $< temp.P90 && pgcc $(FFLAGS) -E temp.P90 | tr "\`" '\n' > temp_$< && rm temp.P90 && $(FC) $(FFLAGS) -c temp_$< -o $@ && rm temp_$<
 
 %.o: %.f90
 	@echo ..........compiling $< in $(CURDIR)

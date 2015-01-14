@@ -104,6 +104,50 @@ contains
 		write(0, *) array
 	end subroutine
 
+#define GET_SPECIFICATION_DIM1(type) \
+	type, intent(in), dimension(:) :: array
+
+#define GET_SPECIFICATION_DIM2(type) \
+	type, intent(in), dimension(:,:) :: array
+
+#define GET_SPECIFICATION_DIM3(type) \
+	type, intent(in), dimension(:,:,:) :: array
+
+#define GET_SPECIFICATION_DIM4(type) \
+	type, intent(in), dimension(:,:,:,:) :: array
+
+#define GET_SPECIFICATION_DIM5(type) \
+	type, intent(in), dimension(:,:,:,:,:) :: array
+
+#define GET_SUBROUTINE_NAME_POST(type, bytes, num_of_dimensions) \
+	writeToFile_ ## type ## _ ## bytes ## _ ## num_of_dimensions ## D
+
+#define GET_SUBROUTINE_NAME(type, bytes, num_of_dimensions) \
+	GET_SUBROUTINE_NAME_POST(type, bytes, num_of_dimensions)
+
+#define WRITE_GENERIC_TO_FILE_IMPLEMENTATION(type, bytes, num_of_dimensions) \
+	subroutine GET_SUBROUTINE_NAME(type, bytes, num_of_dimensions)(path, array) `\
+		implicit none `\
+		GET_SPECIFICATION_DIM ## num_of_dimensions ## (type) `\
+		character(len=*), intent(in) :: path `\
+		integer(4) :: imt `\
+		call findNewFileHandle(imt) `\
+		open(imt, file = path, form = 'unformatted', status = 'replace') `\
+		write(imt) array `\
+		close(imt) `\
+	end subroutine
+
+	WRITE_GENERIC_TO_FILE_IMPLEMENTATION(real, 4, 1)
+	WRITE_GENERIC_TO_FILE_IMPLEMENTATION(real, 4, 2)
+	WRITE_GENERIC_TO_FILE_IMPLEMENTATION(real, 4, 3)
+	WRITE_GENERIC_TO_FILE_IMPLEMENTATION(real, 4, 4)
+	WRITE_GENERIC_TO_FILE_IMPLEMENTATION(real, 4, 5)
+	WRITE_GENERIC_TO_FILE_IMPLEMENTATION(real, 8, 1)
+	WRITE_GENERIC_TO_FILE_IMPLEMENTATION(real, 8, 2)
+	WRITE_GENERIC_TO_FILE_IMPLEMENTATION(real, 8, 3)
+	WRITE_GENERIC_TO_FILE_IMPLEMENTATION(real, 8, 4)
+	WRITE_GENERIC_TO_FILE_IMPLEMENTATION(real, 8, 5)
+
 	subroutine write1DToGenericFile(array, n) bind(c, name="write1DToGenericFile")
 		implicit none
 		real(8), intent(in) :: array(n)
@@ -153,6 +197,7 @@ contains
 		close(imt)
 	end subroutine
 
+	! $$$ TODO: This routine isn't really generally applicable - it assumes that the file should be in k-first-order.
 	subroutine write3DToFile(path, array, n1, n2, n3)
 		implicit none
 

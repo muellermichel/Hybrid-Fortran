@@ -77,8 +77,8 @@ ${USER_LIB}: $(OBJ)
 # since this only works with files that don't have the F90 prefix, we need to rename first.
 %.o: %.F90
 	@echo ..........compiling $< in $(CURDIR)
-	@echo ..calling "cp $< temp.P90 && pgcc -E $(PFLAGS) temp.P90 | tr "\`" '\n' > temp_$< && rm temp.P90 && $(FC) $(FFLAGS) $(PFLAGS) -c temp_$< -o $@ && rm temp_$<" >${DEBUG_OUTPUT}
-	@cp $< temp.P90 && pgcc -E $(PFLAGS) temp.P90 | tr "\`" '\n' > temp_$< && rm temp.P90 && $(FC) $(FFLAGS) $(PFLAGS) -c temp_$< -o $@ && rm temp_$<
+	@echo ..calling "cp $< temp.P90 && pgcc -E $(PFLAGS) temp.P90 | tr "\`" '\n' > temp_$< && rm temp.P90 && $(FC) $(FFLAGS) $(PFLAGS) -c temp_$< -o $@" >${DEBUG_OUTPUT}
+	@cp $< temp.P90 && pgcc -E $(PFLAGS) temp.P90 | tr "\`" '\n' > temp_$< && rm temp.P90 && $(FC) $(FFLAGS) $(PFLAGS) -c temp_$< -o $@
 
 %.o: %.f90
 	@echo ..........compiling $< in $(CURDIR)

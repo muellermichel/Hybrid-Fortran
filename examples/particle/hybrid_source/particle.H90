@@ -157,8 +157,8 @@ program main
   	write(0, "(A,F13.5,A)") "Performance= ", real(numOfPointUpdates)/counter5*1E-06, "[million stencils/s]"
   	write(6, "(E13.5,A,F13.5,A,E13.5)") counter_timestep, ",", real(numOfPointUpdates)/counter5*1E-06, ",", counter5
 #ifdef SAVE_TO_FILE
-  	call writeToFile('./out/x.dat', x, N)
-  	call writeToFile('./out/y.dat', y, N)
+  	call writeToFile('./out/x.dat', x)
+  	call writeToFile('./out/y.dat', y)
 #endif
 	deallocate(x)
 	deallocate(y)

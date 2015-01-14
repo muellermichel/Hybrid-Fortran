@@ -42,7 +42,32 @@ public :: printElapsedTime, getElapsedTime, getTime
 public :: printHeading
 
 interface writeToFile
-	module procedure write1DToFile, write2DToFile, write3DToFile
+	module procedure write1DToFile, write2DToFile, write3DToFile, &
+	& writeToFile_real_4_1D, &
+	& writeToFile_real_4_2D, &
+	& writeToFile_real_4_3D, &
+	& writeToFile_real_4_4D, &
+	& writeToFile_real_4_5D, &
+	& writeToFile_real_8_1D, &
+	& writeToFile_real_8_2D, &
+	& writeToFile_real_8_3D, &
+	& writeToFile_real_8_4D, &
+	& writeToFile_real_8_5D, &
+	& writeToFile_integer_4_1D, &
+	& writeToFile_integer_4_2D, &
+	& writeToFile_integer_4_3D, &
+	& writeToFile_integer_4_4D, &
+	& writeToFile_integer_4_5D, &
+	& writeToFile_integer_8_1D, &
+	& writeToFile_integer_8_2D, &
+	& writeToFile_integer_8_3D, &
+	& writeToFile_integer_8_4D, &
+	& writeToFile_integer_8_5D, &
+	& writeToFile_logical_1D, &
+	& writeToFile_logical_2D, &
+	& writeToFile_logical_3D, &
+	& writeToFile_logical_4D, &
+	& writeToFile_logical_5D
 end interface
 
 contains
@@ -104,31 +129,52 @@ contains
 		write(0, *) array
 	end subroutine
 
-#define GET_SPECIFICATION_DIM1(type) \
-	type, intent(in), dimension(:) :: array
+#define GET_SPECIFICATION_DIM1(type, bytes) \
+	type(bytes), intent(in), dimension(:) :: array
 
-#define GET_SPECIFICATION_DIM2(type) \
-	type, intent(in), dimension(:,:) :: array
+#define GET_SPECIFICATION_DIM2(type, bytes) \
+	type(bytes), intent(in), dimension(:,:) :: array
 
-#define GET_SPECIFICATION_DIM3(type) \
-	type, intent(in), dimension(:,:,:) :: array
+#define GET_SPECIFICATION_DIM3(type, bytes) \
+	type(bytes), intent(in), dimension(:,:,:) :: array
 
-#define GET_SPECIFICATION_DIM4(type) \
-	type, intent(in), dimension(:,:,:,:) :: array
+#define GET_SPECIFICATION_DIM4(type, bytes) \
+	type(bytes), intent(in), dimension(:,:,:,:) :: array
 
-#define GET_SPECIFICATION_DIM5(type) \
-	type, intent(in), dimension(:,:,:,:,:) :: array
-
-#define GET_SUBROUTINE_NAME_POST(type, bytes, num_of_dimensions) \
-	writeToFile_ ## type ## _ ## bytes ## _ ## num_of_dimensions ## D
-
-#define GET_SUBROUTINE_NAME(type, bytes, num_of_dimensions) \
-	GET_SUBROUTINE_NAME_POST(type, bytes, num_of_dimensions)
+#define GET_SPECIFICATION_DIM5(type, bytes) \
+	type(bytes), intent(in), dimension(:,:,:,:,:) :: array
 
 #define WRITE_GENERIC_TO_FILE_IMPLEMENTATION(type, bytes, num_of_dimensions) \
-	subroutine GET_SUBROUTINE_NAME(type, bytes, num_of_dimensions)(path, array) `\
+	subroutine writeToFile_ ## type ## _ ## bytes ## _ ## num_of_dimensions ## D(path, array) `\
 		implicit none `\
-		GET_SPECIFICATION_DIM ## num_of_dimensions ## (type) `\
+		GET_SPECIFICATION_DIM ## num_of_dimensions ## (type, bytes) `\
+		character(len=*), intent(in) :: path `\
+		integer(4) :: imt `\
+		call findNewFileHandle(imt) `\
+		open(imt, file = path, form = 'unformatted', status = 'replace') `\
+		write(imt) array `\
+		close(imt) `\
+	end subroutine
+
+#define GET_SPECIFICATION_LOGICAL_DIM1 \
+	logical, intent(in), dimension(:) :: array
+
+#define GET_SPECIFICATION_LOGICAL_DIM2 \
+	logical, intent(in), dimension(:,:) :: array
+
+#define GET_SPECIFICATION_LOGICAL_DIM3 \
+	logical, intent(in), dimension(:,:,:) :: array
+
+#define GET_SPECIFICATION_LOGICAL_DIM4 \
+	logical, intent(in), dimension(:,:,:,:) :: array
+
+#define GET_SPECIFICATION_LOGICAL_DIM5 \
+	logical, intent(in), dimension(:,:,:,:,:) :: array
+
+#define WRITE_LOGICAL_TO_FILE_IMPLEMENTATION(num_of_dimensions) \
+	subroutine writeToFile_logical_ ## num_of_dimensions ## D(path, array) `\
+		implicit none `\
+		GET_SPECIFICATION_LOGICAL_DIM ## num_of_dimensions `\
 		character(len=*), intent(in) :: path `\
 		integer(4) :: imt `\
 		call findNewFileHandle(imt) `\
@@ -147,6 +193,21 @@ contains
 	WRITE_GENERIC_TO_FILE_IMPLEMENTATION(real, 8, 3)
 	WRITE_GENERIC_TO_FILE_IMPLEMENTATION(real, 8, 4)
 	WRITE_GENERIC_TO_FILE_IMPLEMENTATION(real, 8, 5)
+	WRITE_GENERIC_TO_FILE_IMPLEMENTATION(integer, 4, 1)
+	WRITE_GENERIC_TO_FILE_IMPLEMENTATION(integer, 4, 2)
+	WRITE_GENERIC_TO_FILE_IMPLEMENTATION(integer, 4, 3)
+	WRITE_GENERIC_TO_FILE_IMPLEMENTATION(integer, 4, 4)
+	WRITE_GENERIC_TO_FILE_IMPLEMENTATION(integer, 4, 5)
+	WRITE_GENERIC_TO_FILE_IMPLEMENTATION(integer, 8, 1)
+	WRITE_GENERIC_TO_FILE_IMPLEMENTATION(integer, 8, 2)
+	WRITE_GENERIC_TO_FILE_IMPLEMENTATION(integer, 8, 3)
+	WRITE_GENERIC_TO_FILE_IMPLEMENTATION(integer, 8, 4)
+	WRITE_GENERIC_TO_FILE_IMPLEMENTATION(integer, 8, 5)
+	WRITE_LOGICAL_TO_FILE_IMPLEMENTATION(1)
+	WRITE_LOGICAL_TO_FILE_IMPLEMENTATION(2)
+	WRITE_LOGICAL_TO_FILE_IMPLEMENTATION(3)
+	WRITE_LOGICAL_TO_FILE_IMPLEMENTATION(4)
+	WRITE_LOGICAL_TO_FILE_IMPLEMENTATION(5)
 
 	subroutine write1DToGenericFile(array, n) bind(c, name="write1DToGenericFile")
 		implicit none

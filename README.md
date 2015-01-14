@@ -7,7 +7,7 @@ What & Why
 
 ![The Idea Behind Hybrid Fortran](/../master/doc/The%20Idea%20Behind%20Hybrid%20Fortran.gif)
 
-In a few more words
+A Few More Words
 -------------------
 
 Hybrid Fortran is ..

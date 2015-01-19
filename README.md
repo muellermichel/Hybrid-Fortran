@@ -1,6 +1,14 @@
 Hybrid Fortran v0.93
 ====================
-#### Performance Portable Parallel Programming - Target CUDA and OpenMP in a Unified Codebase
+
+What & Why
+----------
+![Problems With Accelerator Programming](/../master/doc/Problem.gif)
+
+![The Idea Behind Hybrid Fortran](/../master/doc/The%20Idea%20Behind%20Hybrid%20Fortran.gif)
+
+A Few More Words
+-------------------
 
 Hybrid Fortran is ..
 * .. a directive based extension for the Fortran language.
@@ -10,14 +18,12 @@ Hybrid Fortran is ..
 * .. a test system that handles verification of your outputs automatically after setup.
 * .. a framework for you to build your own parallel code implementations (OpenCL, ARM, FPGA, Hamster Wheel.. as long as it has some parallel Fortran support you're good) while keeping the same source files.
 
-![The Idea Behind Hybrid Fortran](/../master/doc/The%20Idea%20Behind%20Hybrid%20Fortran.gif)
-
 Hybrid Fortran has been successfully used for porting the Physical Core of Japan's national next generation weather prediction model to GPGPU. We're currently planning to port the internationally used Open Source weather model WRF to Hybrid Fortran as well.
 
 Hybrid Fortran has been developed since 2012 by Michel Müller, MSc ETH Zurich, as a guest at Prof. Aoki's Gordon Bell award winning [laboratory](http://www.sim.gsic.titech.ac.jp/index-e.html) at the Tokyo Institute of Technology, as well as during a temporary stay with Prof. Maruyama at the [RIKEN Advanced Institute for Computational Science](http://www.aics.riken.jp/en/) in Kobe, Japan.
 
-Why Hybrid Fortran?
--------------------
+Even More Words
+---------------
 The following Blog entry gives insight into why Hybrid Fortran has been created and how it can help you:
 
 [Accelerators in HPC – Having the Cake and Eating It Too](http://typhooncomputing.com/?p=416)
@@ -83,6 +89,10 @@ Sample Results
         <td>52.99x</td>
     </tr>
 </table>
+
+![CPU Sample Result (Diffusion)](/../master/doc/CPUPerf.png)
+
+![GPU Sample Result (Diffusion)](/../master/doc/GPUPerf.png)
 
 Code Example
 ------------
@@ -158,6 +168,7 @@ Documentation
 -------------
 * [Samples Overview](examples/Overview.md)
 * [Results Overview](results/Overview.md)
+* [Screencast](https://www.youtube.com/watch?v=3Of4kFQQRi4)
 * [Full Documentation For Installation, Getting Started, Usage and Design (PDF)](doc/Documentation.pdf?raw=true)
 * [Credits](CREDITS.md)
 * [Contact Information](CONTACT.md)

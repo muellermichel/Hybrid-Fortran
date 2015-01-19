@@ -24,6 +24,7 @@
 #endif
 
 module helper_functions
+use iso_c_binding
 implicit none
 
 private
@@ -101,6 +102,28 @@ contains
 		write (0,*) "**************************************************************"
 	end subroutine
 
+	function getDirectory(path) result(output)
+		implicit none
+		character(len=*), intent(in) :: path
+		character(len=:), allocatable :: output
+		integer(4) :: slash_position
+
+		slash_position = index(path, '/', back=.true.)
+		if (slash_position < 2) then
+			write(0, *) "Error: could not split off path, no slash found:", path
+			allocate(character(len=0) :: output)
+		else
+			allocate(character(len=slash_position-1) :: output)
+			output = path(1:slash_position-1)
+		end if
+	end function getDirectory
+
+	subroutine makeDirectory(path)
+		implicit none
+		character(len=*), intent(in) :: path
+		call system ( "mkdir -p " // path )
+	end subroutine
+
 	subroutine findNewFileHandle(mt)
 		implicit none
 		integer(4), intent(out) :: mt
@@ -149,11 +172,15 @@ contains
 		implicit none `\
 		GET_SPECIFICATION_DIM ## num_of_dimensions ## (type, bytes) `\
 		character(len=*), intent(in) :: path `\
+		character(len=:), allocatable :: dirname `\
 		integer(4) :: imt `\
+		dirname = getDirectory(path) `\
+		call makeDirectory(dirname) `\
 		call findNewFileHandle(imt) `\
 		open(imt, file = path, form = 'unformatted', status = 'replace') `\
 		write(imt) array `\
 		close(imt) `\
+		deallocate(dirname) `\
 	end subroutine
 
 #define GET_SPECIFICATION_LOGICAL_DIM1 \
@@ -176,11 +203,15 @@ contains
 		implicit none `\
 		GET_SPECIFICATION_LOGICAL_DIM ## num_of_dimensions `\
 		character(len=*), intent(in) :: path `\
+		character(len=:), allocatable :: dirname `\
 		integer(4) :: imt `\
+		dirname = getDirectory(path) `\
+		call makeDirectory(dirname) `\
 		call findNewFileHandle(imt) `\
 		open(imt, file = path, form = 'unformatted', status = 'replace') `\
 		write(imt) array `\
 		close(imt) `\
+		deallocate(dirname) `\
 	end subroutine
 
 	WRITE_GENERIC_TO_FILE_IMPLEMENTATION(real, 4, 1)
@@ -231,14 +262,16 @@ contains
 
 		!temporary
 		integer(4) :: imt
-
+		character(len=:), allocatable :: dirname
+		dirname = getDirectory(path)
+		call makeDirectory(dirname)
 		call findNewFileHandle(imt)
-
 		!NOTE: status = old means that the file must be present.
 		!Haven't found a better solution yet, status = 'new' will not overwrite
 		open(imt, file = path, form = 'unformatted', status = 'replace')
 		write(imt) array
 		close(imt)
+		deallocate(dirname)
 	end subroutine
 
 	!2012-6-5 michel: helper function to save output
@@ -251,6 +284,10 @@ contains
 		integer(4), intent(in) :: n1
 		integer(4), intent(in) :: n2
 		integer(4) :: imt
+		character(len=:), allocatable :: dirname
+		dirname = getDirectory(path)
+		call makeDirectory(dirname)
+		deallocate(dirname)
 
 		call findNewFileHandle(imt)
 		open(imt, file = path, form = 'unformatted', status = 'replace')
@@ -270,6 +307,10 @@ contains
 		integer(4), intent(in) :: n3
 		integer(4) :: imt, i, j, k
 		real(8) :: out_array(n3, n1, n2)
+		character(len=:), allocatable :: dirname
+		dirname = getDirectory(path)
+		call makeDirectory(dirname)
+		deallocate(dirname)
 
 		do j=1, n2
 			do i=1, n1
@@ -297,6 +338,10 @@ contains
 		integer(4), intent(in) :: n3
 		integer(4) :: imt, i, j, k
 		real(8) :: out_array(n3+1-start3, n1, n2)
+		character(len=:), allocatable :: dirname
+		dirname = getDirectory(path)
+		call makeDirectory(dirname)
+		deallocate(dirname)
 
 		do j=1, n2
 			do i=1, n1

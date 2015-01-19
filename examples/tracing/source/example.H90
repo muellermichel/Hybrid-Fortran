@@ -22,6 +22,7 @@ contains
 
 #define GET_TESTER_IMPLEMENTATION(datatype, bytes) \
   subroutine GET_FUNCTION_NAME(tester, datatype, bytes)() `\
+    use helper_functions, only: writeToFile `\
     datatype(bytes), dimension(DOM(NX, NY, NZ)) :: a, b, c `\
     integer :: x, y, z `\
     a(:,:,:) = 1 `\
@@ -40,6 +41,7 @@ contains
     end do `\
     end do `\
     write(0,*) "test ok ", #datatype, #bytes `\
+    call writeToFile('./testout/example-a.dat', a) `\
   end subroutine
 
 #define GET_WRAPPER_IMPLEMENTATION(datatype, bytes) \

@@ -46,9 +46,10 @@
 #define DIM_Z_INNER 256
 */
 
-#define DIM_X_INNER 256
-#define DIM_Y_INNER 256
-#define DIM_Z_INNER 100
+/* we've put the resolution to a number that computes quickly, however this will make the error larger. */
+#define DIM_X_INNER 64
+#define DIM_Y_INNER 64
+#define DIM_Z_INNER 50
 
 #define HALO_X 1
 #define HALO_Y 1

@@ -378,6 +378,10 @@ class Symbol(object):
         declarationPrefixFromTemplate = getDeclarationPrefix(self.template)
         self.loadDeclarationPrefixFromString(declarationPrefixFromTemplate)
         self.loadDomains(dependantDomNameAndSize, parallelRegionTemplates)
+        if self.debugPrint:
+            sys.stderr.write("Domains loaded from callgraph information for symbol %s. Parallel active: %s. Parallel Inactive: %s. Decleration Prefix: %s. dependantDomNameAndSize: %s\n" %(
+                str(self), str(self.parallelActiveDims), str(self.parallelInactiveDims), declarationPrefixFromTemplate, dependantDomNameAndSize
+            ))
 
     def loadDeclarationPrefixFromString(self, declarationPrefixFromTemplate):
         if declarationPrefixFromTemplate != None and declarationPrefixFromTemplate.strip() != "":
@@ -412,10 +416,11 @@ class Symbol(object):
         for (dependantDomName, dependantDomSize) in dependantDomNameAndSize:
             if dependantDomName not in self.parallelActiveDims:
                 self.parallelInactiveDims.append(dependantDomName)
+            #$$$ the following needs to be commented
             if dependantDomName in self.aggregatedRegionDomSizesByName:
                 self.aggregatedRegionDomSizesByName[dependantDomName][0] = dependantDomSize
 
-        dimsBeforeReset = self.domains
+        dimsBeforeReset = copy.deepcopy(self.domains)
         self.domains = []
         for (dependantDomName, dependantDomSize) in dependantDomNameAndSize:
             if dependantDomName not in self.parallelActiveDims and \
@@ -423,17 +428,21 @@ class Symbol(object):
                 raise Exception("Automatic symbol %s's dependant domain size %s is not declared as one of its dimensions." \
                     %(self.name, dependantDomSize))
             self.domains.append((dependantDomName, dependantDomSize))
+            if self.debugPrint:
+                sys.stderr.write("adding domain %s to symbol %s; Domains now: %s\n" %(
+                    str((dependantDomName, dependantDomSize)), self.name, self.domains
+                ))
         if self.isAutoDom and not self.isPointer:
             alreadyEstablishedDomSizes = [domSize for (domName, domSize) in self.domains]
+            if self.debugPrint:
+                sys.stderr.write("Symbol %s is an autoDom symbol: Checking already established domains %s against previous dimensions: %s. dependantDomNameAndSize: %s\n" %(
+                    self.name, str(self.domains), str(dimsBeforeReset), str(dependantDomNameAndSize))
+                )
             for (domName, domSize) in dimsBeforeReset:
-                if len(dimsBeforeReset) == len(self.domains) and domSize in alreadyEstablishedDomSizes:
+                if len(dimsBeforeReset) <= len(self.domains) and domSize in alreadyEstablishedDomSizes:
                     continue
                 self.domains.append((domName, domSize))
         self.checkIntegrityOfDomains()
-        if self.debugPrint:
-            sys.stderr.write("Domains loaded from callgraph information for symbol %s. Parallel active: %s. Parallel Inactive: %s.\n" %(
-                str(self), str(self.parallelActiveDims), str(self.parallelInactiveDims)
-            ))
 
     def loadModuleNodeAttributes(self, moduleNode):
         if self.initLevel < Init.DEPENDANT_ENTRYNODE_ATTRIBUTES_LOADED:
@@ -544,6 +553,7 @@ template for symbol %s - automatically inserting it for domain name %s\n"
                         )
                     self.parallelActiveDims.append(domName)
             self.domains = []
+            self.parallelInactiveDims = []
             for parallelDomName in self.parallelActiveDims:
                 parallelDomSizes = self.aggregatedRegionDomSizesByName.get(parallelDomName)
                 if parallelDomSizes == None or len(parallelDomSizes) == 0:
@@ -559,7 +569,7 @@ template for symbol %s - automatically inserting it for domain name %s\n"
                     self.parallelInactiveDims.append(dimensionSize)
                     self.domains.append(("HF_GENERIC_PARALLEL_INACTIVE_DIM", dimensionSize))
             if self.debugPrint:
-                sys.stderr.write("done loading autoDom dimensions for symbol %s\n" %(str(self)))
+                sys.stderr.write("done loading autoDom dimensions for symbol %s. Parallel Active Dims: %s, Parallel Inactive Dims: %s\n" %(str(self), str(self.parallelActiveDims), str(self.parallelInactiveDims)))
 
         # at this point we may not go further if the parallel region data
         # has not yet been analyzed.

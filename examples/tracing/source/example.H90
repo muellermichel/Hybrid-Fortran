@@ -77,17 +77,17 @@ contains
     use helper_functions, only: writeToFile `\
     datatype(bytes), dimension(NZ), intent(in) :: a, b `\
     datatype(bytes), dimension(NZ), intent(out) :: c `\
-    @domainDependant{domName(x,y,z), domSize(NX,NY,NZ), domPP(DOM), accPP(AT)} `\
+    @domainDependant{domName(x,y,z), domSize(NX,NY,NZ), attribute(autoDom)} `\
     a, b, c `\
     @end domainDependant `\
     @parallelRegion{appliesTo(CPU), domName(x,y), domSize(NX, NY)} `\
     call GET_FUNCTION_NAME(add, datatype, bytes)(a, b, c) `\
     @end parallelRegion `\
     @if {parallelRegion(within)} `\
-      call writeToFileInNaturalOrder('./testout/example-a.dat', a) `\
+      call writeToFile('./testout/example-a.dat', a) `\
     @end if `\
     @if {parallelRegion(inside)} `\
-      call writeToFileInNaturalOrder('./testout/example-a-gpu.dat', a) `\
+      call writeToFile('./testout/example-a-gpu.dat', a) `\
     @end if `\
   end subroutine
 
@@ -96,7 +96,7 @@ contains
     datatype(bytes), dimension(NZ), intent(in) :: a, b `\
     datatype(bytes), dimension(NZ), intent(out) :: c `\
     integer :: z `\
-    @domainDependant{domName(x,y,z), domSize(NX,NY,NZ), domPP(DOM), accPP(AT)} `\
+    @domainDependant{domName(x,y,z), domSize(NX,NY,NZ), attribute(autoDom)} `\
     a, b, c `\
     @end domainDependant `\
     @parallelRegion{appliesTo(GPU), domName(x,y), domSize(NX, NY)} `\

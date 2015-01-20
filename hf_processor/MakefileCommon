@@ -39,6 +39,12 @@ ifeq ($(DEBUG_MODE),true)
 DEBUG=1
 endif
 
+# WARNING: The following settings need to be repeated in MakefileForCompilationCommon
+PFLAGS=
+ifdef GPU_BUILD
+PFLAGS= -DGPU
+endif
+
 ifdef EMULATED
 
 #############################################################################
@@ -618,4 +624,4 @@ ${SRC_DIR_GPU}%.F90: ${SRC_DIR_HFPP}%.h90
 
 ${SRC_DIR_HFPP}%.h90: %.H90
 	@echo ...........preprocessing file $@
-	@mkdir -p ${SRC_DIR_HFPP} && pgcc -E $< | tr "\`" '\n' > $@
+	@mkdir -p ${SRC_DIR_HFPP} && pgcc -E ${PFLAGS} $< | tr "\`" '\n' > $@

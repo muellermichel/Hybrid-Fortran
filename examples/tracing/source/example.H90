@@ -41,11 +41,40 @@ contains
     end do `\
     end do `\
     write(0,*) "test ok ", #datatype, #bytes `\
-    call writeToFile('./testout/example-a.dat', a) `\
   end subroutine
+
+  #define GET_TESTER_IMPLEMENTATION_ALLOCATABLE(datatype, bytes) \
+    subroutine GET_FUNCTION_NAME(tester_allocatable, datatype, bytes)() `\
+      use helper_functions, only: writeToFile `\
+      datatype(bytes), dimension(:,:,:), allocatable :: a, b, c `\
+      integer :: x, y, z `\
+      allocate(a(DOM(NX,NY,NZ))) `\
+      allocate(b(DOM(NX,NY,NZ))) `\
+      allocate(c(DOM(NX,NY,NZ))) `\
+      a(:,:,:) = 1 `\
+      b(:,:,:) = 2 `\
+      c(:,:,:) = 0 `\
+      call GET_FUNCTION_NAME(wrapper, datatype, bytes)(a, b, c) `\
+      do y=1,NY `\
+      do x=1,NX `\
+      do z=1,NZ `\
+        if (test .EQ. .TRUE. .AND. c(AT(x,y,z)) .NE. 3) then `\
+          write(0,*) "test with allocatable failed ", #datatype, #bytes `\
+          write(0,*) "fails at", x, y, z, "C:", c(AT(fail_x,fail_y,fail_z)) `\
+          stop 2 `\
+        end if `\
+      end do `\
+      end do `\
+      end do `\
+      write(0,*) "test with allocatable ok ", #datatype, #bytes `\
+      deallocate(a) `\
+      deallocate(b) `\
+      deallocate(c) `\
+    end subroutine
 
 #define GET_WRAPPER_IMPLEMENTATION(datatype, bytes) \
   subroutine GET_FUNCTION_NAME(wrapper, datatype, bytes)(a, b, c) `\
+    use helper_functions, only: writeToFile `\
     datatype(bytes), dimension(NZ), intent(in) :: a, b `\
     datatype(bytes), dimension(NZ), intent(out) :: c `\
     @domainDependant{domName(x,y,z), domSize(NX,NY,NZ), domPP(DOM), accPP(AT)} `\
@@ -54,6 +83,12 @@ contains
     @parallelRegion{appliesTo(CPU), domName(x,y), domSize(NX, NY)} `\
     call GET_FUNCTION_NAME(add, datatype, bytes)(a, b, c) `\
     @end parallelRegion `\
+    @if {parallelRegion(within)} `\
+      call writeToFileInNaturalOrder('./testout/example-a.dat', a) `\
+    @end if `\
+    @if {parallelRegion(inside)} `\
+      call writeToFileInNaturalOrder('./testout/example-a-gpu.dat', a) `\
+    @end if `\
   end subroutine
 
 #define GET_ADD_IMPLEMENTATION(datatype, bytes) \
@@ -76,6 +111,11 @@ contains
   GET_TESTER_IMPLEMENTATION(integer, 4)
   GET_TESTER_IMPLEMENTATION(integer, 8)
 
+  GET_TESTER_IMPLEMENTATION_ALLOCATABLE(real, 4)
+  GET_TESTER_IMPLEMENTATION_ALLOCATABLE(real, 8)
+  GET_TESTER_IMPLEMENTATION_ALLOCATABLE(integer, 4)
+  GET_TESTER_IMPLEMENTATION_ALLOCATABLE(integer, 8)
+
   GET_WRAPPER_IMPLEMENTATION(real, 4)
   GET_WRAPPER_IMPLEMENTATION(real, 8)
   GET_WRAPPER_IMPLEMENTATION(integer, 4)
@@ -94,6 +134,10 @@ program main
   call GET_FUNCTION_NAME(tester, real, 8)
   call GET_FUNCTION_NAME(tester, integer, 4)
   call GET_FUNCTION_NAME(tester, integer, 8)
+  call GET_FUNCTION_NAME(tester_allocatable, real, 4)
+  call GET_FUNCTION_NAME(tester_allocatable, real, 8)
+  call GET_FUNCTION_NAME(tester_allocatable, integer, 4)
+  call GET_FUNCTION_NAME(tester_allocatable, integer, 8)
 
   stop
 end program main

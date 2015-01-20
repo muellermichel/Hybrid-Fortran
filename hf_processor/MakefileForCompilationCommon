@@ -32,6 +32,7 @@ else
 DEBUG_OUTPUT=/dev/null
 endif
 
+# WARNING: The following settings need to be repeated in MakefileCommon
 PFLAGS=
 ifdef GPU_BUILD
 PFLAGS= -DGPU
@@ -75,10 +76,11 @@ ${USER_LIB}: $(OBJ)
 
 # we first preprocess with pgcc so we get concatenation / stringification.
 # since this only works with files that don't have the F90 prefix, we need to rename first.
+# @cp $< temp.P90 && pgcc -E $(PFLAGS) temp.P90 | tr "\`" '\n' > temp_$< && rm temp.P90 && $(FC) $(FFLAGS) $(PFLAGS) -c temp_$< -o $@ && rm temp_$<
 %.o: %.F90
 	@echo ..........compiling $< in $(CURDIR)
 	@echo ..calling "cp $< temp.P90 && pgcc -E $(PFLAGS) temp.P90 | tr "\`" '\n' > temp_$< && rm temp.P90 && $(FC) $(FFLAGS) $(PFLAGS) -c temp_$< -o $@" >${DEBUG_OUTPUT}
-	@cp $< temp.P90 && pgcc -E $(PFLAGS) temp.P90 | tr "\`" '\n' > temp_$< && rm temp.P90 && $(FC) $(FFLAGS) $(PFLAGS) -c temp_$< -o $@ && rm temp_$<
+	@cp $< temp.P90 && pgcc -E $(PFLAGS) temp.P90 | tr "\`" '\n' > temp_$< && $(FC) $(FFLAGS) $(PFLAGS) -c temp_$< -o $@
 
 %.o: %.f90
 	@echo ..........compiling $< in $(CURDIR)

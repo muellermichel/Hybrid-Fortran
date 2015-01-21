@@ -3,39 +3,39 @@
 ! whether you need to adapt this file for your needs.
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-/* ------ DEBUG configuration --------------- */
-/* Which data point should be printed when    */
-/* program is compiled with DEBUG=1 ?         */
-/* PLEASE Note: In current version of Hybrid  */
-/* Fortran, only the following domain names   */
-/* are supported for this functionality:      */
-/* x, y, nz, i, j, vertical, verticalPlus, KMAX_CONST, KMP1_CONST */
+! ------ DEBUG configuration ---------------
+! Which data point should be printed when
+! program is compiled with DEBUG=1 ?
+! PLEASE Note: In current version of Hybrid
+! Fortran, only the following domain names
+! are supported for this functionality:
+! x, y, nz, i, j, vertical, verticalPlus, KMAX_CONST, KMP1_CONST
 #define DEBUG_OUT_i 1
 #define DEBUG_OUT_j 1
 
-/* ------ CUDA run configuration ------------ */
+! ------ CUDA run configuration ------------
 #define CUDA_BLOCKSIZE_X 32
 #define CUDA_BLOCKSIZE_Y 16
 #define CUDA_BLOCKSIZE_Z 1
 
-/* ------ Data Dim configuration ------------  */
-/* It is beneficial to have these dimensions defined */
-/* at compile-time for the GPU. NX, NY can be changed at */
-/* runtime with commandline arguments */
+! ------ Data Dim configuration ------------
+! It is beneficial to have these dimensions defined
+! at compile-time for the GPU. NX, NY can be changed at
+! runtime with commandline arguments
 #define NX 256
 #define NY 256
 #define NZ 10
 
-/* ------ What Storage Orders are defined? -------  */
+! ------ What Storage Orders are defined? -------
 #define IJK_ORDER 1
 #define KIJ_ORDER 2
 #define IKJ_ORDER 3
 
-/* ------ What Computational Schemes are defined? -------  */
+! ------ What Computational Schemes are defined? -------
 #define STENCIL_SCHEME 1
 #define PARALLEL_VECTOR_SCHEME 2
 
-/* ------ Define the Scheme to be used -------  */
+! ------ Define the Scheme to be used -------
 ! (1) In your CPU implementation, how do the computations look like?
 ! If you have tight loops over all of the data's dimensions with dependencies on neighbours in parallel dimensions:
 ! ----> Choose STENCIL_SCHEME
@@ -43,11 +43,11 @@
 ! ----> Choose PARALLEL_VECTOR_SCHEME
 #define CURRENT_SCHEME PARALLEL_VECTOR_SCHEME
 
-/* ------ Switch between storage orders ------  */
+! ------ Switch between storage orders ------
 #define CURR_ORDER IJK_ORDER
 !here we specifically don't do storage order changes between CPU and GPU because we want to want to be able to make assumptions about the order at runtime for testing reasons.
 
-/* ------ Order dependent macros -------------  */
+! ------ Order dependent macros -------------
 ! (2) Does your data have more dimensions than 4? if so, define AT5, AT6, ... accordingly
 #if (CURR_ORDER == KIJ_ORDER)
 	#define AT(iParam, jParam, kParam) kParam, iParam, jParam
@@ -60,9 +60,9 @@
 	#define AT4(iParam, jParam, kParam, lParam) iParam, jParam, kParam, lParam
 #endif
 
-/* ------ Syntactic sugar -------------------  */
-/*note: these are just renames. Same syntax can be used for domain definition and array access */
-/*-> give it two seperate names to make the intention of the code clearer */
+! ------ Syntactic sugar -------------------
+!note: these are just renames. Same syntax can be used for domain definition and array access
+!-> give it two seperate names to make the intention of the code clearer
 ! (3) Does your data have more dimensions than 4? if so, define DOM5, DOM6, ... accordingly
 #define DOM(iParam, jParam, kParam) AT(iParam, jParam, kParam)
 #define DOM4(iParam, jParam, kParam, lParam) AT4(iParam, jParam, kParam, lParam)

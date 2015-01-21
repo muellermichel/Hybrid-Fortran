@@ -15,33 +15,33 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
-/* ------ DEBUG configuration --------------- */
-/* Which data point should be printed when    */
-/* program is compiled with DEBUG=1 ?         */
-/* PLEASE Note: In current version of Hybrid  */
-/* Fortran, only the following domain names   */
-/* are supported for this functionality:      */
-/* x, y, nz, i, j, vertical, verticalPlus, KMAX_CONST, KMP1_CONST */
+! ------ DEBUG configuration ---------------
+! Which data point should be printed when
+! program is compiled with DEBUG=1 ?
+! PLEASE Note: In current version of Hybrid
+! Fortran, only the following domain names
+! are supported for this functionality:
+! x, y, nz, i, j, vertical, verticalPlus, KMAX_CONST, KMP1_CONST
 #define DEBUG_OUT_j 1
 
-/* ------ CUDA run configuration ------------ */
+! ------ CUDA run configuration ------------
 #define CUDA_BLOCKSIZE_X 128
 #define CUDA_BLOCKSIZE_Y 1
 #define CUDA_BLOCKSIZE_Z 1
 
-/* ------ What Storage Orders are defined? -------  */
+! ------ What Storage Orders are defined? -------
 #define IJK_ORDER 1
 #define KIJ_ORDER 2
 #define IKJ_ORDER 3
 
-/* ------ What Computational Schemes are defined? -------  */
+! ------ What Computational Schemes are defined? -------
 #define STENCIL_SCHEME 1
 #define PARALLEL_VECTOR_SCHEME 2
 
-/* ------ Define the Scheme to be used -------  */
+! ------ Define the Scheme to be used -------
 #define CURRENT_SCHEME STENCIL_SCHEME
 
-/* ------ Switch between storage orders ------  */
+! ------ Switch between storage orders ------
 #define CURR_ORDER IJK_ORDER
 #ifndef GPU
 #if (CURRENT_SCHEME == PARALLEL_VECTOR_SCHEME)
@@ -49,7 +49,7 @@
 #endif
 #endif
 
-/* ------ Order dependent macros -------------  */
+! ------ Order dependent macros -------------
 #if (CURR_ORDER == KIJ_ORDER)
 #define AT(iParam, jParam, kParam) kParam, iParam, jParam
 #define AT4(iParam, jParam, kParam, lParam) kParam, lParam, iParam, jParam
@@ -61,8 +61,8 @@
 #define AT4(iParam, jParam, kParam, lParam) iParam, jParam, kParam, lParam
 #endif
 
-/* ------ Syntactic sugar -------------------  */
-/*note: these are just renames. Same syntax can be used for domain definition and array access */
-/*-> give it two seperate names to make the intention of the code clearer */
+! ------ Syntactic sugar -------------------
+!note: these are just renames. Same syntax can be used for domain definition and array access
+!-> give it two seperate names to make the intention of the code clearer
 #define DOM(iParam, jParam, kParam) AT(iParam, jParam, kParam)
 #define DOM4(iParam, jParam, kParam, lParam) AT4(iParam, jParam, kParam, lParam)

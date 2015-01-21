@@ -22,14 +22,14 @@ subroutine ppush(x,y,x_out,y_out,time,time_factor,dt)
 	!$acc kernels present(x, y, x_out, y_out)
 	!$acc loop independent
 	do j=1,N
-		! /* -------- original algorithm ----------------- */
+		! ! -------- original algorithm -----------------
 	! 	xt = US(x[j], y[j], time);
 	! 	yt = VS(x[j], y[j], time);
 	! 	x_out[j] = x[j] + xt*dt;
 	! 	y_out[j] = y[j] + yt*dt;
-		! /* -------- end of original algorithm ---------- */
+		! ! -------- end of original algorithm ----------
 
-		! /* -------- optimized algorithm ---------------- */
+		! ! -------- optimized algorithm ----------------
 		xg = x(j);
 		yg = y(j);
 

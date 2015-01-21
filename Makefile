@@ -32,6 +32,7 @@ TEST_PROJECTS=examples/simple_stencil examples/stencil_with_local_array examples
 ADDITIONAL_TEST_PROJECTS=pp
 
 TEST_TARGETS=$(addprefix test_,$(TEST_PROJECTS))
+CLEAN_TARGETS=$(addprefix clean_,$(TEST_PROJECTS))
 ADDITIONAL_TEST_TARGETS=$(addprefix test_,$(ADDITIONAL_TEST_PROJECTS))
 ALL_TEST_PROJECTS=${TEST_PROJECTS} ${ADDITIONAL_TEST_PROJECTS}
 
@@ -40,6 +41,8 @@ ALL_TEST_PROJECTS=${TEST_PROJECTS} ${ADDITIONAL_TEST_PROJECTS}
 all: example
 
 tests: test_example ${TEST_TARGETS}
+
+clean: clean_example ${CLEAN_TARGETS}
 
 #note: cp -n does not exist in older GNU utils, so we emulate it here for compatibility
 #      cp -p doesn't do the same thing in older GNU utils, so we also do chmod +x
@@ -85,4 +88,13 @@ define test_rules
 	@cd $(1) && make tests
 endef
 
+clean_example:
+	@cd example && make clean
+
+define clean_rules
+  clean_$(1):
+	@cd $(1) && make clean
+endef
+
 $(foreach project,$(ALL_TEST_PROJECTS),$(eval $(call test_rules,$(project))))
+$(foreach project,$(ALL_TEST_PROJECTS),$(eval $(call clean_rules,$(project))))

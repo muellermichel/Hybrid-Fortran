@@ -72,7 +72,7 @@ contains
 
 #define GET_WRAPPER_IMPLEMENTATION(datatype, bytes) \
   subroutine GET_FUNCTION_NAME(wrapper, datatype, bytes)(a, b, c) `\
-!     use helper_functions, only: writeToFile `\
+    use helper_functions, only: writeToFile `\
     datatype(bytes), dimension(NZ), intent(in) :: a, b `\
     datatype(bytes), dimension(NZ), intent(out) :: c `\
     datatype(bytes), dimension(NX,NY,NZ) :: temp `\

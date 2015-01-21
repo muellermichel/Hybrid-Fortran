@@ -114,9 +114,11 @@ SRC_LIB_FORT=$(shell find ${LIBDIR} -type f -name '*.f90')
 SRC_LIB_FORT_PP=$(shell find ${LIBDIR} -type f -name '*.F90')
 SRC_LIB_H90=$(shell find ${LIBDIR} -type f -name '*.h90')
 SRC_FORT=${SRC_F90} ${SRC_F90PP} ${SRC_LIB_FORT} ${SRC_LIB_FORT_PP}
+SRC_TGT_FORT_PRE='$(SRC_FORT:.F90=.P90)'
+SRC_TGT_FORT=$(shell python ${TOOLSDIR}filterExceptions.py --paths ${SRC_TGT_FORT_PRE} --exceptions 'storage_order') storage_order.F90
 
-SRC_FORT_CPU=$(addprefix $(SRC_DIR_CPU),$(notdir ${SRC_FORT}))
-SRC_FORT_GPU=$(addprefix $(SRC_DIR_GPU),$(notdir ${SRC_FORT}))
+SRC_FORT_CPU=$(addprefix $(SRC_DIR_CPU),$(notdir ${SRC_TGT_FORT}))
+SRC_FORT_GPU=$(addprefix $(SRC_DIR_GPU),$(notdir ${SRC_TGT_FORT}))
 
 SRC_H90_WITHOUT_PP_PRE='$(shell find ${SRC_DIR_COMMON} -type f -name '*.h90')'
 SRC_H90_WITHOUT_PP=$(shell python ${TOOLSDIR}filterExceptions.py --paths ${SRC_H90_WITHOUT_PP_PRE} --exceptions ${EXCEPTIONS})
@@ -126,9 +128,9 @@ SRC_H90_ALL=${SRC_H90_WITHOUT_PP} ${SRC_H90_WITH_PP} ${SRC_LIB_H90}
 SRC_H90TGT_HFPP_PRE=$(addprefix $(SRC_DIR_HFPP),$(notdir $(SRC_H90_ALL)))
 SRC_H90TGT_HFPP=$(SRC_H90TGT_HFPP_PRE:.H90=.h90)
 SRC_H90TGT_CPU_PRE=$(addprefix $(SRC_DIR_CPU),$(notdir $(SRC_H90TGT_HFPP)))
-SRC_H90TGT_CPU=$(SRC_H90TGT_CPU_PRE:.h90=.F90)
+SRC_H90TGT_CPU=$(SRC_H90TGT_CPU_PRE:.h90=.P90)
 SRC_H90TGT_GPU_PRE=$(addprefix $(SRC_DIR_GPU),$(notdir $(SRC_H90TGT_HFPP)))
-SRC_H90TGT_GPU=$(SRC_H90TGT_GPU_PRE:.h90=.F90)
+SRC_H90TGT_GPU=$(SRC_H90TGT_GPU_PRE:.h90=.P90)
 
 FRAMEWORK_DIRS_CPU=$(addprefix $(SRC_DIR_CPU),$(FRAMEWORK_DIRS))
 FRAMEWORK_DIRS_GPU=$(addprefix $(SRC_DIR_GPU),$(FRAMEWORK_DIRS))
@@ -244,15 +246,15 @@ endif
 #############################################################################
 
 define yellowecho
-@tput setaf 3
+@[ -t 1 ] && tput setaf 3
 @echo $1
-@tput sgr0
+@[ -t 1 ] && tput sgr0
 endef
 
 define debugecho
-@tput bold
+@[ -t 1 ] && tput bold
 @echo $1 >${DEBUG_OUTPUT}
-@tput sgr0
+@[ -t 1 ] && tput sgr0
 endef
 
 SRC_FORT_COMMON_DIRS=$(dir $(SRC_FORT)) $(dir $(SRC_H90_ALL))
@@ -266,7 +268,7 @@ vpath %.H90 $(SRC_FORT_COMMON_DIRS)
 
 .PHONY: all clean clean_cpu clean_gpu install install_cpu install_gpu install_framework_executables_cpu install_framework_executables_gpu graphs build build_cpu build_gpu create_install_directories source source_cpu source_gpu tests tests_cpu tests_gpu framework_sources framework_sources_cpu framework_sources_gpu build_hybrid_cpu build_hybrid_gpu build_framework_cpu build_framework_gpu install_non_hybrid_framework_executables configfiles_cpu configfiles_gpu
 
-.SUFFIXES: .f90 .F90 .h90 .H90 .f .F
+.SUFFIXES: .f90 .F90 .h90 .H90 .f .F .P90
 
 all: build_cpu build_gpu
 
@@ -593,11 +595,19 @@ ${SRC_DIR_CPU}%.f90: %.f90
 	@echo ...copying file into $@ >${DEBUG_OUTPUT}
 	@mkdir -p ${SRC_DIR_CPU} && cp -fp $< $@
 
+${SRC_DIR_CPU}%.P90: %.F90
+	@echo ...copying file into $@ >${DEBUG_OUTPUT}
+	@mkdir -p ${SRC_DIR_CPU} && cp -fp $< $@
+
 ${SRC_DIR_CPU}%.F90: %.F90
 	@echo ...copying file into $@ >${DEBUG_OUTPUT}
 	@mkdir -p ${SRC_DIR_CPU} && cp -fp $< $@
 
 ${SRC_DIR_GPU}%.f90: %.f90
+	@echo ...copying file into $@ >${DEBUG_OUTPUT}
+	@mkdir -p ${SRC_DIR_GPU} && cp -fp $< $@
+
+${SRC_DIR_GPU}%.P90: %.F90
 	@echo ...copying file into $@ >${DEBUG_OUTPUT}
 	@mkdir -p ${SRC_DIR_GPU} && cp -fp $< $@
 
@@ -625,12 +635,12 @@ ${SRC_DIR_HFPP}%.h90: %.h90
 	@echo ...copying file into $@ >${DEBUG_OUTPUT}
 	@mkdir -p ${SRC_DIR_HFPP} && cp -fp $< $@
 
-${SRC_DIR_CPU}%.F90: ${SRC_DIR_HFPP}%.h90
+${SRC_DIR_CPU}%.P90: ${SRC_DIR_HFPP}%.h90
 	$(call yellowecho,"...........converting $< to $@ using ${CPU_CALLGRAPH_FILE} and ${CPU_IMPLEMENTATION} using flags ${OPTION_FLAGS}")
 	@echo ..calling generateF90fromH90AndAnalyzedCallGraph.py -i $< -c ${CG_DIR}${CPU_CALLGRAPH_FILE} --implementation=${CPU_IMPLEMENTATION} --optionFlags=${OPTION_FLAGS} ${H90_PREPROCESSOR_ARGS} >${DEBUG_OUTPUT}
 	@python ${TOOLSDIR}/generateF90fromH90AndAnalyzedCallGraph.py -i $< -c ${CG_DIR}${CPU_CALLGRAPH_FILE} --implementation=${CPU_IMPLEMENTATION} ${H90_PREPROCESSOR_ARGS} > $@ ;\
 
-${SRC_DIR_GPU}%.F90: ${SRC_DIR_HFPP}%.h90
+${SRC_DIR_GPU}%.P90: ${SRC_DIR_HFPP}%.h90
 	$(call yellowecho,"...........converting $< to $@ using ${GPU_CALLGRAPH_FILE} and ${GPU_IMPLEMENTATION} using flags ${OPTION_FLAGS}")
 	@echo ..calling generateF90fromH90AndAnalyzedCallGraph.py -i $< -c ${CG_DIR}${GPU_CALLGRAPH_FILE} --implementation=${GPU_IMPLEMENTATION} --optionFlags=${OPTION_FLAGS} ${H90_PREPROCESSOR_ARGS} >${DEBUG_OUTPUT}
 	@python ${TOOLSDIR}/generateF90fromH90AndAnalyzedCallGraph.py -i $< -c ${CG_DIR}${GPU_CALLGRAPH_FILE} --implementation=${GPU_IMPLEMENTATION} --optionFlags=${OPTION_FLAGS} ${H90_PREPROCESSOR_ARGS} > $@ ;\

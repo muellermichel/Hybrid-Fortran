@@ -31,6 +31,7 @@
 #    * ./config/Makefile (source dependencies)                              #
 #                                                                           #
 #***************************************************************************#
+
 CONFIGDIR=./config/
 include ${CONFIGDIR}MakesettingsGeneral
 SHELL=/bin/bash
@@ -242,6 +243,18 @@ DEBUG_OUTPUT=/dev/null
 endif
 #############################################################################
 
+define yellowecho
+@tput setaf 3
+@echo $1
+@tput sgr0
+endef
+
+define debugecho
+@tput bold
+@echo $1 >${DEBUG_OUTPUT}
+@tput sgr0
+endef
+
 SRC_FORT_COMMON_DIRS=$(dir $(SRC_FORT)) $(dir $(SRC_H90_ALL))
 
 vpath %.f $(SRC_FORT_COMMON_DIRS)
@@ -391,21 +404,21 @@ ${EXECUTABLES_CPU_OUT}: build_hybrid_cpu
 ${EXECUTABLES_GPU_OUT}: build_hybrid_gpu
 
 build_hybrid_cpu: ${CG_DIR}CG_CPU.xml configfiles_cpu ${SRC_ALL_CPU} framework_sources_cpu ${AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH_CPU}
-	@echo "..entering ${SRC_DIR_CPU}"
-	@echo "..cpu executable dependant on " ${SRC_ALL_CPU} >${DEBUG_OUTPUT}
+	$(call yellowecho,"..entering ${SRC_DIR_CPU}")
+	$(call debugecho,"..cpu executable dependant on ${SRC_ALL_CPU}")
 	@cd ${SRC_DIR_CPU} && make ${BUILD_ARGS}
 
 build_hybrid_gpu: ${CG_DIR}CG_GPU.xml configfiles_gpu ${SRC_ALL_GPU} framework_sources_gpu ${AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH_GPU}
-	@echo "..entering ${SRC_DIR_GPU}"
-	@echo "..gpu executable dependant on " ${SRC_ALL_GPU} >${DEBUG_OUTPUT}
+	$(call yellowecho,"..entering ${SRC_DIR_GPU}")
+	$(call debugecho,"..cpu executable dependant on ${SRC_DIR_GPU}")
 	@cd ${SRC_DIR_GPU} && make ${BUILD_ARGS} GPU_BUILD=1
 
 build_framework_cpu: build_hybrid_cpu framework_sources_cpu
-	@echo "..building framework with ${FRAMEWORK_MAKEFILE_CPU} and build arguments '${BUILD_ARGS}'"
+	$(call yellowecho,"..building framework with ${FRAMEWORK_MAKEFILE_CPU} and build arguments '${BUILD_ARGS}'")
 	@cd $(dir ${FRAMEWORK_MAKEFILE_CPU}) && make ${BUILD_ARGS}
 
 build_framework_gpu: build_hybrid_gpu framework_sources_gpu
-	@echo "..building framework with ${FRAMEWORK_MAKEFILE_GPU} and build arguments '${BUILD_ARGS}'"
+	$(call yellowecho,"..building framework with ${FRAMEWORK_MAKEFILE_GPU} and build arguments '${BUILD_ARGS}'")
 	@cd $(dir ${FRAMEWORK_MAKEFILE_GPU}) && make GPU=1 ${BUILD_ARGS} GPU_BUILD=1
 
 install_non_hybrid_framework_executables: build_cpu
@@ -613,12 +626,12 @@ ${SRC_DIR_HFPP}%.h90: %.h90
 	@mkdir -p ${SRC_DIR_HFPP} && cp -fp $< $@
 
 ${SRC_DIR_CPU}%.F90: ${SRC_DIR_HFPP}%.h90
-	@echo ...........converting $< to $@ using ${CPU_CALLGRAPH_FILE} and ${CPU_IMPLEMENTATION} using flags ${OPTION_FLAGS}
+	$(call yellowecho,"...........converting $< to $@ using ${CPU_CALLGRAPH_FILE} and ${CPU_IMPLEMENTATION} using flags ${OPTION_FLAGS}")
 	@echo ..calling generateF90fromH90AndAnalyzedCallGraph.py -i $< -c ${CG_DIR}${CPU_CALLGRAPH_FILE} --implementation=${CPU_IMPLEMENTATION} --optionFlags=${OPTION_FLAGS} ${H90_PREPROCESSOR_ARGS} >${DEBUG_OUTPUT}
 	@python ${TOOLSDIR}/generateF90fromH90AndAnalyzedCallGraph.py -i $< -c ${CG_DIR}${CPU_CALLGRAPH_FILE} --implementation=${CPU_IMPLEMENTATION} ${H90_PREPROCESSOR_ARGS} > $@ ;\
 
 ${SRC_DIR_GPU}%.F90: ${SRC_DIR_HFPP}%.h90
-	@echo ...........converting $< to $@ using ${GPU_CALLGRAPH_FILE} and ${GPU_IMPLEMENTATION} using flags ${OPTION_FLAGS}
+	$(call yellowecho,"...........converting $< to $@ using ${GPU_CALLGRAPH_FILE} and ${GPU_IMPLEMENTATION} using flags ${OPTION_FLAGS}")
 	@echo ..calling generateF90fromH90AndAnalyzedCallGraph.py -i $< -c ${CG_DIR}${GPU_CALLGRAPH_FILE} --implementation=${GPU_IMPLEMENTATION} --optionFlags=${OPTION_FLAGS} ${H90_PREPROCESSOR_ARGS} >${DEBUG_OUTPUT}
 	@python ${TOOLSDIR}/generateF90fromH90AndAnalyzedCallGraph.py -i $< -c ${CG_DIR}${GPU_CALLGRAPH_FILE} --implementation=${GPU_IMPLEMENTATION} --optionFlags=${OPTION_FLAGS} ${H90_PREPROCESSOR_ARGS} > $@ ;\
 

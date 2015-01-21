@@ -22,7 +22,6 @@ contains
 
 #define GET_TESTER_IMPLEMENTATION(datatype, bytes) \
   subroutine GET_FUNCTION_NAME(tester, datatype, bytes)() `\
-    use helper_functions, only: writeToFile `\
     datatype(bytes), dimension(DOM(NX, NY, NZ)) :: a, b, c `\
     integer :: x, y, z `\
     a(:,:,:) = 1 `\
@@ -45,7 +44,6 @@ contains
 
   #define GET_TESTER_IMPLEMENTATION_ALLOCATABLE(datatype, bytes) \
     subroutine GET_FUNCTION_NAME(tester_allocatable, datatype, bytes)() `\
-      use helper_functions, only: writeToFile `\
       datatype(bytes), dimension(:,:,:), allocatable :: a, b, c `\
       integer :: x, y, z `\
       allocate(a(DOM(NX,NY,NZ))) `\
@@ -74,9 +72,11 @@ contains
 
 #define GET_WRAPPER_IMPLEMENTATION(datatype, bytes) \
   subroutine GET_FUNCTION_NAME(wrapper, datatype, bytes)(a, b, c) `\
-    use helper_functions, only: writeToFile `\
+!     use helper_functions, only: writeToFile `\
     datatype(bytes), dimension(NZ), intent(in) :: a, b `\
     datatype(bytes), dimension(NZ), intent(out) :: c `\
+    datatype(bytes), dimension(NX,NY,NZ) :: temp `\
+    integer(4) :: x, y, z `\
     @domainDependant{domName(x,y,z), domSize(NX,NY,NZ), attribute(autoDom)} `\
     a, b, c `\
     @end domainDependant `\
@@ -84,10 +84,24 @@ contains
     call GET_FUNCTION_NAME(add, datatype, bytes)(a, b, c) `\
     @end parallelRegion `\
     @if {parallelRegion(within)} `\
-      call writeToFile('./testout/example-a.dat', a) `\
+      do z=1,NZ `\
+        do y=1,NY `\
+          do x=1,NX `\
+            temp(x,y,z) = c(x,y,z) `\
+          end do `\
+        end do `\
+      end do `\
+      call writeToFile('./testout/example-c.dat', temp) `\
     @end if `\
     @if {parallelRegion(inside)} `\
-      call writeToFile('./testout/example-a-gpu.dat', a) `\
+      do z=1,NZ `\
+        do y=1,NY `\
+          do x=1,NX `\
+            temp(x,y,z) = c(x,y,z) `\
+          end do `\
+        end do `\
+      end do `\
+      call writeToFile('./testout/example-c-gpu.dat', temp) `\
     @end if `\
   end subroutine
 

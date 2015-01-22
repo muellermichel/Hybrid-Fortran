@@ -24,9 +24,9 @@
 ! It is beneficial to have these dimensions defined
 ! at compile-time for the GPU. NX, NY can be changed at
 ! runtime with commandline arguments
-#define NX 256
-#define NY 256
-#define NZ 10
+#define NX 32
+#define NY 32
+#define NZ 5
 
 ! ------ What Storage Orders are defined? -------
 #define IJK_ORDER 1

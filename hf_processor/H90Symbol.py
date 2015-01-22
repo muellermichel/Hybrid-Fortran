@@ -250,37 +250,7 @@ class Symbol(object):
         self.setOptionsFromAttributes(attributes)
 
     def __repr__(self):
-        name = self.name
-        if self.isAutomatic:
-            name = self.automaticName()
-        elif len(self.domains) > 0:
-            name = self.deviceName()
-        result = name
-        if len(self.domains) == 0:
-            return result
-        try:
-            needsAdditionalClosingBracket = False
-            domPP, isExplicit = self.domPP()
-            if domPP != "" and ((isExplicit and self.activeDomainsMatchSpecification) or self.parallelRegionPosition != "outside"):
-                result = result + "(" + domPP + "("
-                needsAdditionalClosingBracket = True
-            else:
-                result = result + "("
-            for i in range(len(self.domains)):
-                if i != 0:
-                    result += ", "
-                if self.isPointer:
-                    result += ":"
-                else:
-                    (domName, domSize) = self.domains[i]
-                    result += domSize
-            if needsAdditionalClosingBracket:
-                result = result + "))"
-            else:
-                result = result + ")"
-        except Exception:
-            return "%s{%s}" %(name, str(self.domains))
-        return result
+        return self.domainRepresentation()
 
     def __eq__(self, other):
         return self.automaticName() == other.automaticName()
@@ -764,7 +734,7 @@ Current Domains: %s\n" %(
         dimensionStr, postfix = self.getDimensionStringAndRemainderFromDeclMatch(paramDeclMatch, dimensionPattern)
         return prefix + str(self) + postfix
 
-    def getDeclarationLineForAutomaticSymbol(self, purgeIntent=False, patterns=None):
+    def getDeclarationLineForAutomaticSymbol(self, purgeIntent=False, patterns=None, name_prefix="", use_domain_reordering=True):
         if self.declarationPrefix == None or self.declarationPrefix == "":
             if self.routineNode:
                 routineHelperText = " for subroutine %s," %(self.routineNode.getAttribute("name"))
@@ -793,7 +763,7 @@ EXAMPLE:\n\
             )
             declarationPrefix = declarationDirectivesWithoutIntent
 
-        return declarationPrefix + " " + str(self)
+        return declarationPrefix + " " + name_prefix + self.domainRepresentation(use_domain_reordering)
 
     def automaticName(self):
         if not self.routineNode or self.declarationType() == DeclarationType.MODULE_SCALAR:
@@ -850,7 +820,40 @@ Please specify the domains and their sizes with domName and domSize attributes i
         result += ")"
         return result
 
-    def accessRepresentation(self, parallelIterators, offsets, parallelRegionNode):
+    def domainRepresentation(self, use_domain_reordering=True):
+        name = self.name
+        if self.isAutomatic:
+            name = self.automaticName()
+        elif len(self.domains) > 0:
+            name = self.deviceName()
+        result = name
+        if len(self.domains) == 0:
+            return result
+        try:
+            needsAdditionalClosingBracket = False
+            domPP, isExplicit = self.domPP()
+            if use_domain_reordering and domPP != "" and ((isExplicit and self.activeDomainsMatchSpecification) or self.parallelRegionPosition != "outside"):
+                result = result + "(" + domPP + "("
+                needsAdditionalClosingBracket = True
+            else:
+                result = result + "("
+            for i in range(len(self.domains)):
+                if i != 0:
+                    result += ", "
+                if self.isPointer:
+                    result += ":"
+                else:
+                    (domName, domSize) = self.domains[i]
+                    result += domSize
+            if needsAdditionalClosingBracket:
+                result = result + "))"
+            else:
+                result = result + ")"
+        except Exception:
+            return "%s{%s}" %(name, str(self.domains))
+        return result
+
+    def accessRepresentation(self, parallelIterators, offsets, parallelRegionNode, use_domain_reordering=True):
         if self.debugPrint:
             sys.stderr.write("producing access representation for symbol %s; parallel iterators: %s, offsets: %s\n" %(self.name, str(parallelIterators), str(offsets)))
 
@@ -891,14 +894,14 @@ Please specify the domains and their sizes with domName and domSize attributes i
 Currently loaded template: %s\n" %(
                 accPP, str(accPPIsExplicit), self.activeDomainsMatchSpecification, self.numOfParallelDomains, self.template.toxml() if self.template != None else "None"
             ))
-        if (not accPPIsExplicit or not self.activeDomainsMatchSpecification) and self.numOfParallelDomains != 0 and accPP != "":
+        if use_domain_reordering and (not accPPIsExplicit or not self.activeDomainsMatchSpecification) and self.numOfParallelDomains != 0 and accPP != "":
             if parallelRegionNode:
                 template = getTemplate(parallelRegionNode)
                 if template != '':
                     accPP += "_" + template
             result = result + accPP + "("
             needsAdditionalClosingBracket = True
-        elif accPPIsExplicit and self.activeDomainsMatchSpecification and accPP != "":
+        elif use_domain_reordering and accPPIsExplicit and self.activeDomainsMatchSpecification and accPP != "":
             result = result + accPP + "("
             needsAdditionalClosingBracket = True
         nextOffsetIndex = 0

@@ -22,8 +22,9 @@ contains
 
 #define GET_TESTER_IMPLEMENTATION(datatype, bytes) \
   subroutine GET_FUNCTION_NAME(tester, datatype, bytes)() `\
+    implicit none `\
     datatype(bytes), dimension(DOM(NX, NY, NZ)) :: a, b, c `\
-    integer :: x, y, z `\
+    integer :: x, y, z, fail_x, fail_y, fail_z `\
     a(:,:,:) = 1 `\
     b(:,:,:) = 2 `\
     c(:,:,:) = 0 `\
@@ -31,7 +32,7 @@ contains
     do y=1,NY `\
     do x=1,NX `\
     do z=1,NZ `\
-      if (test .EQ. .TRUE. .AND. c(AT(x,y,z)) .NE. 3) then `\
+      if (c(AT(x,y,z)) .NE. 3) then `\
         write(0,*) "test failed ", #datatype, #bytes `\
         write(0,*) "fails at", x, y, z, "C:", c(AT(fail_x,fail_y,fail_z)) `\
         stop 2 `\
@@ -44,8 +45,9 @@ contains
 
   #define GET_TESTER_IMPLEMENTATION_ALLOCATABLE(datatype, bytes) \
     subroutine GET_FUNCTION_NAME(tester_allocatable, datatype, bytes)() `\
+      implicit none `\
       datatype(bytes), dimension(:,:,:), allocatable :: a, b, c `\
-      integer :: x, y, z `\
+      integer :: x, y, z, fail_x, fail_y, fail_z `\
       allocate(a(DOM(NX,NY,NZ))) `\
       allocate(b(DOM(NX,NY,NZ))) `\
       allocate(c(DOM(NX,NY,NZ))) `\
@@ -56,7 +58,7 @@ contains
       do y=1,NY `\
       do x=1,NX `\
       do z=1,NZ `\
-        if (test .EQ. .TRUE. .AND. c(AT(x,y,z)) .NE. 3) then `\
+        if (c(AT(x,y,z)) .NE. 3) then `\
           write(0,*) "test with allocatable failed ", #datatype, #bytes `\
           write(0,*) "fails at", x, y, z, "C:", c(AT(fail_x,fail_y,fail_z)) `\
           stop 2 `\
@@ -73,6 +75,7 @@ contains
 #define GET_WRAPPER_IMPLEMENTATION(datatype, bytes) \
   subroutine GET_FUNCTION_NAME(wrapper, datatype, bytes)(a, b, c) `\
     use helper_functions, only: writeToFile `\
+    implicit none `\
     datatype(bytes), dimension(NZ), intent(in) :: a, b `\
     datatype(bytes), dimension(NZ), intent(out) :: c `\
     datatype(bytes), dimension(NX,NY,NZ) :: temp `\
@@ -83,30 +86,11 @@ contains
     @parallelRegion{appliesTo(CPU), domName(x,y), domSize(NX, NY)} `\
     call GET_FUNCTION_NAME(add, datatype, bytes)(a, b, c) `\
     @end parallelRegion `\
-    @if {parallelRegion(within)} `\
-      do z=1,NZ `\
-        do y=1,NY `\
-          do x=1,NX `\
-            temp(x,y,z) = c(x,y,z) `\
-          end do `\
-        end do `\
-      end do `\
-      call writeToFile('./testout/example-c.dat', temp) `\
-    @end if `\
-    @if {parallelRegion(inside)} `\
-      do z=1,NZ `\
-        do y=1,NY `\
-          do x=1,NX `\
-            temp(x,y,z) = c(x,y,z) `\
-          end do `\
-        end do `\
-      end do `\
-      call writeToFile('./testout/example-c-gpu.dat', temp) `\
-    @end if `\
   end subroutine
 
 #define GET_ADD_IMPLEMENTATION(datatype, bytes) \
   subroutine GET_FUNCTION_NAME(add, datatype, bytes)(a, b, c) `\
+    implicit none `\
     datatype(bytes), dimension(NZ), intent(in) :: a, b `\
     datatype(bytes), dimension(NZ), intent(out) :: c `\
     integer :: z `\

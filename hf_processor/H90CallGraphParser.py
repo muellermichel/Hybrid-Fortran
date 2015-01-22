@@ -1118,6 +1118,14 @@ This is not allowed for implementations using %s.\
         super(H90toF90Printer, self).processBranchMatch(branchMatch)
         self.prepareLine("","")
 
+    def processModuleBeginMatch(self, moduleBeginMatch):
+        super(H90toF90Printer, self).processModuleBeginMatch(moduleBeginMatch)
+        self.implementation.processModuleBegin(self.currModuleName)
+
+    def processModuleEndMatch(self, moduleEndMatch):
+        super(H90toF90Printer, self).processModuleEndMatch(moduleEndMatch)
+        self.implementation.processModuleEnd()
+
     def processProcBeginMatch(self, subProcBeginMatch):
         super(H90toF90Printer, self).processProcBeginMatch(subProcBeginMatch)
 

@@ -29,6 +29,7 @@
 
 from xml.dom.minidom import Document
 from H90Symbol import Symbol, DeclarationType, splitDeclarationSettingsFromSymbols
+from H90RegExPatterns import H90RegExPatterns
 from DomHelper import *
 import os
 import sys
@@ -220,6 +221,12 @@ class FortranImplementation(object):
     def declarationEndPrintStatements(self):
         return ""
 
+    def processModuleBegin(self, moduleName):
+        pass
+
+    def processModuleEnd(self):
+        pass
+
     def parallelRegionBegin(self, parallelRegionTemplate):
         domains = getDomainsWithParallelRegionTemplate(parallelRegionTemplate)
         regionStr = ''
@@ -249,6 +256,81 @@ class FortranImplementation(object):
 
     def subroutineEnd(self, dependantSymbols, routineIsKernelCaller):
         return ''
+
+class TraceGeneratingFortranImplementation(FortranImplementation):
+    patterns = None
+    currRoutineNode = None
+    currModuleName = None
+
+    def __init__(self, optionFlags):
+        self.patterns = H90RegExPatterns()
+
+    def additionalIncludes(self):
+        return "use helper_functions\n"
+
+    def processModuleBegin(self, moduleName):
+        self.currModuleName = moduleName
+
+    def processModuleEnd(self):
+        self.currModuleName = None
+
+    def subroutinePrefix(self, routineNode):
+        self.currRoutineNode = routineNode
+        return FortranImplementation.subroutinePrefix(self, routineNode)
+
+    def declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates):
+        super_result = FortranImplementation.declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates)
+        if self.currRoutineNode.getAttribute('parallelRegionPosition') == 'outside':
+            return super_result
+
+        result = ''
+        max_num_of_domains_for_symbols = 0
+        for symbol in dependantSymbols:
+            if len(symbol.domains) == 0:
+                continue
+            if len(symbol.domains) > max_num_of_domains_for_symbols:
+                max_num_of_domains_for_symbols = len(symbol.domains)
+            result += symbol.getDeclarationLineForAutomaticSymbol(purgeIntent=True, patterns=self.patterns, name_prefix='temp_', use_domain_reordering=False) + '\n'
+        if max_num_of_domains_for_symbols > 0:
+            result += "integer(4) :: %s\n" %(
+                ','.join(
+                    ["hf_tracing_enum%i" %(domainNum) for domainNum in range(1,max_num_of_domains_for_symbols+1)]
+                )
+            )
+        return result + super_result
+
+    def subroutineEnd(self, dependantSymbols, routineIsKernelCaller):
+        result = ''
+        if self.currRoutineNode.getAttribute('parallelRegionPosition') != 'outside':
+            for symbol in dependantSymbols:
+                if len(symbol.domains) == 0:
+                    continue
+                for domainNum in range(len(symbol.domains),0,-1):
+                    result += "do hf_tracing_enum%i = 1, size(temp_%s,%i)\n" %(domainNum, symbol.name, domainNum)
+                result += "temp_%s = %s\n" %(
+                    symbol.accessRepresentation(
+                        parallelIterators=[],
+                        offsets=["hf_tracing_enum%i" %(domainNum) for domainNum in range(1,len(symbol.domains)+1)],
+                        parallelRegionNode=None,
+                        use_domain_reordering=False
+                    ),
+                    symbol.accessRepresentation(
+                        parallelIterators=[],
+                        offsets=["hf_tracing_enum%i" %(domainNum) for domainNum in range(1,len(symbol.domains)+1)],
+                        parallelRegionNode=None,
+                        use_domain_reordering=True
+                    )
+                )
+                for domainNum in range(len(symbol.domains),0,-1):
+                    result += "end do\n"
+                result += "call writeToFile('./datatrace/%s_%s_%s.dat', temp_%s)\n" %(
+                    self.currModuleName,
+                    self.currRoutineNode.getAttribute('name'),
+                    symbol.name,
+                    symbol.name
+                )
+        self.currRoutineNode = None
+        return result + FortranImplementation.subroutineEnd(self, dependantSymbols, routineIsKernelCaller)
 
 class OpenMPFortranImplementation(FortranImplementation):
     def __init__(self, optionFlags):

@@ -40,6 +40,21 @@ contains
     end do `\
     end do `\
     end do `\
+    a(:,:,:) = 1 `\
+    b(:,:,:) = 3 `\
+    c(:,:,:) = 0 `\
+    call GET_FUNCTION_NAME(wrapper, datatype, bytes)(a, b, c) `\
+    do y=1,NY `\
+    do x=1,NX `\
+    do z=1,NZ `\
+      if (c(AT(x,y,z)) .NE. 4) then `\
+        write(0,*) "test failed ", #datatype, #bytes `\
+        write(0,*) "fails at", x, y, z, "C:", c(AT(fail_x,fail_y,fail_z)) `\
+        stop 2 `\
+      end if `\
+    end do `\
+    end do `\
+    end do `\
     write(0,*) "test ok ", #datatype, #bytes `\
   end subroutine
 

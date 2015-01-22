@@ -280,10 +280,10 @@ class TraceGeneratingFortranImplementation(FortranImplementation):
 
     def declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates):
         super_result = FortranImplementation.declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates)
-        if self.currRoutineNode.getAttribute('parallelRegionPosition') == 'outside':
+        if len(dependantSymbols) == 0 or self.currRoutineNode.getAttribute('parallelRegionPosition') == 'outside':
             return super_result
 
-        result = ''
+        result = "integer(8), save :: hf_tracing_counter = 0\n"
         max_num_of_domains_for_symbols = 0
         for symbol in dependantSymbols:
             if len(symbol.domains) == 0:
@@ -301,7 +301,8 @@ class TraceGeneratingFortranImplementation(FortranImplementation):
 
     def subroutineEnd(self, dependantSymbols, routineIsKernelCaller):
         result = ''
-        if self.currRoutineNode.getAttribute('parallelRegionPosition') != 'outside':
+        if len(dependantSymbols) > 0 and self.currRoutineNode.getAttribute('parallelRegionPosition') != 'outside':
+            result += "if (hf_tracing_counter .eq. 0) then\n"
             for symbol in dependantSymbols:
                 if len(symbol.domains) == 0:
                     continue
@@ -329,6 +330,8 @@ class TraceGeneratingFortranImplementation(FortranImplementation):
                     symbol.name,
                     symbol.name
                 )
+            result += "end if\n"
+            result += "hf_tracing_counter = hf_tracing_counter + 1\n"
         self.currRoutineNode = None
         return result + FortranImplementation.subroutineEnd(self, dependantSymbols, routineIsKernelCaller)
 

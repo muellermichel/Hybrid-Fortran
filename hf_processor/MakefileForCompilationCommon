@@ -90,10 +90,11 @@ ${USER_LIB}: $(OBJ)
 
 # we first preprocess with pgcc so we get concatenation / stringification.
 # since this only works with files that don't have the F90 prefix, we use P90 here
+# first we preprocess such that everything gets included, then we replace ` to \n in order to get
+# multiline macros working, then we remove all multiline c-style comments with sed
 %.f90: %.P90
 	$(call blueecho,"..........preprocessing $< in $(CURDIR)")
-	$(call debugecho,"..calling pgcc -E $(PFLAGS) $< | tr "\`" '\n' > $@")
-	@pgcc -E $(PFLAGS) $< | tr "\`" '\n' > $@
+	@< $< sed "s/\/\//¢/g" | gcc -E -w ${PFLAGS} - | tr "\`" '\n' | sed "s/¢/\/\//g" > $@
 
 %.o: %.f90
 	$(call blueecho,"..........compiling $< in $(CURDIR)")

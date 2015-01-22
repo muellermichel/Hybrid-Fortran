@@ -96,7 +96,6 @@ endif
 # Determine sources and directories                                         #
 #############################################################################
 BASEDIR_POST=$(patsubst %\,%,$(BASEDIR))
-SRC_DIR_HFPP=${BASEDIR_POST}/hf_preprocessed/
 DIR_CPU=${BASEDIR_POST}/cpu/
 DIR_GPU=${BASEDIR_POST}/gpu/
 CG_DIR=${BASEDIR_POST}/callgraphs/
@@ -104,6 +103,7 @@ CPU_CALLGRAPH_FILE=CG_CPU.xml
 GPU_CALLGRAPH_FILE=CG_GPU.xml
 SRC_DIR_CPU=${DIR_CPU}${SRC_DIR_COMMON}/
 SRC_DIR_GPU=${DIR_GPU}${SRC_DIR_COMMON}/
+SRC_DIR_HFPP=$(shell pwd)/${BASEDIR_POST}/hf_preprocessed/
 
 SRC_F90_PRE='$(shell find ${SRC_DIR_COMMON} -type f -name '*.f90' -o -name '*.f')'
 SRC_F90=$(shell python ${TOOLSDIR}filterExceptions.py --paths ${SRC_F90_PRE} --exceptions ${EXCEPTIONS})
@@ -647,4 +647,4 @@ ${SRC_DIR_GPU}%.P90: ${SRC_DIR_HFPP}%.h90
 
 ${SRC_DIR_HFPP}%.h90: %.H90
 	@echo ...........preprocessing file $@
-	@mkdir -p ${SRC_DIR_HFPP} && pgcc -E ${PFLAGS} $< | tr "\`" '\n' > $@
+	@mkdir -p ${SRC_DIR_HFPP} && cd $(dir $<) && echo `pwd` && < $(notdir $<) sed "s/\/\//¢/g" | gcc -E -w ${PFLAGS} - | tr "\`" '\n' | sed "s/¢/\/\//g" > $@

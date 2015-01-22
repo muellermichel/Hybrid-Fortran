@@ -152,25 +152,76 @@ contains
 		write(0, *) array
 	end subroutine
 
-#define GET_SPECIFICATION_DIM1(type, bytes) \
-	type(bytes), intent(in), dimension(:) :: array
+#define SPECIFICATION_DIM1_integer_4 \
+	integer(4), intent(in), dimension(:) :: array
 
-#define GET_SPECIFICATION_DIM2(type, bytes) \
-	type(bytes), intent(in), dimension(:,:) :: array
+#define SPECIFICATION_DIM2_integer_4 \
+	integer(4), intent(in), dimension(:,:) :: array
 
-#define GET_SPECIFICATION_DIM3(type, bytes) \
-	type(bytes), intent(in), dimension(:,:,:) :: array
+#define SPECIFICATION_DIM3_integer_4 \
+	integer(4), intent(in), dimension(:,:,:) :: array
 
-#define GET_SPECIFICATION_DIM4(type, bytes) \
-	type(bytes), intent(in), dimension(:,:,:,:) :: array
+#define SPECIFICATION_DIM4_integer_4 \
+	integer(4), intent(in), dimension(:,:,:,:) :: array
 
-#define GET_SPECIFICATION_DIM5(type, bytes) \
-	type(bytes), intent(in), dimension(:,:,:,:,:) :: array
+#define SPECIFICATION_DIM5_integer_4 \
+	integer(4), intent(in), dimension(:,:,:,:,:) :: array
+
+#define SPECIFICATION_DIM1_integer_8 \
+	integer(8), intent(in), dimension(:) :: array
+
+#define SPECIFICATION_DIM2_integer_8 \
+	integer(8), intent(in), dimension(:,:) :: array
+
+#define SPECIFICATION_DIM3_integer_8 \
+	integer(8), intent(in), dimension(:,:,:) :: array
+
+#define SPECIFICATION_DIM4_integer_8 \
+	integer(8), intent(in), dimension(:,:,:,:) :: array
+
+#define SPECIFICATION_DIM5_integer_8 \
+	integer(8), intent(in), dimension(:,:,:,:,:) :: array
+
+#define SPECIFICATION_DIM1_real_4 \
+	real(4), intent(in), dimension(:) :: array
+
+#define SPECIFICATION_DIM2_real_4 \
+	real(4), intent(in), dimension(:,:) :: array
+
+#define SPECIFICATION_DIM3_real_4 \
+	real(4), intent(in), dimension(:,:,:) :: array
+
+#define SPECIFICATION_DIM4_real_4 \
+	real(4), intent(in), dimension(:,:,:,:) :: array
+
+#define SPECIFICATION_DIM5_real_4 \
+	real(4), intent(in), dimension(:,:,:,:,:) :: array
+
+#define SPECIFICATION_DIM1_real_8 \
+	real(8), intent(in), dimension(:) :: array
+
+#define SPECIFICATION_DIM2_real_8 \
+	real(8), intent(in), dimension(:,:) :: array
+
+#define SPECIFICATION_DIM3_real_8 \
+	real(8), intent(in), dimension(:,:,:) :: array
+
+#define SPECIFICATION_DIM4_real_8 \
+	real(8), intent(in), dimension(:,:,:,:) :: array
+
+#define SPECIFICATION_DIM5_real_8 \
+	real(8), intent(in), dimension(:,:,:,:,:) :: array
+
+#define GET_SPECIFICATION_DIM_POST(type, bytes, num_of_dimensions) \
+	SPECIFICATION_DIM ## num_of_dimensions ## _ ## type ## _ ## bytes
+
+#define GET_SPECIFICATION_DIM(type, bytes, num_of_dimensions) \
+	GET_SPECIFICATION_DIM_POST(type, bytes, num_of_dimensions)
 
 #define WRITE_GENERIC_TO_FILE_IMPLEMENTATION(type, bytes, num_of_dimensions) \
 	subroutine writeToFile_ ## type ## _ ## bytes ## _ ## num_of_dimensions ## D(path, array) `\
 		implicit none `\
-		GET_SPECIFICATION_DIM ## num_of_dimensions ## (type, bytes) `\
+		GET_SPECIFICATION_DIM(type, bytes, num_of_dimensions) `\
 		character(len=*), intent(in) :: path `\
 		character(len=:), allocatable :: dirname `\
 		integer(4) :: imt `\

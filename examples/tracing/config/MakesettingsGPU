@@ -48,8 +48,8 @@ else
 #############################################################################
 # production settings                                                       #
 #############################################################################
-FFLAGS= -acc -Minfo=accel,inline,ipa -Mneginfo -Mcuda=cc2x,cc3x -ta=nvidia,cc2x,cc3x -fast
-LDFLAGS= -acc -Minfo=accel,inline,ipa -Mneginfo -Mcuda=cc2x,cc3x -ta=nvidia,cc2x,cc3x,time -fast -lpp
+FFLAGS= -acc -Mcuda=cc2x,cc3x -ta=nvidia,cc2x,cc3x -fast
+LDFLAGS= -acc -Mcuda=cc2x,cc3x -ta=nvidia,cc2x,cc3x,time -fast -lpp
 
 endif
 endif

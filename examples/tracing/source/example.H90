@@ -24,22 +24,8 @@ contains
   subroutine GET_FUNCTION_NAME(tester, datatype, bytes)() `\
     implicit none `\
     datatype(bytes), dimension(DOM(NX, NY, NZ)) :: a, b, c `\
-    integer :: x, y, z, fail_x, fail_y, fail_z `\
-    a(:,:,:) = 1 `\
-    b(:,:,:) = 2 `\
-    c(:,:,:) = 0 `\
-    call GET_FUNCTION_NAME(wrapper, datatype, bytes)(a, b, c) `\
-    do y=1,NY `\
-    do x=1,NX `\
-    do z=1,NZ `\
-      if (c(AT(x,y,z)) .NE. 3) then `\
-        write(0,*) "test failed ", #datatype, #bytes `\
-        write(0,*) "fails at", x, y, z, "C:", c(AT(fail_x,fail_y,fail_z)) `\
-        stop 2 `\
-      end if `\
-    end do `\
-    end do `\
-    end do `\
+    integer :: x, y, z`\
+    `\
     a(:,:,:) = 1 `\
     b(:,:,:) = 3 `\
     c(:,:,:) = 0 `\
@@ -49,7 +35,59 @@ contains
     do z=1,NZ `\
       if (c(AT(x,y,z)) .NE. 4) then `\
         write(0,*) "test failed ", #datatype, #bytes `\
-        write(0,*) "fails at", x, y, z, "C:", c(AT(fail_x,fail_y,fail_z)) `\
+        write(0,*) "fails at", x, y, z `\
+        stop 2 `\
+      end if `\
+    end do `\
+    end do `\
+    end do `\
+    `\
+    a(:,:,:) = 1 `\
+    c(:,:,:) = 0 `\
+    do y=1,NY `\
+    do x=1,NX `\
+    do z=1,NZ `\
+      b(AT(x,y,z)) = z `\
+    end do `\
+    end do `\
+    end do `\
+    call GET_FUNCTION_NAME(wrapper, datatype, bytes)(a, b, c) `\
+    do y=1,NY `\
+    do x=1,NX `\
+    do z=1,NZ `\
+      if (c(AT(x,y,z)) .NE. z + 1) then `\
+        write(0,*) "test failed ", #datatype, #bytes `\
+        write(0,*) "fails at", x, y, z `\
+        stop 2 `\
+      end if `\
+    end do `\
+    end do `\
+    end do `\
+    `\
+    write(0,*) "test ok ", #datatype, #bytes `\
+  end subroutine
+
+  #define GET_TESTER_IMPLEMENTATION_FAULTY(datatype, bytes) \
+  subroutine GET_FUNCTION_NAME(tester_faulty, datatype, bytes)() `\
+    implicit none `\
+    datatype(bytes), dimension(DOM(NX, NY, NZ)) :: a, b, c `\
+    integer :: x, y, z`\
+    a(:,:,:) = 1 `\
+    c(:,:,:) = 0 `\
+    do y=1,NY `\
+    do x=1,NX `\
+    do z=1,NZ `\
+      b(AT(x,y,z)) = z `\
+    end do `\
+    end do `\
+    end do `\
+    call GET_FUNCTION_NAME(faulty_wrapper, datatype, bytes)(a, b, c) `\
+    do y=1,NY `\
+    do x=1,NX `\
+    do z=1,NZ `\
+      if (c(AT(x,y,z)) .NE. z + 1) then `\
+        write(0,*) "test failed ", #datatype, #bytes `\
+        write(0,*) "fails at", x, y, z `\
         stop 2 `\
       end if `\
     end do `\
@@ -62,7 +100,7 @@ contains
     subroutine GET_FUNCTION_NAME(tester_allocatable, datatype, bytes)() `\
       implicit none `\
       datatype(bytes), dimension(:,:,:), allocatable :: a, b, c `\
-      integer :: x, y, z, fail_x, fail_y, fail_z `\
+      integer :: x, y, z `\
       allocate(a(DOM(NX,NY,NZ))) `\
       allocate(b(DOM(NX,NY,NZ))) `\
       allocate(c(DOM(NX,NY,NZ))) `\
@@ -75,7 +113,7 @@ contains
       do z=1,NZ `\
         if (c(AT(x,y,z)) .NE. 3) then `\
           write(0,*) "test with allocatable failed ", #datatype, #bytes `\
-          write(0,*) "fails at", x, y, z, "C:", c(AT(fail_x,fail_y,fail_z)) `\
+          write(0,*) "fails at", x, y, z `\
           stop 2 `\
         end if `\
       end do `\
@@ -96,6 +134,22 @@ contains
     datatype(bytes), dimension(NX,NY,NZ) :: temp `\
     integer(4) :: x, y, z `\
     @domainDependant{domName(x,y,z), domSize(NX,NY,NZ), attribute(autoDom)} `\
+    a, b, c `\
+    @end domainDependant `\
+    @parallelRegion{appliesTo(CPU), domName(x,y), domSize(NX, NY)} `\
+    call GET_FUNCTION_NAME(add, datatype, bytes)(a, b, c) `\
+    @end parallelRegion `\
+  end subroutine
+
+#define GET_FAULTY_WRAPPER_IMPLEMENTATION(datatype, bytes) \
+  subroutine GET_FUNCTION_NAME(faulty_wrapper, datatype, bytes)(a, b, c) `\
+    use helper_functions, only: writeToFile `\
+    implicit none `\
+    datatype(bytes), dimension(NZ), intent(in) :: a, b `\
+    datatype(bytes), dimension(NZ), intent(out) :: c `\
+    datatype(bytes), dimension(NX,NY,NZ) :: temp `\
+    integer(4) :: x, y, z `\
+    @domainDependant{domName(x,y,z), domSize(NX,NY,NZ), attribute(autoDom), accPP(AT_MISTAKE)} `\
     a, b, c `\
     @end domainDependant `\
     @parallelRegion{appliesTo(CPU), domName(x,y), domSize(NX, NY)} `\
@@ -128,11 +182,13 @@ contains
   GET_TESTER_IMPLEMENTATION_ALLOCATABLE(real, 8)
   GET_TESTER_IMPLEMENTATION_ALLOCATABLE(integer, 4)
   GET_TESTER_IMPLEMENTATION_ALLOCATABLE(integer, 8)
+  GET_TESTER_IMPLEMENTATION_FAULTY(real, 4)
 
   GET_WRAPPER_IMPLEMENTATION(real, 4)
   GET_WRAPPER_IMPLEMENTATION(real, 8)
   GET_WRAPPER_IMPLEMENTATION(integer, 4)
   GET_WRAPPER_IMPLEMENTATION(integer, 8)
+  GET_FAULTY_WRAPPER_IMPLEMENTATION(real, 4)
 
   GET_ADD_IMPLEMENTATION(real, 4)
   GET_ADD_IMPLEMENTATION(real, 8)
@@ -151,6 +207,7 @@ program main
   call GET_FUNCTION_NAME(tester_allocatable, real, 8)
   call GET_FUNCTION_NAME(tester_allocatable, integer, 4)
   call GET_FUNCTION_NAME(tester_allocatable, integer, 8)
+  call GET_FUNCTION_NAME(tester_faulty, real, 4)
 
   stop
 end program main

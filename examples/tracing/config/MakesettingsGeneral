@@ -167,7 +167,7 @@ SOURCE_THIS_AFTER_TESTING=
 # ! your scripts specified here should take one input argument 'ARCH' and call your executables with _$ARCH postfix in the filename !
 # Note: The output of automatic tests looks best if you use STDOUT for timing outputs and STDERR for everything else. Return codes other than 0 will result in the
 # test failing - which can be very useful - so it is advisable to return error codes generated in your codebase.
-TEST_EXECUTABLES=""
+TEST_EXECUTABLES="test/example/run.sh"
 
 # !New in Version 0.9
 #OPTIONAL, can be used to specify the naming pattern of files that are being created by your tests, using bash syntax, as seen from the respective executable's directory.
@@ -205,6 +205,6 @@ TEST_WITH_EVERY_BUILD=false
 #############################################################################
 CPU_IMPLEMENTATION_DEBUG=TraceGeneratingFortranImplementation
 CPU_IMPLEMENTATION_PRODUCTION=TraceGeneratingFortranImplementation
-GPU_IMPLEMENTATION_EMULATION=PGIOpenACCFortranImplementation
-GPU_IMPLEMENTATION_DEBUG=PGIOpenACCFortranImplementation
-GPU_IMPLEMENTATION_PRODUCTION=PGIOpenACCFortranImplementation
+GPU_IMPLEMENTATION_EMULATION=TraceCheckingOpenACCFortranImplementation
+GPU_IMPLEMENTATION_DEBUG=TraceCheckingOpenACCFortranImplementation
+GPU_IMPLEMENTATION_PRODUCTION=TraceCheckingOpenACCFortranImplementation

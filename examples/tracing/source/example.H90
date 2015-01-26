@@ -71,6 +71,7 @@ contains
   subroutine GET_FUNCTION_NAME(tester_faulty, datatype, bytes)() `\
     implicit none `\
     datatype(bytes), dimension(DOM(NX, NY, NZ)) :: a, b, c `\
+    datatype(bytes), dimension(:,:,:), allocatable :: d `\
     integer :: x, y, z`\
     a(:,:,:) = 1 `\
     c(:,:,:) = 0 `\
@@ -81,7 +82,7 @@ contains
     end do `\
     end do `\
     end do `\
-    call GET_FUNCTION_NAME(faulty_wrapper, datatype, bytes)(a, b, c) `\
+    call GET_FUNCTION_NAME(faulty_wrapper, datatype, bytes)(a, b, c, d) `\
     do y=1,NY `\
     do x=1,NX `\
     do z=1,NZ `\
@@ -141,16 +142,23 @@ contains
     @end parallelRegion `\
   end subroutine
 
+!Note the use of AT_MISTAKE storage order macro in order to make the tracer check for wrong storage orders.
+!Also note: array d is an allocatable array which hasn't been allocated yet - this needs to be checked by the
+!tracer as well.
 #define GET_FAULTY_WRAPPER_IMPLEMENTATION(datatype, bytes) \
-  subroutine GET_FUNCTION_NAME(faulty_wrapper, datatype, bytes)(a, b, c) `\
+  subroutine GET_FUNCTION_NAME(faulty_wrapper, datatype, bytes)(a, b, c, d) `\
     use helper_functions, only: writeToFile `\
     implicit none `\
     datatype(bytes), dimension(NZ), intent(in) :: a, b `\
+    datatype(bytes), allocatable, dimension(:,:,:), intent(in) :: d `\
     datatype(bytes), dimension(NZ), intent(out) :: c `\
     datatype(bytes), dimension(NX,NY,NZ) :: temp `\
     integer(4) :: x, y, z `\
     @domainDependant{domName(x,y,z), domSize(NX,NY,NZ), attribute(autoDom), accPP(AT_MISTAKE)} `\
-    a, b, c `\
+    a, b, c, d `\
+    @end domainDependant `\
+    @domainDependant{attribute(autoDom)} `\
+    d `\
     @end domainDependant `\
     @parallelRegion{appliesTo(CPU), domName(x,y), domSize(NX, NY)} `\
     call GET_FUNCTION_NAME(add, datatype, bytes)(a, b, c) `\

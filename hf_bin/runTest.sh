@@ -84,7 +84,7 @@ for i in "${!argStringsArr[@]}"; do
 	if [[ "$configuration_name" = "valgrind" ]] && [[ -n `file ./${executable_name} | grep -i "executable"` ]]; then
 		echo -n "valgrind with parameters${argString},"
 		touch ./log_lastRun.txt
-		`valgrind --log-file='./log_lastRun.txt' --suppressions=../../../hf_config/valgrind_errors.supp ./${executable_name} ${argString} &>/dev/null`
+		`valgrind --log-file='./log_lastRun.txt' --suppressions=$HF_DIR/hf_config/valgrind_errors.supp ./${executable_name} ${argString} &>/dev/null`
 		cat ./log_lastRun.txt 2>&1 | grep 'Unrecognised instruction' &> './log_temp.txt'
 		if [[ -s './log_temp.txt' ]]; then
 			echo "fail"

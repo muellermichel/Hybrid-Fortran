@@ -74,6 +74,8 @@ def getTracingSubroutineEndStatements(currRoutineNode, currModuleName, tracingSy
     if len(tracingSymbols) > 0 and currRoutineNode.getAttribute('parallelRegionPosition') != 'outside':
         result += "if (hf_tracing_counter .eq. 0) then\n"
         for symbol in tracingSymbols:
+            if 'allocatable' in symbol.declarationPrefix:
+                result += "if (allocated(hf_tracing_temp_%s)) then\n" %(symbol.name)
             for domainNum in range(len(symbol.domains),0,-1):
                 result += "do hf_tracing_enum%i = 1, size(hf_tracing_temp_%s,%i)\n" %(domainNum, symbol.name, domainNum)
             result += "hf_tracing_temp_%s = %s\n" %(
@@ -93,6 +95,8 @@ def getTracingSubroutineEndStatements(currRoutineNode, currModuleName, tracingSy
             for domainNum in range(len(symbol.domains),0,-1):
                 result += "end do\n"
             result += traceHandlingFunc(currRoutineNode, currModuleName, symbol)
+            if 'allocatable' in symbol.declarationPrefix:
+                result += "end if\n"
         result += "end if\n"
         result += "hf_tracing_counter = hf_tracing_counter + 1\n"
     return result

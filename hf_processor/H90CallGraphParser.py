@@ -1341,13 +1341,13 @@ This is not allowed for implementations using %s.\
                 ] + self.currAdditionalCompactedSubroutineParameters
             )
             for symbol in ourSymbolsToAdd:
-                purgeIntent=False
+                purgeList=[]
                 if symbol.isCompacted:
-                    purgeIntent=True
+                    purgeList=['intent']
                 additionalDeclarationsStr = additionalDeclarationsStr + \
                     self.tab_insideSub + self.implementation.adjustDeclarationForDevice( \
                         self.tab_insideSub + \
-                            symbol.getDeclarationLineForAutomaticSymbol(purgeIntent, self.patterns).strip(), \
+                            symbol.getDeclarationLineForAutomaticSymbol(purgeList, self.patterns).strip(), \
                         self.patterns, \
                         [symbol], \
                         self.currRoutineIsCallingParallelRegion, \

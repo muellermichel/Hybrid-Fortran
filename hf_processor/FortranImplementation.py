@@ -28,7 +28,7 @@
 
 
 from xml.dom.minidom import Document
-from H90Symbol import Symbol, DeclarationType, splitDeclarationSettingsFromSymbols
+from H90Symbol import Symbol, DeclarationType, purgeFromDeclarationSettings
 from H90RegExPatterns import H90RegExPatterns
 from DomHelper import *
 import os
@@ -36,8 +36,9 @@ import sys
 import re
 
 def getTracingDeclarationStatements(currRoutineNode, dependantSymbols, patterns, additionalSymbolPrefixes=['hf_tracing_temp_']):
+    tracing_symbols = []
     if len(dependantSymbols) == 0 or currRoutineNode.getAttribute('parallelRegionPosition') == 'outside':
-        return ""
+        return "", tracing_symbols
 
     result = "integer(8), save :: hf_tracing_counter = 0\n"
     max_num_of_domains_for_symbols = 0
@@ -47,22 +48,32 @@ def getTracingDeclarationStatements(currRoutineNode, dependantSymbols, patterns,
         if len(symbol.domains) > max_num_of_domains_for_symbols:
             max_num_of_domains_for_symbols = len(symbol.domains)
         for prefix in additionalSymbolPrefixes:
-            result += symbol.getDeclarationLineForAutomaticSymbol(purgeIntent=True, patterns=patterns, name_prefix=prefix, use_domain_reordering=False) + '\n'
+            current_declaration_line = symbol.getDeclarationLineForAutomaticSymbol(
+                purgeList=['intent', 'public', 'allocatable'],
+                patterns=patterns,
+                name_prefix=prefix,
+                use_domain_reordering=False,
+                skip_on_missing_declaration=True
+            )
+            if current_declaration_line == "":
+                break
+            result += current_declaration_line + '\n'
+        else:
+            tracing_symbols.append(symbol)
+
     if max_num_of_domains_for_symbols > 0:
         result += "integer(4) :: %s\n" %(
-            ','.join(
+            ', '.join(
                 ["hf_tracing_enum%i" %(domainNum) for domainNum in range(1,max_num_of_domains_for_symbols+1)]
             )
         )
-    return result
+    return result, tracing_symbols
 
-def getTracingSubroutineEndStatements(currRoutineNode, currModuleName, dependantSymbols, traceHandlingFunc):
+def getTracingSubroutineEndStatements(currRoutineNode, currModuleName, tracingSymbols, traceHandlingFunc):
     result = ''
-    if len(dependantSymbols) > 0 and currRoutineNode.getAttribute('parallelRegionPosition') != 'outside':
+    if len(tracingSymbols) > 0 and currRoutineNode.getAttribute('parallelRegionPosition') != 'outside':
         result += "if (hf_tracing_counter .eq. 0) then\n"
-        for symbol in dependantSymbols:
-            if len(symbol.domains) == 0:
-                continue
+        for symbol in tracingSymbols:
             for domainNum in range(len(symbol.domains),0,-1):
                 result += "do hf_tracing_enum%i = 1, size(hf_tracing_temp_%s,%i)\n" %(domainNum, symbol.name, domainNum)
             result += "hf_tracing_temp_%s = %s\n" %(
@@ -312,9 +323,11 @@ class TraceGeneratingFortranImplementation(FortranImplementation):
     patterns = None
     currRoutineNode = None
     currModuleName = None
+    currentTracedSymbols = []
 
     def __init__(self, optionFlags):
         self.patterns = H90RegExPatterns()
+        self.currentTracedSymbols = []
 
     def additionalIncludes(self):
         return "use helper_functions\n"
@@ -331,7 +344,14 @@ class TraceGeneratingFortranImplementation(FortranImplementation):
 
     def declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates):
         super_result = FortranImplementation.declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates)
-        return getTracingDeclarationStatements(currRoutineNode, dependantSymbols, self.patterns) + super_result
+        result, tracedSymbols = getTracingDeclarationStatements(currRoutineNode, dependantSymbols, self.patterns)
+        self.currentTracedSymbols = tracedSymbols
+        sys.stderr.write("...In subroutine %s: Symbols declared for tracing: %s\n" %(
+                currRoutineNode.getAttribute('name'),
+                [symbol.name for symbol in tracedSymbols],
+            )
+        )
+        return result + super_result
 
     def subroutineEnd(self, dependantSymbols, routineIsKernelCaller):
         def writeTrace(currRoutineNode, currModuleName, symbol):
@@ -341,14 +361,18 @@ class TraceGeneratingFortranImplementation(FortranImplementation):
                 symbol.name,
                 symbol.name
             )
-
         result = getTracingSubroutineEndStatements(
             self.currRoutineNode,
             self.currModuleName,
-            dependantSymbols,
+            [symbol for symbol in self.currentTracedSymbols],
             writeTrace
         )
-        self.currRoutineNode = None
+        sys.stderr.write("...In subroutine %s: Symbols %s used for tracing\n" %(
+                self.currRoutineNode.getAttribute('name'),
+                [symbol.name for symbol in self.currentTracedSymbols]
+            )
+        )
+        self.currentTracedSymbols = []
         return result + FortranImplementation.subroutineEnd(self, dependantSymbols, routineIsKernelCaller)
 
 class OpenMPFortranImplementation(FortranImplementation):
@@ -506,11 +530,13 @@ class TraceCheckingOpenACCFortranImplementation(DebugPGIOpenACCFortranImplementa
     patterns = None
     currRoutineNode = None
     currModuleName = None
+    currentTracedSymbols = []
 
     def __init__(self, optionFlags):
         self.patterns = H90RegExPatterns()
         self.presentDeclaration="copyout"
         DebugPGIOpenACCFortranImplementation.__init__(self, optionFlags)
+        self.currentTracedSymbols = []
 
     def additionalIncludes(self):
         return "use helper_functions\n"
@@ -528,7 +554,14 @@ class TraceCheckingOpenACCFortranImplementation(DebugPGIOpenACCFortranImplementa
     def declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates):
         result = "integer(4) :: hf_tracing_imt, hf_tracing_ierr\n"
         result += "real(8) :: hf_tracing_error\n"
-        result += getTracingDeclarationStatements(currRoutineNode, dependantSymbols, self.patterns, additionalSymbolPrefixes=['hf_tracing_temp_', 'hf_tracing_comparison_'])
+        tracing_declarations, tracedSymbols = getTracingDeclarationStatements(
+            currRoutineNode,
+            dependantSymbols,
+            self.patterns,
+            additionalSymbolPrefixes=['hf_tracing_temp_', 'hf_tracing_comparison_']
+        )
+        result += tracing_declarations
+        self.currentTracedSymbols = tracedSymbols
         return result + DebugPGIOpenACCFortranImplementation.declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates)
 
     def subroutineEnd(self, dependantSymbols, routineIsKernelCaller):
@@ -567,10 +600,11 @@ class TraceCheckingOpenACCFortranImplementation(DebugPGIOpenACCFortranImplementa
         result = getTracingSubroutineEndStatements(
             self.currRoutineNode,
             self.currModuleName,
-            dependantSymbols,
+            self.currentTracedSymbols,
             compareToTrace
         )
         self.currRoutineNode = None
+        self.currentTracedSymbols = []
         return DebugPGIOpenACCFortranImplementation.subroutineEnd(self, dependantSymbols, routineIsKernelCaller) + result
 
 class CUDAFortranImplementation(FortranImplementation):
@@ -726,7 +760,7 @@ end if\n" %(calleeNode.getAttribute('name'))
         adjustedLine = line
         adjustedLine = adjustedLine.rstrip()
 
-        declarationDirectivesWithoutIntent, declarationDirectives,  symbolDeclarationStr = splitDeclarationSettingsFromSymbols( \
+        declarationDirectivesWithoutIntent, declarationDirectives,  symbolDeclarationStr = purgeFromDeclarationSettings( \
             line, \
             dependantSymbols, \
             patterns, \

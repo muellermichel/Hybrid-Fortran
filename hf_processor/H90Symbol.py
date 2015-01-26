@@ -99,7 +99,7 @@ DeclarationType = enum("UNDEFINED",
     "OTHER"
 )
 
-def splitDeclarationSettingsFromSymbols(line, dependantSymbols, patterns, withAndWithoutIntent=True):
+def purgeFromDeclarationSettings(line, dependantSymbols, patterns, purgeList=['intent'], withAndWithoutIntent=True):
     declarationDirectives = ""
     symbolDeclarationStr = ""
     if patterns.symbolDeclTestPattern.match(line):
@@ -121,14 +121,17 @@ def splitDeclarationSettingsFromSymbols(line, dependantSymbols, patterns, withAn
     if not withAndWithoutIntent:
         return declarationDirectives, symbolDeclarationStr
 
-    declarationDirectivesWithoutIntent = ""
-    match = re.match(r"(.*?),\s*intent.*?\)(.*)", declarationDirectives, re.IGNORECASE)
-    if match:
-        declarationDirectivesWithoutIntent = match.group(1) + match.group(2)
-    else:
-        declarationDirectivesWithoutIntent = declarationDirectives
+    purgedDeclarationDirectives = declarationDirectives
 
-    return declarationDirectivesWithoutIntent, declarationDirectives, symbolDeclarationStr
+    for keywordToPurge in purgeList:
+        match = re.match(r"(.*?)\s*(,?)\s*" + keywordToPurge + r"\s*\(.*?\)\s*(,?)\s*(.*)", purgedDeclarationDirectives, re.IGNORECASE)
+        if not match:
+            match = re.match(r"(.*?)\s*(,?)\s*" + keywordToPurge + r"\s*(,?)\s*(.*)", purgedDeclarationDirectives, re.IGNORECASE)
+        if match:
+            sepChar = ", " if match.group(2) != "" and match.group(3) != "" else " "
+            purgedDeclarationDirectives = match.group(1) + sepChar + match.group(4)
+
+    return purgedDeclarationDirectives, declarationDirectives, symbolDeclarationStr
 
 def getReorderedDomainsAccordingToDeclaration(domains, dimensionSizesInDeclaration):
     def getNextUnusedIndexForDimensionSize(domainSize, dimensionSizesInDeclaration, usedIndices):
@@ -462,7 +465,7 @@ class Symbol(object):
                 %(str(self))
             )
 
-        declarationDirectives, symbolDeclarationStr = splitDeclarationSettingsFromSymbols( \
+        declarationDirectives, symbolDeclarationStr = purgeFromDeclarationSettings( \
             paramDeclMatch.group(0), \
             [self], \
             patterns, \
@@ -734,8 +737,10 @@ Current Domains: %s\n" %(
         dimensionStr, postfix = self.getDimensionStringAndRemainderFromDeclMatch(paramDeclMatch, dimensionPattern)
         return prefix + str(self) + postfix
 
-    def getDeclarationLineForAutomaticSymbol(self, purgeIntent=False, patterns=None, name_prefix="", use_domain_reordering=True):
+    def getDeclarationLineForAutomaticSymbol(self, purgeList=[], patterns=None, name_prefix="", use_domain_reordering=True, skip_on_missing_declaration=False):
         if self.declarationPrefix == None or self.declarationPrefix == "":
+            if skip_on_missing_declaration:
+                return ""
             if self.routineNode:
                 routineHelperText = " for subroutine %s," %(self.routineNode.getAttribute("name"))
             raise Exception("Symbol %s needs to be automatically declared%s but there is no information about its type. \
@@ -747,18 +752,19 @@ EXAMPLE:\n\
 @end domainDependant" %(self.automaticName(), routineHelperText, self.name)
             )
 
-        if purgeIntent and patterns == None:
-            raise Exception("Unexpected error: patterns argument required with purgeIntent argument set to True in getDeclarationLineForAutomaticSymbol.")
+        if len(purgeList) > 0 and patterns == None:
+            raise Exception("Unexpected error: patterns argument required with non empty purgeList argument in getDeclarationLineForAutomaticSymbol.")
 
         declarationPrefix = self.declarationPrefix
         if "::" not in declarationPrefix:
             declarationPrefix = declarationPrefix.rstrip() + " ::"
 
-        if purgeIntent:
-            declarationDirectivesWithoutIntent, _,  symbolDeclarationStr = splitDeclarationSettingsFromSymbols(
+        if len(purgeList) != 0:
+            declarationDirectivesWithoutIntent, _,  symbolDeclarationStr = purgeFromDeclarationSettings(
                 declarationPrefix + " " + str(self),
                 [self],
                 patterns,
+                purgeList=purgeList,
                 withAndWithoutIntent=True
             )
             declarationPrefix = declarationDirectivesWithoutIntent

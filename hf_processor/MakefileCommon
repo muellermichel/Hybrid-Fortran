@@ -636,14 +636,12 @@ ${SRC_DIR_HFPP}%.h90: %.h90
 	@mkdir -p ${SRC_DIR_HFPP} && cp -fp $< $@
 
 ${SRC_DIR_CPU}%.P90: ${SRC_DIR_HFPP}%.h90
-	$(call yellowecho,"...........converting $< to $@ using ${CPU_CALLGRAPH_FILE} and ${CPU_IMPLEMENTATION} using flags ${OPTION_FLAGS}")
-	@echo ..calling generateF90fromH90AndAnalyzedCallGraph.py -i $< -c ${CG_DIR}${CPU_CALLGRAPH_FILE} --implementation=${CPU_IMPLEMENTATION} --optionFlags=${OPTION_FLAGS} ${H90_PREPROCESSOR_ARGS} >${DEBUG_OUTPUT}
-	@python ${TOOLSDIR}/generateF90fromH90AndAnalyzedCallGraph.py -i $< -c ${CG_DIR}${CPU_CALLGRAPH_FILE} --implementation=${CPU_IMPLEMENTATION} ${H90_PREPROCESSOR_ARGS} > $@ ;\
+	$(call yellowecho,"...........converting $(notdir $<) by calling 'generateF90fromH90AndAnalyzedCallGraph.py -i $< -c ${CG_DIR}${CPU_CALLGRAPH_FILE} --implementation=${CPU_IMPLEMENTATION} ${H90_PREPROCESSOR_ARGS}'")
+	@python ${TOOLSDIR}/generateF90fromH90AndAnalyzedCallGraph.py -i $< -c ${CG_DIR}${CPU_CALLGRAPH_FILE} --implementation=${CPU_IMPLEMENTATION} ${H90_PREPROCESSOR_ARGS} > $@
 
 ${SRC_DIR_GPU}%.P90: ${SRC_DIR_HFPP}%.h90
-	$(call yellowecho,"...........converting $< to $@ using ${GPU_CALLGRAPH_FILE} and ${GPU_IMPLEMENTATION} using flags ${OPTION_FLAGS}")
-	@echo ..calling generateF90fromH90AndAnalyzedCallGraph.py -i $< -c ${CG_DIR}${GPU_CALLGRAPH_FILE} --implementation=${GPU_IMPLEMENTATION} --optionFlags=${OPTION_FLAGS} ${H90_PREPROCESSOR_ARGS} >${DEBUG_OUTPUT}
-	@python ${TOOLSDIR}/generateF90fromH90AndAnalyzedCallGraph.py -i $< -c ${CG_DIR}${GPU_CALLGRAPH_FILE} --implementation=${GPU_IMPLEMENTATION} --optionFlags=${OPTION_FLAGS} ${H90_PREPROCESSOR_ARGS} > $@ ;\
+	$(call yellowecho,"...........converting $(notdir $<) by calling 'generateF90fromH90AndAnalyzedCallGraph.py -i $< -c ${CG_DIR}${GPU_CALLGRAPH_FILE} --implementation=${GPU_IMPLEMENTATION} --optionFlags=${OPTION_FLAGS} ${H90_PREPROCESSOR_ARGS}'")
+	@python ${TOOLSDIR}/generateF90fromH90AndAnalyzedCallGraph.py -i $< -c ${CG_DIR}${GPU_CALLGRAPH_FILE} --implementation=${GPU_IMPLEMENTATION} --optionFlags=${OPTION_FLAGS} ${H90_PREPROCESSOR_ARGS} > $@
 
 ${SRC_DIR_HFPP}%.h90: %.H90
 	@echo ...........preprocessing file $@

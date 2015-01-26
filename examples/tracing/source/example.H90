@@ -67,6 +67,37 @@ contains
     write(0,*) "test ok ", #datatype, #bytes `\
   end subroutine
 
+  #define GET_ODD_SHAPED_TESTER_IMPLEMENTATION(datatype, bytes) \
+  subroutine GET_FUNCTION_NAME(tester_odd_shaped, datatype, bytes)() `\
+    implicit none `\
+    datatype(bytes), dimension(DOM(NX, NY, 0:NZ+1)) :: a, b, c `\
+    integer :: x, y, z`\
+    a(:,:,:) = 1 `\
+    c(:,:,:) = 0 `\
+    do y=1,NY `\
+    do x=1,NX `\
+    do z=0,NZ+1 `\
+      b(AT(x,y,z)) = z `\
+    end do `\
+    end do `\
+    end do `\
+    call GET_FUNCTION_NAME(wrapper_odd_shape, datatype, bytes)(a, b, c) `\
+    do y=1,NY `\
+    do x=1,NX `\
+    do z=0,NZ+1 `\
+      if (c(AT(x,y,z)) .NE. z + 1) then `\
+        write(0,*) "test failed ", #datatype, #bytes `\
+        write(0,*) "fails at", x, y, z `\
+        write(0,*) "faulty value:", c(AT(x,y,z)) `\
+        stop 2 `\
+      end if `\
+    end do `\
+    end do `\
+    end do `\
+    `\
+    write(0,*) "test ok ", #datatype, #bytes `\
+  end subroutine
+
   #define GET_TESTER_IMPLEMENTATION_FAULTY(datatype, bytes) \
   subroutine GET_FUNCTION_NAME(tester_faulty, datatype, bytes)() `\
     implicit none `\
@@ -89,6 +120,7 @@ contains
       if (c(AT(x,y,z)) .NE. z + 1) then `\
         write(0,*) "test failed ", #datatype, #bytes `\
         write(0,*) "fails at", x, y, z `\
+        write(0,*) "faulty value:", c(AT(x,y,z)) `\
         stop 2 `\
       end if `\
     end do `\
@@ -132,7 +164,6 @@ contains
     implicit none `\
     datatype(bytes), dimension(NZ), intent(in) :: a, b `\
     datatype(bytes), dimension(NZ), intent(out) :: c `\
-    datatype(bytes), dimension(NX,NY,NZ) :: temp `\
     integer(4) :: x, y, z `\
     @domainDependant{domName(x,y,z), domSize(NX,NY,NZ), attribute(autoDom)} `\
     a, b, c `\
@@ -152,7 +183,6 @@ contains
     datatype(bytes), dimension(NZ), intent(in) :: a, b `\
     datatype(bytes), allocatable, dimension(:,:,:), intent(in) :: d `\
     datatype(bytes), dimension(NZ), intent(out) :: c `\
-    datatype(bytes), dimension(NX,NY,NZ) :: temp `\
     integer(4) :: x, y, z `\
     @domainDependant{domName(x,y,z), domSize(NX,NY,NZ), attribute(autoDom), accPP(AT_MISTAKE)} `\
     a, b, c, d `\
@@ -162,6 +192,21 @@ contains
     @end domainDependant `\
     @parallelRegion{appliesTo(CPU), domName(x,y), domSize(NX, NY)} `\
     call GET_FUNCTION_NAME(add, datatype, bytes)(a, b, c) `\
+    @end parallelRegion `\
+  end subroutine
+
+#define GET_WRAPPER_ODD_SHAPE_IMPLEMENTATION(datatype, bytes) \
+  subroutine GET_FUNCTION_NAME(wrapper_odd_shape, datatype, bytes)(a, b, c) `\
+    use helper_functions, only: writeToFile `\
+    implicit none `\
+    datatype(bytes), dimension(0:NZ+1), intent(in) :: a, b `\
+    datatype(bytes), dimension(0:NZ+1), intent(out) :: c `\
+    integer(4) :: x, y, z `\
+    @domainDependant{domName(x,y), domSize(NX,NY), attribute(autoDom)} `\
+    a, b, c `\
+    @end domainDependant `\
+    @parallelRegion{appliesTo(CPU), domName(x,y), domSize(NX, NY)} `\
+    call GET_FUNCTION_NAME(add_odd_shape, datatype, bytes)(a, b, c) `\
     @end parallelRegion `\
   end subroutine
 
@@ -181,10 +226,31 @@ contains
     @end parallelRegion `\
   end subroutine
 
+#define GET_ADD_ODD_SHAPE_IMPLEMENTATION(datatype, bytes) \
+  subroutine GET_FUNCTION_NAME(add_odd_shape, datatype, bytes)(a, b, c) `\
+    implicit none `\
+    datatype(bytes), dimension(0:NZ+1), intent(in) :: a, b `\
+    datatype(bytes), dimension(0:NZ+1), intent(out) :: c `\
+    integer :: z `\
+    @domainDependant{domName(x,y), domSize(NX,NY), attribute(autoDom)} `\
+    a, b, c `\
+    @end domainDependant `\
+    @parallelRegion{appliesTo(GPU), domName(x,y), domSize(NX, NY)} `\
+    do z=0,NZ+1 `\
+      c(z) = a(z) + b(z) `\
+    end do `\
+    @end parallelRegion `\
+  end subroutine
+
   GET_TESTER_IMPLEMENTATION(real, 4)
   GET_TESTER_IMPLEMENTATION(real, 8)
   GET_TESTER_IMPLEMENTATION(integer, 4)
   GET_TESTER_IMPLEMENTATION(integer, 8)
+
+  GET_ODD_SHAPED_TESTER_IMPLEMENTATION(real, 4)
+  GET_ODD_SHAPED_TESTER_IMPLEMENTATION(real, 8)
+  GET_ODD_SHAPED_TESTER_IMPLEMENTATION(integer, 4)
+  GET_ODD_SHAPED_TESTER_IMPLEMENTATION(integer, 8)
 
   GET_TESTER_IMPLEMENTATION_ALLOCATABLE(real, 4)
   GET_TESTER_IMPLEMENTATION_ALLOCATABLE(real, 8)
@@ -196,12 +262,23 @@ contains
   GET_WRAPPER_IMPLEMENTATION(real, 8)
   GET_WRAPPER_IMPLEMENTATION(integer, 4)
   GET_WRAPPER_IMPLEMENTATION(integer, 8)
+
+  GET_WRAPPER_ODD_SHAPE_IMPLEMENTATION(real, 4)
+  GET_WRAPPER_ODD_SHAPE_IMPLEMENTATION(real, 8)
+  GET_WRAPPER_ODD_SHAPE_IMPLEMENTATION(integer, 4)
+  GET_WRAPPER_ODD_SHAPE_IMPLEMENTATION(integer, 8)
+
   GET_FAULTY_WRAPPER_IMPLEMENTATION(real, 4)
 
   GET_ADD_IMPLEMENTATION(real, 4)
   GET_ADD_IMPLEMENTATION(real, 8)
   GET_ADD_IMPLEMENTATION(integer, 4)
   GET_ADD_IMPLEMENTATION(integer, 8)
+
+  GET_ADD_ODD_SHAPE_IMPLEMENTATION(real, 4)
+  GET_ADD_ODD_SHAPE_IMPLEMENTATION(real, 8)
+  GET_ADD_ODD_SHAPE_IMPLEMENTATION(integer, 4)
+  GET_ADD_ODD_SHAPE_IMPLEMENTATION(integer, 8)
 end module example
 
 program main
@@ -215,6 +292,10 @@ program main
   call GET_FUNCTION_NAME(tester_allocatable, real, 8)
   call GET_FUNCTION_NAME(tester_allocatable, integer, 4)
   call GET_FUNCTION_NAME(tester_allocatable, integer, 8)
+  call GET_FUNCTION_NAME(tester_odd_shaped, real, 4)
+  call GET_FUNCTION_NAME(tester_odd_shaped, real, 8)
+  call GET_FUNCTION_NAME(tester_odd_shaped, integer, 4)
+  call GET_FUNCTION_NAME(tester_odd_shaped, integer, 8)
   call GET_FUNCTION_NAME(tester_faulty, real, 4)
 
   stop

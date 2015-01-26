@@ -75,9 +75,9 @@ def getTracingSubroutineEndStatements(currRoutineNode, currModuleName, tracingSy
         result += "if (hf_tracing_counter .eq. 0) then\n"
         for symbol in tracingSymbols:
             if 'allocatable' in symbol.declarationPrefix:
-                result += "if (allocated(hf_tracing_temp_%s)) then\n" %(symbol.name)
+                result += "if (allocated(%s)) then\n" %(symbol.name)
             for domainNum in range(len(symbol.domains),0,-1):
-                result += "do hf_tracing_enum%i = 1, size(hf_tracing_temp_%s,%i)\n" %(domainNum, symbol.name, domainNum)
+                result += "do hf_tracing_enum%i = lbound(hf_tracing_temp_%s,%i), ubound(hf_tracing_temp_%s,%i)\n" %(domainNum, symbol.name, domainNum, symbol.name, domainNum)
             result += "hf_tracing_temp_%s = %s\n" %(
                 symbol.accessRepresentation(
                     parallelIterators=[],

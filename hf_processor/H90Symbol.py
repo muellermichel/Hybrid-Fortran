@@ -913,7 +913,7 @@ Currently loaded template: %s\n" %(
         nextOffsetIndex = 0
         for i in range(len(self.domains)):
             if i != 0:
-                result = result + ","
+                result = result + ", "
             if len(parallelIterators) == 0 and len(offsets) == len(self.domains):
                 result = result + offsets[i]
                 continue

@@ -143,6 +143,17 @@ for i in "${!argStringsArr[@]}"; do
 		cat ./log_lastRun.txt >> ./log.txt
 	    exit $rc
 	fi
+	errorGrepResult=$(cat ./log_lastRun.txt | grep -i -e 'fatal error')
+	if [[ $errorGrepResult != 1 ]] ; then
+		echo "fail"
+		echo "Profiled program has logged a fatal error. The error output of the last failed run have been logged in 'log_lastRun.txt' in the ${executable_name} test directory."
+		echo "stdout: $timingResult"
+		echo "--------------------- output of tail log_lastRun.txt -----------------------------"
+		tail -n 30 ./log_lastRun.txt
+		echo "----------------------------------------------------------------------------------"
+		cat ./log_lastRun.txt >> ./log.txt
+	    exit 102
+	fi
 	if [ "$configuration_name" = "validation" ] && [ -e $refPath ]; then
 		${HF_DIR}/hf_bin/allAccuracy.sh $refPath "$output_file_pattern" $source_before $source_after 2>>./log_lastRun.txt
 		rc=$?

@@ -80,36 +80,32 @@ all: ${EXECUTABLES_OUT} ${USER_LIB}
 
 %.out: %.o
 	@echo .........linking $< in $(CURDIR)
-	@echo ..calling $(LD) -o ../$@ $< $(LDFLAGS) -L./ >${DEBUG_OUTPUT}
-	@$(LD) -o ../$@ $< $(LDFLAGS) -L./ >${DEBUG_OUTPUT}
+	$(LD) -o ../$@ $< $(LDFLAGS) -L./ >${DEBUG_OUTPUT}
 
 ${USER_LIB}: $(OBJ)
 	@echo .........building user library ${USER_LIB} from $(OBJ)
-	@echo ..calling $(AR) $(ARFLAGS) $@ $(OBJ) >${DEBUG_OUTPUT}
-	@$(AR) $(ARFLAGS) $@ $(OBJ)
+	$(AR) $(ARFLAGS) $@ $(OBJ)
 
 # we first preprocess with pgcc so we get concatenation / stringification.
-# since this only works with files that don't have the F90 prefix, we use P90 here
+# since this only works with files that don't have the F90 prefix, we use P90 here.
 # first we preprocess such that everything gets included, then we replace ` to \n in order to get
-# multiline macros working, then we remove all multiline c-style comments with sed
+# multiline macros working, then we remove all multiline c-style comments with sed.
+# finally, # comment lines are removed since these lines inserted by gcc -E will confuse Fortran debuggers.
 %.f90: %.P90
 	$(call blueecho,"..........preprocessing $< in $(CURDIR)")
-	@< $< sed "s/\/\//¢/g" | gcc -E -w ${PFLAGS} - | tr "\`" '\n' | sed "s/¢/\/\//g" > $@
+	@< $< sed "s/\/\//¢/g" | gcc -E -w ${PFLAGS} - | tr "\`" '\n' | sed "s/¢/\/\//g" | sed '/^#/ d' > $@
 
 %.o: %.f90
 	$(call blueecho,"..........compiling $< in $(CURDIR)")
-	$(call debugecho,"..calling $(FC) $(FFLAGS) $(PFLAGS) -c $< -o $@")
-	@$(FC) $(FFLAGS) $(PFLAGS) -c $< -o $@
+	$(FC) $(FFLAGS) $(PFLAGS) -c $< -o $@
 
 %.o: %.F
 	$(call blueecho,"..........compiling $< in $(CURDIR)")
-	$(call debugecho,"..calling $(FC) $(FFLAGS) $(PFLAGS) -c $< -o $@")
-	@$(FC) $(FFLAGS) $(PFLAGS) -c $< -o $@
+	$(FC) $(FFLAGS) $(PFLAGS) -c $< -o $@
 
 %.o: %.f
 	$(call blueecho,"..........compiling $< in $(CURDIR)")
-	$(call debugecho,"..calling $(FC) $(FFLAGS) $(PFLAGS) -c $< -o $@")
-	@$(FC) $(FFLAGS) $(PFLAGS) -c $< -o $@
+	$(FC) $(FFLAGS) $(PFLAGS) -c $< -o $@
 
 helper_functions.o: storage_order.F90
 helper_functions_gpu.o: storage_order.F90

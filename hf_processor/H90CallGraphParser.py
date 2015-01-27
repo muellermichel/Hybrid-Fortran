@@ -94,17 +94,22 @@ class FortranCodeSanitizer:
                 if blankPos < 1:
                     #blank not found or at beginning of line
                     #-> bail out in order to avoid infinite loop - just keep the line as it was.
-                    raise Exception("The following line could not be broken up for Fortran compatibility - no suitable spaces found: %s" %(currLine))
-                sanitizedCodeLines.append(currLine[:blankPos] + lineSep)
-                if isOpenMPDirectiveLine:
-                    currLine = '!$OMP& ' + currLine[blankPos:]
-                elif isOpenACCDirectiveLine:
-                    currLine = '!$acc& ' + currLine[blankPos:]
+                    sys.stderr.write("WARNING: The following line could not be broken up for Fortran compatibility - no suitable spaces found: %s" %(currLine))
+                    sanitizedCodeLines.append(currLine)
+                    currLine = ""
+                    break
                 else:
-                    currLine = currLine[blankPos:]
+                    sanitizedCodeLines.append(currLine[:blankPos] + lineSep)
+                    if isOpenMPDirectiveLine:
+                        currLine = '!$OMP& ' + currLine[blankPos:]
+                    elif isOpenACCDirectiveLine:
+                        currLine = '!$acc& ' + currLine[blankPos:]
+                    else:
+                        currLine = currLine[blankPos:]
             if toBeCommented:
                 currLine = commentChar + " " + currLine
-            sanitizedCodeLines.append(currLine)
+            if currLine != "":
+                sanitizedCodeLines.append(currLine)
 
         # ----------- re indent codelines ----------------------------- #
         # ----------- and strip whitespace ---------------------------- #
@@ -140,7 +145,8 @@ class FortranCodeSanitizer:
                 tabbedCodeLines.append(self.currNumOfTabs * "\t" + strippedLine)
             elif self.tabIncreasingPattern.match(strippedLine):
                 tabbedCodeLines.append(self.currNumOfTabs * "\t" + strippedLine)
-                self.currNumOfTabs = self.currNumOfTabs + 1
+                if self.currNumOfTabs < 5:
+                    self.currNumOfTabs = self.currNumOfTabs + 1
             else:
                 tabbedCodeLines.append(self.currNumOfTabs * "\t" + strippedLine)
 

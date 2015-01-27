@@ -328,10 +328,10 @@ class Symbol(object):
                 %(str(self))
             )
 
-        self.intent = domainDependantEntryNode.getAttribute("intent") if self.intent == None else self.intent
-        self.declarationPrefix = domainDependantEntryNode.getAttribute("declarationPrefix") if self.declarationPrefix == None else self.declarationPrefix
-        self.sourceModule = domainDependantEntryNode.getAttribute("sourceModule") if self.sourceModule == None else self.sourceModule
-        self.sourceSymbol = domainDependantEntryNode.getAttribute("sourceSymbol") if self.sourceSymbol == None else self.sourceSymbol
+        self.intent = domainDependantEntryNode.getAttribute("intent") if self.intent in [None, ''] else self.intent
+        self.declarationPrefix = domainDependantEntryNode.getAttribute("declarationPrefix") if self.declarationPrefix in [None, ''] else self.declarationPrefix
+        self.sourceModule = domainDependantEntryNode.getAttribute("sourceModule") if self.sourceModule in [None, ''] else self.sourceModule
+        self.sourceSymbol = domainDependantEntryNode.getAttribute("sourceSymbol") if self.sourceSymbol in [None, ''] else self.sourceSymbol
         self.isPointer = domainDependantEntryNode.getAttribute("isPointer") == "yes" if not self.isPointer else self.isPointer
         self.declaredDimensionSizes = domainDependantEntryNode.getAttribute("declaredDimensionSizes").split(",") if self.declaredDimensionSizes == None else self.declaredDimensionSizes
         if len(self.declaredDimensionSizes) > 0:

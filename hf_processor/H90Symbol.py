@@ -205,6 +205,8 @@ class Symbol(object):
     debugPrint = None
     parallelRegionTemplates = None
     declaredDimensionSizes = None
+    domPPName = None
+    accPPName = None
 
     def __init__(self, name, template, isAutomatic=False, debugPrint=False):
         if not name or name == "":
@@ -251,6 +253,8 @@ class Symbol(object):
         self.isCompacted = False
         attributes = getAttributes(self.template)
         self.setOptionsFromAttributes(attributes)
+        self.domPPName = None
+        self.accPPName = None
 
     def __repr__(self):
         return self.domainRepresentation()
@@ -692,11 +696,13 @@ Current Domains: %s\n" %(
                     self.name, self.sourceModule, importMatch.group(0), str(self.domains)
                 )
             )
-        attributes, domains, declarationPrefix = getAttributesDomainsAndDeclarationPrefixFromModuleTemplateAndProcedureTemplateForProcedure(moduleTemplate, routineTemplate)
+        attributes, domains, declarationPrefix, accPP, domPP = getAttributesDomainsDeclarationPrefixAndMacroNames(moduleTemplate, routineTemplate)
         self.setOptionsFromAttributes(attributes)
         self.loadDeclarationPrefixFromString(declarationPrefix)
         self.loadDomains(domains, self.parallelRegionTemplates if self.parallelRegionTemplates != None else [])
         self.domains = getReorderedDomainsAccordingToDeclaration(self.domains, self.declaredDimensionSizes)
+        self.accPPName = accPP
+        self.domPPName = domPP
         self.initLevel = max(self.initLevel, Init.DECLARATION_LOADED)
         if self.debugPrint:
             sys.stderr.write(
@@ -989,6 +995,9 @@ Currently loaded template: %s\n" %(
         if domPPEntries and len(domPPEntries) > 0:
             return domPPEntries[0], True
 
+        if self.domPPName not in ['', None]:
+            return self.domPPName, True
+
         if self.isAutoDom:
             numOfDimensions = len(self.domains)
             domPPName = ""
@@ -1007,6 +1016,9 @@ Currently loaded template: %s\n" %(
         accPPEntries = self.getTemplateEntryNodeValues("accPP")
         if accPPEntries and len(accPPEntries) > 0:
             return accPPEntries[0], True
+
+        if self.accPPName not in ['', None]:
+            return self.accPPName, True
 
         if self.isAutoDom:
             numOfDimensions = len(self.domains)

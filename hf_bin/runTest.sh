@@ -143,8 +143,9 @@ for i in "${!argStringsArr[@]}"; do
 		cat ./log_lastRun.txt >> ./log.txt
 	    exit $rc
 	fi
-	errorGrepResult=$(cat ./log_lastRun.txt | grep -i -e 'fatal error')
-	if [[ $errorGrepResult != 1 ]] ; then
+	cat ./log_lastRun.txt | grep -i -e 'fatal error'
+	errorgrep_rc=$?
+	if [[ $errorgrep_rc != 1 ]] ; then
 		echo "fail"
 		echo "Profiled program has logged a fatal error. The error output of the last failed run have been logged in 'log_lastRun.txt' in the ${executable_name} test directory."
 		echo "stdout: $timingResult"

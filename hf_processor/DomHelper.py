@@ -165,7 +165,7 @@ def firstDuplicateChild(parent, newNode):
 
     return None
 
-def getAttributesDomainsAndDeclarationPrefixFromModuleTemplateAndProcedureTemplateForProcedure(moduleTemplate, procedureTemplate):
+def getAttributesDomainsDeclarationPrefixAndMacroNames(moduleTemplate, procedureTemplate):
     attributesModule = getAttributes(moduleTemplate)
     attributesProcedure = getAttributes(procedureTemplate)
     finalAttributes = []
@@ -182,10 +182,20 @@ def getAttributesDomainsAndDeclarationPrefixFromModuleTemplateAndProcedureTempla
             continue
         if attribute in attributesProcedure:
             finalAttributes.append(attribute)
-    moduleDeclarationPrefix = getDeclarationPrefix(moduleTemplate)
-    procedureDeclarationPrefix = getDeclarationPrefix(procedureTemplate)
+
+    moduleDeclarationPrefix = getStringProperty(moduleTemplate, 'declarationPrefix')
+    procedureDeclarationPrefix = getStringProperty(procedureTemplate, 'declarationPrefix')
     finalDeclarationPrefix = moduleDeclarationPrefix if procedureDeclarationPrefix == None else procedureDeclarationPrefix
-    return finalAttributes, domainsFromTemplate, finalDeclarationPrefix
+
+    moduleAccPP = getStringProperty(moduleTemplate, 'accPP')
+    procedureAccPP = getStringProperty(procedureTemplate, 'accPP')
+    finalAccPP = moduleAccPP if procedureAccPP == None else procedureAccPP
+
+    moduleDomPP = getStringProperty(moduleTemplate, 'domPP')
+    procedureDomPP = getStringProperty(procedureTemplate, 'domPP')
+    finalDomPP = moduleDomPP if procedureDomPP == None else procedureDomPP
+
+    return finalAttributes, domainsFromTemplate, finalDeclarationPrefix, finalAccPP, finalDomPP
 
 def setTemplateInfos(doc, parent, specText, templateParentNodeName, templateNodeName, referenceParentNodeName):
     templateLibraries = doc.getElementsByTagName(templateParentNodeName)
@@ -298,6 +308,13 @@ def getDeclarationPrefix(templateNode):
         return None
     declarationPrefixesInTemplate = [node.firstChild.nodeValue for node in declarationPrefixTemplateNodes[0].getElementsByTagName("entry")]
     return declarationPrefixesInTemplate[0]
+
+def getStringProperty(templateNode, propertyName):
+    templateNodes = templateNode.getElementsByTagName(propertyName)
+    if not templateNodes or len(templateNodes) == 0:
+        return None
+    propertyValues = [node.firstChild.nodeValue for node in templateNodes[0].getElementsByTagName("entry")]
+    return propertyValues[0]
 
 def getAttributes(templateNode):
     attributesTemplateNodes = templateNode.getElementsByTagName("attribute")

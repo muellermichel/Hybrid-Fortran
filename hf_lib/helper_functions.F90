@@ -297,7 +297,7 @@ contains
 		integer(4), intent(in) :: n
 		character(len=15) :: path
 
-		write(path, "(A,I3,A)") "./output", nextGenericFileNumber, ".dat"
+		write(path, "(A,I3.3,A)") "./output", nextGenericFileNumber, ".dat"
 		nextGenericFileNumber = nextGenericFileNumber + 1
 		call write1DToFile(path, array, n)
 	end subroutine

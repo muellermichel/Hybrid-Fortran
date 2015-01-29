@@ -584,13 +584,16 @@ class TraceCheckingOpenACCFortranImplementation(DebugPGIOpenACCFortranImplementa
     def subroutineEnd(self, dependantSymbols, routineIsKernelCaller):
         def compareToTrace(currRoutineNode, currModuleName, symbol):
             result = "call findNewFileHandle(hf_tracing_imt)\n"
-            result += "write(hf_tracing_current_path, '(A,I3,A)') './datatrace/%s_%s_%s_', hf_tracing_counter, '.dat'\n" %(
+            result += "write(hf_tracing_current_path, '(A,I3.3,A)') './datatrace/%s_%s_%s_', hf_tracing_counter, '.dat'\n" %(
                 currModuleName,
                 currRoutineNode.getAttribute('name'),
                 symbol.name
             )
             result += "open(hf_tracing_imt, file=hf_tracing_current_path, form='unformatted', status='old', action='read', iostat=hf_tracing_ierr)\n"
-            result += "if (hf_tracing_ierr .ne. 0) then\nreturn\nend if\n"
+            result += "if (hf_tracing_ierr .ne. 0) then\n"
+            result += "write(0,*) 'In subroutine %s: could not read reference file for symbol %s => aborting trace checking here.'\n" %(currRoutineNode.getAttribute('name'), symbol.name)
+            result += "return\n"
+            result += "end if\n"
             result += "read(hf_tracing_imt) hf_tracing_comparison_%s\n" %(symbol.name)
             if 'real' in symbol.declarationPrefix:
                 result += "hf_tracing_error = sqrt(sum((hf_tracing_comparison_%s - hf_tracing_temp_%s)**2))\n" %(symbol.name, symbol.name)

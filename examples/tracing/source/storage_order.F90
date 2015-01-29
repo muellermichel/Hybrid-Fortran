@@ -66,8 +66,6 @@
 #else
 	#define AT(iParam, jParam, kParam) iParam, jParam, kParam
 	#define AT4(iParam, jParam, kParam, lParam) iParam, jParam, kParam, lParam
-	!we mistakenly use KIJ order here in order to provoke errors for the tracing.
-	#define AT_MISTAKE(iParam, jParam, kParam) kParam, iParam, jParam
 #endif
 
 ! ------ Syntactic sugar -------------------
@@ -76,3 +74,4 @@
 ! (3) Does your data have more dimensions than 4? if so, define DOM5, DOM6, ... accordingly
 #define DOM(iParam, jParam, kParam) AT(iParam, jParam, kParam)
 #define DOM4(iParam, jParam, kParam, lParam) AT4(iParam, jParam, kParam, lParam)
+

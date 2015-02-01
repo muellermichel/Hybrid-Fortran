@@ -35,7 +35,7 @@ import os
 import sys
 import re
 
-number_of_traces = 5
+number_of_traces = 200
 
 def getTracingDeclarationStatements(currRoutineNode, dependantSymbols, patterns, additionalSymbolPrefixes=['hf_tracing_temp_']):
     tracing_symbols = []
@@ -536,7 +536,7 @@ class DebugPGIOpenACCFortranImplementation(PGIOpenACCFortranImplementation):
         return result
 
     def declarationEndPrintStatements(self):
-        if self.currRoutineNode.getAttribute('parallelRegionPosition') != 'inside':
+        if self.currRoutineNode.getAttribute('parallelRegionPosition') == 'outside':
             return ""
         result = PGIOpenACCFortranImplementation.declarationEndPrintStatements(self)
         routineName = self.currRoutineNode.getAttribute('name')
@@ -571,6 +571,7 @@ class TraceCheckingOpenACCFortranImplementation(DebugPGIOpenACCFortranImplementa
     def declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates):
         result = "integer(4) :: hf_tracing_imt, hf_tracing_ierr\n"
         result += "real(8) :: hf_tracing_error\n"
+        result += "logical :: hf_tracing_error_found\n"
         tracing_declarations, tracedSymbols = getTracingDeclarationStatements(
             currRoutineNode,
             dependantSymbols,
@@ -579,6 +580,7 @@ class TraceCheckingOpenACCFortranImplementation(DebugPGIOpenACCFortranImplementa
         )
         result += tracing_declarations
         self.currentTracedSymbols = tracedSymbols
+        result += "hf_tracing_error_found = .false.\n"
         return getIteratorDeclaration(currRoutineNode, currParallelRegionTemplates, ["GPU"]) + result
 
     def subroutineEnd(self, dependantSymbols, routineIsKernelCaller):
@@ -589,15 +591,20 @@ class TraceCheckingOpenACCFortranImplementation(DebugPGIOpenACCFortranImplementa
                 currRoutineNode.getAttribute('name'),
                 symbol.name
             )
-            result += "open(hf_tracing_imt, file=hf_tracing_current_path, form='unformatted', status='old', action='read', iostat=hf_tracing_ierr)\n"
+            result += "open(hf_tracing_imt, file=trim(hf_tracing_current_path), form='unformatted', status='old', action='read', iostat=hf_tracing_ierr)\n"
             result += "if (hf_tracing_ierr .ne. 0) then\n"
-            result += "write(0,*) 'In subroutine %s: could not read reference file for symbol %s => aborting trace checking here.'\n" %(currRoutineNode.getAttribute('name'), symbol.name)
+            result += "write(0,*) 'In subroutine %s: could not read reference file ', trim(hf_tracing_current_path),' for symbol %s => aborting trace checking here. Error code: ', hf_tracing_ierr\n" %(
+                currRoutineNode.getAttribute('name'),
+                symbol.name
+            )
+            result += "close(hf_tracing_imt)\n"
+            result += "hf_tracing_counter = hf_tracing_counter + 1\n"
             result += "return\n"
             result += "end if\n"
             result += "read(hf_tracing_imt) hf_tracing_comparison_%s\n" %(symbol.name)
             if 'real' in symbol.declarationPrefix:
                 result += "hf_tracing_error = sqrt(sum((hf_tracing_comparison_%s - hf_tracing_temp_%s)**2))\n" %(symbol.name, symbol.name)
-                result += "if (hf_tracing_error .gt. 1E-5) then\n"
+                result += "if (hf_tracing_error .gt. 1E-8) then\n"
                 result += "write(0,*) 'In module %s, subroutine %s:', 'Real Array %s does not match the data found in ./datatrace.', 'RMS Error:', hf_tracing_error, 'Aborting program.'\n" %(
                     currModuleName,
                     currRoutineNode.getAttribute('name'),
@@ -605,7 +612,7 @@ class TraceCheckingOpenACCFortranImplementation(DebugPGIOpenACCFortranImplementa
                 )
             else:
                 result += "if (any(hf_tracing_comparison_%s .ne. hf_tracing_temp_%s)) then\n" %(symbol.name, symbol.name)
-                result += "write(0,*) 'In module %s, subroutine %s:', 'Array %s does not match the data found in ./datatrace.', 'Aborting program.'\n" %(
+                result += "write(0,*) 'In module %s, subroutine %s:', 'Array %s does not match the data found in ./datatrace.'\n" %(
                     currModuleName,
                     currRoutineNode.getAttribute('name'),
                     symbol.name
@@ -614,8 +621,11 @@ class TraceCheckingOpenACCFortranImplementation(DebugPGIOpenACCFortranImplementa
             result += "write(0,*) shape(hf_tracing_temp_%s)\n" %(symbol.name)
             result += "write(0,*) 'Reference version shape:'\n"
             result += "write(0,*) shape(hf_tracing_comparison_%s)\n" %(symbol.name)
-            result += "stop 801\n"
+            result += "hf_tracing_error_found = .true.\n"
+            result += "else\n"
+            result += "write(0,*) 'In subroutine %s: symbol %s matches trace of cpu version found in ', trim(hf_tracing_current_path)\n" %(currRoutineNode.getAttribute('name'), symbol.name)
             result += "end if\n"
+            result += "close(hf_tracing_imt)\n"
             return result
 
         result = getTracingSubroutineEndStatements(
@@ -624,6 +634,10 @@ class TraceCheckingOpenACCFortranImplementation(DebugPGIOpenACCFortranImplementa
             self.currentTracedSymbols,
             compareToTrace
         )
+        if len(self.currentTracedSymbols) > 0:
+            result += "if (hf_tracing_error_found) then\n"
+            result += "stop 2\n"
+            result += "end if\n"
         self.currRoutineNode = None
         self.currentTracedSymbols = []
         return DebugPGIOpenACCFortranImplementation.subroutineEnd(self, dependantSymbols, routineIsKernelCaller) + result

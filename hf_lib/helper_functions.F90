@@ -110,7 +110,7 @@ contains
 
 		slash_position = index(path, '/', back=.true.)
 		if (slash_position < 2) then
-			write(0, *) "Error: could not split off path, no slash found:", path
+			write(0, *) "Warning: could not split off path, no slash found:", path
 			allocate(character(len=0) :: output)
 		else
 			allocate(character(len=slash_position-1) :: output)
@@ -129,14 +129,17 @@ contains
 		integer(4), intent(out) :: mt
 		logical :: flag_exist, flag_opened
 
-		mt = 99
-		do
+		do mt=99,-1,-1
 		  inquire(unit = mt, exist = flag_exist, opened = flag_opened)
 		  if (flag_exist .and. (.not. flag_opened)) then
 		    exit
 		  end if
-		  mt = mt - 1
 		end do
+
+		if (mt .eq. -1) then
+			write(0, *) "Error: No free file handle found."
+			stop 98
+		end if
 
 		return
 	end subroutine findNewFileHandle

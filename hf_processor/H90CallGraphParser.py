@@ -165,13 +165,18 @@ class H90CallGraphParser(object):
     currCalleeName = None
     patterns = None
     currentLine = None
+    branchAnalyzer = None
 
     def __init__(self):
         self.patterns = H90RegExPatterns()
         self.state = "none"
         self.stateBeforeCall = "undefined"
         self.currCalleeName = None
-
+        self.branchAnalyzer = BracketAnalyzer(
+            r'^\s*if\s*\(|^\s*select\s+case',
+            r'^\s*end\s+if|^\s*end\s+select',
+            pass_in_regex_pattern=True
+        )
         super(H90CallGraphParser, self).__init__()
 
     def purgeTrailingCommentsAndGetAdjustedLine(self, line):
@@ -417,6 +422,8 @@ class H90CallGraphParser(object):
 
         #remove trailing comments
         self.currentLine = self.purgeTrailingCommentsAndGetAdjustedLine(str(line))
+
+        self.branchAnalyzer.currLevelAfterString(str(line))
 
         #analyse this line. handle the line according to current parser state.
         stateSwitch.get(self.state, self.processUndefinedState)(self.currentLine)
@@ -877,7 +884,7 @@ This is not allowed for implementations using %s.\
 
         implementationAttr = getattr(self, 'implementation')
         functionAttr = getattr(implementationAttr, implementationFunctionName)
-        self.prepareLine(functionAttr(self.currParallelRegionTemplateNode), self.tab_insideSub)
+        self.prepareLine(functionAttr(self.currParallelRegionTemplateNode, self.branchAnalyzer.level), self.tab_insideSub)
 
     def processSymbolMatchAndGetAdjustedLine(self, line, symbolMatch, symbol, isInsideSubroutineCall, isPointerAssignment):
         def getAccessPattern(numberOfDimensions):

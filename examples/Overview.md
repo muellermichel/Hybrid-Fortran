@@ -46,8 +46,16 @@ See also the [results overview](../results/Overview.md).
         <td>Based on Parallel Vector Example, shows off the OpenACC backend and using multiple parallel regions in one subroutine.</td>
     </tr>
     <tr>
+        <td>OpenACC Branching Example</td>
+        <td>Based on the OpenACC example, texts branches around parallel regions implemented using OpenACC.</td>
+    </tr>
+    <tr>
         <td>Strides Example</td>
         <td>Like parallel vector example, uses blocking of data domain (in case GPU memory is too small).</td>
+    </tr>
+    <tr>
+        <td>Tracing Example</td>
+        <td>Tests different real- and integer data type kernels with the tracing implementation, automatically tracking down errors.</td>
     </tr>
 </table>
 
@@ -134,8 +142,24 @@ See also the [results overview](../results/Overview.md).
         <td>No</td>
     </tr>
     <tr>
+        <td>OpenACC Branching Example</td>
+        <td><a href="https://github.com/muellermichel/Hybrid-Fortran/tree/master/examples/branches_with_openACC">Link</a></td>
+        <td>1E-8</td>
+        <td>No</td>
+        <td>No</td>
+        <td>No</td>
+    </tr>
+    <tr>
         <td>Strides Example</td>
         <td><a href="https://github.com/muellermichel/Hybrid-Fortran/tree/master/examples/strides">Link</a></td>
+        <td>1E-8</td>
+        <td>No</td>
+        <td>No</td>
+        <td>No</td>
+    </tr>
+    <tr>
+        <td>Tracing Example</td>
+        <td><a href="https://github.com/muellermichel/Hybrid-Fortran/tree/master/examples/tracing">Link</a></td>
         <td>1E-8</td>
         <td>No</td>
         <td>No</td>

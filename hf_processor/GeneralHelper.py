@@ -123,17 +123,24 @@ def findRightMostOccurrenceNotInsideQuotes(stringToMatch, stringToSearch, rightS
 
 class BracketAnalyzer(object):
     currLevel = 0
-    openingChar = ''
-    closingChar = ''
-    pattern = ""
     searchPattern = ""
+    openingPattern = ""
+    closingPattern = ""
 
-    def __init__(self, openingChar="(", closingChar=")"):
-        self.openingChar = openingChar
-        self.closingChar = closingChar
+    def __init__(self, openingChar="(", closingChar=")", pass_in_regex_pattern=False):
         self.currLevel = 0
-        self.pattern = re.compile(r".*?([" + re.escape(openingChar) + re.escape(closingChar) + r"])(.*)")
-        self.searchPattern = re.compile(r"(.*?)([" + re.escape(openingChar) + re.escape(closingChar) + r"])(.*)")
+        if pass_in_regex_pattern:
+            self.searchPattern = re.compile(r"(.*?)(" + openingChar + r"|" + closingChar + r")(.*)", re.IGNORECASE)
+            self.openingPattern = re.compile(openingChar, re.IGNORECASE)
+            self.closingPattern = re.compile(closingChar, re.IGNORECASE)
+        else:
+            self.searchPattern = re.compile(r"(.*?)(" + re.escape(openingChar) + r"|" + re.escape(closingChar) + r")(.*)", re.IGNORECASE)
+            self.openingPattern = re.compile(re.escape(openingChar), re.IGNORECASE)
+            self.closingPattern = re.compile(re.escape(closingChar), re.IGNORECASE)
+
+    @property
+    def level(self):
+        return self.currLevel
 
     def splitAfterClosingBrackets(self, string):
         work = string
@@ -143,9 +150,9 @@ class BracketAnalyzer(object):
             return work, ""
 
         while match:
-            if match.group(2) == self.openingChar:
+            if self.openingPattern.match(match.group(2)) != None:
                 self.currLevel = self.currLevel + 1
-            elif match.group(2) == self.closingChar:
+            elif self.closingPattern.match(match.group(2)) != None:
                 if self.currLevel == 0:
                     raise Exception("Closing bracket before opening one.")
                 self.currLevel = self.currLevel - 1
@@ -161,15 +168,15 @@ class BracketAnalyzer(object):
 
     def currLevelAfterString(self, string):
         work = string
-        match = self.pattern.match(work)
+        match = self.searchPattern.match(work)
         while match:
-            if match.group(1) == self.openingChar:
-                self.currLevel = self.currLevel + 1
-            elif match.group(1) == self.closingChar:
+            if self.openingPattern.match(match.group(2)) != None:
+                self.currLevel += 1
+            elif self.closingPattern.match(match.group(2)) != None:
                 if self.currLevel == 0:
                     raise Exception("Closing bracket before opening one.")
-                self.currLevel = self.currLevel - 1
-            work = match.group(2)
-            match = self.pattern.match(work)
+                self.currLevel -= 1
+            work = match.group(3)
+            match = self.searchPattern.match(work)
 
         return self.currLevel

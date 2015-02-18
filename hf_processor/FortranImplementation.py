@@ -37,12 +37,28 @@ import re
 
 number_of_traces = 200
 
+def getLoopOverSymbolValues(symbol, loopName, innerLoopImplementationFunc):
+    result = ""
+    if len(symbol.domains) > 0:
+        result += "hf_tracing_outer_%s: " %(loopName)
+    for domainNum in range(len(symbol.domains),0,-1):
+        result += "do hf_tracing_enum%i = lbound(hf_tracing_temp_%s,%i), ubound(hf_tracing_temp_%s,%i)\n" %(domainNum, symbol.name, domainNum, symbol.name, domainNum)
+    result += innerLoopImplementationFunc(symbol)
+    for domainNum in range(len(symbol.domains),0,-1):
+        result += "end do"
+        if domainNum != 1:
+            result+= '\n'
+    if len(symbol.domains) > 0:
+        result += " hf_tracing_outer_%s\n" %(loopName)
+    return result
+
 def getTracingDeclarationStatements(currRoutineNode, dependantSymbols, patterns, additionalSymbolPrefixes=['hf_tracing_temp_']):
     tracing_symbols = []
     if len(dependantSymbols) == 0 or currRoutineNode.getAttribute('parallelRegionPosition') == 'outside':
         return "", tracing_symbols
 
     result = "integer(8), save :: hf_tracing_counter = 0\n"
+    result += "integer(4) :: hf_error_printed_counter\n"
     result += "character(len=256) :: hf_tracing_current_path\n"
     max_num_of_domains_for_symbols = 0
     for symbol in dependantSymbols:
@@ -72,7 +88,23 @@ def getTracingDeclarationStatements(currRoutineNode, dependantSymbols, patterns,
         )
     return result, tracing_symbols
 
-def getTracingSubroutineEndStatements(currRoutineNode, currModuleName, tracingSymbols, traceHandlingFunc):
+def getTracingStatements(currRoutineNode, currModuleName, tracingSymbols, traceHandlingFunc, increment_tracing_counter=True, loop_name_postfix=''):
+    def innerTempArraySetterLoopFunc(symbol):
+        return "hf_tracing_temp_%s = %s\n" %(
+            symbol.accessRepresentation(
+                parallelIterators=[],
+                offsets=["hf_tracing_enum%i" %(domainNum) for domainNum in range(1,len(symbol.domains)+1)],
+                parallelRegionNode=None,
+                use_domain_reordering=False
+            ),
+            symbol.accessRepresentation(
+                parallelIterators=[],
+                offsets=["hf_tracing_enum%i" %(domainNum) for domainNum in range(1,len(symbol.domains)+1)],
+                parallelRegionNode=None,
+                use_domain_reordering=True
+            )
+        )
+
     result = ''
     if len(tracingSymbols) > 0 and currRoutineNode.getAttribute('parallelRegionPosition') != 'outside':
         result += "if (hf_tracing_counter .lt. %i) then\n" %(number_of_traces)
@@ -87,30 +119,84 @@ def getTracingSubroutineEndStatements(currRoutineNode, currModuleName, tracingSy
                     use_domain_reordering=False
                 )
             )
-            for domainNum in range(len(symbol.domains),0,-1):
-                result += "do hf_tracing_enum%i = lbound(hf_tracing_temp_%s,%i), ubound(hf_tracing_temp_%s,%i)\n" %(domainNum, symbol.name, domainNum, symbol.name, domainNum)
-            result += "hf_tracing_temp_%s = %s\n" %(
-                symbol.accessRepresentation(
-                    parallelIterators=[],
-                    offsets=["hf_tracing_enum%i" %(domainNum) for domainNum in range(1,len(symbol.domains)+1)],
-                    parallelRegionNode=None,
-                    use_domain_reordering=False
-                ),
-                symbol.accessRepresentation(
-                    parallelIterators=[],
-                    offsets=["hf_tracing_enum%i" %(domainNum) for domainNum in range(1,len(symbol.domains)+1)],
-                    parallelRegionNode=None,
-                    use_domain_reordering=True
-                )
-            )
-            for domainNum in range(len(symbol.domains),0,-1):
-                result += "end do\n"
+            result += getLoopOverSymbolValues(symbol, "%s_temp_%s" %(symbol.name, loop_name_postfix), innerTempArraySetterLoopFunc)
             result += traceHandlingFunc(currRoutineNode, currModuleName, symbol)
             if 'allocatable' in symbol.declarationPrefix:
                 result += "end if\n"
         result += "end if\n"
-        result += "hf_tracing_counter = hf_tracing_counter + 1\n"
+        if increment_tracing_counter:
+            result += "hf_tracing_counter = hf_tracing_counter + 1\n"
     return result
+
+def getCompareToTraceFunc(abortSubroutineOnError=True, loop_name_postfix=''):
+    def printSomeErrors(symbol):
+        accessor = symbol.accessRepresentation(
+            parallelIterators=[],
+            offsets=["hf_tracing_enum%i" %(domainNum) for domainNum in range(1,len(symbol.domains)+1)],
+            parallelRegionNode=None,
+            use_domain_reordering=False
+        )
+        result = ""
+        result += "if ((hf_tracing_comparison_%s - hf_tracing_temp_%s)**2 .gt. 1E-8) then \n" %(accessor, accessor)
+        result += "write(0,*) 'error at:'\n"
+        for domainNum in range(1,len(symbol.domains)+1):
+            result += "write(0,*) 'domain %i:', hf_tracing_enum%i\n" %(domainNum, domainNum)
+        result += "write(0,*) 'expected', hf_tracing_comparison_%s, 'actual', hf_tracing_temp_%s\n" %(accessor, accessor)
+        result += "hf_error_printed_counter = hf_error_printed_counter + 1\n"
+        result += "if (hf_error_printed_counter >= 5) then\n"
+        result += "exit hf_tracing_outer_%s_printindex_%s\n" %(symbol.name, loop_name_postfix)
+        result += "end if\n"
+        result += "end if\n"
+        return result
+
+    def compareToTrace(currRoutineNode, currModuleName, symbol):
+        result = "call findNewFileHandle(hf_tracing_imt)\n"
+        result += "write(hf_tracing_current_path, '(A,I3.3,A)') './datatrace/%s_%s_%s_', hf_tracing_counter, '.dat'\n" %(
+            currModuleName,
+            currRoutineNode.getAttribute('name'),
+            symbol.name
+        )
+        result += "open(hf_tracing_imt, file=trim(hf_tracing_current_path), form='unformatted', status='old', action='read', iostat=hf_tracing_ierr)\n"
+        result += "if (hf_tracing_ierr .ne. 0) then\n"
+        result += "write(0,*) 'In subroutine %s: could not read reference file ', trim(hf_tracing_current_path),' for symbol %s => aborting trace checking here. Error code: ', hf_tracing_ierr\n" %(
+            currRoutineNode.getAttribute('name'),
+            symbol.name
+        )
+        result += "close(hf_tracing_imt)\n"
+        if abortSubroutineOnError:
+            result += "hf_tracing_counter = hf_tracing_counter + 1\n"
+            result += "return\n"
+        result += "else\n"
+        result += "read(hf_tracing_imt) hf_tracing_comparison_%s\n" %(symbol.name)
+        if 'real' in symbol.declarationPrefix:
+            result += "hf_tracing_error = sqrt(sum((hf_tracing_comparison_%s - hf_tracing_temp_%s)**2))\n" %(symbol.name, symbol.name)
+            result += "if (hf_tracing_error .gt. 1E-8) then\n"
+            result += "write(0,*) 'In module %s, subroutine %s:', 'Real Array %s does not match the data found in ', trim(hf_tracing_current_path), ' RMS Error:', hf_tracing_error\n" %(
+                currModuleName,
+                currRoutineNode.getAttribute('name'),
+                symbol.name
+            )
+            result += "hf_error_printed_counter = 0\n"
+            result += getLoopOverSymbolValues(symbol, "%s_printindex_%s" %(symbol.name, loop_name_postfix), printSomeErrors)
+        else:
+            result += "if (any(hf_tracing_comparison_%s .ne. hf_tracing_temp_%s)) then\n" %(symbol.name, symbol.name)
+            result += "write(0,*) 'In module %s, subroutine %s:', 'Array %s does not match the data found in ./datatrace.'\n" %(
+                currModuleName,
+                currRoutineNode.getAttribute('name'),
+                symbol.name
+            )
+        result += "write(0,*) 'GPU version shape:'\n"
+        result += "write(0,*) shape(hf_tracing_temp_%s)\n" %(symbol.name)
+        result += "write(0,*) 'Reference version shape:'\n"
+        result += "write(0,*) shape(hf_tracing_comparison_%s)\n" %(symbol.name)
+        result += "hf_tracing_error_found = .true.\n"
+        result += "else\n"
+        result += "write(0,*) 'In subroutine %s: symbol %s matches trace of cpu version found in ', trim(hf_tracing_current_path)\n" %(currRoutineNode.getAttribute('name'), symbol.name)
+        result += "end if\n"
+        result += "close(hf_tracing_imt)\n"
+        result += "end if\n"
+        return result
+    return compareToTrace
 
 def getVectorSizePPNames(parallelRegionTemplate):
     template = getTemplate(parallelRegionTemplate)
@@ -304,7 +390,7 @@ class FortranImplementation(object):
     def processModuleEnd(self):
         pass
 
-    def parallelRegionBegin(self, parallelRegionTemplate):
+    def parallelRegionBegin(self, parallelRegionTemplate, outerBranchLevel=0):
         domains = getDomainsWithParallelRegionTemplate(parallelRegionTemplate)
         regionStr = ''
         for pos in range(len(domains)-1,-1,-1): #use inverted order (optimization of accesses for fortran storage order)
@@ -317,7 +403,7 @@ class FortranImplementation(object):
             pos = pos + 1
         return regionStr
 
-    def parallelRegionEnd(self, parallelRegionTemplate):
+    def parallelRegionEnd(self, parallelRegionTemplate, outerBranchLevel=0):
         domains = getDomainsWithParallelRegionTemplate(parallelRegionTemplate)
         pos = 0
         regionStr = ''
@@ -377,11 +463,12 @@ class TraceGeneratingFortranImplementation(FortranImplementation):
                 ) + "call writeToFile(hf_tracing_current_path, hf_tracing_temp_%s)\n" %(
                     symbol.name
                 )
-        result = getTracingSubroutineEndStatements(
+        result = getTracingStatements(
             self.currRoutineNode,
             self.currModuleName,
             [symbol for symbol in self.currentTracedSymbols],
-            writeTrace
+            writeTrace,
+            loop_name_postfix='end'
         )
         sys.stderr.write("...In subroutine %s: Symbols %s used for tracing\n" %(
                 self.currRoutineNode.getAttribute('name'),
@@ -400,14 +487,14 @@ class OpenMPFortranImplementation(FortranImplementation):
         self.currDependantSymbols = dependantSymbols
         return FortranImplementation.declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates)
 
-    def parallelRegionBegin(self, parallelRegionTemplate):
+    def parallelRegionBegin(self, parallelRegionTemplate, outerBranchLevel=0):
         if self.currDependantSymbols == None:
             raise Exception("parallel region without any dependant arrays")
         openMPLines = "!$OMP PARALLEL DO DEFAULT(Private) "
         openMPLines += "SHARED(%s)\n" %(', '.join([symbol.deviceName() for symbol in self.currDependantSymbols]))
         return openMPLines + FortranImplementation.parallelRegionBegin(self, parallelRegionTemplate)
 
-    def parallelRegionEnd(self, parallelRegionTemplate):
+    def parallelRegionEnd(self, parallelRegionTemplate, outerBranchLevel=0):
         openMPLines = "\n!$OMP END PARALLEL DO\n"
         return FortranImplementation.parallelRegionEnd(self, parallelRegionTemplate) + openMPLines
 
@@ -461,7 +548,9 @@ end subroutine
                 newDataDeclarations += "copy(%s)" %(symbol.name)
             elif (symbol.intent == "out") \
             and (routineIsKernelCaller or symbol.isToBeTransfered):
-                newDataDeclarations += "copyout(%s)" %(symbol.name)
+                #We need to be careful here: Because of branching around kernels it could easily happen that
+                #copyout data is not being written inside the data region, thus overwriting the host data with garbage.
+                newDataDeclarations += "copy(%s)" %(symbol.name)
 
             #Rules for other routines
             elif not routineIsKernelCaller \
@@ -497,7 +586,10 @@ end subroutine
     def loopPreparation(self):
         return "!$acc loop seq"
 
-    def parallelRegionBegin(self, parallelRegionTemplate):
+    def parallelRegionBegin(self, parallelRegionTemplate, outerBranchLevel=0):
+        # if appliesTo(["GPU"], parallelRegionTemplate) and outerBranchLevel != 0:
+        #     raise Exception("Cannot implement a GPU parallel region inside a branch. Please move this parallel region into its own subroutine.")
+
         vectorSizePPNames = getVectorSizePPNames(parallelRegionTemplate)
         regionStr = "!$acc kernels\n"
         domains = getDomainsWithParallelRegionTemplate(parallelRegionTemplate)
@@ -514,7 +606,7 @@ end subroutine
             pos = pos + 1
         return regionStr
 
-    def parallelRegionEnd(self, parallelRegionTemplate):
+    def parallelRegionEnd(self, parallelRegionTemplate, outerBranchLevel=0):
         additionalStatements = "\n!$acc end kernels\n"
         return FortranImplementation.parallelRegionEnd(self, parallelRegionTemplate) + additionalStatements
 
@@ -581,63 +673,33 @@ class TraceCheckingOpenACCFortranImplementation(DebugPGIOpenACCFortranImplementa
         result += tracing_declarations
         self.currentTracedSymbols = tracedSymbols
         result += "hf_tracing_error_found = .false.\n"
+        result += getTracingStatements(
+            self.currRoutineNode,
+            self.currModuleName,
+            [symbol for symbol in self.currentTracedSymbols if symbol.intent in ['in']],
+            getCompareToTraceFunc(abortSubroutineOnError=False, loop_name_postfix='start'),
+            increment_tracing_counter=False,
+            loop_name_postfix='start'
+        )
+        # if len(self.currentTracedSymbols) > 0:
+        #     result += "if (hf_tracing_error_found) then\n"
+        #     result += "stop 2\n"
+        #     result += "end if\n"
+        result += self.declarationEndPrintStatements()
         return getIteratorDeclaration(currRoutineNode, currParallelRegionTemplates, ["GPU"]) + result
 
     def subroutineEnd(self, dependantSymbols, routineIsKernelCaller):
-        def compareToTrace(currRoutineNode, currModuleName, symbol):
-            result = "call findNewFileHandle(hf_tracing_imt)\n"
-            result += "write(hf_tracing_current_path, '(A,I3.3,A)') './datatrace/%s_%s_%s_', hf_tracing_counter, '.dat'\n" %(
-                currModuleName,
-                currRoutineNode.getAttribute('name'),
-                symbol.name
-            )
-            result += "open(hf_tracing_imt, file=trim(hf_tracing_current_path), form='unformatted', status='old', action='read', iostat=hf_tracing_ierr)\n"
-            result += "if (hf_tracing_ierr .ne. 0) then\n"
-            result += "write(0,*) 'In subroutine %s: could not read reference file ', trim(hf_tracing_current_path),' for symbol %s => aborting trace checking here. Error code: ', hf_tracing_ierr\n" %(
-                currRoutineNode.getAttribute('name'),
-                symbol.name
-            )
-            result += "close(hf_tracing_imt)\n"
-            result += "hf_tracing_counter = hf_tracing_counter + 1\n"
-            result += "return\n"
-            result += "end if\n"
-            result += "read(hf_tracing_imt) hf_tracing_comparison_%s\n" %(symbol.name)
-            if 'real' in symbol.declarationPrefix:
-                result += "hf_tracing_error = sqrt(sum((hf_tracing_comparison_%s - hf_tracing_temp_%s)**2))\n" %(symbol.name, symbol.name)
-                result += "if (hf_tracing_error .gt. 1E-8) then\n"
-                result += "write(0,*) 'In module %s, subroutine %s:', 'Real Array %s does not match the data found in ./datatrace.', 'RMS Error:', hf_tracing_error, 'Aborting program.'\n" %(
-                    currModuleName,
-                    currRoutineNode.getAttribute('name'),
-                    symbol.name
-                )
-            else:
-                result += "if (any(hf_tracing_comparison_%s .ne. hf_tracing_temp_%s)) then\n" %(symbol.name, symbol.name)
-                result += "write(0,*) 'In module %s, subroutine %s:', 'Array %s does not match the data found in ./datatrace.'\n" %(
-                    currModuleName,
-                    currRoutineNode.getAttribute('name'),
-                    symbol.name
-                )
-            result += "write(0,*) 'GPU version shape:'\n"
-            result += "write(0,*) shape(hf_tracing_temp_%s)\n" %(symbol.name)
-            result += "write(0,*) 'Reference version shape:'\n"
-            result += "write(0,*) shape(hf_tracing_comparison_%s)\n" %(symbol.name)
-            result += "hf_tracing_error_found = .true.\n"
-            result += "else\n"
-            result += "write(0,*) 'In subroutine %s: symbol %s matches trace of cpu version found in ', trim(hf_tracing_current_path)\n" %(currRoutineNode.getAttribute('name'), symbol.name)
-            result += "end if\n"
-            result += "close(hf_tracing_imt)\n"
-            return result
-
-        result = getTracingSubroutineEndStatements(
+        result = getTracingStatements(
             self.currRoutineNode,
             self.currModuleName,
-            self.currentTracedSymbols,
-            compareToTrace
+            [symbol for symbol in self.currentTracedSymbols if symbol.intent in ['out', 'inout', '', None]],
+            getCompareToTraceFunc(abortSubroutineOnError=True, loop_name_postfix='end'),
+            loop_name_postfix='end'
         )
-        if len(self.currentTracedSymbols) > 0:
-            result += "if (hf_tracing_error_found) then\n"
-            result += "stop 2\n"
-            result += "end if\n"
+        # if len(self.currentTracedSymbols) > 0:
+        #     result += "if (hf_tracing_error_found) then\n"
+        #     result += "stop 2\n"
+        #     result += "end if\n"
         self.currRoutineNode = None
         self.currentTracedSymbols = []
         return DebugPGIOpenACCFortranImplementation.subroutineEnd(self, dependantSymbols, routineIsKernelCaller) + result
@@ -895,14 +957,17 @@ Symbols vs transferHere attributes:\n%s" %(str([(symbol.name, symbol.transferHer
         result += ") then\nreturn\nend if\n"
         return result
 
-    def parallelRegionBegin(self, parallelRegionTemplate):
+    def parallelRegionBegin(self, parallelRegionTemplate, outerBranchLevel=0):
+        # if appliesTo(["GPU"], parallelRegionTemplate) and outerBranchLevel != 0:
+        #     raise Exception("Cannot implement a GPU parallel region inside a branch. Please move this parallel region into its own subroutine.")
+
         self.currParallelRegionTemplateNode = parallelRegionTemplate
         domains = getDomainsWithParallelRegionTemplate(parallelRegionTemplate)
         regionStr = self.iteratorDefinitionBeforeParallelRegion(domains)
         regionStr += self.safetyOutsideRegion(domains)
         return regionStr
 
-    def parallelRegionEnd(self, parallelRegionTemplate):
+    def parallelRegionEnd(self, parallelRegionTemplate, outerBranchLevel=0):
         self.currParallelRegionTemplateNode = None
         return ""
 
@@ -997,7 +1062,7 @@ class DebugEmulatedCUDAFortranImplementation(DebugCUDAFortranImplementation):
         self.currDependantSymbols = dependantSymbols
         return DebugCUDAFortranImplementation.declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates)
 
-    def parallelRegionBegin(self, parallelRegionTemplate):
+    def parallelRegionBegin(self, parallelRegionTemplate, outerBranchLevel=0):
         domains = getDomainsWithParallelRegionTemplate(parallelRegionTemplate)
         regionStr = self.iteratorDefinitionBeforeParallelRegion(domains)
         routineName = self.currRoutineNode.getAttribute('name')

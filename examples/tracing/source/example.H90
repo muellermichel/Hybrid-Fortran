@@ -302,11 +302,61 @@ contains
   GET_ADD_ODD_SHAPE_IMPLEMENTATION(real, 8)
   GET_ADD_ODD_SHAPE_IMPLEMENTATION(integer, 4)
   GET_ADD_ODD_SHAPE_IMPLEMENTATION(integer, 8)
+
+  subroutine in_out_tester()
+    implicit none
+    real(8), dimension(DOM(NX, NY, NZ)) :: a
+    integer :: x, y, z
+
+    a(:,:,:) = 1.0d0
+    call in_out_wrapper(a)
+    do y=1,NY
+    do x=1,NX
+    do z=1,NZ
+      if (a(AT(x,y,z)) .NE. 2.0d0) then
+        write(0,*) "test failed inout"
+        write(0,*) "fails at", x, y, z
+        stop 2
+      end if
+    end do
+    end do
+    end do
+    write(0,*) "test ok inout"
+  end subroutine
+
+  subroutine in_out_wrapper(a)
+    use helper_functions, only: writeToFile
+    implicit none
+    real(8), dimension(NZ), intent(inout) :: a
+    @domainDependant{domName(x,y,z), domSize(NX,NY,NZ), attribute(autoDom)}
+    a
+    @end domainDependant
+    @parallelRegion{appliesTo(CPU), domName(x,y), domSize(NX, NY)}
+    call in_out_kernel(a)
+    @end parallelRegion
+  end subroutine
+
+  subroutine in_out_kernel(a)
+    use helper_functions, only: writeToFile
+    implicit none
+    real(8), dimension(NZ), intent(inout) :: a
+    integer :: z
+    @domainDependant{domName(x,y,z), domSize(NX,NY,NZ), attribute(autoDom)}
+    a
+    @end domainDependant
+    @parallelRegion{appliesTo(GPU), domName(x,y), domSize(NX, NY)}
+    do z=1,NZ
+      a(z) = a(z) + 1.0d0
+    end do
+    @end parallelRegion
+  end subroutine
+
 end module example
 
 program main
   use example
 
+  call in_out_tester()
   call GET_FUNCTION_NAME(tester, real, 4)
   call GET_FUNCTION_NAME(tester, real, 8)
   call GET_FUNCTION_NAME(tester, integer, 4)

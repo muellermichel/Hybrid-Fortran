@@ -1,0 +1,159 @@
+! Copyright (C) 2014 Michel Müller, Tokyo Institute of Technology
+
+! This file is part of Hybrid Fortran.
+
+! Hybrid Fortran is free software: you can redistribute it and/or modify
+! it under the terms of the GNU Lesser General Public License as published by
+! the Free Software Foundation, either version 3 of the License, or
+! (at your option) any later version.
+
+! Hybrid Fortran is distributed in the hope that it will be useful,
+! but WITHOUT ANY WARRANTY; without even the implied warranty of
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+! GNU Lesser General Public License for more details.
+
+! You should have received a copy of the GNU Lesser General Public License
+! along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
+
+module example
+contains
+  subroutine wrapper_inline_kernels(a, b, c, d, calc_switch)
+    logical, intent(in) :: calc_switch
+    real, dimension(NZ), intent(in) :: a, b
+    real, dimension(NZ), intent(out) :: c, d
+
+    @domainDependant{domName(x,y,z), domSize(NX,NY,NZ), domPP(DOM), accPP(AT)}
+    a, b, c, d
+    @end domainDependant
+
+    @parallelRegion{appliesTo(CPU), domName(x,y), domSize(NX, NY)}
+    call inline_kernels(a, b, c, d, calc_switch)
+    @end parallelRegion
+  end subroutine
+
+  ! ############################################
+  ! With the OpenACC backend we can also combine
+  ! multiple kernels in one subroutine, so it is
+  ! not absolutely necessary to separate them like
+  ! in the first example
+  ! ############################################
+  subroutine inline_kernels(a, b, c, d, calc_switch)
+    logical, intent(in) :: calc_switch
+    real, dimension(NZ), intent(in) :: a, b
+    real, dimension(NZ), intent(out) :: c, d
+
+    @domainDependant{domName(x,y,z), domSize(NX,NY,NZ), domPP(DOM), accPP(AT)}
+    a, b, c, d
+    @end domainDependant
+
+    if (calc_switch) then
+    @parallelRegion{appliesTo(GPU), domName(x,y), domSize(NX, NY)}
+    do z=1,NZ
+      c(z) = a(z) + b(z)
+    end do
+    @end parallelRegion
+    else
+    @parallelRegion{appliesTo(GPU), domName(x,y), domSize(NX, NY)}
+    do z=1,NZ
+      d(z) = a(z) * b(z)
+    end do
+    @end parallelRegion
+    end if
+  end subroutine
+end module example
+
+program main
+  use example
+  real, dimension(DOM(NX, NY, NZ)) :: a, b, c, d
+  integer :: x, y, z
+  logical test
+
+  a(:,:,:) = 1.0d0
+  b(:,:,:) = 2.0d0
+  c(:,:,:) = 0.0d0
+  d(:,:,:) = 0.0d0
+  test = .TRUE.
+
+  call wrapper_inline_kernels(a, b, c, d, .true.)
+  write(6,*) "calculation for c complete"
+
+  do y=1,NY
+  do x=1,NX
+  do z=1,NZ
+    if (test .EQ. .TRUE. .AND. c(AT(x,y,z)) .NE. 3.0d0) then
+      write(6,*) "c@", x, y, z, ": ", c(AT(x,y,z))
+      test = .FALSE.
+    end if
+  end do
+  end do
+  end do
+
+  if (test .EQ. .TRUE.) then
+    write(6,*) "c ok 1"
+  else
+    write(6,*) "c failed 1"
+    stop 2
+  end if
+
+  do y=1,NY
+  do x=1,NX
+  do z=1,NZ
+    if (test .EQ. .TRUE. .AND. d(AT(x,y,z)) .NE. 0.0d0) then
+      write(6,*) "d@", x, y, z, ": ", d(AT(x,y,z))
+      test = .FALSE.
+    end if
+  end do
+  end do
+  end do
+
+  if (test .EQ. .TRUE.) then
+    write(6,*) "d ok 1"
+  else
+    write(6,*) "d failed 1"
+    stop 2
+  end if
+
+  c(:,:,:) = 0.0d0
+  d(:,:,:) = 0.0d0
+
+  call wrapper_inline_kernels(a, b, c, d, .false.)
+  write(6,*) "calculation for d complete"
+
+  do y=1,NY
+  do x=1,NX
+  do z=1,NZ
+  if (test .EQ. .TRUE. .AND. d(AT(x,y,z)) .NE. 2.0d0) then
+    write(6,*) "d@", x, y, z, ": ", d(AT(x,y,z))
+    test = .FALSE.
+  end if
+  end do
+  end do
+  end do
+
+  if (test .EQ. .TRUE.) then
+    write(6,*) "d ok 2"
+  else
+    write(6,*) "d failed 2"
+    stop 2
+  end if
+
+  do y=1,NY
+  do x=1,NX
+  do z=1,NZ
+    if (test .EQ. .TRUE. .AND. c(AT(x,y,z)) .NE. 0.0d0) then
+      write(6,*) "c@", x, y, z, ": ", c(AT(x,y,z))
+      test = .FALSE.
+    end if
+  end do
+  end do
+  end do
+
+  if (test .EQ. .TRUE.) then
+    write(6,*) "c ok 2"
+  else
+    write(6,*) "c failed 2"
+    stop 2
+  end if
+
+  stop
+end program main

@@ -51,22 +51,22 @@ ifdef GPU_BUILD
 PFLAGS= -DGPU
 endif
 
-SRC_FORT=$(wildcard ./*.f90)
 SRC_PP=$(wildcard ./*.P90)
+SRC_FORT=$(wildcard ./*.f90)
 SRC_FORT_FIXED=$(wildcard ./*.f)
 SRC_PP_FIXED=$(wildcard ./*.F)
-SRC=${SRC_FORT} ${SRC_PP} ${SRC_FORT_FIXED} ${SRC_PP_FIXED}
 
 EXECUTABLES_POST=$(subst ",,${EXECUTABLES})
 EXECUTABLES_OUT=$(patsubst %,%.out,${EXECUTABLES_POST})
 EXECUTABLES_O=$(patsubst %,%.o,${EXECUTABLES_POST})
 
-OBJ_PRE1=$(SRC:.f90=.o)
-OBJ_PRE2=$(OBJ_PRE1:.P90=.o)
-OBJ_PRE3=$(OBJ_PRE2:.f=.o)
-OBJ_PRE4=$(OBJ_PRE3:.F=.o)
-OBJ_PRE5=$(patsubst ./%,%,${OBJ_PRE4})
-OBJ=$(filter-out $(EXECUTABLES_O),$(OBJ_PRE5))
+OBJ_PP=$(SRC_PP:.P90=.o)
+OBJ_FORT90=$(filter-out $(OBJ_PP),$(SRC_FORT:.f90=.o))
+OBJ_FORT_FIXED=$(SRC_FORT_FIXED:.f=.o)
+OBJ_PP_FIXED=$(SRC_PP_FIXED:.F=.o)
+OBJ_PRE1=${OBJ_PP} ${OBJ_FORT90} ${OBJ_FORT_FIXED} ${OBJ_PP_FIXED}
+OBJ_PRE2=$(patsubst ./%,%,${OBJ_PRE1})
+OBJ=$(filter-out $(EXECUTABLES_O),$(OBJ_PRE2))
 
 USER_LIB=lib${HYBRID_LIBRARY_FILENAME_POSTFIX}.a
 

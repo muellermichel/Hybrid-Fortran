@@ -52,26 +52,30 @@ def getLoopOverSymbolValues(symbol, loopName, innerLoopImplementationFunc):
         result += " hf_tracing_outer_%s\n" %(loopName)
     return result
 
-def getTracingDeclarationStatements(currRoutineNode, dependantSymbols, patterns, additionalSymbolPrefixes=['hf_tracing_temp_']):
+def getTracingDeclarationStatements(currRoutineNode, dependantSymbols, patterns, useReorderingByAdditionalSymbolPrefixes={'hf_tracing_temp_':False}):
     tracing_symbols = []
     if len(dependantSymbols) == 0 or currRoutineNode.getAttribute('parallelRegionPosition') == 'outside':
         return "", tracing_symbols
 
     result = "integer(8), save :: hf_tracing_counter = 0\n"
     result += "integer(4) :: hf_error_printed_counter\n"
+    result += "integer(4) :: hf_tracing_memcpy_error\n"
     result += "character(len=256) :: hf_tracing_current_path\n"
     max_num_of_domains_for_symbols = 0
     for symbol in dependantSymbols:
-        if len(symbol.domains) == 0:
+        if len(symbol.domains) == 0 \
+        or 'allocatable' in symbol.declarationPrefix \
+        or symbol.intent not in ['in', 'inout', 'out'] \
+        or symbol.intent in ['out', 'inout'] and symbol.isOnDevice: #there is some error when we try to cudamemcpy in this case
             continue
         if len(symbol.domains) > max_num_of_domains_for_symbols:
             max_num_of_domains_for_symbols = len(symbol.domains)
-        for prefix in additionalSymbolPrefixes:
+        for prefix in useReorderingByAdditionalSymbolPrefixes.keys():
             current_declaration_line = symbol.getDeclarationLineForAutomaticSymbol(
                 purgeList=['intent', 'public', 'allocatable'],
                 patterns=patterns,
                 name_prefix=prefix,
-                use_domain_reordering=False,
+                use_domain_reordering=useReorderingByAdditionalSymbolPrefixes[prefix],
                 skip_on_missing_declaration=True
             )
             if current_declaration_line == "":
@@ -90,13 +94,14 @@ def getTracingDeclarationStatements(currRoutineNode, dependantSymbols, patterns,
 
 def getTracingStatements(currRoutineNode, currModuleName, tracingSymbols, traceHandlingFunc, increment_tracing_counter=True, loop_name_postfix=''):
     def innerTempArraySetterLoopFunc(symbol):
-        return "hf_tracing_temp_%s = %s\n" %(
+        return "hf_tracing_temp_%s = %s%s\n" %(
             symbol.accessRepresentation(
                 parallelIterators=[],
                 offsets=["hf_tracing_enum%i" %(domainNum) for domainNum in range(1,len(symbol.domains)+1)],
                 parallelRegionNode=None,
                 use_domain_reordering=False
             ),
+            "hf_tracing_copy_" if symbol.isOnDevice else "",
             symbol.accessRepresentation(
                 parallelIterators=[],
                 offsets=["hf_tracing_enum%i" %(domainNum) for domainNum in range(1,len(symbol.domains)+1)],
@@ -119,13 +124,15 @@ def getTracingStatements(currRoutineNode, currModuleName, tracingSymbols, traceH
                     use_domain_reordering=False
                 )
             )
+            if symbol.isOnDevice:
+                result += "hf_tracing_memcpy_error = cudaMemcpy(hf_tracing_copy_%s, %s, %s)\n" %(symbol.name, symbol.name, symbol.totalArrayLength())
             result += getLoopOverSymbolValues(symbol, "%s_temp_%s" %(symbol.name, loop_name_postfix), innerTempArraySetterLoopFunc)
             result += traceHandlingFunc(currRoutineNode, currModuleName, symbol)
             if 'allocatable' in symbol.declarationPrefix:
                 result += "end if\n"
         result += "end if\n"
-        if increment_tracing_counter:
-            result += "hf_tracing_counter = hf_tracing_counter + 1\n"
+    if increment_tracing_counter:
+        result += "hf_tracing_counter = hf_tracing_counter + 1\n"
     return result
 
 def getCompareToTraceFunc(abortSubroutineOnError=True, loop_name_postfix=''):
@@ -468,6 +475,7 @@ class TraceGeneratingFortranImplementation(FortranImplementation):
             self.currModuleName,
             [symbol for symbol in self.currentTracedSymbols],
             writeTrace,
+            increment_tracing_counter=len(self.currentTracedSymbols) > 0,
             loop_name_postfix='end'
         )
         sys.stderr.write("...In subroutine %s: Symbols %s used for tracing\n" %(
@@ -505,12 +513,15 @@ class OpenMPFortranImplementation(FortranImplementation):
 class PGIOpenACCFortranImplementation(FortranImplementation):
     onDevice = True
     currRoutineHasDataDeclarations = False
-    presentDeclaration="present"
+    presentDeclaration="deviceptr"
+    createDeclaration="create"
 
     def __init__(self, optionFlags):
+        FortranImplementation.__init__(self, optionFlags)
         self.currRoutineNode = None
         self.currRoutineHasDataDeclarations = False
-        self.presentDeclaration="present"
+        self.presentDeclaration="deviceptr"
+        self.createDeclaration="create"
 
     def filePreparation(self, filename):
         additionalStatements = '''
@@ -520,6 +531,101 @@ use cudafor
 end subroutine
         ''' %(os.path.basename(filename).split('.')[0])
         return FortranImplementation.filePreparation(self, filename) + additionalStatements
+
+    def adjustDeclarationForDevice(self, line, patterns, dependantSymbols, routineIsKernelCaller, parallelRegionPosition):
+        if 'DEBUG_PRINT' in self.optionFlags:
+            sys.stderr.write("adjusting declaration for device for symbols %s" %(str(dependantSymbols)))
+
+        if not dependantSymbols or len(dependantSymbols) == 0:
+            raise Exception("no symbols to adjust")
+
+        adjustedLine = line
+        adjustedLine = adjustedLine.rstrip()
+
+        declarationDirectivesWithoutIntent, declarationDirectives,  symbolDeclarationStr = purgeFromDeclarationSettings( \
+            line, \
+            dependantSymbols, \
+            patterns, \
+            withAndWithoutIntent=True \
+        )
+
+        #analyse state of symbols - already declared as on device or not?
+        alreadyOnDevice = "undefined"
+        if parallelRegionPosition == "within":
+            alreadyOnDevice = "yes"
+        else:
+            for symbol in dependantSymbols:
+                if not symbol.domains or len(symbol.domains) == 0:
+                    continue
+                elif symbol.isPresent and alreadyOnDevice == "undefined":
+                    alreadyOnDevice = "yes"
+                elif not symbol.isPresent and alreadyOnDevice == "undefined":
+                    alreadyOnDevice = "no"
+                elif (symbol.isPresent and alreadyOnDevice == "no") or (not symbol.isPresent and alreadyOnDevice == "yes"):
+                    raise Exception("Declaration line contains a mix of device present, non-device-present arrays. \
+    Symbols vs present attributes:\n%s" %(str([(symbol.name, symbol.isPresent) for symbol in dependantSymbols])) \
+                    )
+        copyHere = "undefined"
+        for symbol in dependantSymbols:
+            if not symbol.domains or len(symbol.domains) == 0:
+                continue
+            elif symbol.isToBeTransfered and copyHere == "undefined":
+                copyHere = "yes"
+            elif not symbol.isToBeTransfered and copyHere == "undefined":
+                copyHere = "no"
+            elif (symbol.isToBeTransfered and copyHere == "no") or (not symbol.isToBeTransfered and copyHere == "yes"):
+                raise Exception("Declaration line contains a mix of transferHere / non transferHere arrays. \
+Symbols vs transferHere attributes:\n%s" %(str([(symbol.name, symbol.transferHere) for symbol in dependantSymbols])) \
+                )
+        if copyHere == "yes" and alreadyOnDevice == "yes":
+            raise Exception("transferHere attribute cannot be used in a kernel subroutine or together with the present attribute.")
+
+        #analyse the intent of the symbols. Since one line can only have one intent declaration, we can simply assume the intent of the
+        #first symbol
+        intent = dependantSymbols[0].intent
+        #note: intent == None or "" -> is local array
+
+        declarationType = dependantSymbols[0].declarationType()
+        #packed symbols -> leave them alone
+        if dependantSymbols[0].isCompacted:
+            return adjustedLine + "\n"
+
+        #module scalars in kernels
+        if parallelRegionPosition == "within" \
+        and (declarationType == DeclarationType.IMPORTED_SCALAR or declarationType == DeclarationType.MODULE_SCALAR):
+            pass
+            # adjustedLine = declarationDirectives + " ,intent(in), value ::" + symbolDeclarationStr
+
+        #local arrays in kernels
+        elif parallelRegionPosition == "within" \
+        and declarationType == DeclarationType.LOCAL_ARRAY:
+            pass
+            # adjustedLine = declarationDirectives + ",intent(out), device ::" + symbolDeclarationStr
+
+        #passed in scalars in kernels and inside kernels
+        elif parallelRegionPosition in ["within", "outside"] \
+        and len(dependantSymbols[0].domains) == 0 \
+        and intent != "out":
+            pass
+            #handle scalars (passed by value)
+            # adjustedLine = declarationDirectives + " ,value ::" + symbolDeclarationStr
+            # for dependantSymbol in dependantSymbols:
+            #     dependantSymbol.isOnDevice = True
+
+        #arrays outside of kernels
+        elif len(dependantSymbols[0].domains) > 0:
+            if alreadyOnDevice == "yes" or not intent:
+                # we don't need copies of the dependants on cpu
+                adjustedLine = declarationDirectives + " ,device ::" + symbolDeclarationStr
+                for dependantSymbol in dependantSymbols:
+                    dependantSymbol.isOnDevice = True
+            # elif copyHere == "yes" or routineIsKernelCaller:
+            #     for dependantSymbol in dependantSymbols:
+            #         dependantSymbol.isUsingDevicePostfix = True
+            #         dependantSymbol.isOnDevice = True
+            #         adjustedLine = str(adjustedLine) + "\n" + str(declarationDirectivesWithoutIntent) + " ,device :: " + str(dependantSymbol)
+
+        return adjustedLine + "\n"
 
     def declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates):
         self.currRoutineNode = currRoutineNode
@@ -531,6 +637,7 @@ end subroutine
         commaRequired = False
         for index, symbol in enumerate(dependantSymbols):
             #Rules that lead to a symbol not being touched by directives
+            symbol.isOnDevice = False
             if not symbol.domains or len(symbol.domains) == 0:
                 continue
 
@@ -538,6 +645,7 @@ end subroutine
             newDataDeclarations = ""
             if symbol.isPresent:
                 newDataDeclarations += "%s(%s)" %(self.presentDeclaration, symbol.name)
+                symbol.isOnDevice = True
 
             #Rules for kernel wrapper routines and symbols declared to be transfered
             elif (symbol.intent == "in") \
@@ -560,9 +668,11 @@ end subroutine
             #Rules for kernels and kernel callers
             elif currRoutineNode.getAttribute('parallelRegionPosition') == 'within' \
             and (symbol.intent in ["in", "inout", "out"] or not symbol.sourceModule in [None,""] or symbol.isHostSymbol):
-                newDataDeclarations += "present(%s)" %(symbol.name)
+                newDataDeclarations += "%s(%s)" %(self.presentDeclaration, symbol.name)
+                symbol.isOnDevice = True
             else:
-                newDataDeclarations += "create(%s)" %(symbol.name)
+                newDataDeclarations += "%s(%s)" %(self.createDeclaration, symbol.name)
+                symbol.isOnDevice = True
 
             #Wrapping up
             if commaRequired == True:
@@ -642,13 +752,12 @@ class TraceCheckingOpenACCFortranImplementation(DebugPGIOpenACCFortranImplementa
     currentTracedSymbols = []
 
     def __init__(self, optionFlags):
-        self.patterns = H90RegExPatterns()
-        self.presentDeclaration="copyout"
         DebugPGIOpenACCFortranImplementation.__init__(self, optionFlags)
+        self.patterns = H90RegExPatterns()
         self.currentTracedSymbols = []
 
     def additionalIncludes(self):
-        return "use helper_functions\n"
+        return "use helper_functions\nuse cudafor\n"
 
     def processModuleBegin(self, moduleName):
         self.currModuleName = moduleName
@@ -661,16 +770,22 @@ class TraceCheckingOpenACCFortranImplementation(DebugPGIOpenACCFortranImplementa
         return DebugPGIOpenACCFortranImplementation.subroutinePrefix(self, routineNode)
 
     def declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates):
-        result = "integer(4) :: hf_tracing_imt, hf_tracing_ierr\n"
+        # standardPresentDeclaration = self.presentDeclaration
+        # if self.currRoutineNode.getAttribute('parallelRegionPosition') != 'inside':
+        #     self.presentDeclaration = 'deviceptr'
+        openACCDeclarations = DebugPGIOpenACCFortranImplementation.declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates)
+        # self.presentDeclaration = standardPresentDeclaration
+        result = "integer(4) :: hf_tracing_imt, hf_tracing_ierr, hf_memcpy_stat\n"
         result += "real(8) :: hf_tracing_error\n"
         result += "logical :: hf_tracing_error_found\n"
         tracing_declarations, tracedSymbols = getTracingDeclarationStatements(
             currRoutineNode,
             dependantSymbols,
             self.patterns,
-            additionalSymbolPrefixes=['hf_tracing_temp_', 'hf_tracing_comparison_']
+            useReorderingByAdditionalSymbolPrefixes={'hf_tracing_temp_':False, 'hf_tracing_comparison_':False, 'hf_tracing_copy_':True}
         )
         result += tracing_declarations
+        result += openACCDeclarations
         self.currentTracedSymbols = tracedSymbols
         result += "hf_tracing_error_found = .false.\n"
         result += getTracingStatements(
@@ -685,7 +800,7 @@ class TraceCheckingOpenACCFortranImplementation(DebugPGIOpenACCFortranImplementa
         #     result += "if (hf_tracing_error_found) then\n"
         #     result += "stop 2\n"
         #     result += "end if\n"
-        result += self.declarationEndPrintStatements()
+
         return getIteratorDeclaration(currRoutineNode, currParallelRegionTemplates, ["GPU"]) + result
 
     def subroutineEnd(self, dependantSymbols, routineIsKernelCaller):
@@ -694,6 +809,7 @@ class TraceCheckingOpenACCFortranImplementation(DebugPGIOpenACCFortranImplementa
             self.currModuleName,
             [symbol for symbol in self.currentTracedSymbols if symbol.intent in ['out', 'inout', '', None]],
             getCompareToTraceFunc(abortSubroutineOnError=True, loop_name_postfix='end'),
+            increment_tracing_counter=len(self.currentTracedSymbols) > 0,
             loop_name_postfix='end'
         )
         # if len(self.currentTracedSymbols) > 0:

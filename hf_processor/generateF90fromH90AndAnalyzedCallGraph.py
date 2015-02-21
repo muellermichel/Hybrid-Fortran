@@ -52,6 +52,8 @@ parser.add_option("--optionFlags", dest="optionFlags",
 (options, args) = parser.parse_args()
 
 optionFlags = options.optionFlags.split(',') if options.optionFlags != None else []
+if options.debug:
+  optionFlags.append('DEBUG_PRINT')
 
 if (not options.sourceFile):
     sys.stderr.write("sourceH90File option is mandatory. Use '--help' for informations on how to use this module\n")

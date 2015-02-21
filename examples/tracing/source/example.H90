@@ -351,12 +351,63 @@ contains
     @end parallelRegion
   end subroutine
 
+  subroutine tight_tester()
+    implicit none
+    real(8), dimension(DOM(NX, NY, NZ)) :: a
+    real(8), dimension(DOM(NX, NY, NZ)) :: b
+    integer :: x, y, z
+
+    a(:,:,:) = 1.0d0
+    b(:,:,:) = 2.0d0
+    call tight_wrapper(a,b)
+    do y=1,NY
+    do x=1,NX
+    do z=1,NZ
+      if (a(AT(x,y,z)) .NE. 3.0d0) then
+        write(0,*) "test failed tight"
+        write(0,*) "fails at", x, y, z
+        stop 2
+      end if
+    end do
+    end do
+    end do
+    write(0,*) "test ok tight"
+  end subroutine
+
+  subroutine tight_wrapper(a,b)
+    use helper_functions, only: writeToFile
+    implicit none
+    real(8), dimension(NZ), intent(inout) :: a
+    real(8), dimension(NZ), intent(in) :: b
+    @domainDependant{domName(x,y,z), domSize(NX,NY,NZ), attribute(autoDom)}
+    a, b
+    @end domainDependant
+    call tight_kernel(a,b)
+  end subroutine
+
+  subroutine tight_kernel(a,b)
+    use helper_functions, only: writeToFile
+    implicit none
+    real(8), dimension(NZ), intent(inout) :: a
+    real(8), dimension(NZ), intent(in) :: b
+    integer :: z
+    @domainDependant{domName(x,y,z), domSize(NX,NY,NZ), attribute(autoDom)}
+    a, b
+    @end domainDependant
+    @parallelRegion{domName(x,y), domSize(NX, NY)}
+    do z=1,NZ
+      a(z) = a(z) + b(z)
+    end do
+    @end parallelRegion
+  end subroutine
+
 end module example
 
 program main
   use example
 
   call in_out_tester()
+  call tight_tester()
   call GET_FUNCTION_NAME(tester, real, 4)
   call GET_FUNCTION_NAME(tester, real, 8)
   call GET_FUNCTION_NAME(tester, integer, 4)

@@ -46,7 +46,7 @@ program main
         write(6,*) "test failed, i=", i, "j=", j, "b=", b(i,j)
         deallocate(a)
         deallocate(b)
-        stop 1
+        stop 2
       end if
     end do
   end do

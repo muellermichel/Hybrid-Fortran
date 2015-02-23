@@ -217,6 +217,7 @@ program main
     write(6,*) "test failed"
     write(6,*) "First Error in C: ", errorValC, "@x=", firstErrorCx, ",y=", firstErrorCy, ",z=", firstErrorCz
     write(6,*) "First Error in D: ", errorValD, "@x=", firstErrorDx, ",y=", firstErrorDy, ",z=", firstErrorDz
+    stop 2
   end if
 
   stop

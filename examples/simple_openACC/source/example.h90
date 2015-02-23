@@ -169,6 +169,7 @@ program main
   else
     write(6,*) "test failed"
     write(6,*) "fails at", fail_x, fail_y, fail_z, "C:", c(AT(fail_x,fail_y,fail_z)), "D:", d(AT(fail_x,fail_y,fail_z))
+    stop 2
   end if
 
   stop

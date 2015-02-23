@@ -236,7 +236,7 @@ program main
   	error = accuracy(f,kappa,time,dx,dy,dz);
 	write(0,*) "Root Mean Square Error: ", error
 	if (error > 1E-04) then
-		stop 1
+		stop 2
 	end if
 	deallocate(f)
   	deallocate(fn)

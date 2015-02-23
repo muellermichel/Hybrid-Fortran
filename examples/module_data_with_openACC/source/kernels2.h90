@@ -21,7 +21,8 @@ contains
     use my_module, only: a, b, c, d
     implicit none
 
-    @domainDependant{} !$$$ missing module data here -> this is also the problem in diagnose
+    @domainDependant{attribute(autoDom,present)}
+    a, b, c, d
     @end domainDependant
 
     call add2(a, b, c)

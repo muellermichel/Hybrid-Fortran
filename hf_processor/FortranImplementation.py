@@ -513,14 +513,12 @@ class OpenMPFortranImplementation(FortranImplementation):
 class PGIOpenACCFortranImplementation(FortranImplementation):
     onDevice = True
     currRoutineHasDataDeclarations = False
-    presentDeclaration="deviceptr"
     createDeclaration="create"
 
     def __init__(self, optionFlags):
         FortranImplementation.__init__(self, optionFlags)
         self.currRoutineNode = None
         self.currRoutineHasDataDeclarations = False
-        self.presentDeclaration="deviceptr"
         self.createDeclaration="create"
 
     def filePreparation(self, filename):
@@ -628,6 +626,7 @@ Symbols vs transferHere attributes:\n%s" %(str([(symbol.name, symbol.transferHer
         return adjustedLine + "\n"
 
     def declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates):
+        presentDeclaration = "present" if currRoutineNode.getAttribute("parallelRegionPosition") == 'inside' else "deviceptr"
         self.currRoutineNode = currRoutineNode
         result = ""
         result += getIteratorDeclaration(currRoutineNode, currParallelRegionTemplates, ["GPU"])
@@ -644,7 +643,7 @@ Symbols vs transferHere attributes:\n%s" %(str([(symbol.name, symbol.transferHer
             #Rules for symbols that are declared present
             newDataDeclarations = ""
             if symbol.isPresent:
-                newDataDeclarations += "%s(%s)" %(self.presentDeclaration, symbol.name)
+                newDataDeclarations += "%s(%s)" %(presentDeclaration, symbol.name)
                 symbol.isOnDevice = True
 
             #Rules for kernel wrapper routines and symbols declared to be transfered
@@ -668,7 +667,7 @@ Symbols vs transferHere attributes:\n%s" %(str([(symbol.name, symbol.transferHer
             #Rules for kernels and kernel callers
             elif currRoutineNode.getAttribute('parallelRegionPosition') == 'within' \
             and (symbol.intent in ["in", "inout", "out"] or not symbol.sourceModule in [None,""] or symbol.isHostSymbol):
-                newDataDeclarations += "%s(%s)" %(self.presentDeclaration, symbol.name)
+                newDataDeclarations += "%s(%s)" %(presentDeclaration, symbol.name)
                 symbol.isOnDevice = True
             else:
                 newDataDeclarations += "%s(%s)" %(self.createDeclaration, symbol.name)
@@ -770,11 +769,7 @@ class TraceCheckingOpenACCFortranImplementation(DebugPGIOpenACCFortranImplementa
         return DebugPGIOpenACCFortranImplementation.subroutinePrefix(self, routineNode)
 
     def declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates):
-        # standardPresentDeclaration = self.presentDeclaration
-        # if self.currRoutineNode.getAttribute('parallelRegionPosition') != 'inside':
-        #     self.presentDeclaration = 'deviceptr'
         openACCDeclarations = DebugPGIOpenACCFortranImplementation.declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates)
-        # self.presentDeclaration = standardPresentDeclaration
         result = "integer(4) :: hf_tracing_imt, hf_tracing_ierr, hf_memcpy_stat\n"
         result += "real(8) :: hf_tracing_error\n"
         result += "logical :: hf_tracing_error_found\n"

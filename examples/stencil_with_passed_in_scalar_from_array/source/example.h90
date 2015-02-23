@@ -58,7 +58,7 @@ program main
         deallocate(a)
         deallocate(b)
         deallocate(c)
-        stop 1
+        stop 2
       end if
     end do
   end do

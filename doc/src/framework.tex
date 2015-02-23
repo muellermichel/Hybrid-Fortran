@@ -191,6 +191,12 @@ In \textbf{Hybrid Fortran} terms then, a scalar is a domain dependant without do
                 Allows multiple & Yes & Yes & Yes & Yes & No & No & No \\
                 parallel regions & & & & & & & \\
                 per subroutine & & & & & & & \\
+                \hline
+                Module scalars & Yes & Yes & Yes & Yes & Yes\footnoteremember{scalar-cuda}{Requires the scalar to be specified using an empty \verb|@domainDependant| directive} & Yes\footnoterecall{scalar-cuda} & Yes\footnoterecall{scalar-cuda} \\
+                in device code & & & & & & \\
+                \hline
+                Module arrays & Yes & Yes & Yes & No & No & No & \\
+                in device code & & & & & & & \\
                 \hline \hline
         \end{tabular}
         \caption{Backend Implementations in Hybrid Fortran}

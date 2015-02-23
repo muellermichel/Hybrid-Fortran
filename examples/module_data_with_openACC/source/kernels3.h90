@@ -1,0 +1,81 @@
+! Copyright (C) 2014 Michel Müller, Tokyo Institute of Technology
+
+! This file is part of Hybrid Fortran.
+
+! Hybrid Fortran is free software: you can redistribute it and/or modify
+! it under the terms of the GNU Lesser General Public License as published by
+! the Free Software Foundation, either version 3 of the License, or
+! (at your option) any later version.
+
+! Hybrid Fortran is distributed in the hope that it will be useful,
+! but WITHOUT ANY WARRANTY; without even the implied warranty of
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+! GNU Lesser General Public License for more details.
+
+! You should have received a copy of the GNU Lesser General Public License
+! along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.'
+
+module kernels3
+contains
+  subroutine outer_wrapper3()
+    use my_module, only: a, b, c, d
+    implicit none
+
+    @domainDependant{attribute(autoDom,transferHere)}
+    a, b, c, d
+    @end domainDependant
+
+    call wrapper3(a, b, c, d)
+  end subroutine
+
+  subroutine wrapper3(a, b, c, d)
+    implicit none
+    real, dimension(NX,NY,NZ), intent(in) :: a, b
+    real, dimension(NX,NY,NZ), intent(out) :: c, d
+
+    @domainDependant{attribute(autoDom,present)}
+    a, b, c, d
+    @end domainDependant
+
+    call add3(a, b, c)
+    call mult3(a, b, d)
+  end subroutine
+
+  subroutine add3(a,b,c)
+    implicit none
+    real, dimension(NX,NY,NZ), intent(in) :: a, b
+    real, dimension(NX,NY,NZ), intent(out) :: c
+    real, dimension(NX,NY,NZ) :: temp
+    integer :: z
+
+    @domainDependant{attribute(autoDom)}
+    a, b, c, temp
+    @end domainDependant
+
+    temp(:,:,:) = 5.0d0
+
+    @parallelRegion{domName(x,y), domSize(NX, NY)}
+    do z=1,NZ
+      c(z) = a(z) + b(z) + temp(z)
+    end do
+    @end parallelRegion
+  end subroutine
+
+  subroutine mult3(a,b,d)
+    implicit none
+    real, dimension(NX,NY,NZ), intent(in) :: a, b
+    real, dimension(NX,NY,NZ), intent(out) :: d
+    integer :: z
+
+    @domainDependant{attribute(autoDom)}
+    a, b, d
+    @end domainDependant
+
+    @parallelRegion{domName(x,y), domSize(NX, NY)}
+    do z=1,NZ
+      d(z) = a(z) * b(z)
+    end do
+    @end parallelRegion
+  end subroutine
+
+end module kernels3

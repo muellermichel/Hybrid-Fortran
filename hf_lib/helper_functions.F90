@@ -42,6 +42,10 @@ public :: write3DToFile_n3StartsAt
 public :: printElapsedTime, getElapsedTime, getTime
 public :: printHeading
 
+! interface isNaN
+! 	module procedure isNaN_real4, isNaN_real8
+! end interface
+
 interface writeToFile
 	module procedure write1DToFile, write2DToFile, write3DToFile, &
 	& writeToFile_real_4_1D, &
@@ -410,6 +414,20 @@ contains
 		write(imt) out_array
 		close(imt)
 	end subroutine
+
+! 	logical function isNaN_real8(number)
+! 		implicit none
+! 		real(8) number
+! 		isNaN_real8 = isnand(number)
+! 		return
+! 	end function
+
+! 	logical function isNaN_real4(number)
+! 		implicit none
+! 		real(4) number
+! 		isNaN_real4 = isnanf(number)
+! 		return
+! 	end function
 
 	subroutine getTime(time)
 #ifdef USE_OPENMP

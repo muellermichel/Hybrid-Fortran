@@ -84,6 +84,15 @@
 \input{CommandsAndDefs}
 \newcommand{\clear}{\newpage{\pagestyle{empty}\cleardoublepage}}
 
+\newcommand{\footnoteremember}[2]{
+\footnote{#2}
+\newcounter{#1}
+\setcounter{#1}{\value{footnote}}
+}
+\newcommand{\footnoterecall}[1]{
+\footnotemark[\value{#1}]
+}
+
 % ---------------- highlight inside listings ------------------------------------
 \usepackage{etex}
 \usepackage{atbegshi,ifthen,tikz}

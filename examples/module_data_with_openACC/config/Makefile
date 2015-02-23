@@ -32,7 +32,7 @@ time_profiling.o : helper_functions.o
 # ADD YOUR DEPENDENCIES BELOW THIS LINE
 # -------->
 
-example.o: ${USER_LIB} kernels.o kernels2.o my_module.o
+example.o: ${USER_LIB} kernels.o kernels2.o kernels3.o my_module.o
 kernels.o: my_module.o
 kernels2.o: my_module.o
-
+kernels3.o: my_module.o

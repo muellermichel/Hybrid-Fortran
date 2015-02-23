@@ -66,7 +66,7 @@ def getTracingDeclarationStatements(currRoutineNode, dependantSymbols, patterns,
         if len(symbol.domains) == 0 \
         or 'allocatable' in symbol.declarationPrefix \
         or symbol.intent not in ['in', 'inout', 'out'] \
-        or symbol.intent in ['out', 'inout'] and symbol.isOnDevice: #there is some error when we try to cudamemcpy in this case
+        or symbol.isOnDevice and currRoutineNode.getAttribute('parallelRegionPosition') == 'inside':
             continue
         if len(symbol.domains) > max_num_of_domains_for_symbols:
             max_num_of_domains_for_symbols = len(symbol.domains)
@@ -124,7 +124,7 @@ def getTracingStatements(currRoutineNode, currModuleName, tracingSymbols, traceH
                     use_domain_reordering=False
                 )
             )
-            if symbol.isOnDevice:
+            if symbol.isOnDevice and currRoutineNode.getAttribute('parallelRegionPosition') != 'inside':
                 result += "hf_tracing_memcpy_error = cudaMemcpy(hf_tracing_copy_%s, %s, %s)\n" %(symbol.name, symbol.name, symbol.totalArrayLength())
             result += getLoopOverSymbolValues(symbol, "%s_temp_%s" %(symbol.name, loop_name_postfix), innerTempArraySetterLoopFunc)
             result += traceHandlingFunc(currRoutineNode, currModuleName, symbol)
@@ -177,7 +177,7 @@ def getCompareToTraceFunc(abortSubroutineOnError=True, loop_name_postfix=''):
         result += "read(hf_tracing_imt) hf_tracing_comparison_%s\n" %(symbol.name)
         if 'real' in symbol.declarationPrefix:
             result += "hf_tracing_error = sqrt(sum((hf_tracing_comparison_%s - hf_tracing_temp_%s)**2))\n" %(symbol.name, symbol.name)
-            result += "if (hf_tracing_error .gt. 1E-8) then\n"
+            result += "if (hf_tracing_error .ne. hf_tracing_error .or. hf_tracing_error .gt. 1E-8) then\n" # a .ne. a tests a for NaN in Fortran (needs -Kieee compiler flag in pgf90)
             result += "write(0,*) 'In module %s, subroutine %s:', 'Real Array %s does not match the data found in ', trim(hf_tracing_current_path), ' RMS Error:', hf_tracing_error\n" %(
                 currModuleName,
                 currRoutineNode.getAttribute('name'),
@@ -198,7 +198,7 @@ def getCompareToTraceFunc(abortSubroutineOnError=True, loop_name_postfix=''):
         result += "write(0,*) shape(hf_tracing_comparison_%s)\n" %(symbol.name)
         result += "hf_tracing_error_found = .true.\n"
         result += "else\n"
-        result += "write(0,*) 'In subroutine %s: symbol %s matches trace of cpu version found in ', trim(hf_tracing_current_path)\n" %(currRoutineNode.getAttribute('name'), symbol.name)
+        result += "write(0,*) 'In subroutine %s: symbol %s matches trace of cpu version found in ', trim(hf_tracing_current_path), 'Error: ', hf_tracing_error\n" %(currRoutineNode.getAttribute('name'), symbol.name)
         result += "end if\n"
         result += "close(hf_tracing_imt)\n"
         result += "end if\n"
@@ -513,13 +513,13 @@ class OpenMPFortranImplementation(FortranImplementation):
 class PGIOpenACCFortranImplementation(FortranImplementation):
     onDevice = True
     currRoutineHasDataDeclarations = False
-    createDeclaration="create"
+    createDeclaration="deviceptr"
 
     def __init__(self, optionFlags):
         FortranImplementation.__init__(self, optionFlags)
         self.currRoutineNode = None
         self.currRoutineHasDataDeclarations = False
-        self.createDeclaration="create"
+        self.createDeclaration="deviceptr"
 
     def filePreparation(self, filename):
         additionalStatements = '''
@@ -597,8 +597,7 @@ Symbols vs transferHere attributes:\n%s" %(str([(symbol.name, symbol.transferHer
         #local arrays in kernels
         elif parallelRegionPosition == "within" \
         and declarationType == DeclarationType.LOCAL_ARRAY:
-            pass
-            # adjustedLine = declarationDirectives + ",intent(out), device ::" + symbolDeclarationStr
+            adjustedLine = declarationDirectives + ", device ::" + symbolDeclarationStr
 
         #passed in scalars in kernels and inside kernels
         elif parallelRegionPosition in ["within", "outside"] \
@@ -614,7 +613,7 @@ Symbols vs transferHere attributes:\n%s" %(str([(symbol.name, symbol.transferHer
         elif len(dependantSymbols[0].domains) > 0:
             if alreadyOnDevice == "yes" or not intent:
                 # we don't need copies of the dependants on cpu
-                adjustedLine = declarationDirectives + " ,device ::" + symbolDeclarationStr
+                adjustedLine = declarationDirectives + ", device ::" + symbolDeclarationStr
                 for dependantSymbol in dependantSymbols:
                     dependantSymbol.isOnDevice = True
             # elif copyHere == "yes" or routineIsKernelCaller:

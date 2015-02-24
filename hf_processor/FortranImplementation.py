@@ -59,7 +59,6 @@ def getTracingDeclarationStatements(currRoutineNode, dependantSymbols, patterns,
 
     result = "integer(8), save :: hf_tracing_counter = 0\n"
     result += "integer(4) :: hf_error_printed_counter\n"
-    result += "integer(4) :: hf_tracing_memcpy_error\n"
     result += "character(len=256) :: hf_tracing_current_path\n"
     max_num_of_domains_for_symbols = 0
     for symbol in dependantSymbols:
@@ -94,14 +93,13 @@ def getTracingDeclarationStatements(currRoutineNode, dependantSymbols, patterns,
 
 def getTracingStatements(currRoutineNode, currModuleName, tracingSymbols, traceHandlingFunc, increment_tracing_counter=True, loop_name_postfix=''):
     def innerTempArraySetterLoopFunc(symbol):
-        return "hf_tracing_temp_%s = %s%s\n" %(
+        return "hf_tracing_temp_%s = %s\n" %(
             symbol.accessRepresentation(
                 parallelIterators=[],
                 offsets=["hf_tracing_enum%i" %(domainNum) for domainNum in range(1,len(symbol.domains)+1)],
                 parallelRegionNode=None,
                 use_domain_reordering=False
             ),
-            "hf_tracing_copy_" if symbol.isOnDevice else "",
             symbol.accessRepresentation(
                 parallelIterators=[],
                 offsets=["hf_tracing_enum%i" %(domainNum) for domainNum in range(1,len(symbol.domains)+1)],
@@ -124,9 +122,8 @@ def getTracingStatements(currRoutineNode, currModuleName, tracingSymbols, traceH
                     use_domain_reordering=False
                 )
             )
-            if symbol.isOnDevice and currRoutineNode.getAttribute('parallelRegionPosition') != 'inside':
-                result += getCUDAErrorHandling(currRoutineNode, errorVariable="hf_tracing_memcpy_error", stopImmediately=True)
-                result += "hf_tracing_memcpy_error = cudaMemcpy(hf_tracing_copy_%s, %s, %s)\n" %(symbol.name, symbol.name, symbol.totalArrayLength())
+            if symbol.isOnDevice:
+                result += "!$acc update host(%s)\n" %(symbol.name)
             result += getLoopOverSymbolValues(symbol, "%s_temp_%s" %(symbol.name, loop_name_postfix), innerTempArraySetterLoopFunc)
             result += traceHandlingFunc(currRoutineNode, currModuleName, symbol)
             if 'allocatable' in symbol.declarationPrefix:
@@ -813,7 +810,7 @@ class TraceCheckingOpenACCFortranImplementation(DebugPGIOpenACCFortranImplementa
             currRoutineNode,
             dependantSymbols,
             self.patterns,
-            useReorderingByAdditionalSymbolPrefixes={'hf_tracing_temp_':False, 'hf_tracing_comparison_':False, 'hf_tracing_copy_':True}
+            useReorderingByAdditionalSymbolPrefixes={'hf_tracing_temp_':False, 'hf_tracing_comparison_':False}
         )
         result += tracing_declarations
         result += openACCDeclarations

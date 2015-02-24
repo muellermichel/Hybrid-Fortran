@@ -1,0 +1,39 @@
+#Setting compiler to PGI
+export CC=pgcc
+export FC=pgf90
+export CXX=pgcc
+
+#Setting up valgrind (can be used together with Hybrid Fortran test framework)
+export PATH=/opt/valgrind/bin:$PATH
+
+#Setting up CUDA
+export CUDA_PATH=/opt/cuda/6.0
+export LD_LIBRARY_PATH=$CUDA_PATH/lib64:$LD_LIBRARY_PATH
+
+#Setting up PGI
+export PGI=/opt/pgi/15.1
+export PGI_PATH=$PGI/linux86-64/15.1
+export NVDIR=$CUDA_PATH
+export CUDADIR=$CUDA_PATH/bin
+export CUDALIB=$NVDIR/lib
+export PATH=$PGI_PATH/bin:$PATH
+export LD_LIBRARY_PATH=$PGI_PATH/lib:$LD_LIBRARY_PATH
+export PGI_JAVA=$PGI_PATH/jre/jre/bin/java
+
+#Setting up Java (for example for PGI Debugger)
+export _JAVA_OPTIONS="-Xmx256M"
+
+#Setting up Hybrid Fortran (may run in userspace, so home folder is OK)
+export HF_DIR=~/hybrid
+
+#Setting up OpenMPI (in case you run multinode)
+export PATH=/usr/apps/openmpi/1.4.2/pgi/bin:$PATH
+export LD_LIBRARY_PATH=/usr/apps/openmpi/1.4.2/pgi/lib:$LD_LIBRARY_PATH
+
+#Setting up Python (in case your cluster environment defaults to an old version. 2.7.x is recommended)
+export PATH=/opt/python/bin:$PATH
+export PATH=/opt/virtualenv:$PATH
+
+#Setting up NetCDF (in case your apps need it. Hybrid Fortran test framework supports NetCDF files)
+export NETCDF=/opt/netcdf
+export LD_LIBRARY_PATH=$NETCDF/lib:${LD_LIBRARY_PATH}

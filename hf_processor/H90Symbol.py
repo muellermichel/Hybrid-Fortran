@@ -929,7 +929,46 @@ Please specify the domains and their sizes with domName and domSize attributes i
 
         return result
 
-    def accessRepresentation(self, parallelIterators, offsets, parallelRegionNode, use_domain_reordering=True):
+    def accessRepresentation(self, parallelIterators, offsets, parallelRegionNode, use_domain_reordering=True, inside_subroutine_call=False):
+        def getIterators(domains, parallelIterators, offsets):
+            iterators = []
+            nextOffsetIndex = 0
+            for i in range(len(domains)):
+                if len(parallelIterators) == 0 and len(offsets) == len(domains):
+                    iterators.append(offsets[i])
+                    continue
+                elif len(parallelIterators) == 0 \
+                and len(offsets) == len(domains) - self.numOfParallelDomains \
+                and i < self.numOfParallelDomains:
+                    iterators.append(":")
+                    continue
+                elif len(parallelIterators) == 0 \
+                and len(offsets) == len(domains) - self.numOfParallelDomains \
+                and i >= self.numOfParallelDomains:
+                    iterators.append(offsets[i - self.numOfParallelDomains])
+                    continue
+
+                #if we reach this there are parallel iterators specified.
+                if len(offsets) == len(domains):
+                    iterators.append(nextOffsetIndex)
+                    nextOffsetIndex += 1
+                elif domains[i][0] in parallelIterators:
+                    iterators.append(domains[i][0])
+                elif nextOffsetIndex < len(offsets):
+                    iterators.append(offsets[nextOffsetIndex])
+                    nextOffsetIndex += 1
+                elif len(offsets) + len(parallelIterators) == len(domains) and i < len(parallelIterators):
+                    iterators.append(parallelIterators[i])
+                elif len(offsets) + len(parallelIterators) == len(domains):
+                    iterators.append(offsets[i - len(parallelIterators)])
+                else:
+                    raise Exception("Cannot generate access representation for symbol %s: Unknown parallel iterators specified (%s) or not enough offsets (%s)."
+                        %(str(self), str(parallelIterators), str(offsets))
+                    )
+            if inside_subroutine_call and all([iterator == ':' for iterator in iterators]):
+                return [] #working around a problem in PGI 15.1: Inliner bails out in certain situations (module test kernel 3+4) if arrays are passed in like a(:,:,:).
+            return iterators
+
         if self.debugPrint:
             sys.stderr.write("[" + str(self) + ".init " + str(self.initLevel) + "] producing access representation for symbol %s; parallel iterators: %s, offsets: %s\n" %(self.name, str(parallelIterators), str(offsets)))
 
@@ -962,8 +1001,14 @@ Please specify the domains and their sizes with domName and domSize attributes i
             if self.debugPrint:
                 sys.stderr.write("[" + str(self) + ".init " + str(self.initLevel) + "] Symbol has 0 domains - only returning name.\n")
             return result
+        iterators = getIterators(self.domains, parallelIterators, offsets)
+        if len(iterators) == 0:
+            if self.debugPrint:
+                sys.stderr.write("[" + str(self) + ".init " + str(self.initLevel) + "] No iterators have been determined - only returning name.\n")
+            return result
+
         needsAdditionalClosingBracket = False
-        result = result + "("
+        result += "("
         accPP, accPPIsExplicit = self.accPP()
         if self.debugPrint:
             sys.stderr.write("[" + str(self) + ".init " + str(self.initLevel) + "] accPP Macro: %s, Explicit Macro: %s, Active Domains matching domain dependant template: %s, Number of Parallel Domains: %i\n\
@@ -975,46 +1020,13 @@ Currently loaded template: %s\n" %(
                 template = getTemplate(parallelRegionNode)
                 if template != '':
                     accPP += "_" + template
-            result = result + accPP + "("
+            result += accPP + "("
             needsAdditionalClosingBracket = True
         elif use_domain_reordering and accPPIsExplicit and self.activeDomainsMatchSpecification and accPP != "":
-            result = result + accPP + "("
+            result += accPP + "("
             needsAdditionalClosingBracket = True
-        nextOffsetIndex = 0
-        for i in range(len(self.domains)):
-            if i != 0:
-                result = result + ","
-            if len(parallelIterators) == 0 and len(offsets) == len(self.domains):
-                result = result + offsets[i]
-                continue
-            elif len(parallelIterators) == 0 \
-            and len(offsets) == len(self.domains) - self.numOfParallelDomains \
-            and i < self.numOfParallelDomains:
-                result = result + ":"
-                continue
-            elif len(parallelIterators) == 0 \
-            and len(offsets) == len(self.domains) - self.numOfParallelDomains \
-            and i >= self.numOfParallelDomains:
-                result = result + offsets[i - self.numOfParallelDomains]
-                continue
 
-            #if we reach this there are parallel iterators specified.
-            if len(offsets) == len(self.domains):
-                result += offsets[nextOffsetIndex]
-                nextOffsetIndex += 1
-            elif self.domains[i][0] in parallelIterators:
-                result += self.domains[i][0]
-            elif nextOffsetIndex < len(offsets):
-                result += offsets[nextOffsetIndex]
-                nextOffsetIndex += 1
-            elif len(offsets) + len(parallelIterators) == len(self.domains) and i < len(parallelIterators):
-                result += parallelIterators[i]
-            elif len(offsets) + len(parallelIterators) == len(self.domains):
-                result += offsets[i - len(parallelIterators)]
-            else:
-                raise Exception("Cannot generate access representation for symbol %s: Unknown parallel iterators specified (%s) or not enough offsets (%s)."
-                    %(str(self), str(parallelIterators), str(offsets))
-                )
+        result += ", ".join(iterators)
 
         if needsAdditionalClosingBracket:
             result = result + ")"

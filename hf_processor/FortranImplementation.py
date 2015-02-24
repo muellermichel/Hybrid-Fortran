@@ -125,6 +125,7 @@ def getTracingStatements(currRoutineNode, currModuleName, tracingSymbols, traceH
                 )
             )
             if symbol.isOnDevice and currRoutineNode.getAttribute('parallelRegionPosition') != 'inside':
+                result += getCUDAErrorHandling(currRoutineNode, errorVariable="hf_tracing_memcpy_error", stopImmediately=True)
                 result += "hf_tracing_memcpy_error = cudaMemcpy(hf_tracing_copy_%s, %s, %s)\n" %(symbol.name, symbol.name, symbol.totalArrayLength())
             result += getLoopOverSymbolValues(symbol, "%s_temp_%s" %(symbol.name, loop_name_postfix), innerTempArraySetterLoopFunc)
             result += traceHandlingFunc(currRoutineNode, currModuleName, symbol)
@@ -235,7 +236,7 @@ def getIteratorDeclaration(currRoutineNode, currParallelRegionTemplates, archite
     result += "\n"
     return result
 
-def getErrorHandlingAfterKernelCall(calleeRoutineNode, errorVariable="cuerror", stopImmediately=True):
+def getCUDAErrorHandling(calleeRoutineNode, errorVariable="cuerror", stopImmediately=True):
     name = calleeRoutineNode.getAttribute('name')
     if not name:
         raise Exception("Unexpected Error: routine node without name")
@@ -342,6 +343,12 @@ class FortranImplementation(object):
         return '''#include "storage_order.F90"\n'''
 
     def warningOnUnrecognizedSubroutineCallInParallelRegion(self, callerName, calleeName):
+        return ""
+
+    def callPreparationForPassedSymbol(self, currRoutineNode, symbol):
+        return ""
+
+    def callPostForPassedSymbol(self, currRoutineNode, symbol):
         return ""
 
     def kernelCallConfig(self):
@@ -513,13 +520,15 @@ class OpenMPFortranImplementation(FortranImplementation):
 class PGIOpenACCFortranImplementation(FortranImplementation):
     onDevice = True
     currRoutineHasDataDeclarations = False
-    createDeclaration="deviceptr"
+    createDeclaration = "create"
+    currDependantSymbols = None
 
     def __init__(self, optionFlags):
         FortranImplementation.__init__(self, optionFlags)
         self.currRoutineNode = None
         self.currRoutineHasDataDeclarations = False
-        self.createDeclaration="deviceptr"
+        self.createDeclaration = "create"
+        self.currDependantSymbols = None
 
     def filePreparation(self, filename):
         additionalStatements = '''
@@ -530,103 +539,124 @@ end subroutine
         ''' %(os.path.basename(filename).split('.')[0])
         return FortranImplementation.filePreparation(self, filename) + additionalStatements
 
+    def callPreparationForPassedSymbol(self, currRoutineNode, symbol):
+        if not currRoutineNode:
+            return ""
+        if currRoutineNode.getAttribute("parallelRegionPosition") != 'inside':
+            return ""
+        if symbol.declarationType() != DeclarationType.LOCAL_ARRAY:
+            return ""
+        return "!$acc update device(%s)\n" %(symbol.name)
+
+    def callPostForPassedSymbol(self, currRoutineNode, symbol):
+        if not currRoutineNode:
+            return ""
+        if currRoutineNode.getAttribute("parallelRegionPosition") != 'inside':
+            return ""
+        if symbol.declarationType() != DeclarationType.LOCAL_ARRAY:
+            return ""
+        return "!$acc update host(%s)\n" %(symbol.name)
+
     def adjustDeclarationForDevice(self, line, patterns, dependantSymbols, routineIsKernelCaller, parallelRegionPosition):
-        if 'DEBUG_PRINT' in self.optionFlags:
-            sys.stderr.write("adjusting declaration for device for symbols %s" %(str(dependantSymbols)))
+        return line
+#         #$$$ this method needs to be cleaned up, possibly refactor together with the adjustment function in CUDAFortranImplementation
+#         if 'DEBUG_PRINT' in self.optionFlags:
+#             sys.stderr.write("adjusting declaration for device for symbols %s" %(str(dependantSymbols)))
 
-        if not dependantSymbols or len(dependantSymbols) == 0:
-            raise Exception("no symbols to adjust")
+#         if not dependantSymbols or len(dependantSymbols) == 0:
+#             raise Exception("no symbols to adjust")
 
-        adjustedLine = line
-        adjustedLine = adjustedLine.rstrip()
+#         adjustedLine = line
+#         adjustedLine = adjustedLine.rstrip()
 
-        declarationDirectivesWithoutIntent, declarationDirectives,  symbolDeclarationStr = purgeFromDeclarationSettings( \
-            line, \
-            dependantSymbols, \
-            patterns, \
-            withAndWithoutIntent=True \
-        )
+#         declarationDirectivesWithoutIntent, declarationDirectives,  symbolDeclarationStr = purgeFromDeclarationSettings( \
+#             line, \
+#             dependantSymbols, \
+#             patterns, \
+#             withAndWithoutIntent=True \
+#         )
 
-        #analyse state of symbols - already declared as on device or not?
-        alreadyOnDevice = "undefined"
-        if parallelRegionPosition == "within":
-            alreadyOnDevice = "yes"
-        else:
-            for symbol in dependantSymbols:
-                if not symbol.domains or len(symbol.domains) == 0:
-                    continue
-                elif symbol.isPresent and alreadyOnDevice == "undefined":
-                    alreadyOnDevice = "yes"
-                elif not symbol.isPresent and alreadyOnDevice == "undefined":
-                    alreadyOnDevice = "no"
-                elif (symbol.isPresent and alreadyOnDevice == "no") or (not symbol.isPresent and alreadyOnDevice == "yes"):
-                    raise Exception("Declaration line contains a mix of device present, non-device-present arrays. \
-    Symbols vs present attributes:\n%s" %(str([(symbol.name, symbol.isPresent) for symbol in dependantSymbols])) \
-                    )
-        copyHere = "undefined"
-        for symbol in dependantSymbols:
-            if not symbol.domains or len(symbol.domains) == 0:
-                continue
-            elif symbol.isToBeTransfered and copyHere == "undefined":
-                copyHere = "yes"
-            elif not symbol.isToBeTransfered and copyHere == "undefined":
-                copyHere = "no"
-            elif (symbol.isToBeTransfered and copyHere == "no") or (not symbol.isToBeTransfered and copyHere == "yes"):
-                raise Exception("Declaration line contains a mix of transferHere / non transferHere arrays. \
-Symbols vs transferHere attributes:\n%s" %(str([(symbol.name, symbol.transferHere) for symbol in dependantSymbols])) \
-                )
-        if copyHere == "yes" and alreadyOnDevice == "yes":
-            raise Exception("transferHere attribute cannot be used in a kernel subroutine or together with the present attribute.")
+#         #analyse state of symbols - already declared as on device or not?
+#         alreadyOnDevice = "undefined"
+#         if parallelRegionPosition == "within":
+#             alreadyOnDevice = "yes"
+#         else:
+#             for symbol in dependantSymbols:
+#                 if not symbol.domains or len(symbol.domains) == 0:
+#                     continue
+#                 elif symbol.isPresent and alreadyOnDevice == "undefined":
+#                     alreadyOnDevice = "yes"
+#                 elif not symbol.isPresent and alreadyOnDevice == "undefined":
+#                     alreadyOnDevice = "no"
+#                 elif (symbol.isPresent and alreadyOnDevice == "no") or (not symbol.isPresent and alreadyOnDevice == "yes"):
+#                     raise Exception("Declaration line contains a mix of device present, non-device-present arrays. \
+#     Symbols vs present attributes:\n%s" %(str([(symbol.name, symbol.isPresent) for symbol in dependantSymbols])) \
+#                     )
+#         copyHere = "undefined"
+#         for symbol in dependantSymbols:
+#             if not symbol.domains or len(symbol.domains) == 0:
+#                 continue
+#             elif symbol.isToBeTransfered and copyHere == "undefined":
+#                 copyHere = "yes"
+#             elif not symbol.isToBeTransfered and copyHere == "undefined":
+#                 copyHere = "no"
+#             elif (symbol.isToBeTransfered and copyHere == "no") or (not symbol.isToBeTransfered and copyHere == "yes"):
+#                 raise Exception("Declaration line contains a mix of transferHere / non transferHere arrays. \
+# Symbols vs transferHere attributes:\n%s" %(str([(symbol.name, symbol.transferHere) for symbol in dependantSymbols])) \
+#                 )
+#         if copyHere == "yes" and alreadyOnDevice == "yes":
+#             raise Exception("transferHere attribute cannot be used in a kernel subroutine or together with the present attribute.")
 
-        #analyse the intent of the symbols. Since one line can only have one intent declaration, we can simply assume the intent of the
-        #first symbol
-        intent = dependantSymbols[0].intent
-        #note: intent == None or "" -> is local array
+#         #analyse the intent of the symbols. Since one line can only have one intent declaration, we can simply assume the intent of the
+#         #first symbol
+#         intent = dependantSymbols[0].intent
+#         #note: intent == None or "" -> is local array
 
-        declarationType = dependantSymbols[0].declarationType()
-        #packed symbols -> leave them alone
-        if dependantSymbols[0].isCompacted:
-            return adjustedLine + "\n"
+#         declarationType = dependantSymbols[0].declarationType()
+#         #packed symbols -> leave them alone
+#         if dependantSymbols[0].isCompacted:
+#             return adjustedLine + "\n"
 
-        #module scalars in kernels
-        if parallelRegionPosition == "within" \
-        and (declarationType == DeclarationType.IMPORTED_SCALAR or declarationType == DeclarationType.MODULE_SCALAR):
-            pass
-            # adjustedLine = declarationDirectives + " ,intent(in), value ::" + symbolDeclarationStr
+#         #module scalars in kernels
+#         if parallelRegionPosition == "within" \
+#         and (declarationType == DeclarationType.IMPORTED_SCALAR or declarationType == DeclarationType.MODULE_SCALAR):
+#             pass
+#             # adjustedLine = declarationDirectives + " ,intent(in), value ::" + symbolDeclarationStr
 
-        #local arrays in kernels
-        elif parallelRegionPosition == "within" \
-        and declarationType == DeclarationType.LOCAL_ARRAY:
-            adjustedLine = declarationDirectives + ", device ::" + symbolDeclarationStr
+#         #local arrays in kernels
+#         elif parallelRegionPosition == "within" \
+#         and declarationType == DeclarationType.LOCAL_ARRAY:
+#             adjustedLine = declarationDirectives + ", device ::" + symbolDeclarationStr
 
-        #passed in scalars in kernels and inside kernels
-        elif parallelRegionPosition in ["within", "outside"] \
-        and len(dependantSymbols[0].domains) == 0 \
-        and intent != "out":
-            pass
-            #handle scalars (passed by value)
-            # adjustedLine = declarationDirectives + " ,value ::" + symbolDeclarationStr
-            # for dependantSymbol in dependantSymbols:
-            #     dependantSymbol.isOnDevice = True
+#         #passed in scalars in kernels and inside kernels
+#         elif parallelRegionPosition in ["within", "outside"] \
+#         and len(dependantSymbols[0].domains) == 0 \
+#         and intent != "out":
+#             pass
+#             #handle scalars (passed by value)
+#             # adjustedLine = declarationDirectives + " ,value ::" + symbolDeclarationStr
+#             # for dependantSymbol in dependantSymbols:
+#             #     dependantSymbol.isOnDevice = True
 
-        #arrays outside of kernels
-        elif len(dependantSymbols[0].domains) > 0:
-            if alreadyOnDevice == "yes" or not intent:
-                # we don't need copies of the dependants on cpu
-                adjustedLine = declarationDirectives + ", device ::" + symbolDeclarationStr
-                for dependantSymbol in dependantSymbols:
-                    dependantSymbol.isOnDevice = True
-            # elif copyHere == "yes" or routineIsKernelCaller:
-            #     for dependantSymbol in dependantSymbols:
-            #         dependantSymbol.isUsingDevicePostfix = True
-            #         dependantSymbol.isOnDevice = True
-            #         adjustedLine = str(adjustedLine) + "\n" + str(declarationDirectivesWithoutIntent) + " ,device :: " + str(dependantSymbol)
+#         #arrays outside of kernels
+#         elif len(dependantSymbols[0].domains) > 0:
+#             if alreadyOnDevice == "yes" or not intent:
+#                 # we don't need copies of the dependants on cpu
+#                 adjustedLine = declarationDirectives + ", device ::" + symbolDeclarationStr
+#                 for dependantSymbol in dependantSymbols:
+#                     dependantSymbol.isOnDevice = True
+#             # elif copyHere == "yes" or routineIsKernelCaller:
+#             #     for dependantSymbol in dependantSymbols:
+#             #         dependantSymbol.isUsingDevicePostfix = True
+#             #         dependantSymbol.isOnDevice = True
+#             #         adjustedLine = str(adjustedLine) + "\n" + str(declarationDirectivesWithoutIntent) + " ,device :: " + str(dependantSymbol)
 
-        return adjustedLine + "\n"
+#         return adjustedLine + "\n"
 
     def declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates):
-        presentDeclaration = "present" if currRoutineNode.getAttribute("parallelRegionPosition") == 'inside' else "deviceptr"
+        presentDeclaration = "present" # if currRoutineNode.getAttribute("parallelRegionPosition") == 'inside' else "deviceptr"
         self.currRoutineNode = currRoutineNode
+        self.currDependantSymbols = dependantSymbols
         result = ""
         result += getIteratorDeclaration(currRoutineNode, currParallelRegionTemplates, ["GPU"])
         dataDeclarations = ""
@@ -697,9 +727,12 @@ Symbols vs transferHere attributes:\n%s" %(str([(symbol.name, symbol.transferHer
     def parallelRegionBegin(self, parallelRegionTemplate, outerBranchLevel=0):
         # if appliesTo(["GPU"], parallelRegionTemplate) and outerBranchLevel != 0:
         #     raise Exception("Cannot implement a GPU parallel region inside a branch. Please move this parallel region into its own subroutine.")
-
+        regionStr = ""
+        for symbol in self.currDependantSymbols:
+            if symbol.declarationType() == DeclarationType.LOCAL_ARRAY:
+                regionStr += "!$acc update device(%s)\n" %(symbol.name)
         vectorSizePPNames = getVectorSizePPNames(parallelRegionTemplate)
-        regionStr = "!$acc kernels\n"
+        regionStr += "!$acc kernels\n"
         domains = getDomainsWithParallelRegionTemplate(parallelRegionTemplate)
         if len(domains) > 3 or len(domains) < 1:
             raise Exception("Invalid number of parallel domains in parallel region definition.")
@@ -716,6 +749,9 @@ Symbols vs transferHere attributes:\n%s" %(str([(symbol.name, symbol.transferHer
 
     def parallelRegionEnd(self, parallelRegionTemplate, outerBranchLevel=0):
         additionalStatements = "\n!$acc end kernels\n"
+        for symbol in self.currDependantSymbols:
+            if symbol.declarationType() == DeclarationType.LOCAL_ARRAY:
+                additionalStatements += "!$acc update host(%s)\n" %(symbol.name)
         return FortranImplementation.parallelRegionEnd(self, parallelRegionTemplate) + additionalStatements
 
     def subroutineEnd(self, dependantSymbols, routineIsKernelCaller):
@@ -723,6 +759,7 @@ Symbols vs transferHere attributes:\n%s" %(str([(symbol.name, symbol.transferHer
         if self.currRoutineHasDataDeclarations:
             result += "!$acc end data\n"
         self.currRoutineNode = None
+        self.currDependantSymbols = None
         self.currRoutineHasDataDeclarations = False
         return result + FortranImplementation.subroutineEnd(self, dependantSymbols, routineIsKernelCaller)
 
@@ -769,7 +806,7 @@ class TraceCheckingOpenACCFortranImplementation(DebugPGIOpenACCFortranImplementa
 
     def declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates):
         openACCDeclarations = DebugPGIOpenACCFortranImplementation.declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates)
-        result = "integer(4) :: hf_tracing_imt, hf_tracing_ierr, hf_memcpy_stat\n"
+        result = "integer(4) :: hf_tracing_imt, hf_tracing_ierr\n"
         result += "real(8) :: hf_tracing_error\n"
         result += "logical :: hf_tracing_error_found\n"
         tracing_declarations, tracedSymbols = getTracingDeclarationStatements(
@@ -868,7 +905,7 @@ end if\n" %(calleeNode.getAttribute('name'))
         self.currParallelRegionTemplateNode = None
         if calleeRoutineNode.getAttribute('parallelRegionPosition') != 'within':
             return ""
-        result = getErrorHandlingAfterKernelCall(calleeRoutineNode)
+        result = getCUDAErrorHandling(calleeRoutineNode)
         #TODO: remove
         #result = result + getTempDeallocationsAfterKernelCall(symbolsByName)
         return result
@@ -1142,7 +1179,7 @@ class DebugCUDAFortranImplementation(CUDAFortranImplementation):
     def kernelCallPost(self, symbolsByName, calleeRoutineNode):
         if calleeRoutineNode.getAttribute('parallelRegionPosition') != 'within':
             return ""
-        result = getErrorHandlingAfterKernelCall(calleeRoutineNode, errorVariable="cuerror", stopImmediately=False)
+        result = getCUDAErrorHandling(calleeRoutineNode, errorVariable="cuerror", stopImmediately=False)
         #michel 2013-4-18: Note, that doing the stop *after* trying to print the memory state hasn't really helped so far.
         #CUDA seems to fail any memcopy attempts after a kernel fails - maybe there is some method to clear the error state before
         #doing memcopy?

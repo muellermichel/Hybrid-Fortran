@@ -28,6 +28,9 @@ include ./Makesettings
 
 include ${TOOLSDIR}MakefileForCompilationCommon
 
+time_profiling.o: helper_functions.o
+helper_functions_gpu: helper_functions.o
+
 # ADD YOUR DEPENDENCIES BELOW THIS LINE
 # -------->
 
@@ -37,4 +40,3 @@ solvermodule.o:	kernels.o system.o time_profiling.o
 kernels.o:	system.o
 kerneltests.o:	system.o kernels.o
 postproc.o:	system.o
-time_profiling.o: helper_functions.o

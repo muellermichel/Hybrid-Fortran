@@ -60,8 +60,8 @@ else
 #############################################################################
 # production settings                                                       #
 #############################################################################
-FFLAGS= -Mcuda=cc3x -ta=nvidia,cc3x -Minline=levels:5,reshape ‑Mipa=inline,reshape -Minfo=accel,inline,ipa -Mneginfo -Minform=inform -I/usr/local/include -O4
-LDFLAGS= -Mcuda=cc3x -ta=nvidia,cc3x,time -Mipa=inline,reshape -L/usr/local/lib -Minfo=accel,inline -Mneginfo -l${HYBRID_LIBRARY_FILENAME_POSTFIX}
+FFLAGS= -Mcuda=cc3x -fast -ta=nvidia,cc3x -Minfo=accel,inline,ipa -Mneginfo
+LDFLAGS= -Mcuda=cc3x -fast -ta=nvidia,cc3x,time -Minfo=accel,inline -Mneginfo -l${HYBRID_LIBRARY_FILENAME_POSTFIX}
 
 endif
 endif

@@ -41,16 +41,29 @@ contains
     call wrapper2()
   end subroutine
 
+  subroutine data_region_wrapper4()
+    use kernels4, only: wrapper4
+    use my_module, only: a, b, c, d
+    implicit none
+
+    @domainDependant{attribute(autoDom,transferHere)}
+    a, b, c, d
+    @end domainDependant
+
+    call wrapper4()
+  end subroutine
+
 end module example
 
 program main
-  use example, only: data_region_wrapper, data_region_wrapper2
+  use example, only: data_region_wrapper, data_region_wrapper2, data_region_wrapper4
   use my_module, only: a, b, c, d
   use kernels3, only: outer_wrapper3
   implicit none
   integer :: x, y, z
   integer :: fail_x, fail_y, fail_z
   logical test
+  real :: fail_val
 
   allocate(a(DOM(NX,NY,NZ)))
   allocate(b(DOM(NX,NY,NZ)))
@@ -74,14 +87,16 @@ program main
       fail_x = x
       fail_y = y
       fail_z = z
-      write(0,*) "FAIL"
+      fail_val = c(AT(x,y,z))
+      write(0,*) "FAIL C"
     end if
     if (test .EQ. .TRUE. .AND. d(AT(x,y,z)) .NE. 2.0d0) then
       test = .FALSE.
       fail_x = x
       fail_y = y
       fail_z = z
-      write(0,*) "FAIL"
+      fail_val = d(AT(x,y,z))
+      write(0,*) "FAIL D"
     end if
   end do
   end do
@@ -101,14 +116,16 @@ program main
       fail_x = x
       fail_y = y
       fail_z = z
-      write(0,*) "FAIL"
+      fail_val = c(AT(x,y,z))
+      write(0,*) "FAIL C"
     end if
     if (test .EQ. .TRUE. .AND. d(AT(x,y,z)) .NE. 2.0d0) then
       test = .FALSE.
       fail_x = x
       fail_y = y
       fail_z = z
-      write(0,*) "FAIL"
+      fail_val = d(AT(x,y,z))
+      write(0,*) "FAIL D"
     end if
   end do
   end do
@@ -128,6 +145,36 @@ program main
       fail_x = x
       fail_y = y
       fail_z = z
+      fail_val = c(AT(x,y,z))
+      write(0,*) "FAIL C"
+    end if
+    if (test .EQ. .TRUE. .AND. d(AT(x,y,z)) .NE. 2.0d0) then
+      test = .FALSE.
+      fail_x = x
+      fail_y = y
+      fail_z = z
+      fail_val = d(AT(x,y,z))
+      write(0,*) "FAIL D"
+    end if
+  end do
+  end do
+  end do
+
+  c(:,:,:) = 0.0d0
+  d(:,:,:) = 0.0d0
+
+  call data_region_wrapper4()
+  write(0,*) "calculation4 complete"
+
+  do y=1,NY
+  do x=1,NX
+  do z=1,NZ
+    if (test .EQ. .TRUE. .AND. c(AT(x,y,z)) .NE. 8.0d0) then
+      test = .FALSE.
+      fail_x = x
+      fail_y = y
+      fail_z = z
+      fail_val = c(AT(x,y,z))
       write(0,*) "FAIL"
     end if
     if (test .EQ. .TRUE. .AND. d(AT(x,y,z)) .NE. 2.0d0) then
@@ -135,6 +182,7 @@ program main
       fail_x = x
       fail_y = y
       fail_z = z
+      fail_val = d(AT(x,y,z))
       write(0,*) "FAIL"
     end if
   end do
@@ -145,7 +193,7 @@ program main
     write(0,*) "test ok"
   else
     write(0,*) "test failed"
-    write(0,*) "fails at", fail_x, fail_y, fail_z, "C:", c(AT(fail_x,fail_y,fail_z)), "D:", d(AT(fail_x,fail_y,fail_z))
+    write(0,*) "fails at", fail_x, fail_y, fail_z, fail_val
     stop 2
   end if
 

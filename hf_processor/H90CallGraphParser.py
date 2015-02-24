@@ -105,7 +105,7 @@ class FortranCodeSanitizer:
                     elif isOpenACCDirectiveLine:
                         currLine = '!$acc& ' + currLine[blankPos:]
                     else:
-                        currLine = currLine[blankPos:]
+                        currLine = '& ' + currLine[blankPos:]
             if toBeCommented:
                 currLine = commentChar + " " + currLine
             if currLine != "":
@@ -984,7 +984,12 @@ This is not allowed for implementations using %s.\
         ):
             symbol_access = symbol.deviceName()
         else:
-            symbol_access = symbol.accessRepresentation(iterators, offsets, self.currParallelRegionTemplateNode)
+            symbol_access = symbol.accessRepresentation(
+                iterators,
+                offsets,
+                self.currParallelRegionTemplateNode,
+                inside_subroutine_call=isInsideSubroutineCall
+            )
         if self.debugPrint:
             sys.stderr.write("symbol %s on line %i rewritten to %s\n" %(str(symbol), self.lineNo, symbol_access))
         return (prefix + symbol_access + postfix).rstrip() + "\n"
@@ -1102,15 +1107,26 @@ This is not allowed for implementations using %s.\
         else:
             adjustedLine = adjustedLine + ")\n"
 
+        callPreparationForSymbols = ""
+        callPostForSymbols = ""
         if self.currCalleeNode and self.currCalleeNode.getAttribute("parallelRegionPosition") == "within":
             if self.state != "inside_subroutine_call":
+                currSubprocNode = self.routineNodesByProcName.get(self.currSubprocName)
+                callPreparationForSymbols = "".join([
+                    self.implementation.callPreparationForPassedSymbol(currSubprocNode, symbol)
+                    for symbol in self.symbolsPassedInCurrentCallByName.values()
+                ])
+                callPostForSymbols = "".join([
+                    self.implementation.callPostForPassedSymbol(currSubprocNode, symbol)
+                    for symbol in self.symbolsPassedInCurrentCallByName.values()
+                ])
                 adjustedLine = self.processCallPostAndGetAdjustedLine(adjustedLine)
 
         if self.state != "inside_subroutine_call":
             self.symbolsPassedInCurrentCallByName = {}
             self.currCalleeNode = None
 
-        self.prepareLine(adjustedLine, self.tab_insideSub)
+        self.prepareLine(callPreparationForSymbols + adjustedLine + callPostForSymbols, self.tab_insideSub)
 
     def processAdditionalSubroutineParametersAndGetAdjustedLine(self):
         adjustedLine = str(self.currentLine)

@@ -935,7 +935,7 @@ Please specify the domains and their sizes with domName and domSize attributes i
             nextOffsetIndex = 0
             for i in range(len(domains)):
                 if len(parallelIterators) == 0 and len(offsets) == len(domains):
-                    iterators.append(offsets[i])
+                    iterators.append(str(offsets[i]))
                     continue
                 elif len(parallelIterators) == 0 \
                 and len(offsets) == len(domains) - self.numOfParallelDomains \
@@ -945,22 +945,22 @@ Please specify the domains and their sizes with domName and domSize attributes i
                 elif len(parallelIterators) == 0 \
                 and len(offsets) == len(domains) - self.numOfParallelDomains \
                 and i >= self.numOfParallelDomains:
-                    iterators.append(offsets[i - self.numOfParallelDomains])
+                    iterators.append(str(offsets[i - self.numOfParallelDomains]))
                     continue
 
                 #if we reach this there are parallel iterators specified.
                 if len(offsets) == len(domains):
-                    iterators.append(nextOffsetIndex)
+                    iterators.append(str(offsets[nextOffsetIndex]))
                     nextOffsetIndex += 1
                 elif domains[i][0] in parallelIterators:
-                    iterators.append(domains[i][0])
+                    iterators.append(str(domains[i][0]))
                 elif nextOffsetIndex < len(offsets):
-                    iterators.append(offsets[nextOffsetIndex])
+                    iterators.append(str(offsets[nextOffsetIndex]))
                     nextOffsetIndex += 1
                 elif len(offsets) + len(parallelIterators) == len(domains) and i < len(parallelIterators):
-                    iterators.append(parallelIterators[i])
+                    iterators.append(str(parallelIterators[i]))
                 elif len(offsets) + len(parallelIterators) == len(domains):
-                    iterators.append(offsets[i - len(parallelIterators)])
+                    iterators.append(str(offsets[i - len(parallelIterators)]))
                 else:
                     raise Exception("Cannot generate access representation for symbol %s: Unknown parallel iterators specified (%s) or not enough offsets (%s)."
                         %(str(self), str(parallelIterators), str(offsets))

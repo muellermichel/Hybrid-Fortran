@@ -43,7 +43,7 @@
             DOUBLE PRECISION, intent(out) :: F
             DOUBLE PRECISION, intent(out) :: G(M)
             DOUBLE PRECISION, intent(in) :: X(N)
-            DOUBLE PRECISION sum
+            DOUBLE PRECISION temp_sum
             INTEGER(4) i
             ! Make Hybrid Fortran aware of scalars passed to this kernel.
             @domainDependant{attribute(autoDom)}
@@ -77,9 +77,9 @@
 !     Step 0 : Define your Problem Function
 !
 !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-            sum = 0.0
+            temp_sum = 0.0
             do i=1,100000
-              sum = sum + 1/dble(i)
+              temp_sum = temp_sum + 1/dble(i)
             enddo
 
             ! Objective function value
@@ -88,7 +88,7 @@
               + (X(3)-3.0D0)**2 &
               + (X(4)-4.0D0)**2 &
               + 1.23456789D0 &
-              + sum
+              + temp_sum
 
             ! Equality constraints G(i) = 0 MUST COME FIRST in G(1:ME)
             G(1) = X(1) - 1.0D0

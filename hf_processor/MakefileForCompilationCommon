@@ -93,7 +93,7 @@ ${USER_LIB}: $(OBJ)
 # finally, # comment lines are removed since these lines inserted by gcc -E will confuse Fortran debuggers.
 %.f90: %.P90
 	$(call blueecho,"..........preprocessing $< in $(CURDIR)")
-	@< $< sed "s/\/\//¢/g" | gcc -E -w ${PFLAGS} - | tr "\`" '\n' | sed "s/\& \&/\&\n\&/g" | sed "s/¢/\/\//g" | sed '/^#/ d' > $@
+	@< $< sed "s/\/\//¢/g" | gcc -E -w ${PFLAGS} - | tr "\`" '\n' | sed "s/¢/\/\//g" | sed '/^#/ d' > $@
 
 %.o: %.f90
 	$(call blueecho,"..........compiling $< in $(CURDIR)")

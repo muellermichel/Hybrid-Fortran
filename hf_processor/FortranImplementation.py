@@ -62,10 +62,10 @@ def getTracingDeclarationStatements(currRoutineNode, dependantSymbols, patterns,
     result += "character(len=256) :: hf_tracing_current_path\n"
     max_num_of_domains_for_symbols = 0
     for symbol in dependantSymbols:
-        if len(symbol.domains) == 0 \
-        or 'allocatable' in symbol.declarationPrefix \
-        or symbol.intent not in ['in', 'inout', 'out'] \
-        or symbol.isOnDevice and currRoutineNode.getAttribute('parallelRegionPosition') == 'inside':
+        if len(symbol.domains) == 0:
+        # or 'allocatable' in symbol.declarationPrefix \
+        # or symbol.intent not in ['in', 'inout', 'out'] \
+        # or symbol.isOnDevice and currRoutineNode.getAttribute('parallelRegionPosition') == 'inside':
             continue
         if len(symbol.domains) > max_num_of_domains_for_symbols:
             max_num_of_domains_for_symbols = len(symbol.domains)

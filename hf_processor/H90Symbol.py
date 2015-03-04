@@ -1026,7 +1026,7 @@ Currently loaded template: %s\n" %(
             result += accPP + "("
             needsAdditionalClosingBracket = True
 
-        result += ", ".join(iterators)
+        result += ",".join(iterators)
 
         if needsAdditionalClosingBracket:
             result = result + ")"

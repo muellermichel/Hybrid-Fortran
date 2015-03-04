@@ -30,7 +30,7 @@
 #    of the executable. These main files can be placed anywhere in your     #
 #    source directory or one of its subdirectories.                         #
 #############################################################################
-EXECUTABLES="example_MINLPc benchmark"
+EXECUTABLES="example_MINLPc"
 
 #############################################################################
 # directories as seen from project directory.                               #
@@ -154,7 +154,7 @@ TEST_OUTPUT_FILE_PATTERN=""
 # this list, will be compiled, even if there is not an explicit dependency  #
 # specified for them.                                                       #
 #############################################################################
-EXCEPTIONS=""
+EXCEPTIONS="benchmark"
 
 #############################################################################
 # set this to true if you'd like to have every compilation in debug mode    #

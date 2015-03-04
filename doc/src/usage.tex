@@ -55,13 +55,17 @@ The following files displayed in figure \ref{figure:hybridCUDAComponentsAndInfoF
 \section{Test Interface} \label{sec:testSystem}
 \textbf{Hybrid Fortran} comes with an automated test system that - once set up - is intended to find all errors in your code, each time a build completes. This includes
 \begin{itemize}
+ \item Program errors - e.g. use \verb|stop 2| in your code in order to signal Hybrid Fortran that your program has reached a failure condition. This will lead \verb|make tests| to fail.
  \item Initialization errors (symbols / arrays being read without initializing them first), using \verb|valgrind|.
  \item Memory handling errors (in case you forget to deallocate arrays), using \verb|valgrind|.
  \item Computational errors, using reference data. Currently supported for this validation is output in \verb|NetCDF| format as well as standard Fortran \verb|.DAT| files. For NetCDF, up to five data dimensions per variable are supported, for .DAT files it is up to three dimensions.
 \end{itemize}
 
-\subsection{Integration} \label{sub:testIntegration}
-If you would like to integrate the provided system, please do the following:
+\subsection{Remote Execution}
+It is possible to run your tests remotely by putting the hostname or IP address into the environment variable \verb|HF_RUN_OVER_SSH|. This will run executables with the command \verb|ssh ${HF_RUN_OVER_SSH} [command]| instead of directly.
+
+\subsection{Output Validation} \label{sub:testIntegration}
+If you would like to integrate the provided output validation system, please do the following:
 \begin{enumerate}
   \item \label{enum:writeProc} Choose between the following options for your output.
     \begin{enumerate}

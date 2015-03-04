@@ -34,5 +34,5 @@ helper_functions_gpu: helper_functions.o
 # -------->
 
 example_MINLPc.o: midaco.o ${USER_LIB}
-benchmark.o: midaco.o ${USER_LIB}
+benchmark.o: midaco.o time_profiling.o ${USER_LIB}
 

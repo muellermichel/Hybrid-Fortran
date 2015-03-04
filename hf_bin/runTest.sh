@@ -24,11 +24,13 @@ output_file_pattern=${4}
 source_before=${5}
 source_after=${6}
 
+working_dir=$(pwd)
+
 if [ -z "$output_file_pattern" ]; then
 	output_file_pattern="./out/*.dat"
 fi
 date=`date`
-echo "------- testing ${executable_name} for ${configuration_name} on ${architecture} ; ${date} in `pwd` ; output pattern: ${output_file_pattern} -------" | tee -a ./log.txt 1>&2
+echo "------- testing ${executable_name} for ${configuration_name} on ${architecture} ; ${date} in ${working_dir} ; output pattern: ${output_file_pattern} -------" | tee -a ./log.txt 1>&2
 configFile="./testConfig_${configuration_name}.txt"
 argStringsArr=( )
 refPostfixesArr=( )
@@ -130,8 +132,15 @@ for i in "${!argStringsArr[@]}"; do
 		argString="${argString} valgrind"
 	fi
 
+	remoteCallPrefix=""
+	if [ -z "$HF_RUN_OVER_SSH" ]; then
+		remoteCallPrefix=""
+	else
+		remoteCallPrefix="ssh $HF_RUN_OVER_SSH"
+	fi
+
 	echo -n "calling ${executable_name} ( with parameters ${argString} ) for ${configuration_name} ,"
-	timingResult=$(./${executable_name} ${argString} 2>./log_lastRun.txt)
+	timingResult=$($remoteCallPrefix "cd ${working_dir} && ./${executable_name}" ${argString} 2>./log_lastRun.txt)
 	rc=$?
 	if [[ $rc != 0 ]] ; then
 		echo "fail"

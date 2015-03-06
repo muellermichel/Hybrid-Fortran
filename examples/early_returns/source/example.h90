@@ -1,0 +1,145 @@
+! Copyright (C) 2015 Michel Müller, Tokyo Institute of Technology
+
+! This file is part of Hybrid Fortran.
+
+! Hybrid Fortran is free software: you can redistribute it and/or modify
+! it under the terms of the GNU Lesser General Public License as published by
+! the Free Software Foundation, either version 3 of the License, or
+! (at your option) any later version.
+
+! Hybrid Fortran is distributed in the hope that it will be useful,
+! but WITHOUT ANY WARRANTY; without even the implied warranty of
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+! GNU Lesser General Public License for more details.
+
+! You should have received a copy of the GNU Lesser General Public License
+! along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
+
+module example
+contains
+  subroutine wrapper(a, b, c, early_return_flag)
+    implicit none
+    real, dimension(NZ), intent(in) :: a, b
+    real, dimension(NZ), intent(out) :: c
+    logical, intent(in) :: early_return_flag
+
+    @domainDependant{domName(x,y,z), domSize(NX,NY,NZ), domPP(DOM), accPP(AT)}
+    a, b, c
+    @end domainDependant
+
+    @parallelRegion{appliesTo(CPU), domName(x,y), domSize(NX, NY)}
+    call add(a, b, c, early_return_flag)
+    @end parallelRegion
+  end subroutine
+
+  subroutine add(a, b, c, early_return_flag)
+    implicit none
+    real, dimension(NZ), intent(in) :: a, b
+    real, dimension(NZ), intent(out) :: c
+    logical, intent(in) :: early_return_flag
+    integer :: z
+    @domainDependant{domName(x,y,z), domSize(NX,NY,NZ), domPP(DOM), accPP(AT)}
+    a, b, c
+    @end domainDependant
+
+    if (early_return_flag) then
+      return
+    end if
+
+    @parallelRegion{appliesTo(GPU), domName(x,y), domSize(NX, NY)}
+    do z=1,NZ
+      c(z) = a(z) + b(z)
+    end do
+    @end parallelRegion
+  end subroutine
+
+  subroutine wrapper_variant2(a, b, c, early_return_flag)
+    implicit none
+    real, dimension(NZ), intent(in) :: a, b
+    real, dimension(NZ), intent(out) :: c
+    logical, intent(in) :: early_return_flag
+    @domainDependant{domName(x,y,z), domSize(NX,NY,NZ), domPP(DOM), accPP(AT)}
+    a, b, c
+    @end domainDependant
+
+    call add_variant2(a, b, c, early_return_flag)
+  end subroutine
+
+  subroutine add_variant2(a, b, c, early_return_flag)
+    implicit none
+    real, dimension(NX,NY,NZ), intent(in) :: a, b
+    real, dimension(NX,NY,NZ), intent(out) :: c
+    logical, intent(in) :: early_return_flag
+    integer :: z
+    real, dimension(NX,NY,NZ) :: temp
+    @domainDependant{domName(x,y,z), domSize(NX,NY,NZ), domPP(DOM), accPP(AT)}
+    a, b, c, temp
+    @end domainDependant
+
+    temp(:,:,:) = 1.0d0
+
+    @parallelRegion{domName(x,y), domSize(NX, NY)}
+    do z=1,NZ
+      c(z) = a(z) + b(z) + temp(z)
+    end do
+    @end parallelRegion
+
+    if (early_return_flag) then
+      return
+    end if
+  end subroutine
+
+  subroutine do_test(test_array, expected_value)
+    implicit none
+    real, dimension(DOM(NX, NY, NZ)), intent(in) :: test_array
+    real(8), intent(in) :: expected_value
+    integer :: fail_x, fail_y, fail_z
+    integer :: x, y, z
+    logical test
+
+    test = .TRUE.
+    do y=1,NY
+    do x=1,NX
+    do z=1,NZ
+      if (test .EQ. .TRUE. .AND. test_array(AT(x,y,z)) .NE. expected_value) then
+        test = .FALSE.
+        fail_x = x
+        fail_y = y
+        fail_z = z
+      end if
+    end do
+    end do
+    end do
+    if (test .EQ. .TRUE.) then
+      write(6,*) "test ok"
+    else
+      write(6,*) "test failed"
+      write(6,*) "fails at", fail_x, fail_y, fail_z, "test_array:", test_array(AT(fail_x,fail_y,fail_z))
+      stop 2
+    end if
+  end subroutine
+
+end module example
+
+program main
+  use example
+  implicit none
+  real, dimension(DOM(NX, NY, NZ)) :: a, b, c, d
+
+  a(:,:,:) = 1.0d0
+  b(:,:,:) = 2.0d0
+
+  c(:,:,:) = 0.0d0
+  call wrapper(a, b, c, .false.)
+  call do_test(c, 3.0d0)
+
+  c(:,:,:) = 0.0d0
+  call wrapper(a, b, c, .true.)
+  call do_test(c, 0.0d0)
+
+  c(:,:,:) = 0.0d0
+  call wrapper_variant2(a, b, c, .true.)
+  call do_test(c, 4.0d0)
+
+  stop
+end program main

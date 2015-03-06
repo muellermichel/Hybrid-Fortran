@@ -133,15 +133,16 @@ for i in "${!argStringsArr[@]}"; do
 	fi
 
 	remoteCallPrefix=""
-	if [ -z "$HF_RUN_OVER_SSH" ]; then
-		remoteCallPrefix=""
-	else
-		remoteCallPrefix="ssh $HF_RUN_OVER_SSH"
-	fi
+
 
 	echo -n "calling ${executable_name} ( with parameters ${argString} ) for ${configuration_name} ,"
-	timingResult=$($remoteCallPrefix "cd ${working_dir} && ./${executable_name}" ${argString} 2>./log_lastRun.txt)
-	rc=$?
+	if [ -z "$HF_RUN_OVER_SSH" ]; then
+		timingResult=$(./${executable_name} ${argString} 2>./log_lastRun.txt)
+		rc=$?
+	else
+		timingResult=$(ssh $HF_RUN_OVER_SSH "cd ${working_dir} && ./${executable_name}" ${argString} 2>./log_lastRun.txt)
+		rc=$?
+	fi
 	if [[ $rc != 0 ]] ; then
 		echo "fail"
 		echo "Profiled program has returned error code $rc. The error output of the last failed run have been logged in 'log_lastRun.txt' in the ${executable_name} test directory."

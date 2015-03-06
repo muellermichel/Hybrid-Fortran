@@ -27,8 +27,7 @@ include ./MakesettingsGeneral
 include ./Makesettings
 include ${TOOLSDIR}MakefileForCompilationCommon
 
-time_profiling.o: helper_functions.o
-helper_functions_gpu: helper_functions.o
+time_profiling.o : helper_functions.o
 
 # ADD YOUR DEPENDENCIES BELOW THIS LINE
 # -------->

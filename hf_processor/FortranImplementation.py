@@ -37,6 +37,86 @@ import re
 
 number_of_traces = 200
 
+def getDataDirective(currRoutineNode, currParallelRegionTemplates, dependantSymbols, createDeclaration, routineIsKernelCaller, enterOrExit='enter'):
+    presentDeclaration = "present" # if currRoutineNode.getAttribute("parallelRegionPosition") == 'inside' else "deviceptr"
+    copyDeclaration = "copyin"
+    if enterOrExit != 'enter':
+        copyDeclaration = "copyout"
+    result = ""
+    dataDeclarations = ""
+    if enterOrExit == 'enter':
+        dataDeclarations += "!$acc enter data "
+    else:
+        dataDeclarations += "!$acc exit data "
+    dataDeclarationsRequired = False
+    commaRequired = False
+    for index, symbol in enumerate(dependantSymbols):
+        #Rules that lead to a symbol not being touched by directives
+        symbol.isOnDevice = False
+        if not symbol.domains or len(symbol.domains) == 0:
+            continue
+
+        #Rules for symbols that are declared present
+        newDataDeclarations = ""
+        if symbol.isPresent:
+            symbol.isOnDevice = True
+            continue
+            # skipping present clauses for now since not compatible with 'enter data' in pgi 15.1
+            # newDataDeclarations += "%s(%s)" %(presentDeclaration, symbol.name)
+
+        #Rules for kernel wrapper routines and symbols declared to be transfered
+        elif symbol.intent == "in" \
+        and (routineIsKernelCaller or symbol.isToBeTransfered):
+            if enterOrExit == 'enter':
+                newDataDeclarations += "copyin(%s)" %(symbol.name)
+                symbol.isOnDevice = True
+            else:
+                newDataDeclarations += "delete(%s)" %(symbol.name)
+                symbol.isOnDevice = False
+        elif (symbol.intent == "inout" or not symbol.sourceModule in [None,""] or symbol.isHostSymbol) \
+        and (routineIsKernelCaller or symbol.isToBeTransfered):
+            newDataDeclarations += "%s(%s)" %(copyDeclaration, symbol.name)
+        elif (symbol.intent == "out") \
+        and (routineIsKernelCaller or symbol.isToBeTransfered):
+            #We need to be careful here: Because of branching around kernels it could easily happen that
+            #copyout data is not being written inside the data region, thus overwriting the host data with garbage.
+            newDataDeclarations += "%s(%s)" %(copyDeclaration, symbol.name)
+            if enterOrExit == 'enter':
+                symbol.isOnDevice = True
+            else:
+                symbol.isOnDevice = False
+
+        #Rules for other routines
+        elif not routineIsKernelCaller \
+        and currRoutineNode.getAttribute('parallelRegionPosition') != 'within':
+            continue
+
+        #Rules for kernels and kernel callers
+        elif currRoutineNode.getAttribute('parallelRegionPosition') == 'within' \
+        and (symbol.intent in ["in", "inout", "out"] or not symbol.sourceModule in [None,""] or symbol.isHostSymbol):
+            symbol.isOnDevice = True
+             # skipping present clauses for now since not compatible with 'enter data' in pgi 15.1
+            #newDataDeclarations += "%s(%s)" %(presentDeclaration, symbol.name)
+            continue
+        elif enterOrExit == 'enter':
+            newDataDeclarations += "%s(%s)" %(createDeclaration, symbol.name)
+            symbol.isOnDevice = True
+        else:
+            newDataDeclarations += "delete(%s)" %(symbol.name)
+            symbol.isOnDevice = False
+
+        #Wrapping up
+        if commaRequired == True:
+            newDataDeclarations = ", " + newDataDeclarations
+        dataDeclarations += newDataDeclarations
+        dataDeclarationsRequired = True
+        commaRequired = True
+
+    dataDeclarations += "\n"
+    if dataDeclarationsRequired == True:
+        result += dataDeclarations
+    return result, dataDeclarationsRequired
+
 def getLoopOverSymbolValues(symbol, loopName, innerLoopImplementationFunc):
     result = ""
     if len(symbol.domains) > 0:
@@ -526,6 +606,7 @@ class PGIOpenACCFortranImplementation(FortranImplementation):
         self.currRoutineHasDataDeclarations = False
         self.createDeclaration = "create"
         self.currDependantSymbols = None
+        self.currParallelRegionTemplates = None
 
     def filePreparation(self, filename):
         additionalStatements = '''
@@ -654,62 +735,13 @@ end subroutine
         presentDeclaration = "present" # if currRoutineNode.getAttribute("parallelRegionPosition") == 'inside' else "deviceptr"
         self.currRoutineNode = currRoutineNode
         self.currDependantSymbols = dependantSymbols
+        self.currParallelRegionTemplates = currParallelRegionTemplates
+        dataDirective, dataDeclarationsRequired = getDataDirective(currRoutineNode, currParallelRegionTemplates, dependantSymbols, self.createDeclaration, routineIsKernelCaller, enterOrExit='enter')
+        self.currRoutineHasDataDeclarations = dataDeclarationsRequired
         result = ""
         result += getIteratorDeclaration(currRoutineNode, currParallelRegionTemplates, ["GPU"])
-        dataDeclarations = ""
-        dataDeclarations += "!$acc data "
-        dataDeclarationsRequired = False
-        commaRequired = False
-        for index, symbol in enumerate(dependantSymbols):
-            #Rules that lead to a symbol not being touched by directives
-            symbol.isOnDevice = False
-            if not symbol.domains or len(symbol.domains) == 0:
-                continue
-
-            #Rules for symbols that are declared present
-            newDataDeclarations = ""
-            if symbol.isPresent:
-                newDataDeclarations += "%s(%s)" %(presentDeclaration, symbol.name)
-                symbol.isOnDevice = True
-
-            #Rules for kernel wrapper routines and symbols declared to be transfered
-            elif (symbol.intent == "in") \
-            and (routineIsKernelCaller or symbol.isToBeTransfered):
-                newDataDeclarations += "copyin(%s)" %(symbol.name)
-            elif (symbol.intent == "inout" or not symbol.sourceModule in [None,""] or symbol.isHostSymbol) \
-            and (routineIsKernelCaller or symbol.isToBeTransfered):
-                newDataDeclarations += "copy(%s)" %(symbol.name)
-            elif (symbol.intent == "out") \
-            and (routineIsKernelCaller or symbol.isToBeTransfered):
-                #We need to be careful here: Because of branching around kernels it could easily happen that
-                #copyout data is not being written inside the data region, thus overwriting the host data with garbage.
-                newDataDeclarations += "copy(%s)" %(symbol.name)
-
-            #Rules for other routines
-            elif not routineIsKernelCaller \
-            and currRoutineNode.getAttribute('parallelRegionPosition') != 'within':
-                continue
-
-            #Rules for kernels and kernel callers
-            elif currRoutineNode.getAttribute('parallelRegionPosition') == 'within' \
-            and (symbol.intent in ["in", "inout", "out"] or not symbol.sourceModule in [None,""] or symbol.isHostSymbol):
-                newDataDeclarations += "%s(%s)" %(presentDeclaration, symbol.name)
-                symbol.isOnDevice = True
-            else:
-                newDataDeclarations += "%s(%s)" %(self.createDeclaration, symbol.name)
-                symbol.isOnDevice = True
-
-            #Wrapping up
-            if commaRequired == True:
-                newDataDeclarations = ", " + newDataDeclarations
-            dataDeclarations += newDataDeclarations
-            dataDeclarationsRequired = True
-            commaRequired = True
-
-        dataDeclarations += "\n"
-        self.currRoutineHasDataDeclarations = dataDeclarationsRequired
         if dataDeclarationsRequired == True:
-            result += dataDeclarations
+            result += dataDirective
         result += self.declarationEndPrintStatements()
         return result
 
@@ -754,10 +786,12 @@ end subroutine
     def subroutineEnd(self, dependantSymbols, routineIsKernelCaller):
         result = ""
         if self.currRoutineHasDataDeclarations:
-            result += "!$acc end data\n"
+            dataDirective, _ = getDataDirective(self.currRoutineNode, self.currParallelRegionTemplates, dependantSymbols, self.createDeclaration, routineIsKernelCaller, enterOrExit='exit')
+            result += dataDirective
         self.currRoutineNode = None
         self.currDependantSymbols = None
         self.currRoutineHasDataDeclarations = False
+        self.currParallelRegionTemplates = None
         return result + FortranImplementation.subroutineEnd(self, dependantSymbols, routineIsKernelCaller)
 
 class DebugPGIOpenACCFortranImplementation(PGIOpenACCFortranImplementation):
@@ -836,7 +870,7 @@ class TraceCheckingOpenACCFortranImplementation(DebugPGIOpenACCFortranImplementa
             self.currRoutineNode,
             self.currModuleName,
             [symbol for symbol in self.currentTracedSymbols if symbol.intent in ['out', 'inout', '', None]],
-            getCompareToTraceFunc(abortSubroutineOnError=True, loop_name_postfix='end'),
+            getCompareToTraceFunc(abortSubroutineOnError=False, loop_name_postfix='end'),
             increment_tracing_counter=len(self.currentTracedSymbols) > 0,
             loop_name_postfix='end'
         )
@@ -844,9 +878,10 @@ class TraceCheckingOpenACCFortranImplementation(DebugPGIOpenACCFortranImplementa
         #     result += "if (hf_tracing_error_found) then\n"
         #     result += "stop 2\n"
         #     result += "end if\n"
+        result += DebugPGIOpenACCFortranImplementation.subroutineEnd(self, dependantSymbols, routineIsKernelCaller)
         self.currRoutineNode = None
         self.currentTracedSymbols = []
-        return DebugPGIOpenACCFortranImplementation.subroutineEnd(self, dependantSymbols, routineIsKernelCaller) + result
+        return result
 
 class CUDAFortranImplementation(FortranImplementation):
     onDevice = True

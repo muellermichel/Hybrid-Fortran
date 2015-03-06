@@ -20,6 +20,7 @@ contains
   subroutine wrapper(a, b, c, d)
     real, dimension(NZ), intent(in) :: a, b
     real, dimension(NZ), intent(out) :: c, d
+    implicit none
 
     @domainDependant{domName(x,y,z), domSize(NX,NY,NZ), domPP(DOM), accPP(AT)}
     a, b, c, d
@@ -35,6 +36,7 @@ contains
     real, dimension(NZ), intent(in) :: a, b
     real, dimension(NZ), intent(out) :: c
     integer :: z
+    implicit none
 
     @domainDependant{domName(x,y,z), domSize(NX,NY,NZ), domPP(DOM), accPP(AT)}
     a, b, c
@@ -51,6 +53,7 @@ contains
     real, dimension(NZ), intent(in) :: a, b
     real, dimension(NZ), intent(out) :: d
     integer :: z
+    implicit none
 
     @domainDependant{domName(x,y,z), domSize(NX,NY,NZ), domPP(DOM), accPP(AT)}
     a, b, d
@@ -71,6 +74,7 @@ program main
   integer :: x, y, z
   integer :: fail_x, fail_y, fail_z
   logical test
+  implicit none
 
   a(:,:,:) = 1.0d0
   b(:,:,:) = 2.0d0

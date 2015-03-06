@@ -65,7 +65,7 @@ contains
     call add_variant2(a, b, c, early_return_flag)
   end subroutine
 
-  subroutine add_variant2(a, b, c, early_return_flag)
+  subroutine add_variant(a, b, c, early_return_flag)
     implicit none
     real, dimension(NX,NY,NZ), intent(in) :: a, b
     real, dimension(NX,NY,NZ), intent(out) :: c
@@ -87,6 +87,53 @@ contains
     if (early_return_flag) then
       return
     end if
+  end subroutine
+
+  subroutine wrapper_variant3(a, b, c, early_return_flag)
+    implicit none
+    real, dimension(NZ), intent(in) :: a, b
+    real, dimension(NZ), intent(out) :: c
+    logical, intent(in) :: early_return_flag
+    @domainDependant{domName(x,y,z), domSize(NX,NY,NZ), domPP(DOM), accPP(AT)}
+    a, b, c
+    @end domainDependant
+
+    call inner_wrapper_variant3(a, b, c, early_return_flag)
+  end subroutine
+
+  subroutine inner_wrapper_variant3(a, b, c, early_return_flag)
+    implicit none
+    real, dimension(NZ), intent(in) :: a, b
+    real, dimension(NZ), intent(out) :: c
+    logical, intent(in) :: early_return_flag
+    @domainDependant{domName(x,y,z), domSize(NX,NY,NZ), domPP(DOM), accPP(AT)}
+    a, b, c
+    @end domainDependant
+
+    call add_variant2(a, b, c, early_return_flag)
+    if (early_return_flag) then
+      return
+    end if
+  end subroutine
+
+  subroutine add_variant3(a, b, c, early_return_flag)
+    implicit none
+    real, dimension(NX,NY,NZ), intent(in) :: a, b
+    real, dimension(NX,NY,NZ), intent(out) :: c
+    logical, intent(in) :: early_return_flag
+    integer :: z
+    real, dimension(NX,NY,NZ) :: temp
+    @domainDependant{domName(x,y,z), domSize(NX,NY,NZ), domPP(DOM), accPP(AT)}
+    a, b, c, temp
+    @end domainDependant
+
+    temp(:,:,:) = 1.0d0
+
+    @parallelRegion{domName(x,y), domSize(NX, NY)}
+    do z=1,NZ
+      c(z) = a(z) + b(z) + temp(z)
+    end do
+    @end parallelRegion
   end subroutine
 
   subroutine do_test(test_array, expected_value)
@@ -139,6 +186,10 @@ program main
 
   c(:,:,:) = 0.0d0
   call wrapper_variant2(a, b, c, .true.)
+  call do_test(c, 4.0d0)
+
+  c(:,:,:) = 0.0d0
+  call wrapper_variant3(a, b, c, .true.)
   call do_test(c, 4.0d0)
 
   stop

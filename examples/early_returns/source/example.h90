@@ -65,7 +65,7 @@ contains
     call add_variant2(a, b, c, early_return_flag)
   end subroutine
 
-  subroutine add_variant(a, b, c, early_return_flag)
+  subroutine add_variant2(a, b, c, early_return_flag)
     implicit none
     real, dimension(NX,NY,NZ), intent(in) :: a, b
     real, dimension(NX,NY,NZ), intent(out) :: c
@@ -110,7 +110,7 @@ contains
     a, b, c
     @end domainDependant
 
-    call add_variant2(a, b, c, early_return_flag)
+    call add_variant3(a, b, c, early_return_flag)
     if (early_return_flag) then
       return
     end if
@@ -188,6 +188,11 @@ program main
   call wrapper_variant2(a, b, c, .true.)
   call do_test(c, 4.0d0)
 
+  c(:,:,:) = 0.0d0
+  call wrapper_variant3(a, b, c, .true.)
+  call do_test(c, 4.0d0)
+
+  !Test whether the enter data/exit data region works correctly together with the early return.
   c(:,:,:) = 0.0d0
   call wrapper_variant3(a, b, c, .true.)
   call do_test(c, 4.0d0)

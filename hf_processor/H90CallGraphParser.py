@@ -359,6 +359,8 @@ class H90CallGraphParser(object):
         elif (parallelRegionEndMatch):
             self.processParallelRegionEndMatch(parallelRegionEndMatch)
             self.state = "inside_subroutine_body"
+        elif (self.patterns.earlyReturnPattern.match(str(line))):
+            raise Exception("early return in the same subroutine within parallelRegion not allowed")
         elif (self.patterns.parallelRegionPattern.match(str(line))):
             raise Exception("parallelRegion within parallelRegion not allowed")
         elif (self.patterns.subprocEndPattern.match(str(line))):
@@ -373,6 +375,8 @@ class H90CallGraphParser(object):
         if domainDependantEndMatch:
             self.processDomainDependantEndMatch(domainDependantEndMatch)
             self.state = "inside_module"
+        elif (self.patterns.earlyReturnPattern.match(str(line))):
+            raise Exception("early return not allowed here")
         elif self.patterns.subprocCallPattern.match(str(line)):
             raise Exception("subprocedure call within domainDependants not allowed")
         elif (self.patterns.parallelRegionEndPattern.match(str(line)) or self.patterns.parallelRegionPattern.match(str(line))):
@@ -388,6 +392,8 @@ class H90CallGraphParser(object):
         if domainDependantEndMatch:
             self.processDomainDependantEndMatch(domainDependantEndMatch)
             self.state = "inside_subroutine_body"
+        elif (self.patterns.earlyReturnPattern.match(str(line))):
+            raise Exception("early return not allowed here")
         elif self.patterns.subprocCallPattern.match(str(line)):
             raise Exception("subprocedure call within domainDependants not allowed")
         elif (self.patterns.parallelRegionEndPattern.match(str(line)) or self.patterns.parallelRegionPattern.match(str(line))):
@@ -1213,10 +1219,17 @@ This is not allowed for implementations using %s.\
                 continue
             self.currRoutineIsCallingParallelRegion = True
 
+    def processProcExitPoint(self, line, is_subroutine_end):
+        self.prepareLine(
+            self.implementation.subroutineExitPoint(
+                self.currSymbolsByName.values(), self.currRoutineIsCallingParallelRegion, is_subroutine_end
+            ) + line,
+            self.tab_outsideSub
+        )
+
     def processProcEndMatch(self, subProcEndMatch):
-        self.prepareLine(self.implementation.subroutineEnd(self.currSymbolsByName.values(), self.currRoutineIsCallingParallelRegion), self.tab_insideSub)
+        self.processProcExitPoint(subProcEndMatch.group(0), is_subroutine_end=True)
         self.currRoutineIsCallingParallelRegion = False
-        self.prepareLine(self.currentLine + subProcEndMatch.group(0), self.tab_outsideSub)
         self.additionalSymbolsByCalleeName = {}
         self.currAdditionalSubroutineParameters = []
         self.currAdditionalCompactedSubroutineParameters = []
@@ -1475,6 +1488,10 @@ This is not allowed for implementations using %s.\
             self.processProcEndMatch(subProcEndMatch)
             self.state = 'inside_module'
             self.currSubprocName = None
+            return
+
+        if (self.patterns.earlyReturnPattern.match(str(line))):
+            self.processProcExitPoint(line, is_subroutine_end=False)
             return
 
         if self.currSubroutineImplementationNeedsToBeCommented:

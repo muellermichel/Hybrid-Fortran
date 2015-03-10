@@ -55,6 +55,9 @@ for i in $output_file_pattern; do
 		echo "Error in accuracy test: Cannot find file ${refPath}. Please set 'TEST_OUTPUT_FILE_PATTERN' in config/MakesettingsGeneral." 1>&2
 		exit 2
 	else
+		echo "Current directory: $(pwd)" 1>&2
+		echo "Contents of output directory: " 1>&2
+		ls $(dirname $i) 1>&2
 		python ${HF_DIR}/hf_bin/accuracy.py -f $i --reference $refPath $formatParam
 		rc=$?
 		if [ $errorVal -eq 0 ] ; then

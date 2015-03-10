@@ -166,6 +166,7 @@ class H90CallGraphParser(object):
     patterns = None
     currentLine = None
     branchAnalyzer = None
+    currTemplateName = None
 
     def __init__(self):
         self.patterns = H90RegExPatterns()
@@ -226,6 +227,27 @@ class H90CallGraphParser(object):
     def processModuleEndMatch(self, moduleEndMatch):
         return
 
+    def processTemplateMatch(self, templateMatch):
+        settingPattern = re.compile(r'[\s,]*(\w*)\s*(\(.*)')
+        settingMatch = settingPattern.match(templateMatch.group(1))
+        if not settingMatch:
+            self.currTemplateName = None
+            return
+        settingName = settingMatch.group(1).strip()
+        if settingName != 'name':
+            self.currTemplateName = None
+            return
+        textAfterSettingName = settingMatch.group(2)
+        settingBracketAnalyzer = BracketAnalyzer()
+        settingText, remainder = settingBracketAnalyzer.splitAfterClosingBrackets(textAfterSettingName)
+        #cut away the left and right bracket
+        settingText = settingText.partition("(")[2]
+        settingText = settingText.rpartition(")")[0]
+        self.currTemplateName = settingText
+
+    def processTemplateEndMatch(self, templateEndMatch):
+        self.currTemplateName = None
+
     def processNoMatch(self):
         return
 
@@ -236,7 +258,13 @@ class H90CallGraphParser(object):
         specificationsBeginHere = False
         moduleBeginMatch = self.patterns.moduleBeginPattern.match(str(line))
         subProcBeginMatch = self.patterns.subprocBeginPattern.match(str(line))
-        if moduleBeginMatch:
+        templateMatch = self.patterns.templatePattern.match(str(line))
+        templateEndMatch = self.patterns.templateEndPattern.match(str(line))
+        if templateMatch:
+            self.processTemplateMatch(templateMatch)
+        elif templateEndMatch:
+            self.processTemplateEndMatch(templateEndMatch)
+        elif moduleBeginMatch:
             self.currModuleName = moduleBeginMatch.group(1)
             self.state = 'inside_module'
             self.processModuleBeginMatch(moduleBeginMatch)
@@ -259,7 +287,16 @@ class H90CallGraphParser(object):
         subProcBeginMatch = self.patterns.subprocBeginPattern.match(str(line))
         moduleEndMatch = self.patterns.moduleEndPattern.match(str(line))
         domainDependantMatch = self.patterns.domainDependantPattern.match(str(line))
-        if self.currBracketAnalyzer:
+        templateMatch = self.patterns.templatePattern.match(str(line))
+        templateEndMatch = self.patterns.templateEndPattern.match(str(line))
+
+        if templateMatch:
+            self.processTemplateMatch(templateMatch)
+
+        elif templateEndMatch:
+            self.processTemplateEndMatch(templateEndMatch)
+
+        elif self.currBracketAnalyzer:
             level = self.currBracketAnalyzer.currLevelAfterString(line)
             if level == 0:
                 self.state ='inside_declarations'
@@ -309,6 +346,8 @@ class H90CallGraphParser(object):
         parallelRegionMatch = self.patterns.parallelRegionPattern.match(str(line))
         domainDependantMatch = self.patterns.domainDependantPattern.match(str(line))
         subProcEndMatch = self.patterns.subprocEndPattern.match(str(line))
+        templateMatch = self.patterns.templatePattern.match(str(line))
+        templateEndMatch = self.patterns.templateEndPattern.match(str(line))
 
         if (domainDependantMatch):
             self.state = 'inside_domainDependantRegion'
@@ -324,6 +363,10 @@ class H90CallGraphParser(object):
             raise Exception("parallel region without parallel dependants")
         elif (self.patterns.subprocBeginPattern.match(str(line))):
             raise Exception("subprocedure within subprocedure not allowed")
+        elif templateMatch:
+            raise Exception("template directives are only allowed outside of subroutines")
+        elif templateEndMatch:
+            raise Exception("template directives are only allowed outside of subroutines")
         return
 
     def processInsideSubroutineBodyState(self, line):
@@ -333,6 +376,8 @@ class H90CallGraphParser(object):
         parallelRegionMatch = self.patterns.parallelRegionPattern.match(str(line))
         domainDependantMatch = self.patterns.domainDependantPattern.match(str(line))
         subProcEndMatch = self.patterns.subprocEndPattern.match(str(line))
+        templateMatch = self.patterns.templatePattern.match(str(line))
+        templateEndMatch = self.patterns.templateEndPattern.match(str(line))
 
         if domainDependantMatch:
             self.state = 'inside_domainDependantRegion'
@@ -349,11 +394,17 @@ class H90CallGraphParser(object):
             self.state = 'inside_parallelRegion'
         elif self.patterns.subprocBeginPattern.match(str(line)):
             raise Exception("subprocedure within subprocedure not allowed")
+        elif templateMatch:
+            raise Exception("template directives are only allowed outside of subroutines")
+        elif templateEndMatch:
+            raise Exception("template directives are only allowed outside of subroutines")
         return
 
     def processInsideParallelRegionState(self, line):
         subProcCallMatch = self.patterns.subprocCallPattern.match(str(line))
         parallelRegionEndMatch = self.patterns.parallelRegionEndPattern.match(str(line))
+        templateMatch = self.patterns.templatePattern.match(str(line))
+        templateEndMatch = self.patterns.templateEndPattern.match(str(line))
         if subProcCallMatch:
             self.processCallMatch(subProcCallMatch)
         elif (parallelRegionEndMatch):
@@ -367,11 +418,17 @@ class H90CallGraphParser(object):
             raise Exception("subprocedure end before @end parallelRegion")
         elif (self.patterns.subprocBeginPattern.match(str(line))):
             raise Exception("subprocedure within subprocedure not allowed")
+        elif templateMatch:
+            raise Exception("template directives are only allowed outside of subroutines")
+        elif templateEndMatch:
+            raise Exception("template directives are only allowed outside of subroutines")
         else:
             self.processNoMatch()
 
     def processInsideModuleDomainDependantRegionState(self, line):
         domainDependantEndMatch = self.patterns.domainDependantEndPattern.match(str(line))
+        templateMatch = self.patterns.templatePattern.match(str(line))
+        templateEndMatch = self.patterns.templateEndPattern.match(str(line))
         if domainDependantEndMatch:
             self.processDomainDependantEndMatch(domainDependantEndMatch)
             self.state = "inside_module"
@@ -385,10 +442,16 @@ class H90CallGraphParser(object):
             raise Exception("subprocedure end before @end domainDependant")
         elif (self.patterns.subprocBeginPattern.match(str(line))):
             raise Exception("subprocedure within subprocedure not allowed")
+        elif templateMatch:
+            raise Exception("template directives not allowed here")
+        elif templateEndMatch:
+            raise Exception("template directives not allowed here")
         return
 
     def processInsideDomainDependantRegionState(self, line):
         domainDependantEndMatch = self.patterns.domainDependantEndPattern.match(str(line))
+        templateMatch = self.patterns.templatePattern.match(str(line))
+        templateEndMatch = self.patterns.templateEndPattern.match(str(line))
         if domainDependantEndMatch:
             self.processDomainDependantEndMatch(domainDependantEndMatch)
             self.state = "inside_subroutine_body"
@@ -402,6 +465,10 @@ class H90CallGraphParser(object):
             raise Exception("subprocedure end before @end domainDependant")
         elif (self.patterns.subprocBeginPattern.match(str(line))):
             raise Exception("subprocedure within subprocedure not allowed")
+        elif templateMatch:
+            raise Exception("template directives not allowed here")
+        elif templateEndMatch:
+            raise Exception("template directives not allowed here")
         return
 
     def processUndefinedState(self, line):
@@ -465,6 +532,7 @@ class H90XMLCallGraphGenerator(H90CallGraphParser):
     doc = None
     routines = None
     modules = None
+    templates = None
     calls = None
     currSubprocNode = None
     currModuleNode = None
@@ -477,6 +545,7 @@ class H90XMLCallGraphGenerator(H90CallGraphParser):
         self.routines = createOrGetFirstNodeWithName('routines', doc)
         self.calls = createOrGetFirstNodeWithName('calls', doc)
         self.modules = createOrGetFirstNodeWithName('modules', doc)
+        self.templates = createOrGetFirstNodeWithName('implementationTemplates', doc)
         super(H90XMLCallGraphGenerator, self).__init__()
 
     def processCallMatch(self, subProcCallMatch):
@@ -489,6 +558,13 @@ class H90XMLCallGraphGenerator(H90CallGraphParser):
             call.setAttribute('parallelRegionPosition', 'surround')
         if (not firstDuplicateChild(self.calls, call)):
             self.calls.appendChild(call)
+
+    def processTemplateMatch(self, templateMatch):
+        super(H90XMLCallGraphGenerator, self).processTemplateMatch(templateMatch)
+        template = self.doc.createElement('implementationTemplate')
+        template.setAttribute('name', self.currTemplateName)
+        self.templates.appendChild(template)
+        return
 
     def processModuleBeginMatch(self, moduleBeginMatch):
         super(H90XMLCallGraphGenerator, self).processModuleBeginMatch(moduleBeginMatch)
@@ -849,14 +925,14 @@ class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
     dimensionPattern = None
     tab_insideSub = "\t\t"
     tab_outsideSub = "\t"
-    implementation = None
+    implementationsByTemplateName = None
     codeSanitizer = None
     stateBeforeBranch = None
     currParallelRegionRelationNode = None
     currParallelRegionTemplateNode = None
 
-    def __init__(self, cgDoc, implementation):
-        self.implementation = implementation
+    def __init__(self, cgDoc, implementationsByTemplateName):
+        self.implementationsByTemplateName = implementationsByTemplateName
         self.currRoutineIsCallingParallelRegion = False
         self.currSubroutineImplementationNeedsToBeCommented = False
         self.symbolsPassedInCurrentCallByName = {}
@@ -869,8 +945,16 @@ class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
         self.codeSanitizer = FortranCodeSanitizer()
         self.currParallelRegionRelationNode = None
         self.currParallelRegionTemplateNode = None
-
         super(H90toF90Printer, self).__init__(cgDoc)
+
+    @property
+    def implementation(self):
+        implementation = self.implementationsByTemplateName.get(self.currTemplateName)
+        if implementation == None:
+            implementation = self.implementationsByTemplateName.get('default')
+        if implementation == None:
+            raise Exception("no default implementation defined")
+        return implementation
 
     def prepareActiveParallelRegion(self, implementationFunctionName):
         routineNode = self.routineNodesByProcName.get(self.currSubprocName)
@@ -1155,6 +1239,14 @@ This is not allowed for implementations using %s.\
             adjustedLine = adjustedLine + " & !additional symbol inserted by framework \n" + self.tab_outsideSub + "& "
             symbolNum = symbolNum + 1
         return adjustedLine + paramListStr
+
+    def processTemplateMatch(self, templateMatch):
+        super(H90toF90Printer, self).processTemplateMatch(templateMatch)
+        self.prepareLine("","")
+
+    def processTemplateEndMatch(self, templateEndMatch):
+        super(H90toF90Printer, self).processTemplateEndMatch(templateEndMatch)
+        self.prepareLine("","")
 
     def processBranchMatch(self, branchMatch):
         super(H90toF90Printer, self).processBranchMatch(branchMatch)

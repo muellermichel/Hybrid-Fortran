@@ -226,7 +226,7 @@ def setTemplateInfos(doc, parent, specText, templateParentNodeName, templateNode
         settingText = settingText.rpartition(")")[0]
         appendSeparatedTextAsNodes(settingText, ',', doc, settingNode, 'entry')
 
-    #deduplicate the parallel region definition
+    #deduplicate the definition
     duplicateTemplateNode = firstDuplicateChild(templateLibrary, templateNode)
     if duplicateTemplateNode:
         templateNode = duplicateTemplateNode

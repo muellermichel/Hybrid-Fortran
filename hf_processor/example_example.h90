@@ -18,9 +18,9 @@
 module example
 contains
   subroutine wrapper(a, b, c, d)
+    implicit none
     real, dimension(NZ), intent(in) :: a, b
     real, dimension(NZ), intent(out) :: c, d
-    implicit none
 
     @domainDependant{domName(x,y,z), domSize(NX,NY,NZ), domPP(DOM), accPP(AT)}
     a, b, c, d
@@ -33,10 +33,10 @@ contains
   end subroutine
 
   subroutine add(a, b, c)
+    implicit none
     real, dimension(NZ), intent(in) :: a, b
     real, dimension(NZ), intent(out) :: c
     integer :: z
-    implicit none
 
     @domainDependant{domName(x,y,z), domSize(NX,NY,NZ), domPP(DOM), accPP(AT)}
     a, b, c
@@ -50,10 +50,10 @@ contains
   end subroutine
 
   subroutine mult(a, b, d)
+    implicit none
     real, dimension(NZ), intent(in) :: a, b
     real, dimension(NZ), intent(out) :: d
     integer :: z
-    implicit none
 
     @domainDependant{domName(x,y,z), domSize(NX,NY,NZ), domPP(DOM), accPP(AT)}
     a, b, d
@@ -70,11 +70,11 @@ end module example
 
 program main
   use example
+  implicit none
   real, dimension(DOM(NX, NY, NZ)) :: a, b, c, d
   integer :: x, y, z
   integer :: fail_x, fail_y, fail_z
   logical test
-  implicit none
 
   a(:,:,:) = 1.0d0
   b(:,:,:) = 2.0d0

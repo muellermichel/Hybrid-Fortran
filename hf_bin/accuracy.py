@@ -1,6 +1,6 @@
 # -*- coding: UTF-8 -*-
 
-# Copyright (C) 2014 Michel Müller, Tokyo Institute of Technology
+# Copyright (C) 2015 Michel Müller, Tokyo Institute of Technology
 
 # This file is part of Hybrid Fortran.
 
@@ -186,8 +186,18 @@ def run_accuracy_test_for_netcdf(options, eps):
 
 	from netCDF4 import Dataset
 	import numpy
-	inFile = Dataset(options.inFile)
-	refFile = Dataset(options.refFile)
+	inFile = None
+	try:
+		inFile = Dataset(options.inFile)
+	except Exception as e:
+		sys.stderr.write("Error: could not read %s. Error message: %s\n" %(options.inFile, str(e)))
+		sys.exit(1)
+	refFile = None
+	try:
+		refFile = Dataset(options.refFile)
+	except Exception as e:
+		sys.stderr.write("Error: could not read %s. Error message: %s\n" %(options.refFile, str(e)))
+		sys.exit(1)
 	error_found = False
 	for key in inFile.variables.keys():
 		try:

@@ -46,13 +46,13 @@ ifdef GPU_BUILD
 PFLAGS= -DGPU
 endif
 
+IMPLEMENTATION_MODE_SPECIFIER=
 ifdef EMULATED
 
 #############################################################################
 # Emulated Mode settings.                                                   #
 #############################################################################
-GPU_IMPLEMENTATION=${GPU_IMPLEMENTATION_EMULATION}
-CPU_IMPLEMENTATION=${CPU_IMPLEMENTATION_DEBUG}
+IMPLEMENTATION_MODE_SPECIFIER=emulation
 BUILD_ARGS_PRE="EMULATED=1"
 #############################################################################
 
@@ -62,8 +62,7 @@ ifdef DEBUG
 #############################################################################
 # Debug Mode settings.                                                      #
 #############################################################################
-GPU_IMPLEMENTATION=${GPU_IMPLEMENTATION_DEBUG}
-CPU_IMPLEMENTATION=${CPU_IMPLEMENTATION_DEBUG}
+IMPLEMENTATION_MODE_SPECIFIER=debug
 BUILD_ARGS_PRE="DEBUG=1"
 #############################################################################
 
@@ -72,8 +71,7 @@ else
 #############################################################################
 # Production Mode settings.                                                 #
 #############################################################################
-GPU_IMPLEMENTATION=${GPU_IMPLEMENTATION_PRODUCTION}
-CPU_IMPLEMENTATION=${CPU_IMPLEMENTATION_PRODUCTION}
+IMPLEMENTATION_MODE_SPECIFIER=production
 BUILD_ARGS_PRE=
 #############################################################################
 
@@ -547,6 +545,12 @@ ${CG_DIR}rawCG.xml: ${SRC_H90TGT_HFPP}
 	@echo ..calling python ${TOOLSDIR}/annotatedCallGraphFromH90SourceDir.py -i ${SRC_DIR_COMMON} ${H90_PREPROCESSOR_ARGS} >${DEBUG_OUTPUT}
 	@mkdir -p ${CG_DIR} && python ${TOOLSDIR}/annotatedCallGraphFromH90SourceDir.py -i ${SRC_DIR_HFPP} ${H90_PREPROCESSOR_ARGS} > $@
 
+${DIR_CPU}implementationNamesByTemplate: ${CG_DIR}rawCG.xml
+	@mkdir -p ${DIR_CPU} && ${HF_DIR}/hf_bin/getImplementationNameByTemplate.sh cpu ${IMPLEMENTATION_MODE_SPECIFIER} ${CONFIGDIR}MakesettingsGeneral ${CG_DIR}rawCG.xml > ${DIR_CPU}implementationNamesByTemplate
+
+${DIR_GPU}implementationNamesByTemplate: ${CG_DIR}rawCG.xml
+	@mkdir -p ${DIR_GPU} && ${HF_DIR}/hf_bin/getImplementationNameByTemplate.sh gpu ${IMPLEMENTATION_MODE_SPECIFIER} ${CONFIGDIR}MakesettingsGeneral ${CG_DIR}rawCG.xml > ${DIR_GPU}implementationNamesByTemplate
+
 ${CG_DIR}CG_CPU.xml: ${CG_DIR}rawCG.xml
 	@echo "...........building CPU callgraph"
 	@(set -e && \
@@ -635,13 +639,13 @@ ${SRC_DIR_HFPP}%.h90: %.h90
 	@echo ...copying file into $@ >${DEBUG_OUTPUT}
 	@mkdir -p ${SRC_DIR_HFPP} && cp -fp $< $@
 
-${SRC_DIR_CPU}%.P90: ${SRC_DIR_HFPP}%.h90
-	$(call yellowecho,"...........converting $(notdir $<) by calling 'generateF90fromH90AndAnalyzedCallGraph.py -i $< -c ${CG_DIR}${CPU_CALLGRAPH_FILE} --implementation=${CPU_IMPLEMENTATION} ${H90_PREPROCESSOR_ARGS}'")
-	@python ${TOOLSDIR}/generateF90fromH90AndAnalyzedCallGraph.py -i $< -c ${CG_DIR}${CPU_CALLGRAPH_FILE} --implementation=${CPU_IMPLEMENTATION} ${H90_PREPROCESSOR_ARGS} > $@
+${SRC_DIR_CPU}%.P90: ${SRC_DIR_HFPP}%.h90 ${DIR_CPU}implementationNamesByTemplate ${CG_DIR}${CPU_CALLGRAPH_FILE}
+	$(call yellowecho,"...........converting $(notdir $<) by calling 'generateF90fromH90AndAnalyzedCallGraph.py -i $< -c ${CG_DIR}${CPU_CALLGRAPH_FILE} --implementation=${DIR_CPU}implementationNamesByTemplate --optionFlags=${OPTION_FLAGS} ${H90_PREPROCESSOR_ARGS}'")
+	@python ${TOOLSDIR}/generateF90fromH90AndAnalyzedCallGraph.py -i $< -c ${CG_DIR}${CPU_CALLGRAPH_FILE} --implementation=${DIR_CPU}implementationNamesByTemplate --optionFlags=${OPTION_FLAGS} ${H90_PREPROCESSOR_ARGS} > $@
 
-${SRC_DIR_GPU}%.P90: ${SRC_DIR_HFPP}%.h90
-	$(call yellowecho,"...........converting $(notdir $<) by calling 'generateF90fromH90AndAnalyzedCallGraph.py -i $< -c ${CG_DIR}${GPU_CALLGRAPH_FILE} --implementation=${GPU_IMPLEMENTATION} --optionFlags=${OPTION_FLAGS} ${H90_PREPROCESSOR_ARGS}'")
-	@python ${TOOLSDIR}/generateF90fromH90AndAnalyzedCallGraph.py -i $< -c ${CG_DIR}${GPU_CALLGRAPH_FILE} --implementation=${GPU_IMPLEMENTATION} --optionFlags=${OPTION_FLAGS} ${H90_PREPROCESSOR_ARGS} > $@
+${SRC_DIR_GPU}%.P90: ${SRC_DIR_HFPP}%.h90 ${DIR_GPU}implementationNamesByTemplate ${CG_DIR}${GPU_CALLGRAPH_FILE}
+	$(call yellowecho,"...........converting $(notdir $<) by calling 'generateF90fromH90AndAnalyzedCallGraph.py -i $< -c ${CG_DIR}${GPU_CALLGRAPH_FILE} --implementation=${DIR_GPU}implementationNamesByTemplate --optionFlags=${OPTION_FLAGS} ${H90_PREPROCESSOR_ARGS}'")
+	@python ${TOOLSDIR}/generateF90fromH90AndAnalyzedCallGraph.py -i $< -c ${CG_DIR}${GPU_CALLGRAPH_FILE} --implementation=${DIR_GPU}implementationNamesByTemplate --optionFlags=${OPTION_FLAGS} ${H90_PREPROCESSOR_ARGS} > $@
 
 ${SRC_DIR_HFPP}%.h90: %.H90
 	@echo ...........preprocessing file $@

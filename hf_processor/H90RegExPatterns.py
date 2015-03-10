@@ -47,6 +47,8 @@ class H90RegExPatterns:
     moduleBeginPattern = None
     moduleEndPattern = None
     earlyReturnPattern = None
+    templatePattern = None
+    templateEndPattern = None
 
     def __init__(self):
         self.blankPattern = re.compile(r'\s', re.IGNORECASE)
@@ -72,3 +74,6 @@ class H90RegExPatterns:
         self.moduleBeginPattern = re.compile(r'\s*module\s*(\w*).*', re.IGNORECASE)
         self.moduleEndPattern = re.compile(r'\s*end\s*module.*', re.IGNORECASE)
         self.earlyReturnPattern = re.compile(r'^\s*return(?:\s.*|$)', re.IGNORECASE)
+        self.templatePattern = re.compile(r'\s*@template\s*{(.*)}.*', re.IGNORECASE)
+        self.templateEndPattern = re.compile(r'\s*@end\s*template.*', re.IGNORECASE)
+

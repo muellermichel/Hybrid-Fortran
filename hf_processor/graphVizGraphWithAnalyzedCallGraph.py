@@ -91,10 +91,15 @@ for parallelRegion in parallelRegions:
 calls = doc.getElementsByTagName("call")
 callGraphDict = {}
 routineDict = {}
-for routine in routinesWithActiveRegions:
+for routine in doc.getElementsByTagName("routine"):
 	routineName = routine.getAttribute("name")
 	addCallers(callGraphDict, routineDict, calls, routineName)
 	addCallees(callGraphDict, routineDict, calls, routineName)
+
+# for routine in routinesWithActiveRegions:
+# 	routineName = routine.getAttribute("name")
+# 	addCallers(callGraphDict, routineDict, calls, routineName)
+# 	addCallees(callGraphDict, routineDict, calls, routineName)
 
 callGraphEdges = callGraphDict.keys()
 for callGraphEdge in callGraphEdges:

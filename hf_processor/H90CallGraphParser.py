@@ -996,12 +996,14 @@ This is not allowed for implementations using %s.\
                     raise Exception("There was a problem in the bracket analysis for the following string: %s" %(accessorString))
                 elif bracketLevel == 0 and work == "" or bracketLevel < 0 and currAccessor[-1] != ')':
                     raise Exception("Closing bracket expected but none found in accessor string: %s" %(accessorString))
-                if len(currAccessor) > 0 and currAccessor[-1] == ',' or len(currAccessor) > 0 and currAccessor[-1] == ')' and bracketLevel < 0:
-                    currAccessor = currAccessor[0:len(currAccessor)-1]
                 if bracketLevel == 0 and len(work) > 0 and work[0] == ',':
                     work = work[1:len(work)]
+                if len(currAccessor) > 0 and currAccessor[-1] == ',' or len(currAccessor) > 0 and currAccessor[-1] == ')' and bracketLevel < 0:
+                    currAccessor = currAccessor[0:len(currAccessor)-1]
+                if currAccessor == "" and bracketLevel < 0:
+                    break
                 if currAccessor == "":
-                    raise Exception("Invalid empty accessor. Analyzed string: %s; Remainder: %s" %(accessorString, work))
+                    raise Exception("Invalid empty accessor. Analyzed string: %s; Accessors so far: %s; Remainder: %s" %(accessorString, str(accessors), work))
                 accessors.append(currAccessor.strip())
             return accessors, work
 

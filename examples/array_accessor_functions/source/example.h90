@@ -30,6 +30,8 @@ contains
     !the min-function in the array accessor shouldn't change the result in this case (since a is uniform), but it is used to test
     !the Hybrid Fortran parser with such a construct.
     b(i,j) = a(i,j) + a(min(i+1,n-2),j)
+    b(i,j) = a(i,j) + a(i,min(j,m))
+    b(i,j) = a(i,j) + a(min(i+1,n-2),min(j,m))
     @end parallelRegion
   end subroutine
 

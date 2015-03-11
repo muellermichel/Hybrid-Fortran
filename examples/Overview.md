@@ -54,6 +54,10 @@ See also the [results overview](../results/Overview.md).
         <td>Tests different ways of using module data with an OpenACC implementation.</td>
     </tr>
     <tr>
+        <td>Mixed Implementations Example</td>
+        <td>Tests the @template directive which can be used to have different implementations for different parts of your code.</td>
+    </tr>
+    <tr>
         <td>Strides Example</td>
         <td>Like parallel vector example, uses blocking of data domain (in case GPU memory is too small).</td>
     </tr>
@@ -160,6 +164,14 @@ See also the [results overview](../results/Overview.md).
     <tr>
         <td>OpenACC Module Data Example</td>
         <td><a href="https://github.com/muellermichel/Hybrid-Fortran/tree/master/examples/module_data_with_openACC">Link</a></td>
+        <td>1E-8</td>
+        <td>No</td>
+        <td>No</td>
+        <td>No</td>
+    </tr>
+    <tr>
+        <td>Mixed Implementations Example</td>
+        <td><a href="https://github.com/muellermichel/Hybrid-Fortran/tree/master/examples/mixed_implementations">Link</a></td>
         <td>1E-8</td>
         <td>No</td>
         <td>No</td>

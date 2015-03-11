@@ -222,7 +222,7 @@ def getCompareToTraceFunc(abortSubroutineOnError=True, loop_name_postfix=''):
             use_domain_reordering=False
         )
         result = ""
-        result += "if ((hf_tracing_comparison_%s - hf_tracing_temp_%s)**2 .gt. 1E-8) then \n" %(accessor, accessor)
+        result += "if (abs(hf_tracing_comparison_%s - hf_tracing_temp_%s) .gt. 1E-8) then \n" %(accessor, accessor)
         result += "write(0,*) 'error at:'\n"
         for domainNum in range(1,len(symbol.domains)+1):
             result += "write(0,*) 'domain %i:', hf_tracing_enum%i\n" %(domainNum, domainNum)
@@ -276,7 +276,7 @@ def getCompareToTraceFunc(abortSubroutineOnError=True, loop_name_postfix=''):
         result += "write(0,*) shape(hf_tracing_comparison_%s)\n" %(symbol.name)
         result += "hf_tracing_error_found = .true.\n"
         result += "else\n"
-        result += "write(0,*) 'In subroutine %s: symbol %s matches trace of cpu version found in ', trim(hf_tracing_current_path), 'Error: ', hf_tracing_error\n" %(currRoutineNode.getAttribute('name'), symbol.name)
+        result += "write(0,*) '%s: symbol %s ok. Error: ', hf_tracing_error\n" %(currRoutineNode.getAttribute('name'), symbol.name)
         result += "end if\n"
         result += "close(hf_tracing_imt)\n"
         result += "end if\n"

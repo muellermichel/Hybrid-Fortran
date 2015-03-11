@@ -977,31 +977,38 @@ This is not allowed for implementations using %s.\
         self.prepareLine(functionAttr(self.currParallelRegionTemplateNode, self.branchAnalyzer.level), self.tab_insideSub)
 
     def processSymbolMatchAndGetAdjustedLine(self, line, symbolMatch, symbol, isInsideSubroutineCall, isPointerAssignment):
-        def getAccessPattern(numberOfDimensions):
-            if numberOfDimensions == 0:
-                return r"\s*((?:[^(]|$).*)"
-            accPatternStr = r"\s*\("
-            for i in range(numberOfDimensions):
-                if i != 0:
-                    accPatternStr = accPatternStr + r"\,"
-                accPatternStr = accPatternStr + r"\s*([\w\s\+\*\/\-\:]*?)\s*"
-            accPatternStr = accPatternStr + r"\)(.*)"
-            return accPatternStr
-
-        def getAccessMatchAndNumberOfDomainsInAccessor(tryNumberOfDimensions, postfix):
-            accMatch = None
-            numberOfDomainsInAccessor = None
-            for numberOfDimensions in tryNumberOfDimensions:
-                accPatternStr = getAccessPattern(numberOfDimensions)
-                accMatch = re.match(accPatternStr, postfix, re.IGNORECASE)
-                if accMatch != None:
-                    numberOfDomainsInAccessor = numberOfDimensions
-                    break
-            return accMatch, numberOfDomainsInAccessor
+        def getAccessorsAndRemainder(accessorString):
+            currBracketAnalyzer = BracketAnalyzer()
+            accessors = []
+            symbol_access_match = self.patterns.symbolAccessPattern.match(accessorString)
+            if not symbol_access_match:
+                return accessors, accessorString
+            work = symbol_access_match.group(1)
+            if len(work) < 1:
+                raise Exception("unmatched opening bracket: %s" %(accessorString))
+            bracketLevel = 0
+            while len(work) > 0 and bracketLevel >= 0:
+                currAccessor, work, bracketLevel = currBracketAnalyzer.splitAfterCharacterOnSameLevelOrClosingBrackets(work, ',')
+                work = work.strip()
+                currAccessor = currAccessor.strip()
+                #just some sanity checks
+                if bracketLevel > 0:
+                    raise Exception("There was a problem in the bracket analysis for the following string: %s" %(accessorString))
+                elif bracketLevel == 0 and work == "" or bracketLevel < 0 and currAccessor[-1] != ')':
+                    raise Exception("Closing bracket expected but none found in accessor string: %s" %(accessorString))
+                if len(currAccessor) > 0 and currAccessor[-1] == ',' or len(currAccessor) > 0 and currAccessor[-1] == ')' and bracketLevel < 0:
+                    currAccessor = currAccessor[0:len(currAccessor)-1]
+                if bracketLevel == 0 and len(work) > 0 and work[0] == ',':
+                    work = work[1:len(work)]
+                if currAccessor == "":
+                    raise Exception("Invalid empty accessor. Analyzed string: %s; Remainder: %s" %(accessorString, work))
+                accessors.append(currAccessor.strip())
+            return accessors, work
 
         #match the symbol's postfix again in the current given line. (The prefix could have changed from the last match.)
         postfix = symbolMatch.group(3)
         postfixEscaped = re.escape(postfix)
+        accessors, postfix = getAccessorsAndRemainder(postfix)
 
         if symbol.domains \
         and len(symbol.domains) > 0 \
@@ -1010,11 +1017,11 @@ This is not allowed for implementations using %s.\
         and not symbol.isModuleSymbol \
         and not symbol.isHostSymbol \
         and self.state != "inside_parallelRegion" \
-        and self.routineNodesByProcName[self.currSubprocName].getAttribute("parallelRegionPosition") != "outside":
-            accMatch, _ = getAccessMatchAndNumberOfDomainsInAccessor([0], postfix)
-            if accMatch == None:
-                sys.stderr.write("WARNING: Dependant symbol %s accessed with accessor domains outside of a parallel region or subroutine call in subroutine %s(%s:%i)\n" \
-                %(symbol.name, self.currSubprocName, self.fileName, self.lineNo))
+        and self.routineNodesByProcName[self.currSubprocName].getAttribute("parallelRegionPosition") != "outside" \
+        and len(accessors) != 0:
+            sys.stderr.write("WARNING: Dependant symbol %s accessed with accessor domains (%s) outside of a parallel region or subroutine call in subroutine %s(%s:%i)\n" \
+                %(symbol.name, str(accessors), self.currSubprocName, self.fileName, self.lineNo)
+            )
 
         accessPatternChangeRequired = False
         presentPattern = r"(.*?present\s*\(\s*)" + re.escape(symbol.deviceName()) + postfixEscaped + r"\s*"
@@ -1031,15 +1038,14 @@ This is not allowed for implementations using %s.\
                         "Symbol %s is accessed in an unexpected way. Note: '_d' postfix is reserved for internal use. Cannot match one of the following patterns: \npattern1: '%s'\npattern2: '%s'" \
                         %(symbol.name, pattern1, pattern2))
         prefix = currMatch.group(1)
-        numberOfDomainsInAccessor = 0
         if accessPatternChangeRequired:
             numOfIndependentDomains = len(symbol.domains) - symbol.numOfParallelDomains
-            accMatch, numberOfDomainsInAccessor = getAccessMatchAndNumberOfDomainsInAccessor([numOfIndependentDomains, len(symbol.domains), 0], postfix)
             offsets = []
-            if accMatch == None:
-                raise Exception("Unexpected array access for symbol %s: Please use either %i (number of parallel independant dimensions) \
+            if len(accessors) != numOfIndependentDomains and len(accessors) != len(symbol.domains) and len(accessors) != 0:
+                raise Exception("Unexpected array access for symbol %s (%s): Please use either %i (number of parallel independant dimensions) \
     or %i (number of declared dimensions for this array) or zero accessors. Symbol Domains: %s; Symbol Init Level: %i; Parallel Region Position: %s; Parallel Active: %s; Symbol template:\n%s\n" %(
                     symbol.name,
+                    str(accessors),
                     numOfIndependentDomains,
                     len(symbol.domains),
                     str(symbol.domains),
@@ -1048,13 +1054,11 @@ This is not allowed for implementations using %s.\
                     symbol.parallelActiveDims,
                     symbol.template.toxml()
                 ))
-            if numberOfDomainsInAccessor == 0 and (isInsideSubroutineCall or isPointerAssignment):
+            if len(accessors) == 0 and (isInsideSubroutineCall or isPointerAssignment):
                 for i in range(numOfIndependentDomains):
                     offsets.append(":")
             else:
-                postfix = accMatch.group(numberOfDomainsInAccessor + 1)
-                for i in range(numberOfDomainsInAccessor):
-                    offsets.append(accMatch.group(i + 1))
+                offsets += accessors
 
             iterators = self.currParallelIterators
             if isInsideSubroutineCall:
@@ -1070,7 +1074,7 @@ This is not allowed for implementations using %s.\
             and not isPointerAssignment \
             and not symbol.isModuleSymbol \
             and not symbol.isHostSymbol \
-            and numberOfDomainsInAccessor == 0 \
+            and len(accessors) == 0 \
         ):
             symbol_access = symbol.deviceName()
         else:

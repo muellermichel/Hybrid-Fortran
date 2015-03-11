@@ -1,0 +1,59 @@
+# Copyright (C) 2014 Michel Müller, Tokyo Institute of Technology
+
+# This file is part of Hybrid Fortran.
+
+# Hybrid Fortran is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# Hybrid Fortran is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU Lesser General Public License for more details.
+
+# You should have received a copy of the GNU Lesser General Public License
+# along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
+
+#--------------------------------------------------------#
+#-- GNU Make settings for GPU compilation ---------------#
+#-- created:   2012-9-3 ---------------------------------#
+#-- author:    Michel Müller ----------------------------#
+#-- place:     Tokyo Institute of Technology ------------#
+#--------------------------------------------------------#
+
+#############################################################################
+# compiler and linker choice                                                #
+#############################################################################
+FC=pgf90
+LD=pgf90
+
+ifdef EMULATED
+
+#############################################################################
+# emulation mode settings                                                   #
+#############################################################################
+FFLAGS= -acc -Mcuda=emu -g -I/usr/local/include -I/home/usr1/A2400653/software/include
+LDFLAGS= -acc -Mcuda=emu -L/usr/local/lib -L/home/usr1/A2400653/software/lib -Minfo=accel,inline -Mneginfo -lpp
+
+else
+ifdef DEBUG
+#############################################################################
+# debug settings                                                            #
+#############################################################################
+FFLAGS= -acc -g -Mcuda=cc2x,cc3x -ta=nvidia,cc2x,cc3x,keepgpu,keepbin,time -Minfo=accel,inline,ipa -Mneginfo -Minform=inform -I/usr/local/include
+LDFLAGS= -acc -Mcuda=cc2x,cc3x -ta=nvidia,cc2x,cc3x,time -L/usr/local/lib -Minfo=accel,inline -Mneginfo -lpp
+
+else
+#############################################################################
+# production settings                                                       #
+#############################################################################
+FFLAGS= -acc -Minfo=accel,inline,ipa -Mneginfo -Mcuda=cc2x,cc3x -ta=nvidia,cc2x,cc3x -fast
+LDFLAGS= -acc -Minfo=accel,inline,ipa -Mneginfo -Mcuda=cc2x,cc3x -ta=nvidia,cc2x,cc3x,time -fast -lpp
+
+endif
+endif
+
+
+
+

@@ -69,6 +69,10 @@ See also the [results overview](../results/Overview.md).
         <td>Early Returns Example</td>
         <td>Tests different return statements within your kernels.</td>
     </tr>
+    <tr>
+        <td>Array Accessor Functions Example</td>
+        <td>Tests more complicated array access patterns like 'a(min(n_max,i),j)' with the Hybrid Fortran parser.</td>
+    </tr>
 </table>
 
 ## Link to Sources, Available Versions and Implementation Accuracy
@@ -196,6 +200,14 @@ See also the [results overview](../results/Overview.md).
     <tr>
         <td>Early Returns Example</td>
         <td><a href="https://github.com/muellermichel/Hybrid-Fortran/tree/master/examples/early_returns">Link</a></td>
+        <td>1E-8</td>
+        <td>No</td>
+        <td>No</td>
+        <td>No</td>
+    </tr>
+    <tr>
+        <td>Array Accessor Function Example</td>
+        <td><a href="https://github.com/muellermichel/Hybrid-Fortran/tree/master/examples/array_accessor_functions">Link</a></td>
         <td>1E-8</td>
         <td>No</td>
         <td>No</td>

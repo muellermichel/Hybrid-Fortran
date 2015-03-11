@@ -28,7 +28,7 @@ EXAMPLEDIR=${HF_DIR}/example/
 EXAMPLEDIR_SOURCE=${EXAMPLEDIR}source/
 EXAMPLEDIR_CONFIG=${EXAMPLEDIR}config/
 
-TEST_PROJECTS=examples/simple_stencil examples/stencil_with_local_array examples/stencil_with_passed_in_scalar_from_array examples/early_returns examples/mixed_implementations examples/tracing examples/strides examples/simple_openACC examples/branches_with_openACC examples/poisson2d_fem_iterative examples/midaco_solver examples/diffusion3d examples/particle examples/module_data_with_openACC
+TEST_PROJECTS=examples/simple_stencil examples/stencil_with_local_array examples/stencil_with_passed_in_scalar_from_array examples/array_accessor_functions examples/early_returns examples/mixed_implementations examples/tracing examples/strides examples/simple_openACC examples/branches_with_openACC examples/poisson2d_fem_iterative examples/midaco_solver examples/diffusion3d examples/particle examples/module_data_with_openACC
 ADDITIONAL_TEST_PROJECTS=pp
 
 TEST_TARGETS=$(addprefix test_,$(TEST_PROJECTS))

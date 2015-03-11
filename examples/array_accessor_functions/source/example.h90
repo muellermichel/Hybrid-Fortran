@@ -27,7 +27,9 @@ contains
     @end domainDependant
 
     @parallelRegion{domName(i,j), domSize(n,m), endAt(n-1,m)}
-    b(i,j) = a(i,j) + a(i+1,j)
+    !the min-function in the array accessor shouldn't change the result in this case (since a is uniform), but it is used to test
+    !the Hybrid Fortran parser with such a construct.
+    b(i,j) = a(i,j) + a(min(i+1,n-2),j)
     @end parallelRegion
   end subroutine
 
@@ -50,8 +52,8 @@ program main
   real(8), dimension(:,:), allocatable :: a, b
   integer(4) :: n, m, i, j
 
-  n = 4
-  m = 4
+  n = 8
+  m = 8
   allocate(a(n,m))
   allocate(b(n,m))
   a(:,:) = 1.0d0

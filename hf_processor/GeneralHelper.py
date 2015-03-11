@@ -126,9 +126,13 @@ class BracketAnalyzer(object):
     searchPattern = ""
     openingPattern = ""
     closingPattern = ""
+    openingChar = ""
+    closingChar = ""
 
     def __init__(self, openingChar="(", closingChar=")", pass_in_regex_pattern=False):
         self.currLevel = 0
+        self.openingChar = openingChar
+        self.closingChar = closingChar
         if pass_in_regex_pattern:
             self.searchPattern = re.compile(r"(.*?)(" + openingChar + r"|" + closingChar + r")(.*)", re.IGNORECASE)
             self.openingPattern = re.compile(openingChar, re.IGNORECASE)
@@ -142,22 +146,55 @@ class BracketAnalyzer(object):
     def level(self):
         return self.currLevel
 
+    def splitAfterCharacterOnSameLevelOrClosingBrackets(self, string, char):
+        charSearchPattern = re.compile(r"(.*?)(" + re.escape(char) + r"|" + re.escape(self.openingChar) + r"|" + re.escape(self.closingChar) + r")(.*)", re.IGNORECASE)
+        charPattern = re.compile(re.escape(char), re.IGNORECASE)
+        work = string
+        match = charSearchPattern.match(work)
+        if not match:
+            return "", string, self.currLevel
+
+        startLevel = self.currLevel
+        substring = ""
+        innerBracketsFound = False
+        while match:
+            work = match.group(3)
+            substring += match.group(1) + match.group(2)
+            if charPattern.match(match.group(2)) != None and (innerBracketsFound == False or self.currLevel == startLevel):
+                return substring, work, self.currLevel
+            elif self.openingPattern.match(match.group(2)) != None:
+                innerBracketsFound = True
+                self.currLevel += 1
+            elif self.closingPattern.match(match.group(2)) != None:
+                self.currLevel -= 1
+            elif charPattern.match(match.group(2)) == None:
+                raise Exception("Something went wrong in the bracket analysis for string %s - cannot rematch a search character" %(string))
+            match = charSearchPattern.match(work)
+            if self.currLevel < startLevel or (innerBracketsFound == True and self.currLevel == startLevel):
+                break
+        if self.currLevel < startLevel or (innerBracketsFound == True and self.currLevel == startLevel):
+            return substring, work, self.currLevel
+        else:
+            return "", string, self.currLevel
+
     def splitAfterClosingBrackets(self, string):
         work = string
-        substring = ""
         match = self.searchPattern.match(work)
         if not match:
             return work, ""
 
+        substring = ""
         while match:
             if self.openingPattern.match(match.group(2)) != None:
-                self.currLevel = self.currLevel + 1
+                self.currLevel += 1
             elif self.closingPattern.match(match.group(2)) != None:
                 if self.currLevel == 0:
                     raise Exception("Closing bracket before opening one.")
-                self.currLevel = self.currLevel - 1
+                self.currLevel -= 1
+            else:
+                raise Exception("Something went wrong in the bracket analysis - cannot rematch a search character")
             work = match.group(3)
-            substring = substring + match.group(1) + match.group(2)
+            substring += match.group(1) + match.group(2)
             if self.currLevel == 0:
                 break
             match = self.searchPattern.match(work)
@@ -176,6 +213,8 @@ class BracketAnalyzer(object):
                 if self.currLevel == 0:
                     raise Exception("Closing bracket before opening one.")
                 self.currLevel -= 1
+            else:
+                raise Exception("Something went wrong in the bracket analysis - cannot rematch a search character")
             work = match.group(3)
             match = self.searchPattern.match(work)
 

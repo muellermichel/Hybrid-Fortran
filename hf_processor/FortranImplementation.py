@@ -37,7 +37,7 @@ import re
 
 number_of_traces = 200
 
-def getDataDirective(currRoutineNode, currParallelRegionTemplates, dependantSymbols, createDeclaration, routineIsKernelCaller, enterOrExit='enter'):
+def getDataDirectiveAndUpdateOnDeviceFlags(currRoutineNode, currParallelRegionTemplates, dependantSymbols, createDeclaration, routineIsKernelCaller, enterOrExit='enter'):
     presentDeclaration = "present" # if currRoutineNode.getAttribute("parallelRegionPosition") == 'inside' else "deviceptr"
     copyDeclaration = "copyin"
     if enterOrExit != 'enter':
@@ -214,7 +214,7 @@ def getTracingStatements(currRoutineNode, currModuleName, tracingSymbols, traceH
     return result
 
 def tracingFilename(currModuleName, currRoutineNode, symbol, begin_or_end):
-    filename_postfix = "_"
+    filename_postfix = "%s_" %(begin_or_end)
     if symbol.intent == "inout" and begin_or_end == "begin":
         filename_postfix = "in_"
     elif symbol.intent == "inout":
@@ -256,8 +256,9 @@ def getCompareToTraceFunc(abortSubroutineOnError=True, loop_name_postfix='', beg
         )
         result += "open(hf_tracing_imt, file=trim(hf_tracing_current_path), form='unformatted', status='old', action='read', iostat=hf_tracing_ierr)\n"
         result += "if (hf_tracing_ierr .ne. 0) then\n"
-        result += "write(0,*) 'In subroutine %s: could not read reference file ', trim(hf_tracing_current_path),' for symbol %s => aborting trace checking here. Error code: ', hf_tracing_ierr\n" %(
+        result += "write(0,*) 'In subroutine %s, checkpoint %s: could not read reference file ', trim(hf_tracing_current_path),' for symbol %s => aborting trace checking here. Error code: ', hf_tracing_ierr\n" %(
             currRoutineNode.getAttribute('name'),
+            loop_name_postfix,
             symbol.name
         )
         result += "close(hf_tracing_imt)\n"
@@ -289,20 +290,22 @@ def getCompareToTraceFunc(abortSubroutineOnError=True, loop_name_postfix='', beg
             result += "end if\n"
             result += "if (hf_tracing_error .ne. hf_tracing_error .or. hf_tracing_error .gt. 1E-9) then\n" # a .ne. a tests a for NaN in Fortran (needs -Kieee compiler flag in pgf90)
             result += "\
-write(0,*) 'In module %s, subroutine %s:', 'Real Array %s does not match the data found in ', trim(hf_tracing_current_path), \
+write(0,*) 'In module %s, subroutine %s, checkpoint %s:', 'Real Array %s does not match the data found in ', trim(hf_tracing_current_path), \
 ' RMS Error:', hf_tracing_error, ' NumOfValues:', hf_num_of_elements, ' ReferenceMean: ', hf_mean_ref, ' GPUMean: ', hf_mean_gpu\n\
             " %(
                 currModuleName,
                 currRoutineNode.getAttribute('name'),
+                loop_name_postfix,
                 symbol.name
             )
             result += "hf_error_printed_counter = 0\n"
             result += getLoopOverSymbolValues(symbol, "%s_printindex_%s" %(symbol.name, loop_name_postfix), printSomeErrors)
         else:
             result += "if (any(hf_tracing_comparison_%s .ne. hf_tracing_temp_%s)) then\n" %(symbol.name, symbol.name)
-            result += "write(0,*) 'In module %s, subroutine %s:', 'Array %s does not match the data found in ./datatrace.'\n" %(
+            result += "write(0,*) 'In module %s, subroutine %s, checkpoint %s::', 'Array %s does not match the data found in ./datatrace.'\n" %(
                 currModuleName,
                 currRoutineNode.getAttribute('name'),
+                loop_name_postfix,
                 symbol.name
             )
         result += "write(0,*) 'GPU version shape:'\n"
@@ -311,7 +314,7 @@ write(0,*) 'In module %s, subroutine %s:', 'Real Array %s does not match the dat
         result += "write(0,*) shape(hf_tracing_comparison_%s)\n" %(symbol.name)
         result += "hf_tracing_error_found = .true.\n"
         result += "else\n"
-        result += "write(0,*) '%s: symbol %s ok. Error: ', hf_tracing_error\n" %(currRoutineNode.getAttribute('name'), symbol.name)
+        result += "write(0,*) 'symbol %s ok. nRMSE: ', hf_tracing_error\n" %(symbol.name)
         result += "end if\n"
         result += "end if\n"
         result += "end if\n"
@@ -787,7 +790,14 @@ end subroutine
         self.currRoutineNode = currRoutineNode
         self.currDependantSymbols = dependantSymbols
         self.currParallelRegionTemplates = currParallelRegionTemplates
-        dataDirective, dataDeclarationsRequired = getDataDirective(currRoutineNode, currParallelRegionTemplates, dependantSymbols, self.createDeclaration, routineIsKernelCaller, enterOrExit='enter')
+        dataDirective, dataDeclarationsRequired = getDataDirectiveAndUpdateOnDeviceFlags(
+            currRoutineNode,
+            currParallelRegionTemplates,
+            dependantSymbols,
+            self.createDeclaration,
+            routineIsKernelCaller,
+            enterOrExit='enter'
+        )
         self.currRoutineHasDataDeclarations = dataDeclarationsRequired
         result = ""
         result += getIteratorDeclaration(currRoutineNode, currParallelRegionTemplates, ["GPU"])
@@ -837,7 +847,7 @@ end subroutine
     def subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, is_subroutine_end):
         result = ""
         if self.currRoutineHasDataDeclarations:
-            dataDirective, _ = getDataDirective(self.currRoutineNode, self.currParallelRegionTemplates, dependantSymbols, self.createDeclaration, routineIsKernelCaller, enterOrExit='exit')
+            dataDirective, _ = getDataDirectiveAndUpdateOnDeviceFlags(self.currRoutineNode, self.currParallelRegionTemplates, dependantSymbols, self.createDeclaration, routineIsKernelCaller, enterOrExit='exit')
             result += dataDirective
         if is_subroutine_end:
             self.currRoutineNode = None
@@ -909,7 +919,7 @@ class TraceCheckingOpenACCFortranImplementation(DebugPGIOpenACCFortranImplementa
         result += getTracingStatements(
             self.currRoutineNode,
             self.currModuleName,
-            [symbol for symbol in self.currentTracedSymbols if symbol.intent in ['in']],
+            [symbol for symbol in self.currentTracedSymbols if symbol.intent in ['in', 'inout']],
             getCompareToTraceFunc(abortSubroutineOnError=False, loop_name_postfix='start', begin_or_end='begin'),
             increment_tracing_counter=False,
             loop_name_postfix='start'

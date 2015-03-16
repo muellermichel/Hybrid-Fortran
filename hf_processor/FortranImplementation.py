@@ -203,7 +203,7 @@ def getTracingStatements(currRoutineNode, currModuleName, tracingSymbols, traceH
                 )
             )
             if symbol.isOnDevice:
-                result += "!$acc update host(%s)\n" %(symbol.name)
+                result += "!$acc update host(%s) if(hf_symbols_are_device_present)\n" %(symbol.name)
             result += getLoopOverSymbolValues(symbol, "%s_temp_%s" %(symbol.name, loop_name_postfix), innerTempArraySetterLoopFunc)
             result += traceHandlingFunc(currRoutineNode, currModuleName, symbol)
             if 'allocatable' in symbol.declarationPrefix:
@@ -678,7 +678,7 @@ end subroutine
             return ""
         if symbol.declarationType() != DeclarationType.LOCAL_ARRAY:
             return ""
-        return "!$acc update device(%s)\n" %(symbol.name)
+        return "!$acc update device(%s) if(hf_symbols_are_device_present)\n" %(symbol.name)
 
     def callPostForPassedSymbol(self, currRoutineNode, symbol):
         if not currRoutineNode:
@@ -687,7 +687,7 @@ end subroutine
             return ""
         if symbol.declarationType() != DeclarationType.LOCAL_ARRAY:
             return ""
-        return "!$acc update host(%s)\n" %(symbol.name)
+        return "!$acc update host(%s) if(hf_symbols_are_device_present)\n" %(symbol.name)
 
     def adjustDeclarationForDevice(self, line, patterns, dependantSymbols, routineIsKernelCaller, parallelRegionPosition):
         return line
@@ -801,6 +801,7 @@ end subroutine
         self.currRoutineHasDataDeclarations = dataDeclarationsRequired
         result = ""
         result += getIteratorDeclaration(currRoutineNode, currParallelRegionTemplates, ["GPU"])
+        result += "integer(4) :: hf_symbols_are_device_present\n"
         if dataDeclarationsRequired == True:
             result += dataDirective
         result += self.declarationEndPrintStatements()
@@ -820,7 +821,7 @@ end subroutine
         regionStr = ""
         for symbol in self.currDependantSymbols:
             if symbol.declarationType() == DeclarationType.LOCAL_ARRAY:
-                regionStr += "!$acc update device(%s)\n" %(symbol.name)
+                regionStr += "!$acc update device(%s) if(hf_symbols_are_device_present)\n" %(symbol.name)
         vectorSizePPNames = getVectorSizePPNames(parallelRegionTemplate)
         regionStr += "!$acc kernels\n"
         domains = getDomainsWithParallelRegionTemplate(parallelRegionTemplate)
@@ -841,7 +842,7 @@ end subroutine
         additionalStatements = "\n!$acc end kernels\n"
         for symbol in self.currDependantSymbols:
             if symbol.declarationType() == DeclarationType.LOCAL_ARRAY:
-                additionalStatements += "!$acc update host(%s)\n" %(symbol.name)
+                additionalStatements += "!$acc update host(%s) if(hf_symbols_are_device_present)\n" %(symbol.name)
         return FortranImplementation.parallelRegionEnd(self, parallelRegionTemplate) + additionalStatements
 
     def subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, is_subroutine_end):

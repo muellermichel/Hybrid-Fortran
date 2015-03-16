@@ -91,10 +91,10 @@ contains
 
   end subroutine
 
-  !using the @template directive and defining the implementation in MakesettingsGeneral, as shown in this example, we can override the default implementation and mix different ones,
+  !using the @scheme directive and defining the implementation in MakesettingsGeneral, as shown in this example, we can override the default implementation and mix different ones,
   !for example mixing OpenACC and CUDA Fortran. Note that the template can span over multiple parts of your file, such as multiple subroutines or even modules.
   !please note: device data in the OpenACC implementation is currently *not* compatible with device data in CUDA Fortran implementation, so we can *not* do a 'transferHere' in wrapper_second_level already.
-  @template{name(SEPARATE_KERNELS)}
+  @scheme{name(SEPARATE_KERNELS)}
   subroutine wrapper_separate_kernels(a, b, c, d)
     implicit none
     real, dimension(NZ), intent(in) :: a, b
@@ -143,9 +143,9 @@ contains
     end do
     @end parallelRegion
   end subroutine
-  @end template
+  @end scheme
 
-  @template{name(INLINE_KERNELS)}
+  @scheme{name(INLINE_KERNELS)}
   subroutine wrapper_inline_kernels(a, b, c, d)
     implicit none
     real, dimension(NZ), intent(in) :: a, b
@@ -188,7 +188,7 @@ contains
     end do
     @end parallelRegion
   end subroutine
-  @end template
+  @end scheme
 end module example
 
 program main

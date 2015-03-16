@@ -213,7 +213,22 @@ def getTracingStatements(currRoutineNode, currModuleName, tracingSymbols, traceH
         result += "hf_tracing_counter = hf_tracing_counter + 1\n"
     return result
 
-def getCompareToTraceFunc(abortSubroutineOnError=True, loop_name_postfix=''):
+def tracingFilename(currModuleName, currRoutineNode, symbol, begin_or_end):
+    filename_postfix = "_"
+    if symbol.intent == "inout" and begin_or_end == "begin":
+        filename_postfix = "in_"
+    elif symbol.intent == "inout":
+        filename_postfix = "out_"
+    elif symbol.intent not in ["", None]:
+        filename_postfix = "%s_" %(symbol.intent)
+    return "%s_%s_%s_%s" %(
+        currModuleName,
+        currRoutineNode.getAttribute('name'),
+        symbol.name,
+        filename_postfix
+    )
+
+def getCompareToTraceFunc(abortSubroutineOnError=True, loop_name_postfix='', begin_or_end='begin'):
     def printSomeErrors(symbol):
         accessor = symbol.accessRepresentation(
             parallelIterators=[],
@@ -222,7 +237,7 @@ def getCompareToTraceFunc(abortSubroutineOnError=True, loop_name_postfix=''):
             use_domain_reordering=False
         )
         result = ""
-        result += "if (abs(hf_tracing_comparison_%s - hf_tracing_temp_%s) .gt. 1E-8) then \n" %(accessor, accessor)
+        result += "if ( ( abs( hf_tracing_comparison_%s - hf_tracing_temp_%s ) / hf_tracing_comparison_%s ) .gt. 1E-9) then \n" %(accessor, accessor, accessor)
         result += "write(0,*) 'error at:'\n"
         for domainNum in range(1,len(symbol.domains)+1):
             result += "write(0,*) 'domain %i:', hf_tracing_enum%i\n" %(domainNum, domainNum)
@@ -236,10 +251,8 @@ def getCompareToTraceFunc(abortSubroutineOnError=True, loop_name_postfix=''):
 
     def compareToTrace(currRoutineNode, currModuleName, symbol):
         result = "call findNewFileHandle(hf_tracing_imt)\n"
-        result += "write(hf_tracing_current_path, '(A,I3.3,A)') './datatrace/%s_%s_%s_', hf_tracing_counter, '.dat'\n" %(
-            currModuleName,
-            currRoutineNode.getAttribute('name'),
-            symbol.name
+        result += "write(hf_tracing_current_path, '(A,I3.3,A)') './datatrace/%s', hf_tracing_counter, '.dat'\n" %(
+            tracingFilename(currModuleName, currRoutineNode, symbol, begin_or_end)
         )
         result += "open(hf_tracing_imt, file=trim(hf_tracing_current_path), form='unformatted', status='old', action='read', iostat=hf_tracing_ierr)\n"
         result += "if (hf_tracing_ierr .ne. 0) then\n"
@@ -253,10 +266,32 @@ def getCompareToTraceFunc(abortSubroutineOnError=True, loop_name_postfix=''):
             result += "return\n"
         result += "else\n"
         result += "read(hf_tracing_imt) hf_tracing_comparison_%s\n" %(symbol.name)
+        result += "hf_num_of_elements = " + ' * '.join([
+            "(ubound(hf_tracing_comparison_%s,%i) - lbound(hf_tracing_comparison_%s,%i) + 1)" %(symbol.name, domainNum, symbol.name, domainNum)
+            for domainNum in range(1,len(symbol.domains)+1)
+        ]) + '\n'
+        result += "if (hf_num_of_elements <= 0) then\n"
+        result += "write(0,*) '%s: symbol %s ok. (array has no elements)'\n" %(currRoutineNode.getAttribute('name'), symbol.name)
+        result += "else\n"
         if 'real' in symbol.declarationPrefix:
-            result += "hf_tracing_error = sqrt(sum((hf_tracing_comparison_%s - hf_tracing_temp_%s)**2))\n" %(symbol.name, symbol.name)
-            result += "if (hf_tracing_error .ne. hf_tracing_error .or. hf_tracing_error .gt. 1E-8) then\n" # a .ne. a tests a for NaN in Fortran (needs -Kieee compiler flag in pgf90)
-            result += "write(0,*) 'In module %s, subroutine %s:', 'Real Array %s does not match the data found in ', trim(hf_tracing_current_path), ' RMS Error:', hf_tracing_error\n" %(
+            result += "hf_mean_ref = sqrt(sum(hf_tracing_comparison_%s**2) / hf_num_of_elements)\n" %(symbol.name)
+            result += "hf_mean_gpu = sqrt(sum(hf_tracing_temp_%s**2) / hf_num_of_elements)\n" %(symbol.name)
+            result += "if (abs(hf_mean_ref) .gt. 1E-20) then\n"
+            result += "hf_tracing_error = sqrt(sum((hf_tracing_comparison_%s - hf_tracing_temp_%s)**2 ) / hf_num_of_elements ) / hf_mean_ref\n" %(
+                symbol.name,
+                symbol.name
+            )
+            result += "else\n"
+            result += "hf_tracing_error = sqrt(sum((hf_tracing_comparison_%s - hf_tracing_temp_%s)**2 ) / hf_num_of_elements )\n" %(
+                symbol.name,
+                symbol.name
+            )
+            result += "end if\n"
+            result += "if (hf_tracing_error .ne. hf_tracing_error .or. hf_tracing_error .gt. 1E-9) then\n" # a .ne. a tests a for NaN in Fortran (needs -Kieee compiler flag in pgf90)
+            result += "\
+write(0,*) 'In module %s, subroutine %s:', 'Real Array %s does not match the data found in ', trim(hf_tracing_current_path), \
+' RMS Error:', hf_tracing_error, ' NumOfValues:', hf_num_of_elements, ' ReferenceMean: ', hf_mean_ref, ' GPUMean: ', hf_mean_gpu\n\
+            " %(
                 currModuleName,
                 currRoutineNode.getAttribute('name'),
                 symbol.name
@@ -278,8 +313,9 @@ def getCompareToTraceFunc(abortSubroutineOnError=True, loop_name_postfix=''):
         result += "else\n"
         result += "write(0,*) '%s: symbol %s ok. Error: ', hf_tracing_error\n" %(currRoutineNode.getAttribute('name'), symbol.name)
         result += "end if\n"
-        result += "close(hf_tracing_imt)\n"
         result += "end if\n"
+        result += "end if\n"
+        result += "close(hf_tracing_imt)\n"
         return result
     return compareToTrace
 
@@ -511,6 +547,15 @@ class FortranImplementation(object):
     def subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, is_subroutine_end):
         return ''
 
+def getWriteTraceFunc(begin_or_end):
+    def writeTrace(currRoutineNode, currModuleName, symbol):
+        return "write(hf_tracing_current_path, '(A,I3.3,A)') './datatrace/%s', hf_tracing_counter, '.dat'\n" %(
+            tracingFilename(currModuleName, currRoutineNode, symbol, begin_or_end)
+        ) + "call writeToFile(hf_tracing_current_path, hf_tracing_temp_%s)\n" %(
+            symbol.name
+        )
+    return writeTrace
+
 class TraceGeneratingFortranImplementation(FortranImplementation):
     patterns = None
     currRoutineNode = None
@@ -545,24 +590,23 @@ class TraceGeneratingFortranImplementation(FortranImplementation):
                 [symbol.name for symbol in tracedSymbols],
             )
         )
-        return result + super_result
+        return result + super_result + getTracingStatements(
+            self.currRoutineNode,
+            self.currModuleName,
+            [symbol for symbol in self.currentTracedSymbols if symbol.intent in ['in', 'inout']],
+            getWriteTraceFunc('begin'),
+            increment_tracing_counter=False,
+            loop_name_postfix='start'
+        )
 
     def subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, is_subroutine_end):
-        def writeTrace(currRoutineNode, currModuleName, symbol):
-            return "write(hf_tracing_current_path, '(A,I3.3,A)') './datatrace/%s_%s_%s_', hf_tracing_counter, '.dat'\n" %(
-                    currModuleName,
-                    currRoutineNode.getAttribute('name'),
-                    symbol.name
-                ) + "call writeToFile(hf_tracing_current_path, hf_tracing_temp_%s)\n" %(
-                    symbol.name
-                )
         if not is_subroutine_end:
             self.earlyReturnCounter += 1
         result = getTracingStatements(
             self.currRoutineNode,
             self.currModuleName,
-            [symbol for symbol in self.currentTracedSymbols],
-            writeTrace,
+            [symbol for symbol in self.currentTracedSymbols if symbol.intent in ['out', 'inout', '', None]],
+            getWriteTraceFunc('end'),
             increment_tracing_counter=len(self.currentTracedSymbols) > 0,
             loop_name_postfix='end' if is_subroutine_end else 'exit%i' %(self.earlyReturnCounter)
         )
@@ -848,6 +892,9 @@ class TraceCheckingOpenACCFortranImplementation(DebugPGIOpenACCFortranImplementa
         openACCDeclarations = DebugPGIOpenACCFortranImplementation.declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates)
         result = "integer(4) :: hf_tracing_imt, hf_tracing_ierr\n"
         result += "real(8) :: hf_tracing_error\n"
+        result += "real(8) :: hf_mean_ref\n"
+        result += "real(8) :: hf_mean_gpu\n"
+        result += "integer(8) :: hf_num_of_elements\n"
         result += "logical :: hf_tracing_error_found\n"
         tracing_declarations, tracedSymbols = getTracingDeclarationStatements(
             currRoutineNode,
@@ -863,7 +910,7 @@ class TraceCheckingOpenACCFortranImplementation(DebugPGIOpenACCFortranImplementa
             self.currRoutineNode,
             self.currModuleName,
             [symbol for symbol in self.currentTracedSymbols if symbol.intent in ['in']],
-            getCompareToTraceFunc(abortSubroutineOnError=False, loop_name_postfix='start'),
+            getCompareToTraceFunc(abortSubroutineOnError=False, loop_name_postfix='start', begin_or_end='begin'),
             increment_tracing_counter=False,
             loop_name_postfix='start'
         )
@@ -881,7 +928,11 @@ class TraceCheckingOpenACCFortranImplementation(DebugPGIOpenACCFortranImplementa
             self.currRoutineNode,
             self.currModuleName,
             [symbol for symbol in self.currentTracedSymbols if symbol.intent in ['out', 'inout', '', None]],
-            getCompareToTraceFunc(abortSubroutineOnError=False, loop_name_postfix='end' if is_subroutine_end else 'exit%i' %(self.earlyReturnCounter)),
+            getCompareToTraceFunc(
+                abortSubroutineOnError=False,
+                loop_name_postfix='end' if is_subroutine_end else 'exit%i' %(self.earlyReturnCounter),
+                begin_or_end='end'
+            ),
             increment_tracing_counter=len(self.currentTracedSymbols) > 0,
             loop_name_postfix='end' if is_subroutine_end else 'exit%i' %(self.earlyReturnCounter)
         )

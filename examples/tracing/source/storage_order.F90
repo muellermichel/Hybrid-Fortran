@@ -25,7 +25,8 @@
 ! at compile-time for the GPU. NX, NY can be changed at
 ! runtime with commandline arguments
 #define NX 32
-#define NY 32
+! We use 1 as domain size here in order to test an edge case in the tracing
+#define NY 1
 #define NZ 5
 
 ! ------ What Storage Orders are defined? -------

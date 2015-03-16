@@ -82,6 +82,8 @@ class FortranCodeSanitizer:
                 sanitizedCodeLines.append(codeLine)
                 continue
             currLine = codeLine
+            oldLineLength = -1
+            blankPos = -1
             while len(currLine) > howManyCharsPerLine - len(lineSep):
                 isOpenMPDirectiveLine = self.openMPLinePattern.match(currLine) != None
                 isOpenACCDirectiveLine = self.openACCLinePattern.match(currLine) != None
@@ -91,15 +93,20 @@ class FortranCodeSanitizer:
                         break
                 #find a blank that's NOT within a quoted string
                 blankPos = findRightMostOccurrenceNotInsideQuotes(' ', currLine, rightStartAt=howManyCharsPerLine - len(lineSep))
-                if blankPos < 1:
+                if blankPos < 1 or (oldLineLength != -1 and len(currLine[:blankPos]) >= oldLineLength):
                     #blank not found or at beginning of line
                     #-> bail out in order to avoid infinite loop - just keep the line as it was.
-                    sys.stderr.write("WARNING: The following line could not be broken up for Fortran compatibility - no suitable spaces found: %s" %(currLine))
+                    sys.stderr.write(
+                        "WARNING: The following line could not be broken up for Fortran compatibility - no suitable spaces found: %s\n" %(
+                            currLine,
+                        )
+                    )
                     sanitizedCodeLines.append(currLine)
                     currLine = ""
                     break
                 else:
                     sanitizedCodeLines.append(currLine[:blankPos] + lineSep)
+                    oldLineLength = len(currLine)
                     if isOpenMPDirectiveLine:
                         currLine = '!$OMP& ' + currLine[blankPos:]
                     elif isOpenACCDirectiveLine:

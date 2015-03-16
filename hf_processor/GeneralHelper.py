@@ -113,12 +113,14 @@ def findRightMostOccurrenceNotInsideQuotes(stringToMatch, stringToSearch, rightS
     else:
         nextRightStart = len(stringToSearch)
     blankPos = -1
-    while(True):
+    for numOfTrys in range(1,101):
         blankPos = stringToSearch[:nextRightStart].rfind(stringToMatch)
         if blankPos <= 0 or not indexesWithinQuotes[blankPos]:
             break
         nextRightStart = blankPos
         blankPos = -1
+        if numOfTrys >= 100:
+            raise Exception("Could not find the string even after 100 tries.")
     return blankPos
 
 class BracketAnalyzer(object):

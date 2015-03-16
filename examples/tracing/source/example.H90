@@ -33,7 +33,7 @@ contains
     do y=1,NY `\
     do x=1,NX `\
     do z=1,NZ `\
-      if (c(AT(x,y,z)) .NE. 4) then `\
+      if (c(AT(x,y,z)) .NE. 5) then `\
         write(0,*) "test failed ", #datatype, #bytes `\
         write(0,*) "fails at", x, y, z `\
         stop 2 `\
@@ -55,7 +55,7 @@ contains
     do y=1,NY `\
     do x=1,NX `\
     do z=1,NZ `\
-      if (c(AT(x,y,z)) .NE. z + 1) then `\
+      if (c(AT(x,y,z)) .NE. z + 2) then `\
         write(0,*) "test failed ", #datatype, #bytes `\
         write(0,*) "fails at", x, y, z `\
         stop 2 `\
@@ -144,7 +144,7 @@ contains
       do y=1,NY `\
       do x=1,NX `\
       do z=1,NZ `\
-        if (c(AT(x,y,z)) .NE. 3) then `\
+        if (c(AT(x,y,z)) .NE. 4) then `\
           write(0,*) "test with allocatable failed ", #datatype, #bytes `\
           write(0,*) "fails at", x, y, z `\
           stop 2 `\
@@ -164,12 +164,14 @@ contains
     implicit none `\
     datatype(bytes), dimension(NZ), intent(in) :: a, b `\
     datatype(bytes), dimension(NZ), intent(out) :: c `\
+    datatype(bytes), dimension(NZ) :: temp `\
     integer(4) :: x, y, z `\
     @domainDependant{domName(x,y,z), domSize(NX,NY,NZ), attribute(autoDom)} `\
-    a, b, c `\
+    a, b, c, temp `\
     @end domainDependant `\
+    temp(:,:,:) = 1 `\
     @parallelRegion{appliesTo(CPU), domName(x,y), domSize(NX, NY)} `\
-    call GET_FUNCTION_NAME(add, datatype, bytes)(a, b, c) `\
+    call GET_FUNCTION_NAME(add, datatype, bytes)(a, b, c, temp) `\
     @end parallelRegion `\
   end subroutine
 
@@ -211,17 +213,17 @@ contains
   end subroutine
 
 #define GET_ADD_IMPLEMENTATION(datatype, bytes) \
-  subroutine GET_FUNCTION_NAME(add, datatype, bytes)(a, b, c) `\
+  subroutine GET_FUNCTION_NAME(add, datatype, bytes)(a, b, c, temp) `\
     implicit none `\
-    datatype(bytes), dimension(NZ), intent(in) :: a, b `\
+    datatype(bytes), dimension(NZ), intent(in) :: a, b, temp `\
     datatype(bytes), dimension(NZ), intent(out) :: c `\
     integer :: z `\
     @domainDependant{domName(x,y,z), domSize(NX,NY,NZ), attribute(autoDom)} `\
-    a, b, c `\
+    a, b, c, temp `\
     @end domainDependant `\
     @parallelRegion{appliesTo(GPU), domName(x,y), domSize(NX, NY)} `\
     do z=1,NZ `\
-      c(z) = a(z) + b(z) `\
+      c(z) = a(z) + b(z) + temp(z) `\
     end do `\
     @end parallelRegion `\
   end subroutine

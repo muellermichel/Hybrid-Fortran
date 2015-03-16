@@ -54,6 +54,10 @@ See also the [results overview](../results/Overview.md).
         <td>Tests different ways of using module data with an OpenACC implementation.</td>
     </tr>
     <tr>
+        <td>OpenACC with Hybrid Code (Device + Host code callable) Example</td>
+        <td>Hybrid Fortran kernel subroutines should be callable from host-only-code when using the OpenACC implementation. This feature is currently not implemented yet. This example demonstrates and tests this feature (and it currently fails).</td>
+    </tr>
+    <tr>
         <td>Mixed Implementations Example</td>
         <td>Tests the @template directive which can be used to have different implementations for different parts of your code.</td>
     </tr>
@@ -168,6 +172,14 @@ See also the [results overview](../results/Overview.md).
     <tr>
         <td>OpenACC Module Data Example</td>
         <td><a href="https://github.com/muellermichel/Hybrid-Fortran/tree/master/examples/module_data_with_openACC">Link</a></td>
+        <td>1E-8</td>
+        <td>No</td>
+        <td>No</td>
+        <td>No</td>
+    </tr>
+    <tr>
+        <td>OpenACC with Hybrid Code (Device + Host code callable) Example</td>
+        <td><a href="https://github.com/muellermichel/Hybrid-Fortran/tree/master/examples/openACC_hybrid_hostonly">Link</a></td>
         <td>1E-8</td>
         <td>No</td>
         <td>No</td>

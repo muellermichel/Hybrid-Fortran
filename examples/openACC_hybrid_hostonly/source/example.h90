@@ -1,0 +1,109 @@
+! Copyright (C) 2015 Michel Müller, Tokyo Institute of Technology
+
+! This file is part of Hybrid Fortran.
+
+! Hybrid Fortran is free software: you can redistribute it and/or modify
+! it under the terms of the GNU Lesser General Public License as published by
+! the Free Software Foundation, either version 3 of the License, or
+! (at your option) any later version.
+
+! Hybrid Fortran is distributed in the hope that it will be useful,
+! but WITHOUT ANY WARRANTY; without even the implied warranty of
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+! GNU Lesser General Public License for more details.
+
+! You should have received a copy of the GNU Lesser General Public License
+! along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
+
+module example
+contains
+
+  subroutine host_only_subroutine(a, b, c, d)
+    real, dimension(NX, NY, NZ), intent(in) :: a, b
+    real, dimension(NX, NY, NZ), intent(out) :: c, d
+
+    call inline_kernels(a, b, c, d)
+  end subroutine
+
+  subroutine wrapper_inline_kernels(a, b, c, d)
+    real, dimension(NX, NY, NZ), intent(in) :: a, b
+    real, dimension(NX, NY, NZ), intent(out) :: c, d
+
+    @domainDependant{attribute(autoDom)}
+    a, b, c, d
+    @end domainDependant
+
+    call inline_kernels(a, b, c, d)
+  end subroutine
+
+  subroutine inline_kernels(a, b, c, d)
+    real, dimension(NX, NY, NZ), intent(in) :: a, b
+    real, dimension(NX, NY, NZ), intent(out) :: c, d
+
+    @domainDependant{attribute(autoDom)}
+    a, b, c, d
+    @end domainDependant
+
+    @parallelRegion{domName(x,y), domSize(NX, NY)}
+    do z=1,NZ
+      c(z) = a(z) + b(z)
+    end do
+    @end parallelRegion
+
+    @parallelRegion{domName(x,y), domSize(NX, NY)}
+    do z=1,NZ
+      d(z) = a(z) * b(z)
+    end do
+    @end parallelRegion
+  end subroutine
+end module example
+
+program main
+  use example
+  real, dimension(DOM(NX, NY, NZ)) :: a, b, c, d, e, f
+  integer :: x, y, z
+  integer :: fail_x, fail_y, fail_z
+  logical test
+
+  a(:,:,:) = 1.0d0
+  b(:,:,:) = 2.0d0
+  c(:,:,:) = 0.0d0
+  d(:,:,:) = 0.0d0
+  e(:,:,:) = 0.0d0
+  f(:,:,:) = 0.0d0
+  test = .TRUE.
+
+  call host_only_subroutine(a, b, c, d) ! c = a + b = 3.0d0 ; d = a * b = 2.0d0
+  call wrapper_inline_kernels(c, d, e, f)  ! e = c + d = 5.0d0 ; f = c * d = 6.0d0
+
+  write(6,*) "calculation complete"
+
+  do y=1,NY
+  do x=1,NX
+  do z=1,NZ
+    if (test .EQ. .TRUE. .AND. e(AT(x,y,z)) .NE. 5.0d0) then
+      test = .FALSE.
+      fail_x = x
+      fail_y = y
+      fail_z = z
+    end if
+    if (test .EQ. .TRUE. .AND. f(AT(x,y,z)) .NE. 6.0d0) then
+      test = .FALSE.
+      fail_x = x
+      fail_y = y
+      fail_z = z
+    end if
+  end do
+  end do
+  end do
+
+  if (test .EQ. .TRUE.) then
+    write(6,*) "test ok"
+  else
+    write(6,*) "test failed"
+    write(6,*) "fails at", fail_x, fail_y, fail_z, "E:", c(AT(fail_x,fail_y,fail_z)), "F:", d(AT(fail_x,fail_y,fail_z))
+    stop 2
+  end if
+
+  stop
+end program main

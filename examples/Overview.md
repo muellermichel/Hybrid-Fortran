@@ -55,11 +55,11 @@ See also the [results overview](../results/Overview.md).
     </tr>
     <tr>
         <td>OpenACC with Hybrid Code (Device + Host code callable) Example</td>
-        <td>Hybrid Fortran kernel subroutines should be callable from host-only-code when using the OpenACC implementation. This feature is currently not implemented yet. This example demonstrates and tests this feature (and it currently fails).</td>
+        <td>Hybrid Fortran kernel subroutines are be callable from host-only-code when using the OpenACC implementation. This feature is demonstrated by this example.</td>
     </tr>
     <tr>
         <td>Mixed Implementations Example</td>
-        <td>Tests the @template directive which can be used to have different implementations for different parts of your code.</td>
+        <td>Tests the @scheme directive which can be used to have different implementations for different parts of your code.</td>
     </tr>
     <tr>
         <td>Strides Example</td>

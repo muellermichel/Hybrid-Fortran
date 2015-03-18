@@ -9,7 +9,7 @@ contains
     integer(4):: k
     real(8), dimension(nz) :: c
     @domainDependant{attribute(autoDom)}
-    a, b, n, m
+    a, b
     @end domainDependant
 
     ! The following tells hybrid fortran that 'c' is to be privatized in i,j -> c will be dimensioned (n-1,m,nz)

@@ -27,7 +27,7 @@ Quickstart
 1. Make sure you have PGI Accelerator installed and running.
 2. Clone this repo and point the `HF_DIR` environment variable to its path.
 3. Type `cd $HF_DIR && make example`. This will create an example project directory below `$HF_DIR`. Note: You can move this wherever you want in order to use it as a template for your projects.
-4. Have a look at `[example/source/example.h90](hf_processor/example_example.h90)`, which will guide you through and show you how to use Hybrid Fortran.
+4. Have a look at [example/source/example.h90](hf_processor/example_example.h90), which will guide you through and show you how to use Hybrid Fortran.
 
 Even More Words
 ---------------

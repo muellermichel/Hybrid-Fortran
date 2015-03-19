@@ -7,6 +7,13 @@ What & Why
 
 ![The Idea Behind Hybrid Fortran](/../master/doc/The%20Idea%20Behind%20Hybrid%20Fortran.gif)
 
+Quickstart
+---------------
+1. Make sure you have PGI Accelerator installed and running.
+2. Clone this repo and point the `HF_DIR` environment variable to its path.
+3. Type `cd $HF_DIR && make example`. This will create an example project directory below `$HF_DIR`. Note: You can move this wherever you want in order to use it as a template for your projects.
+4. Have a look at [example/source/example.h90](hf_processor/example_example.h90), which will guide you through and show you how to use Hybrid Fortran.
+
 A Few More Words
 -------------------
 
@@ -21,13 +28,6 @@ Hybrid Fortran is ..
 Hybrid Fortran has been successfully used for porting the Physical Core of Japan's national next generation weather prediction model to GPGPU. We're currently planning to port the internationally used Open Source weather model WRF to Hybrid Fortran as well.
 
 Hybrid Fortran has been developed since 2012 by Michel Müller, MSc ETH Zurich, as a guest at Prof. Aoki's Gordon Bell award winning [laboratory](http://www.sim.gsic.titech.ac.jp/index-e.html) at the Tokyo Institute of Technology, as well as during a temporary stay with Prof. Maruyama at the [RIKEN Advanced Institute for Computational Science](http://www.aics.riken.jp/en/) in Kobe, Japan.
-
-Quickstart
----------------
-1. Make sure you have PGI Accelerator installed and running.
-2. Clone this repo and point the `HF_DIR` environment variable to its path.
-3. Type `cd $HF_DIR && make example`. This will create an example project directory below `$HF_DIR`. Note: You can move this wherever you want in order to use it as a template for your projects.
-4. Have a look at [example/source/example.h90](hf_processor/example_example.h90), which will guide you through and show you how to use Hybrid Fortran.
 
 Even More Words
 ---------------

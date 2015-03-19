@@ -37,6 +37,13 @@ import re
 
 number_of_traces = 200
 
+def getReductionClause(parallelRegionTemplate):
+    reductionScalarsByOperator = getReductionScalarsByOperator(parallelRegionTemplate)
+    return ", ".join([
+        "reduction(%s: %s)" %(operator, ", ".join(reductionScalarsByOperator[operator]))
+        for operator in reductionScalarsByOperator.keys()
+    ])
+
 def getDataDirectiveAndUpdateOnDeviceFlags(currRoutineNode, currParallelRegionTemplates, dependantSymbols, createDeclaration, routineIsKernelCaller, enterOrExit='enter'):
     presentDeclaration = "present" # if currRoutineNode.getAttribute("parallelRegionPosition") == 'inside' else "deviceptr"
     copyDeclaration = "copyin"
@@ -635,7 +642,7 @@ class OpenMPFortranImplementation(FortranImplementation):
     def parallelRegionBegin(self, parallelRegionTemplate, outerBranchLevel=0):
         if self.currDependantSymbols == None:
             raise Exception("parallel region without any dependant arrays")
-        openMPLines = "!$OMP PARALLEL DO DEFAULT(Private) "
+        openMPLines = "!$OMP PARALLEL DO DEFAULT(Private) %s " %(getReductionClause(parallelRegionTemplate).upper())
         openMPLines += "SHARED(%s)\n" %(', '.join([symbol.deviceName() for symbol in self.currDependantSymbols]))
         return openMPLines + FortranImplementation.parallelRegionBegin(self, parallelRegionTemplate)
 
@@ -823,8 +830,6 @@ end subroutine
         return "!$acc loop seq"
 
     def parallelRegionBegin(self, parallelRegionTemplate, outerBranchLevel=0):
-        # if appliesTo(["GPU"], parallelRegionTemplate) and outerBranchLevel != 0:
-        #     raise Exception("Cannot implement a GPU parallel region inside a branch. Please move this parallel region into its own subroutine.")
         regionStr = ""
         for symbol in self.currDependantSymbols:
             if symbol.declarationType() == DeclarationType.LOCAL_ARRAY:
@@ -835,14 +840,16 @@ end subroutine
         if len(domains) > 3 or len(domains) < 1:
             raise Exception("Invalid number of parallel domains in parallel region definition.")
         for pos in range(len(domains)-1,-1,-1): #use inverted order (optimization of accesses for fortran storage order)
-            regionStr += "!$acc loop independent vector(%s)\n" %(vectorSizePPNames[pos])
+            regionStr += "!$acc loop independent vector(%s) " %(vectorSizePPNames[pos])
+            if pos == len(domains)-1:
+                regionStr += getReductionClause(parallelRegionTemplate)
+            regionStr += "\n"
             domain = domains[pos]
             startsAt = domain.startsAt if domain.startsAt != None else "1"
             endsAt = domain.endsAt if domain.endsAt != None else domain.size
             regionStr += 'do %s=%s,%s' %(domain.name, startsAt, endsAt)
             if pos != 0:
                 regionStr += '\n '
-            pos = pos + 1
         return regionStr
 
     def parallelRegionEnd(self, parallelRegionTemplate, outerBranchLevel=0):

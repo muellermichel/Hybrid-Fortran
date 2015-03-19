@@ -391,6 +391,36 @@ def getTemplate(parallelRegionTemplate):
     entries = templateNodes[0].getElementsByTagName("entry")
     if len(entries) > 1:
         raise Exception("Multiple templates are not supported.")
+    if len(entries) == 0:
+        raise Exception("Empty template attribute is not allowed.")
     return entries[0].firstChild.nodeValue.strip()
 
-
+def getReductionScalarsByOperator(parallelRegionTemplate):
+    result = {}
+    reductionNodes = parallelRegionTemplate.getElementsByTagName("reduction")
+    if not reductionNodes or len(reductionNodes) == 0:
+        return result
+    reductionSpecifications = []
+    for reductionNode in reductionNodes:
+        entries = reductionNode.getElementsByTagName("entry")
+        if len(entries) > 1:
+            raise Exception("Multiple scalars per reduction specification are not supported. Please split into multiple reduction attributes.")
+        if len(entries) == 0:
+            raise Exception("Empty reduction attribute is not allowed.")
+        reductionSpecifications.append(entries[0].firstChild.nodeValue.strip())
+    validOperators = ['MAX', 'MIN', 'IAND', 'IOR', 'IEOR', '+', '*', '-', '.AND.', '.OR.', '.EQV.', '.NEQV.']
+    for reductionSpecification in reductionSpecifications:
+        operatorAndScalar = reductionSpecification.split(':')
+        if len(operatorAndScalar) != 2:
+            raise Exception("Reduction must be of form [operator]:[scalar symbol]")
+        operator = operatorAndScalar[0].upper().strip()
+        if operator not in validOperators:
+            raise Exception("Reduction operator must be one of %s." %(", ".join(validOperators)))
+        scalar = operatorAndScalar[1].strip()
+        if scalar == "":
+            raise Exception("Empty scalar in reduction not allowed.")
+        if operator in result:
+            result[operator].append(scalar)
+        else:
+            result[operator] = [scalar]
+    return result

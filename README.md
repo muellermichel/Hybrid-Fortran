@@ -11,7 +11,7 @@ Quickstart
 ---------------
 1. Clone this repo and point the `HF_DIR` environment variable to its path.
 2. Type `cd $HF_DIR && make example`. This will create an example project directory below `$HF_DIR`. Note: You can move this wherever you want in order to use it as a template for your projects.
-3. Have a look at [example/source/example.h90](hf_processor/example_example.h90), which will guide you through and show you how to use Hybrid Fortran. (It's better to open it in your editor of choice with Fortran syntax highlighting, but if you want to skip steps 1-2 you may also click the link. ;-) )
+3. Have a look at [example/source/example.h90](hf_processor/example_example.h90), which will guide you through and show you how to use Hybrid Fortran. ( Psst: It's better to open it in your editor of choice with Fortran syntax highlighting, but if you want to skip steps 1-2 you may also click the link. ;-) )
 
 A Few More Words
 -------------------

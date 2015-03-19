@@ -1,36 +1,56 @@
-! Copyright (C) 2014 Michel Müller, Tokyo Institute of Technology
-
-! This file is part of Hybrid Fortran.
-
-! Hybrid Fortran is free software: you can redistribute it and/or modify
-! it under the terms of the GNU Lesser General Public License as published by
-! the Free Software Foundation, either version 3 of the License, or
-! (at your option) any later version.
-
-! Hybrid Fortran is distributed in the hope that it will be useful,
-! but WITHOUT ANY WARRANTY; without even the implied warranty of
-! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-! GNU Lesser General Public License for more details.
-
-! You should have received a copy of the GNU Lesser General Public License
-! along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
+!
+!  ===============================
+!  C O N G R A T U L A T I O N S !
+!  ===============================
+!
+!  You made it through the Getting Started to see your first Hybrid Fortran code example.
+!  Thank you for checking this out. This example will guide you through the most important
+!  features in Hybrid Fortran. Just follow the numbers in brackets (1), (2), ...
+!  For more information there is a full documentation available here:
+!  https://github.com/muellermichel/Hybrid-Fortran/blob/master/doc/Documentation.pdf?raw=true
 
 module example
 contains
 
+  !
+  ! (1) As you can see below, this subroutine encapsules all the computations done in this example
+  !
   subroutine data_region(a, b, c, d, sum_c, sum_d)
-  implicit none
-  real, dimension(NX, NY, NZ), intent(in) :: a, b
-  real, dimension(NX, NY, NZ), intent(out) :: c, d
-  real, intent(out) :: sum_c, sum_d
+    implicit none
+    real, dimension(NX, NY, NZ), intent(in) :: a, b
+    real, dimension(NX, NY, NZ), intent(out) :: c, d
+    real, intent(out) :: sum_c, sum_d
 
-  @domainDependant{attribute(autoDom,transferHere)}
-  a, b, c, d
-  @end domainDependant
+  !
+  ! (2) The @domainDependant directive is one of two language additions you get with Hybrid Fortran.
+  !     It is used to define the symbol names that Hybrid Fortran is supposed to touch in order to
+  !     make them available on accelerators and to give these symbols additional attributes.
+  !     You can have as many @domainDependant directives per subroutine as you want, but they all need to be
+  !     located in between the specification part and the implementation part of your Fortran code.
+  !
+  ! (3) In this particular example we see two attributes being added to the symbols a, b, c, d:
+  !     - autoDom: Lets Hybrid Fortran handle the domains of these symbols according to their Fortran specification.
+  !                In this particular case, this will only take care of the storage order in the specification part.
+  !                Since GPUs generally like different storage orders than CPUs, Hybrid Fortran introduces 'DOM' storage order macros,
+  !                e.g. 'dimension(NX, NY, NZ)' becomes 'dimension(DOM(NX, NY, NZ))'. This macro is defined by the programmer using the central
+  !                'storage_order.F90' facility. It is also possible to override the macro names, see the documentation for this.
+  !     - transferHere: Lets Hybrid Fortran transfer a, b, c, d to and/or from the GPU at the boundaries of this subroutine.
+  !                Together with the 'present' attribute in the callees, this oversteers the default behaviour of Hybrid Fortran:
+  !                By default it will always transfer in 'kernel wrapper subroutines'[1].
+  !                Plese note: Hybrid Fortran will use the 'intent' information that you give in the Fortran specification part to determine,
+  !                whether a symbol needs to be copied and whether the copy operation needs to go both ways. So, in Hybrid Fortran it is
+  !                mandatory to specify the intents of your symbols in all subroutines (which is a good practice anyways).
+  !
+  !     [1] All subroutines that call another subroutine with an @parallelRegion that applies to GPUs (either implicitely or explicitely), are
+  !         called 'kernel wrapper subroutines'. Here, this applies to the 'data_region' and 'run' subroutines.
+  !
+    @domainDependant{attribute(autoDom,transferHere)}
+    a, b, c, d
+    @end domainDependant
 
-  call run(a, b, c, d)
-  call reduce_to_sum(c, sum_c)
-  call reduce_to_sum(d, sum_d)
+    call run(a, b, c, d)
+    call reduce_to_sum(c, sum_c)
+    call reduce_to_sum(d, sum_d)
 
   end subroutine
 
@@ -39,10 +59,23 @@ contains
     real, dimension(NX, NY, NZ), intent(in) :: a, b
     real, dimension(NX, NY, NZ), intent(out) :: c, d
 
+  !
+  ! (4) Here we see the counterpart to the 'transferHere' attribute: The 'present' attribute. If you use this, there must be a 'transferHere'
+  !     specified at a higher point in the callgraph.
+  !
     @domainDependant{attribute(autoDom,present)}
     a, b, c, d
     @end domainDependant
 
+  !
+  ! (5) Here you see your first @parallelRegion, the second addition to the Fortran language introduced with Hybrid Fortran. It tells the
+  !     framework that you want to run code in parallel. In this particular case it is only applied to the CPU version of the code. We separate CPU from
+  !     GPU parallelization this way because the CPU prefers a coarse-grained parallelization, as opposed to the GPU that preferes fine-grained. For the CPU the
+  !     'add' and 'mult' are 1D-subroutines. By calling them inside this parallel region, Hybrid Fortran will introduce an OpenMP directive over
+  !     loops going from x=1 to NX and y=1 to NY. Only the outermost loop (the y-loop here) will be parallelized, since this is usually optimal for
+  !     multicore, as long as your y-dimension has enough granularity. a, b, c, d will be passed to the subroutines using only their remaining dimension
+  !     'z' - e.g. 'add(a, ...' becomes 'add(a(:,x,y), ...' since the CPU storage order is defined as 'z, x, y' in storage_order.F90.
+  !
     @parallelRegion{appliesTo(CPU), domName(x,y), domSize(NX, NY)}
     call add(a, b, c)
     call mult(a, b, d)
@@ -56,10 +89,21 @@ contains
     real, dimension(NZ), intent(out) :: c
     integer :: z
 
+  !
+  ! (6) For the GPU version we want to keep the full 3D version of a, b, c available to the kernel (GPU code is best when it can deal with 'tight' parallel
+  !     regions over data regions with operations over large vectors). So in addition to 'autoDom' we also specify a, b, c to be dependant of the domains 'x'
+  !     and 'y'. In other words, a, b, c are at some point part of a larger data structure that spans over 'x' and 'y' as well, not just 'z' as specified above.
+  !     Hybrid Fortran uses this information in order to re-insert these dimensions before 'z' for a, b and c, because we're still outside the GPU-parallelRegion
+  !     in the callgraph at this point.
+  !
     @domainDependant{attribute(autoDom), domName(x,y), domSize(NX,NY)}
     a, b, c
     @end domainDependant
 
+  !
+  ! (7) And here goes the parallelization for GPU, now as a tight region that is very close to the actual computations, since GPU prefers a very fine-grained
+  !     parallelization as opposed to the CPU.
+  !
     @parallelRegion{appliesTo(GPU), domName(x,y), domSize(NX, NY)}
     do z=1,NZ
       c(z) = a(z) + b(z)
@@ -67,6 +111,9 @@ contains
     @end parallelRegion
   end subroutine
 
+  !
+  ! (8) And the same for the second kernel...
+  !
   subroutine mult(a, b, d)
     implicit none
     real, dimension(NZ), intent(in) :: a, b
@@ -96,6 +143,13 @@ contains
 
     result = 0.0d0
 
+  !
+  ! (10) The only thing special here is the 'reduction' attribute that makes Hybrid Fortran sum over all private copies of 'result' as the final step of this
+  !      parallel region. It works exactly the same as reductions in OpenMP and OpenACC, the only difference is that the right-hand side of the colon needs to
+  !      be a single entry rather than a list (but you can still define as many reduction attributes as you want).
+  !      Please note: Reductions are *NOT* implemented for the CUDA Fortran backend implementation - in that case you will have to deal with them manually using
+  !      'cublas', see the poisson2d example.
+  !
     @parallelRegion{domName(x,y), domSize(NX, NY), reduction(+:result)}
     do z=1,NZ
       result = result + a(z)
@@ -105,6 +159,10 @@ contains
 
 end module example
 
+  !
+  ! (11) Type 'make tests' in the example's root directory and you should see 'test ok'.
+  ! (12) Have a look at the cpu and gpu folders inside the build directory, especially example.f90 - this will show you what Hybrid Fortran does in the backend.
+  !
 program main
   use example
   implicit none

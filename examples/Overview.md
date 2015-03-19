@@ -38,8 +38,8 @@ See also the [results overview](../results/Overview.md).
         <td>Stencil code with a scalar input that's being passed in as a single value from an array in the wrapper.</td>
     </tr>
     <tr>
-        <td>Parallel Vector Example</td>
-        <td>Separate parallelizations for CPU/GPU with unified codebase, parallel vector calculations without communication. Automatic privatization of 1D code to 3D version for GPU parallelization.</td>
+        <td>Parallel Vector and Reduction Example</td>
+        <td>Separate parallelizations for CPU/GPU with unified codebase, parallel vector calculations without communication. Automatic privatization of 1D code to 3D version for GPU parallelization. Shows a reduction as well.</td>
     </tr>
     <tr>
         <td>Simple OpenACC Example</td>
@@ -49,7 +49,7 @@ See also the [results overview](../results/Overview.md).
         <td>OpenACC Branching Example</td>
         <td>Based on the OpenACC example, texts branches around parallel regions implemented using OpenACC.</td>
     </tr>
-     <tr>
+    <tr>
         <td>OpenACC Module Data Example</td>
         <td>Tests different ways of using module data with an OpenACC implementation.</td>
     </tr>
@@ -146,7 +146,7 @@ See also the [results overview](../results/Overview.md).
         <td>No</td>
     </tr>
     <tr>
-        <td>Parallel Vector Example</td>
+        <td>Parallel Vector and Reduction Example</td>
         <td><a href="https://github.com/muellermichel/Hybrid-Fortran/blob/master/hf_processor/example_example.h90">Link</a> [2]</td>
         <td>1E-8</td>
         <td>No</td>

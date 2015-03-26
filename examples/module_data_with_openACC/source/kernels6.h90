@@ -1,0 +1,78 @@
+! Copyright (C) 2014 Michel Müller, Tokyo Institute of Technology
+
+! This file is part of Hybrid Fortran.
+
+! Hybrid Fortran is free software: you can redistribute it and/or modify
+! it under the terms of the GNU Lesser General Public License as published by
+! the Free Software Foundation, either version 3 of the License, or
+! (at your option) any later version.
+
+! Hybrid Fortran is distributed in the hope that it will be useful,
+! but WITHOUT ANY WARRANTY; without even the implied warranty of
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+! GNU Lesser General Public License for more details.
+
+! You should have received a copy of the GNU Lesser General Public License
+! along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.'
+
+module kernels6
+
+    real, dimension(:,:,:), allocatable :: local
+
+    @domainDependant{attribute(host), domName(x,y,z), domSize(NX,NY,NZ), domPP(DOM), accPP(AT)}
+    local
+    @end domainDependant
+
+contains
+  subroutine kernels6_initialize()
+    @domainDependant{}
+    @end domainDependant
+    allocate(local(NX,NY,NZ))
+    local(:,:,:) = 5.0d0
+  end subroutine
+
+  subroutine kernels6_cleanup()
+    deallocate(local)
+  end subroutine
+
+  subroutine wrapper6()
+    use my_module, only: a, b, c
+    implicit none
+
+    @domainDependant{attribute(autoDom,present)}
+    a, b, c
+    @end domainDependant
+
+    call add6(a, b, c)
+  end subroutine
+
+  subroutine add6(a,b,c)
+    implicit none
+    real, dimension(NX,NY,NZ), intent(in) :: a, b
+    real, dimension(NX,NY,NZ), intent(out) :: c
+
+    @domainDependant{attribute(autoDom)}
+    a, b, c
+    @end domainDependant
+
+    @parallelRegion{domName(x,y), domSize(NX, NY)}
+    call inner(a(:), b(:), x, y, c(:))
+    @end parallelRegion
+  end subroutine
+
+  subroutine inner(in1, in2, x, y, result)
+    use my_module, only: used_in_acc_routine, some_const !we import a module variable in order to break OpenACC routines
+
+    real, intent(in) :: in1(NZ), in2(NZ)
+    integer(4), intent(in) :: x, y
+    real, intent(out) :: result(NZ)
+    integer :: z
+    @domainDependant{}
+    @end domainDependant
+
+    do z=1,NZ
+        result = in1(z) + in2(z) + local(x,y,z) + some_const + used_in_acc_routine(x,y,z)
+    end do
+  end subroutine
+
+end module kernels6

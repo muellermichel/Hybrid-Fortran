@@ -53,12 +53,68 @@ contains
     call wrapper4()
   end subroutine
 
+  subroutine data_region_wrapper5()
+    use kernels5, only: wrapper5
+    use my_module, only: a, b, c, d
+    implicit none
+
+    @domainDependant{attribute(autoDom,transferHere)}
+    a, b, c, d
+    @end domainDependant
+
+    call wrapper5()
+  end subroutine
+
+  subroutine data_region_wrapper6()
+    use kernels6, only: wrapper6
+    use my_module, only: a, b, c
+    implicit none
+
+    @domainDependant{attribute(autoDom,transferHere)}
+    a, b, c
+    @end domainDependant
+
+    call wrapper6()
+  end subroutine
+
+  subroutine assert_values(test_array, expected_value)
+    implicit none
+    real, dimension(DOM(NX, NY, NZ)), intent(in) :: test_array
+    real(8), intent(in) :: expected_value
+    integer :: fail_x, fail_y, fail_z
+    integer :: x, y, z
+    logical test
+
+    test = .TRUE.
+    do y=1,NY
+    do x=1,NX
+    do z=1,NZ
+      if (test .EQ. .TRUE. .AND. test_array(AT(x,y,z)) .NE. expected_value) then
+        test = .FALSE.
+        fail_x = x
+        fail_y = y
+        fail_z = z
+      end if
+    end do
+    end do
+    end do
+    if (test .EQ. .TRUE.) then
+      write(0,*) "test ok"
+    else
+      write(0,*) "test failed"
+      write(0,*) "fails at", fail_x, fail_y, fail_z, "test_array:", test_array(AT(fail_x,fail_y,fail_z))
+      stop 2
+    end if
+  end subroutine
+
 end module example
 
 program main
-  use example, only: data_region_wrapper, data_region_wrapper2, data_region_wrapper4
-  use my_module, only: a, b, c, d
+  use example, only: data_region_wrapper, data_region_wrapper2, data_region_wrapper4, data_region_wrapper5, data_region_wrapper6, assert_values
+  use my_module, only: a, b, c, d, used_in_acc_routine
   use kernels3, only: outer_wrapper3
+  use kernels5, only: kernels5_initialize, kernels5_cleanup
+  use kernels6, only: kernels6_initialize, kernels6_cleanup
   implicit none
   integer :: x, y, z
   integer :: fail_x, fail_y, fail_z
@@ -78,124 +134,50 @@ program main
 
   call data_region_wrapper()
   write(0,*) "calculation1 complete"
-
-  do y=1,NY
-  do x=1,NX
-  do z=1,NZ
-    if (test .EQ. .TRUE. .AND. c(AT(x,y,z)) .NE. 3.0d0) then
-      test = .FALSE.
-      fail_x = x
-      fail_y = y
-      fail_z = z
-      fail_val = c(AT(x,y,z))
-      write(0,*) "FAIL C"
-    end if
-    if (test .EQ. .TRUE. .AND. d(AT(x,y,z)) .NE. 2.0d0) then
-      test = .FALSE.
-      fail_x = x
-      fail_y = y
-      fail_z = z
-      fail_val = d(AT(x,y,z))
-      write(0,*) "FAIL D"
-    end if
-  end do
-  end do
-  end do
+  call assert_values(c, 3.0d0)
+  call assert_values(d, 2.0d0)
 
   c(:,:,:) = 0.0d0
   d(:,:,:) = 0.0d0
-
   call data_region_wrapper2()
   write(0,*) "calculation2 complete"
-
-  do y=1,NY
-  do x=1,NX
-  do z=1,NZ
-    if (test .EQ. .TRUE. .AND. c(AT(x,y,z)) .NE. 3.0d0) then
-      test = .FALSE.
-      fail_x = x
-      fail_y = y
-      fail_z = z
-      fail_val = c(AT(x,y,z))
-      write(0,*) "FAIL C"
-    end if
-    if (test .EQ. .TRUE. .AND. d(AT(x,y,z)) .NE. 2.0d0) then
-      test = .FALSE.
-      fail_x = x
-      fail_y = y
-      fail_z = z
-      fail_val = d(AT(x,y,z))
-      write(0,*) "FAIL D"
-    end if
-  end do
-  end do
-  end do
+  call assert_values(c, 3.0d0)
+  call assert_values(d, 2.0d0)
 
   c(:,:,:) = 0.0d0
   d(:,:,:) = 0.0d0
 
   call outer_wrapper3()
   write(0,*) "calculation3 complete"
-
-  do y=1,NY
-  do x=1,NX
-  do z=1,NZ
-    if (test .EQ. .TRUE. .AND. c(AT(x,y,z)) .NE. 8.0d0) then
-      test = .FALSE.
-      fail_x = x
-      fail_y = y
-      fail_z = z
-      fail_val = c(AT(x,y,z))
-      write(0,*) "FAIL C"
-    end if
-    if (test .EQ. .TRUE. .AND. d(AT(x,y,z)) .NE. 2.0d0) then
-      test = .FALSE.
-      fail_x = x
-      fail_y = y
-      fail_z = z
-      fail_val = d(AT(x,y,z))
-      write(0,*) "FAIL D"
-    end if
-  end do
-  end do
-  end do
+  call assert_values(c, 8.0d0)
+  call assert_values(d, 2.0d0)
 
   c(:,:,:) = 0.0d0
   d(:,:,:) = 0.0d0
-
   call data_region_wrapper4()
   write(0,*) "calculation4 complete"
+  call assert_values(c, 8.0d0)
+  call assert_values(d, 2.0d0)
 
-  do y=1,NY
-  do x=1,NX
-  do z=1,NZ
-    if (test .EQ. .TRUE. .AND. c(AT(x,y,z)) .NE. 8.0d0) then
-      test = .FALSE.
-      fail_x = x
-      fail_y = y
-      fail_z = z
-      fail_val = c(AT(x,y,z))
-      write(0,*) "FAIL"
-    end if
-    if (test .EQ. .TRUE. .AND. d(AT(x,y,z)) .NE. 2.0d0) then
-      test = .FALSE.
-      fail_x = x
-      fail_y = y
-      fail_z = z
-      fail_val = d(AT(x,y,z))
-      write(0,*) "FAIL"
-    end if
-  end do
-  end do
-  end do
+  c(:,:,:) = 0.0d0
+  d(:,:,:) = 0.0d0
+  call kernels5_initialize()
+  call data_region_wrapper5()
+  call kernels5_cleanup()
+  write(0,*) "calculation5 complete"
+  call assert_values(c, 8.0d0)
+  call assert_values(d, 2.0d0)
 
-   if (test .EQ. .TRUE.) then
-    write(0,*) "test ok"
-  else
-    write(0,*) "test failed"
-    write(0,*) "fails at", fail_x, fail_y, fail_z, fail_val
-    stop 2
-  end if
+  c(:,:,:) = 0.0d0
+  d(:,:,:) = 0.0d0
+  allocate(used_in_acc_routine(DOM(NX,NY,NZ)))
+  used_in_acc_routine(:,:,:) = 1.0d0
+  call kernels6_initialize()
+  call data_region_wrapper6()
+  call kernels6_cleanup()
+  write(0,*) "calculation6 complete"
+  call assert_values(c, 10.0d0)
+  deallocate(used_in_acc_routine)
 
   deallocate(a)
   deallocate(b)

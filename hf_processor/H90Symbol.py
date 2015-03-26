@@ -785,13 +785,20 @@ Current Domains: %s\n" %(
         prefix = paramDeclMatch.group(1)
         postfix = paramDeclMatch.group(2)
 
-        if not parallelRegionTemplates or len(parallelRegionTemplates) == 0:
-            return prefix + self.deviceName() + postfix
+        # if not parallelRegionTemplates or len(parallelRegionTemplates) == 0:
+        #     return prefix + self.deviceName() + postfix
 
         dimensionStr, postfix = self.getDimensionStringAndRemainderFromDeclMatch(paramDeclMatch, dimensionPattern)
         return prefix + str(self) + postfix
 
     def getDeclarationLineForAutomaticSymbol(self, purgeList=[], patterns=None, name_prefix="", use_domain_reordering=True, skip_on_missing_declaration=False):
+        if self.debugPrint:
+            sys.stderr.write("[" + self.name + ".init " + str(self.initLevel) + "] Decl.Line.Gen: Purge List: %s, Name Prefix: %s, Domain Reordering: %s, Skip on Missing: %s.\n" %(
+                str(purgeList),
+                name_prefix,
+                str(use_domain_reordering),
+                str(skip_on_missing_declaration)
+            ))
         if self.declarationPrefix == None or self.declarationPrefix == "":
             if skip_on_missing_declaration:
                 return ""
@@ -888,10 +895,14 @@ Please specify the domains and their sizes with domName and domSize attributes i
             name = self.deviceName()
         result = name
         if len(self.domains) == 0:
+            # if self.debugPrint:
+            #     sys.stderr.write("[" + self.name + ".init " + str(self.initLevel) + "] Dom.Repr: 0 domains -> returning name only.\n")
             return result
         try:
             needsAdditionalClosingBracket = False
             domPP, isExplicit = self.domPP()
+            # if self.debugPrint:
+            #     sys.stderr.write("[" + self.name + ".init " + str(self.initLevel) + "] Dom.Repr: PP: %s, is explicit: %s.\n" %(domPP, str(isExplicit)))
             if use_domain_reordering and domPP != "" and ((isExplicit and self.activeDomainsMatchSpecification) or self.parallelRegionPosition != "outside"):
                 result = result + "(" + domPP + "("
                 needsAdditionalClosingBracket = True
@@ -909,8 +920,12 @@ Please specify the domains and their sizes with domName and domSize attributes i
                 result = result + "))"
             else:
                 result = result + ")"
-        except Exception:
+        except Exception as e:
+            # if self.debugPrint:
+            #     sys.stderr.write("[" + self.name + ".init " + str(self.initLevel) + "] Dom.Repr: Expected Exception: %s.\n" %(str(e)))
             return "%s{%s}" %(name, str(self.domains))
+        # if self.debugPrint:
+        #     sys.stderr.write("[" + self.name + ".init " + str(self.initLevel) + "] Dom.Repr: Returning %s.\n" %(result))
         return result
 
     def totalArrayLength(self):
@@ -933,6 +948,8 @@ Please specify the domains and their sizes with domName and domSize attributes i
         def getIterators(domains, parallelIterators, offsets):
             iterators = []
             nextOffsetIndex = 0
+            if len(parallelIterators) == 0 and len(offsets) == 0:
+                return iterators
             for i in range(len(domains)):
                 if len(parallelIterators) == 0 and len(offsets) == len(domains):
                     iterators.append(str(offsets[i]))
@@ -978,11 +995,12 @@ Please specify the domains and their sizes with domName and domSize attributes i
             return self.name
 
         if len(parallelIterators) == 0 \
+        and len(offsets) != 0 \
         and len(offsets) != len(self.domains) - self.numOfParallelDomains \
         and len(offsets) != len(self.domains):
             raise Exception("Unexpected number of offsets specified for symbol %s; Offsets: %s, Expected domains: %s" \
                 %(self.name, offsets, self.domains))
-        elif len(parallelIterators) != 0 \
+        if len(parallelIterators) != 0 \
         and len(offsets) + len(parallelIterators) != len(self.domains) \
         and len(offsets) != len(self.domains):
             raise Exception("Unexpected number of offsets and iterators specified for symbol %s; Offsets: %s, Iterators: %s, Expected domains: %s" \

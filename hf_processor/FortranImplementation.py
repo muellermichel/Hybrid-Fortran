@@ -679,7 +679,7 @@ end subroutine
         return FortranImplementation.filePreparation(self, filename) + additionalStatements
 
     def additionalIncludes(self):
-        return FortranImplementation.additionalIncludes(self) + "use openacc\n"
+        return FortranImplementation.additionalIncludes(self) + "use openacc\nuse cudafor\n"
 
     def callPreparationForPassedSymbol(self, currRoutineNode, symbol):
         if not currRoutineNode:
@@ -858,6 +858,13 @@ end subroutine
             if symbol.declarationType() == DeclarationType.LOCAL_ARRAY:
                 additionalStatements += "!$acc update host(%s) if(hf_symbols_are_device_present)\n" %(symbol.name)
         return FortranImplementation.parallelRegionEnd(self, parallelRegionTemplate) + additionalStatements
+
+    #MMU: we first need a branch analysis on the subroutine to do this
+    # def subroutinePostfix(self, routineNode):
+    #     parallelRegionPosition = routineNode.getAttribute("parallelRegionPosition")
+    #     if parallelRegionPosition == "outside":
+    #         return "!$acc routine seq\n"
+    #     return ""
 
     def subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, is_subroutine_end):
         result = ""

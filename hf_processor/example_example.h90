@@ -172,13 +172,14 @@ program main
   real :: sum_c, sum_d, expected_sum
   integer :: x, y, z
   integer :: fail_x, fail_y, fail_z
-  logical test
+  logical :: test, testSum
 
   a(:,:,:) = 1.0d0
   b(:,:,:) = 2.0d0
   c(:,:,:) = 0.0d0
   d(:,:,:) = 0.0d0
   test = .TRUE.
+  testSum = .TRUE.
 
   call data_region(a, b, c, d, sum_c, sum_d)
   write(6,*) "calculation complete"
@@ -186,13 +187,13 @@ program main
   expected_sum = 3.0d0 * NX * NY * NZ
   if ( abs(sum_c - expected_sum) > 1E-5 ) then
     write(6,*) "sum c failed: ", sum_c, "; expected: ", expected_sum
-    stop 2
+    testSum = .FALSE.
   end if
 
   expected_sum = 2.0d0 * NX * NY * NZ
   if ( abs(sum_d - expected_sum) > 1E-5 ) then
     write(6,*) "sum d failed: ", sum_d, "; expected: ", expected_sum
-    stop 2
+    testSum = .FALSE.
   end if
 
   do y=1,NY
@@ -213,7 +214,7 @@ program main
   end do
   end do
   end do
-  if (test .EQ. .TRUE.) then
+  if (test .EQ. .TRUE. .AND. testSum .EQ. .TRUE.) then
     write(6,*) "test ok"
   else
     write(6,*) "test failed"

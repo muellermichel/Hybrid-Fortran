@@ -67,7 +67,8 @@ contains
     integer(4), intent(in) :: x, y
     real, intent(out) :: result(NZ)
     integer :: z
-    @domainDependant{}
+    @domainDependant{attribute(autoDom)}
+    used_in_acc_routine
     @end domainDependant
 
     do z=1,NZ

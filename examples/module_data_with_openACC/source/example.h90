@@ -55,11 +55,11 @@ contains
 
   subroutine data_region_wrapper5()
     use kernels5, only: wrapper5
-    use my_module, only: a, b, c, d
+    use my_module, only: a, b, c, d, used_in_acc_routine
     implicit none
 
     @domainDependant{attribute(autoDom,transferHere)}
-    a, b, c, d
+    a, b, c, d, used_in_acc_routine
     @end domainDependant
 
     call wrapper5()
@@ -168,16 +168,18 @@ program main
   call assert_values(c, 8.0d0)
   call assert_values(d, 2.0d0)
 
-  c(:,:,:) = 0.0d0
-  d(:,:,:) = 0.0d0
-  allocate(used_in_acc_routine(DOM(NX,NY,NZ)))
-  used_in_acc_routine(:,:,:) = 1.0d0
-  call kernels6_initialize()
-  call data_region_wrapper6()
-  call kernels6_cleanup()
-  write(0,*) "calculation6 complete"
-  call assert_values(c, 10.0d0)
-  deallocate(used_in_acc_routine)
+  !MMU 2015-3-26: As of now device routines that are not scalar do not work reliably.
+  !Note: Using !$acc routine is not yet compatible with module data imports as of PGI 15.3
+!   c(:,:,:) = 0.0d0
+!   d(:,:,:) = 0.0d0
+!   allocate(used_in_acc_routine(DOM(NX,NY,NZ)))
+!   used_in_acc_routine(:,:,:) = 1.0d0
+!   call kernels6_initialize()
+!   call data_region_wrapper6()
+!   call kernels6_cleanup()
+!   write(0,*) "calculation6 complete"
+!   call assert_values(c, 10.0d0)
+!   deallocate(used_in_acc_routine)
 
   deallocate(a)
   deallocate(b)

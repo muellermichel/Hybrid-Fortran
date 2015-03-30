@@ -62,29 +62,31 @@ def getDataDirectiveAndUpdateOnDeviceFlags(currRoutineNode, currParallelRegionTe
         symbol.isOnDevice = False
         if not symbol.domains or len(symbol.domains) == 0:
             continue
-
+        if symbol.isHostSymbol:
+            continue
         #Rules for symbols that are declared present
-        newDataDeclarations = ""
         if symbol.isPresent:
             symbol.isOnDevice = True
             continue
-            # skipping present clauses for now since not compatible with 'enter data' in pgi 15.1
-            # newDataDeclarations += "%s(%s)" %(presentDeclaration, symbol.name)
+        if not routineIsKernelCaller and currRoutineNode.getAttribute('parallelRegionPosition') != 'within' and not symbol.isToBeTransfered:
+            continue
+        if currRoutineNode.getAttribute('parallelRegionPosition') == 'within'\
+        and (symbol.intent in ["in", "inout", "out"] or not symbol.sourceModule in [None,""]):
+            symbol.isOnDevice = True
+            continue
 
         #Rules for kernel wrapper routines and symbols declared to be transfered
-        elif symbol.intent == "in" \
-        and (routineIsKernelCaller or symbol.isToBeTransfered):
+        newDataDeclarations = ""
+        if symbol.intent == "in":
             if enterOrExit == 'enter':
                 newDataDeclarations += "copyin(%s)" %(symbol.name)
                 symbol.isOnDevice = True
             else:
                 newDataDeclarations += "delete(%s)" %(symbol.name)
                 symbol.isOnDevice = False
-        elif (symbol.intent == "inout" or not symbol.sourceModule in [None,""] or symbol.isHostSymbol) \
-        and (routineIsKernelCaller or symbol.isToBeTransfered):
+        elif symbol.intent == "inout" or not symbol.sourceModule in [None,""]:
             newDataDeclarations += "%s(%s)" %(copyDeclaration, symbol.name)
-        elif (symbol.intent == "out") \
-        and (routineIsKernelCaller or symbol.isToBeTransfered):
+        elif (symbol.intent == "out"):
             #We need to be careful here: Because of branching around kernels it could easily happen that
             #copyout data is not being written inside the data region, thus overwriting the host data with garbage.
             newDataDeclarations += "%s(%s)" %(copyDeclaration, symbol.name)
@@ -92,19 +94,6 @@ def getDataDirectiveAndUpdateOnDeviceFlags(currRoutineNode, currParallelRegionTe
                 symbol.isOnDevice = True
             else:
                 symbol.isOnDevice = False
-
-        #Rules for other routines
-        elif not routineIsKernelCaller \
-        and currRoutineNode.getAttribute('parallelRegionPosition') != 'within':
-            continue
-
-        #Rules for kernels and kernel callers
-        elif currRoutineNode.getAttribute('parallelRegionPosition') == 'within' \
-        and (symbol.intent in ["in", "inout", "out"] or not symbol.sourceModule in [None,""] or symbol.isHostSymbol):
-            symbol.isOnDevice = True
-             # skipping present clauses for now since not compatible with 'enter data' in pgi 15.1
-            #newDataDeclarations += "%s(%s)" %(presentDeclaration, symbol.name)
-            continue
         elif enterOrExit == 'enter':
             newDataDeclarations += "%s(%s)" %(createDeclaration, symbol.name)
             symbol.isOnDevice = True
@@ -154,11 +143,13 @@ def getTracingDeclarationStatements(currRoutineNode, dependantSymbols, patterns,
         # or symbol.intent not in ['in', 'inout', 'out'] \
         # or symbol.isOnDevice and currRoutineNode.getAttribute('parallelRegionPosition') == 'inside':
             continue
+        if symbol.isHostSymbol:
+            continue
         if len(symbol.domains) > max_num_of_domains_for_symbols:
             max_num_of_domains_for_symbols = len(symbol.domains)
         for prefix in useReorderingByAdditionalSymbolPrefixes.keys():
             current_declaration_line = symbol.getDeclarationLineForAutomaticSymbol(
-                purgeList=['intent', 'public', 'allocatable'],
+                purgeList=['intent', 'public', 'allocatable', 'target'],
                 patterns=patterns,
                 name_prefix=prefix,
                 use_domain_reordering=useReorderingByAdditionalSymbolPrefixes[prefix],
@@ -835,14 +826,19 @@ end subroutine
             if symbol.declarationType() == DeclarationType.LOCAL_ARRAY:
                 regionStr += "!$acc update device(%s) if(hf_symbols_are_device_present)\n" %(symbol.name)
         vectorSizePPNames = getVectorSizePPNames(parallelRegionTemplate)
-        regionStr += "!$acc kernels if(hf_symbols_are_device_present)\n"
+        regionStr += "!$acc kernels if(hf_symbols_are_device_present) "
+        for symbol in self.currDependantSymbols:
+            if symbol.isOnDevice:
+                regionStr += "present(%s) " %(symbol.name)
+        regionStr += "\n"
         domains = getDomainsWithParallelRegionTemplate(parallelRegionTemplate)
         if len(domains) > 3 or len(domains) < 1:
             raise Exception("Invalid number of parallel domains in parallel region definition.")
         for pos in range(len(domains)-1,-1,-1): #use inverted order (optimization of accesses for fortran storage order)
             regionStr += "!$acc loop independent vector(%s) " %(vectorSizePPNames[pos])
-            if pos == len(domains)-1:
-                regionStr += getReductionClause(parallelRegionTemplate)
+            # reduction clause is broken in 15.3. better to let the compiler figure it out.
+            # if pos == len(domains)-1:
+            #     regionStr += getReductionClause(parallelRegionTemplate)
             regionStr += "\n"
             domain = domains[pos]
             startsAt = domain.startsAt if domain.startsAt != None else "1"
@@ -938,6 +934,7 @@ class TraceCheckingOpenACCFortranImplementation(DebugPGIOpenACCFortranImplementa
         result += openACCDeclarations
         self.currentTracedSymbols = tracedSymbols
         result += "hf_tracing_error_found = .false.\n"
+        result += "hf_tracing_error = 0.0d0\n"
         result += getTracingStatements(
             self.currRoutineNode,
             self.currModuleName,

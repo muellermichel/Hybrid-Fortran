@@ -54,8 +54,8 @@ contains
   end subroutine
 
   subroutine data_region_wrapper5()
-    use kernels5, only: wrapper5
-    use my_module, only: a, b, c, d, used_in_acc_routine
+    use kernels5, only: wrapper5, used_in_acc_routine
+    use my_module, only: a, b, c, d
     implicit none
 
     @domainDependant{attribute(autoDom,transferHere)}
@@ -65,17 +65,17 @@ contains
     call wrapper5()
   end subroutine
 
-  subroutine data_region_wrapper6()
-    use kernels6, only: wrapper6
-    use my_module, only: a, b, c
-    implicit none
+!   subroutine data_region_wrapper6()
+!     use kernels6, only: wrapper6
+!     use my_module, only: a, b, c
+!     implicit none
 
-    @domainDependant{attribute(autoDom,transferHere)}
-    a, b, c
-    @end domainDependant
+!     @domainDependant{attribute(autoDom,transferHere)}
+!     a, b, c
+!     @end domainDependant
 
-    call wrapper6()
-  end subroutine
+!     call wrapper6()
+!   end subroutine
 
   subroutine assert_values(test_array, expected_value)
     implicit none
@@ -110,11 +110,11 @@ contains
 end module example
 
 program main
-  use example, only: data_region_wrapper, data_region_wrapper2, data_region_wrapper4, data_region_wrapper5, data_region_wrapper6, assert_values
+  use example, only: data_region_wrapper, data_region_wrapper2, data_region_wrapper4, data_region_wrapper5, assert_values
   use my_module, only: a, b, c, d, used_in_acc_routine
   use kernels3, only: outer_wrapper3
   use kernels5, only: kernels5_initialize, kernels5_cleanup
-  use kernels6, only: kernels6_initialize, kernels6_cleanup
+!   use kernels6, only: kernels6_initialize, kernels6_cleanup
   implicit none
   integer :: x, y, z
   integer :: fail_x, fail_y, fail_z

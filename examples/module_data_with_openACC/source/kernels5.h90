@@ -17,22 +17,22 @@
 
 module kernels5
 
-    real, dimension(:,:,:), allocatable :: local
+    real, dimension(:,:,:), allocatable :: used_in_acc_routine
 
     @domainDependant{attribute(host), domName(x,y,z), domSize(NX,NY,NZ), domPP(DOM), accPP(AT)}
-    local
+    used_in_acc_routine
     @end domainDependant
 
 contains
   subroutine kernels5_initialize()
     @domainDependant{}
     @end domainDependant
-    allocate(local(NX,NY,NZ))
-    local(:,:,:) = 5.0d0
+    allocate(used_in_acc_routine(NX,NY,NZ))
+    used_in_acc_routine(:,:,:) = 5.0d0
   end subroutine
 
   subroutine kernels5_cleanup()
-    deallocate(local)
+    deallocate(used_in_acc_routine)
   end subroutine
 
   subroutine wrapper5()
@@ -59,7 +59,7 @@ contains
 
     @parallelRegion{domName(x,y), domSize(NX, NY)}
     do z=1,NZ
-      c(z) = a(z) + b(z) + local(x,y,z)
+      c(z) = a(z) + b(z) + used_in_acc_routine(x,y,z)
     end do
     @end parallelRegion
   end subroutine

@@ -226,7 +226,10 @@ def run_accuracy_test_for_netcdf(options, eps):
 			if numpy.count_nonzero(ref_array) == 0:
 				passed_string += "(WARNING:Reference is Zero Matrix!)"
 			root_mean_square_deviation = numpy.sqrt(numpy.mean((in_array - ref_array)**2))
-			if numpy.any(greater_than_epsilon):
+			if math.isnan(root_mean_square_deviation):
+				passed_string = "FAIL <-------"
+				error_found = True
+			elif numpy.any(greater_than_epsilon):
 				error_found = True
 				# first_error = numpy.unravel_index(numpy.argmax(greater_than_epsilon), greater_than_epsilon.shape)[0]
 				number_of_elements = numpy.prod(in_array.shape)

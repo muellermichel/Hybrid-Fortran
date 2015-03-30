@@ -33,6 +33,7 @@ for executable in $executables; do
 	rc=$?
 	if [[ $rc != 0 ]] && [[ "$run_mode" != "debug" ]] ; then
 		cd ${currDir}
+		printf '\a' #make the terminal bounce for OSX users
 		exit $rc
 	fi
 	validation_rc=${rc}
@@ -47,7 +48,9 @@ for executable in $executables; do
 	# fi
 	cd ${currDir}
 	if [[ $validation_rc != 0 ]] ; then
+		printf '\a' #make the terminal bounce for OSX users
 		exit $validation_rc
 	fi
 done
 echo "All your tests have passed!"
+printf '\a' #make the terminal bounce for OSX users

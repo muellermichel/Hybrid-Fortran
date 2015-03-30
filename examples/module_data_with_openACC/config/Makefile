@@ -33,10 +33,10 @@ helper_functions_gpu: helper_functions.o
 # ADD YOUR DEPENDENCIES BELOW THIS LINE
 # -------->
 
-example.o: kernels.o kernels2.o kernels3.o kernels4.o kernels5.o kernels6.o my_module.o helper_functions.o ${USER_LIB}
+example.o: kernels.o kernels2.o kernels3.o kernels4.o kernels5.o my_module.o helper_functions.o ${USER_LIB}
 kernels.o: my_module.o helper_functions.o
 kernels2.o: my_module.o helper_functions.o
 kernels3.o: my_module.o helper_functions.o
 kernels4.o: my_module.o helper_functions.o
 kernels5.o: my_module.o helper_functions.o
-kernels6.o: my_module.o helper_functions.o
+# kernels6.o: my_module.o helper_functions.o

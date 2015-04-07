@@ -90,9 +90,10 @@ def rootMeanSquareDeviation(tup, tupRef, eps):
 def checkIntegrity(tup):
 	for index, val in enumerate(tup):
 		if math.isnan(val):
-			raise Exception("value at index %i in input file is not a number." %(index))
+			return index, val
 		if math.isinf(val):
-			raise Exception("value at index %i in input file is an infinite number." %(index))
+			return index, val
+	return -1, -1
 
 def run_accuracy_test_for_datfile(options, eps):
 	numOfBytesPerValue = int(options.bytes)
@@ -141,22 +142,31 @@ def run_accuracy_test_for_datfile(options, eps):
 			elif unpacked == None:
 				break
 
-			checkIntegrity(unpacked)
 			if int(options.printNum) > 0:
 				print unpacked[0:int(options.printNum)]
 			if options.verbose:
 				sys.stderr.write("Record %i unpacked, contains %i elements.\n" %(i, len(unpacked)))
-
 			if unpackedRef != None:
 				if len(unpacked) != len(unpackedRef):
 					sys.stderr.write("Error in %s: Record %i does not have same length as reference. Length: %i, expected: %i\n" \
 						%(str(options.inFile), i, len(unpacked), len(unpackedRef)))
 					sys.exit(1)
 				#analyse unpacked data
-				[err, firstErr, firstErrVal, expectedVal] = rootMeanSquareDeviation(unpacked, unpackedRef, eps)
-				if firstErr != -1 or err > eps:
+				firstInvalidIndex, firstInvalidValue = checkIntegrity(unpackedRef)
+				if firstInvalidIndex != -1:
+					sys.stderr.write("%s, record %i: Invalid Value %s in Reference at %i - cannot analyze\n" %(options.inFile, i, str(firstInvalidValue), firstInvalidIndex))
+					continue
+				firstInvalidIndex, firstInvalidValue = checkIntegrity(unpacked)
+				if firstInvalidIndex != -1:
 					errorState=True
-					passedStr = "first error value: %s; expected: %s; FAIL <-------" %(firstErrVal, expectedVal)
+					passedStr = "invalid value found: %s; FAIL <-------" %(str(firstInvalidValue))
+					firstErr = firstInvalidIndex
+					err = -1
+				else:
+					[err, firstErr, firstErrVal, expectedVal] = rootMeanSquareDeviation(unpacked, unpackedRef, eps)
+					if firstErr != -1 or err > eps:
+						errorState=True
+						passedStr = "first error value: %s; expected: %s; FAIL <-------" %(firstErrVal, expectedVal)
 				sys.stderr.write("%s, record %i: Mean square error: %e; First Error at: %i; %s\n" %(options.inFile, i, err, firstErr, passedStr))
 	except(Exception), e:
 		sys.stderr.write("Error: %s\n" %(e))

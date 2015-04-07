@@ -52,9 +52,9 @@ def getDataDirectiveAndUpdateOnDeviceFlags(currRoutineNode, currParallelRegionTe
     result = ""
     dataDeclarations = ""
     if enterOrExit == 'enter':
-        dataDeclarations += "!$acc enter data "
+        dataDeclarations += "!$acc enter data if(hf_symbols_are_device_present) "
     else:
-        dataDeclarations += "!$acc exit data "
+        dataDeclarations += "!$acc exit data if(hf_symbols_are_device_present) "
     dataDeclarationsRequired = False
     commaRequired = False
     for index, symbol in enumerate(dependantSymbols):
@@ -142,8 +142,6 @@ def getTracingDeclarationStatements(currRoutineNode, dependantSymbols, patterns,
         # or 'allocatable' in symbol.declarationPrefix \
         # or symbol.intent not in ['in', 'inout', 'out'] \
         # or symbol.isOnDevice and currRoutineNode.getAttribute('parallelRegionPosition') == 'inside':
-            continue
-        if symbol.isHostSymbol:
             continue
         if len(symbol.domains) > max_num_of_domains_for_symbols:
             max_num_of_domains_for_symbols = len(symbol.domains)
@@ -254,11 +252,7 @@ def getCompareToTraceFunc(abortSubroutineOnError=True, loop_name_postfix='', beg
         )
         result += "open(hf_tracing_imt, file=trim(hf_tracing_current_path), form='unformatted', status='old', action='read', iostat=hf_tracing_ierr)\n"
         result += "if (hf_tracing_ierr .ne. 0) then\n"
-        result += "write(0,*) 'In subroutine %s, checkpoint %s: could not read reference file ', trim(hf_tracing_current_path),' for symbol %s => aborting trace checking here. Error code: ', hf_tracing_ierr\n" %(
-            currRoutineNode.getAttribute('name'),
-            loop_name_postfix,
-            symbol.name
-        )
+        result += "write(0,*) 'symbol %s trace n/a'\n" %(symbol.name)
         result += "close(hf_tracing_imt)\n"
         if abortSubroutineOnError:
             result += "hf_tracing_counter = hf_tracing_counter + 1\n"
@@ -803,12 +797,12 @@ end subroutine
         result = ""
         result += getIteratorDeclaration(currRoutineNode, currParallelRegionTemplates, ["GPU"])
         result += "integer(4) :: hf_symbols_are_device_present\n"
-        if dataDeclarationsRequired == True:
-            result += dataDirective
         for symbol in dependantSymbols:
             if symbol.isOnDevice:
                 result += "hf_symbols_are_device_present = acc_is_present(%s)\n" %(symbol.name)
                 break
+        if dataDeclarationsRequired == True:
+            result += dataDirective
         result += self.declarationEndPrintStatements()
         return result
 

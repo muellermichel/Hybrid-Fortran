@@ -1033,17 +1033,16 @@ Please specify the domains and their sizes with domName and domSize attributes i
 Currently loaded template: %s\n" %(
                 accPP, str(accPPIsExplicit), self.activeDomainsMatchSpecification, self.numOfParallelDomains, self.template.toxml() if self.template != None else "None"
             ))
-        if use_domain_reordering and (not accPPIsExplicit or not self.activeDomainsMatchSpecification) and self.numOfParallelDomains != 0 and accPP != "":
-            if parallelRegionNode:
-                template = getTemplate(parallelRegionNode)
-                if template != '':
-                    accPP += "_" + template
-            result += accPP + "("
+        if use_domain_reordering and accPP != "":
             needsAdditionalClosingBracket = True
-        elif use_domain_reordering and accPPIsExplicit and self.activeDomainsMatchSpecification and accPP != "":
-            result += accPP + "("
-            needsAdditionalClosingBracket = True
-
+            if accPPIsExplicit and self.activeDomainsMatchSpecification:
+                result += accPP + "("
+            else:
+                if parallelRegionNode:
+                    template = getTemplate(parallelRegionNode)
+                    if template != '':
+                        accPP += "_" + template
+                result += accPP + "("
         result += ",".join(iterators)
 
         if needsAdditionalClosingBracket:

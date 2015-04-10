@@ -1,0 +1,181 @@
+# Copyright (C) 2014 Michel Müller, Tokyo Institute of Technology
+
+# This file is part of Hybrid Fortran.
+
+# Hybrid Fortran is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# Hybrid Fortran is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU Lesser General Public License for more details.
+
+# You should have received a copy of the GNU Lesser General Public License
+# along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
+
+#############################################################################
+# Hybrid executable names for executables to be built from your sources     #
+# in SRC_DIR_COMMON using Hybrid Fortran's own build system.                #
+# In case you use a FRAMEWORK_MAKEFILE, you can also handle the building of #
+# executables yourself - please see section                                 #
+# 'Custom installation and testing' for that purpose.                       #
+#                                                                           #
+# Make sure to understand the following rules:                              #
+# 1) Multiple executables can be specified in this variable, separated by   #
+#    spaces, the list surrounded by double quotes.                          #
+# 2) For every executable you should have a h90,H90,f90 or F90 file that    #
+#    contains a main routine and whose filename matches exactly the name    #
+#    of the executable. These main files can be placed anywhere in your     #
+#    source directory or one of its subdirectories.                         #
+#############################################################################
+EXECUTABLES="simple_weather"
+
+#############################################################################
+# directories as seen from project directory.                               #
+# PLEASE ALWAYS SPECIFY WITHOUT TRAILING SLASH                              #
+#############################################################################
+#IMPORTANT WARNING: make clean will delete the following directory!
+#THEREFORE DO NOT SPECIFY AN EXISTING DIRECTORY
+BASEDIR=./build
+
+#Can probably be left alone
+LIBDIR=${HF_DIR}/hf_lib
+
+#This directory will be picked up for hybrid compilation - specify the root
+#directory you'd like to port over
+SRC_DIR_COMMON=./source
+
+# !New in Version 0.9
+#OPTIONAL
+#These directories will be included in the build (copied seperately for CPU and GPU),
+#but not processed for hybrid fortran syntax. The directory structure in the build
+#directory will look as follows:
+#    $BASEDIR |- cpu |- $SRC_DIR_COMMON  (hybrid sources + their compiled files in a flat directory)
+#                    |- $FRAMEWORK_DIR[0] (entire directory tree)
+#                    |- $FRAMEWORK_DIR[1] (entire directory tree)
+#                    |- .....
+#                    |- $FRAMEWORK_DIR[n-1] (entire directory tree)
+#                    |- EXECUTABLES[0].out
+#                    |- EXECUTABLES[1].out
+#                    |- ....
+#                    |- EXECUTABLES[n-1].out
+#
+#             |- gpu |- .... (same as cpu directory)
+#
+# Separate using spaces and surround with double quotes.
+FRAMEWORK_DIRS=""
+
+# !New in Version 0.9
+#OPTIONAL, only needed in case you have sources that need to be compiled separately
+#from the Hybrid Fortran sources. Please note that it's perfectly fine to have non-Hybrid .f, .F, .f90 or .F90 files
+#in your $SRC_DIR_COMMON - however you might have a project with a build system that's too complex to be fully integrated
+#into Hybrid Fortran, so this allows your build system to be spawned as a child of the Hybrid Fortran build system
+#The goal is to still have a consistent 'make', 'make install', 'make tests', etc. interface in the root directory.
+#
+# ! Specify relative to your project's root directory !
+#
+#This makefile will be executed *after* the compilation of CPU/GPU specialized Hybrid Fortran libraries
+#based on $SRC_DIR_COMMON. It needs to be contained within a FRAMEWORK_DIR, such that it gets copied into the $BASEDIR/cpu and
+#$BASEDIR/gpu directory.
+#
+#This makefile should expose the following target:
+# *) after_hybrid_build (will be called after the files in $BASEDIR/XXX/$SRC_DIR_COMMON have been compiled. This should produce an executable
+#    based on the library / object files in $BASEDIR/XXX/$SRC_DIR_COMMON as well as your other sources within FRAMEWORK_DIRS that you need to take
+#    care of yourself here.)
+FRAMEWORK_MAKEFILE=
+
+#where are tests to be installed? (ignored in case you specify $TEST_EXECUTABLES)
+TESTDIR=./test
+
+#############################################################################
+# Custom installation and testing                                           #
+#############################################################################
+# !New in Version 0.9
+#OPTIONAL (recommended in case you use a configure script. Specify the path of a file that's always touched by configure, relative to the projects root directory.
+#          The Hybrid Fortran build system will automatically call ./configure if this file doesn't exist yet. Note: It's advisable to put files needed by your framework compilation into
+#          one of the $FRAMEWORK_DIRS specified above. This way they will be picked up and put into the the build directory $BASEDIR such that your own build system can find them.)
+FRAMEWORK_CONFIGURE_OUTPUT=
+
+# !New in Version 0.9
+#OPTIONAL (needed in case you set a $FRAMEWORK_MAKEFILE. Specify the paths of executables generated by your makefile, relative to $BASEDIR/XXX.
+#          separate with spaces and surround the list with double quotes)
+FRAMEWORK_EXECUTABLE_PATHS=""
+
+# !New in Version 0.9
+#OPTIONAL (needed in case you set a $FRAMEWORK_MAKEFILE. Specify the paths where executables should be installed, relative to the project's root directory. Hybrid Fortran will install executables defined in $FRAMEWORK_EXECUTABLE_PATHS in the path below *with _cpu / _gpu postfixes*, i.e. it will create two versions of each executable and install them in the paths specified below.
+# 	       ! This list needs to have the same number of entries as $FRAMEWORK_EXECUTABLE_PATHS !
+#          separate with spaces and surround the list with double quotes)
+FRAMEWORK_INSTALLED_EXECUTABLE_PATHS=""
+
+# !New in Version 0.9
+#OPTIONAL (Specify the paths of executables generated by your makefile, that are *not* in any way calling hybrid cpu/gpu code, relative to $BASEDIR/XXX.
+#          separate with spaces and surround the list with double quotes)
+FRAMEWORK_NON_HYBRID_EXECUTABLE_PATHS=""
+
+# !New in Version 0.9
+#OPTIONAL (Specify the paths where non-hybrid executables should be installed, relative to the project's root directory. Hybrid Fortran will only install a *single* version of these executables in the specified directories.
+# 	       ! This list needs to have the same number of entries as $FRAMEWORK_NON_HYBRID_EXECUTABLE_PATHS !
+#          separate with spaces and surround the list with double quotes)
+FRAMEWORK_NON_HYBRID_INSTALLED_EXECUTABLE_PATHS=""
+
+# !New in Version 0.9
+#OPTIONAL, can be used to switch to a different environment for testing. As an example, you can have your python NetCDF and Numpy Libraries inside a
+#virtualenv - in this case, specify the virtualenv activate script here with an absolute path.
+SOURCE_THIS_BEFORE_TESTING=
+
+# !New in Version 0.9
+#OPTIONAL, can be used to switch from a different environment for testing. As an example, you can have your python NetCDF and Numpy Libraries inside a
+#virtualenv - in this case, specify the virtualenv deactivate script here with an absolute path.
+SOURCE_THIS_AFTER_TESTING=
+
+# !New in Version 0.9
+#OPTIONAL, can be used to have the 'make tests' interface with custom executables - for example when you need to run multiple executables for your
+#tests, you can create a run-script in a test-subdirectory together with all the input data you need and you can specify these script paths using TEST_EXECUTABLES.
+#Specify relative to the project's root directory, separate with spaces and surround the list with double quotes.
+# ! your scripts specified here should take one input argument 'ARCH' and call your executables with _$ARCH postfix in the filename !
+# Note: The output of automatic tests looks best if you use STDOUT for timing outputs and STDERR for everything else. Return codes other than 0 will result in the
+# test failing - which can be very useful - so it is advisable to return error codes generated in your codebase.
+TEST_EXECUTABLES=""
+
+# !New in Version 0.9
+#OPTIONAL, can be used to specify the naming pattern of files that are being created by your tests, using bash syntax, as seen from the respective executable's directory.
+#As an example, if your script is placed in tests/my_test/my_run_script.sh and the output is files of the form tests/my_test/my_output*, specify "my_output*" here.
+#This will be used by the Hybrid Fortran test framework to pick up output files and compare them to reference files that you provide in a ref.tar.gz in the
+#test executable's directory. Compatible with simple .dat files as well as netcdf. Please refer to the manual for more information.
+TEST_OUTPUT_FILE_PATTERN=""
+
+#############################################################################
+# which names / directory names within $SRC_DIR_COMMON should be excluded   #
+# from compilation?                                                         #
+# this is useful in case you'd like to concentrate only on a subset of      #
+# your sources. All files / directories that do *not* match a name in       #
+# this list, will be compiled, even if there is not an explicit dependency  #
+# specified for them.                                                       #
+#############################################################################
+EXCEPTIONS=""
+
+#############################################################################
+# set this to true if you'd like to have every compilation in debug mode    #
+# Note: If this is set to false, you can still enable debug mode by         #
+# calling 'make [your target] DEBUG=1'                                      #
+#############################################################################
+DEBUG_MODE=false
+
+#############################################################################
+# set this to true if you'd like to have tests started after every          #
+# successful compilation. In case you have defined $FRAMEWORK_MAKEFILE,     #
+# your Makefile will need to expose the tests-targets (see above)           #
+#############################################################################
+TEST_WITH_EVERY_BUILD=false
+
+#############################################################################
+# implementation settings                                                   #
+#############################################################################
+CPU_IMPLEMENTATION_DEBUG=FortranImplementation
+CPU_IMPLEMENTATION_PRODUCTION=OpenMPFortranImplementation
+
+GPU_IMPLEMENTATION_EMULATION=PGIOpenACCFortranImplementation
+GPU_IMPLEMENTATION_DEBUG=PGIOpenACCFortranImplementation
+GPU_IMPLEMENTATION_PRODUCTION=PGIOpenACCFortranImplementation

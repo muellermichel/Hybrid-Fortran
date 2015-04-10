@@ -1032,6 +1032,7 @@ This is not allowed for implementations using %s.\
                 %(symbol.name, str(accessors), self.currSubprocName, self.fileName, self.lineNo)
             )
 
+        #$$$ why are we checking for a present statement?
         accessPatternChangeRequired = False
         presentPattern = r"(.*?present\s*\(\s*)" + re.escape(symbol.deviceName()) + postfixEscaped + r"\s*"
         currMatch = re.match(presentPattern, line, re.IGNORECASE)
@@ -1094,7 +1095,14 @@ This is not allowed for implementations using %s.\
                 inside_subroutine_call=isInsideSubroutineCall
             )
         if self.debugPrint:
-            sys.stderr.write("symbol %s on line %i rewritten to %s\n" %(str(symbol), self.lineNo, symbol_access))
+            sys.stderr.write("symbol %s on line %i rewritten to %s; change required: %s, accessors: %s, num of independent domains: %i\n" %(
+                str(symbol),
+                self.lineNo,
+                symbol_access,
+                accessPatternChangeRequired,
+                str(accessors),
+                numOfIndependentDomains
+            ))
         return (prefix + symbol_access + postfix).rstrip() + "\n"
 
     def processSymbolsAndGetAdjustedLine(self, line, isInsideSubroutineCall):

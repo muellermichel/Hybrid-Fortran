@@ -1,0 +1,135 @@
+! Copyright (C) 2015 Michel Müller, Tokyo Institute of Technology
+
+! This file is part of Hybrid Fortran.
+
+! Hybrid Fortran is free software: you can redistribute it and/or modify
+! it under the terms of the GNU Lesser General Public License as published by
+! the Free Software Foundation, either version 3 of the License, or
+! (at your option) any later version.
+
+! Hybrid Fortran is distributed in the hope that it will be useful,
+! but WITHOUT ANY WARRANTY; without even the implied warranty of
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+! GNU Lesser General Public License for more details.
+
+! You should have received a copy of the GNU Lesser General Public License
+! along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
+
+module simple_weather
+  implicit none
+  real(8), pointer, dimension(:,:,:) :: thermal_energy, thermal_energy_updated
+  real(8), allocatable, dimension(:,:) :: surface_thermal_energy, planetary_thermal_energy
+  @domainDependant{attribute(autoDom,host), domName(i,j,k), domSize(0:nx+1,0:ny+1,nz)}
+  thermal_energy
+  @end domainDependant
+
+  @domainDependant{attribute(autoDom,host), domName(i,j), domSize(0:nx+1,0:ny+1)}
+  surface_thermal_energy, planetary_thermal_energy
+  @end domainDependant
+  contains
+
+  subroutine initialize(nx,ny,nz)
+    use commons
+    integer(4), intent(in) :: nx, ny, nz
+    integer(4) :: i, j, k
+    @domainDependant{}
+    @end domainDependant
+
+    call initialize_domains(nx,ny,nz)
+    allocate(thermal_energy(0:nx+1,0:ny+1,nz))
+    allocate(thermal_energy_updated(0:nx+1,0:ny+1,nz))
+    allocate(surface_thermal_energy(0:nx+1,0:ny+1))
+    allocate(planetary_thermal_energy(0:nx+1,0:ny+1))
+
+    !initialize to 0K with a 300K cube in the middle
+    thermal_energy(:,:,:) = 0.0d0
+    do k=50,150
+      do j=50,150
+        do i=50,150
+          thermal_energy(i,j,k) = 300.0d0
+        end do
+      end do
+    end do
+    thermal_energy_updated(:,:,:) = 0.0d0
+    planetary_thermal_energy(:,:) = 200.0d0
+    surface_thermal_energy(:,:) = 330.d0
+  end subroutine
+
+  subroutine simulate(start_time, end_time, timestep, output_timestep)
+    use commons
+    use dynamical_processes, only: diffuse
+    use physical_processes, only: run_physics
+    real(8), intent(in) :: start_time, end_time, timestep, output_timestep
+    real(8), pointer, dimension(:,:,:) :: thermal_energy_temp
+    real(8) :: time
+    @domainDependant {attribute(autoDom, transferHere)}
+    thermal_energy, thermal_energy_updated
+    @end domainDependant
+
+    @domainDependant {attribute(autoDom, present)}
+    thermal_energy_temp
+    @end domainDependant
+
+    time = start_time
+    do while (.true.)
+      if (modulo(time + 0.001d0, output_timestep) < 0.01d0) then
+        write(6,*) "writing data at t=", time
+        call write_data(thermal_energy, "thermal_energy", time)
+      end if
+      call run_physics(thermal_energy, surface_thermal_energy, planetary_thermal_energy)
+      call diffuse(thermal_energy_updated, thermal_energy)
+
+      thermal_energy_temp => thermal_energy_updated
+      thermal_energy_updated => thermal_energy
+      thermal_energy => thermal_energy_temp
+
+      time = time + timestep
+      if (time > end_time) then
+        return
+      end if
+    end do
+  end subroutine
+
+  subroutine write_data(output_data, prefix, time)
+    use commons
+    use helper_functions, only: writeToFile
+    real(8), dimension(0:nx+1,0:ny+1,nz), intent(in) :: output_data
+    real(8), dimension(0:nx+1,0:ny+1,nz) :: output_data_ijk
+    character(len=*), intent(in) :: prefix
+    real(8), intent(in) :: time
+    character(len=256) :: path
+    integer(4) :: i, j, k
+    @domainDependant {attribute(autoDom, present)}
+    output_data
+    @end domainDependant
+
+    !$acc update host(output_data)
+    do k = 1, nz
+      do j = 0, ny+1
+        do i = 0, nx+1
+          output_data_ijk(i,j,k) = output_data(i,j,k)
+        end do
+      end do
+    end do
+    write(6,*) "thermal energy at k=140, x=100, y=100: ", output_data_ijk(100,100,140)
+    write(path, '(A,A,A,F0.1,A)') './out/', trim(prefix), '_', time, '.dat'
+    call writeToFile(path, output_data_ijk)
+  end subroutine
+
+  subroutine cleanup()
+    deallocate(thermal_energy)
+    deallocate(thermal_energy_updated)
+    deallocate(surface_thermal_energy)
+    deallocate(planetary_thermal_energy)
+  end subroutine
+end module
+
+program main
+  use simple_weather
+  implicit none
+
+  call initialize(200, 200, 200)
+  call simulate(0.0d0, 100.0d0, 0.1d0, 10.0d0)
+  call cleanup
+  stop
+end program main

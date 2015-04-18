@@ -1,4 +1,4 @@
-Hybrid Fortran v0.93
+Hybrid Fortran v0.94
 ====================
 
 What & Why

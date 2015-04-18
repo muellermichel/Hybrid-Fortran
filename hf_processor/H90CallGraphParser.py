@@ -697,10 +697,20 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
 
     def loadSymbolsFromTemplate(self, parentNode, parallelRegionTemplates, isModuleSymbols=False):
         templatesAndEntries = getDomainDependantTemplatesAndEntries(self.cgDoc, parentNode)
+        dependantNames = []
         for template, entry in templatesAndEntries:
             dependantName = entry.firstChild.nodeValue
-            symbol = Symbol(dependantName, template, debugPrint=self.debugPrint)
-            symbol.isModuleSymbol = isModuleSymbols
+            if dependantName in dependantNames:
+                raise Exception("Symbol %s has multiple @domainDependant definitions. Please remove all but one." %(dependantName))
+            dependantNames.append(dependantName)
+            symbol = self.currSymbolsByName.get(dependantName)
+            if symbol == None:
+                symbol = Symbol(dependantName, template, debugPrint=self.debugPrint)
+                symbol.isModuleSymbol = isModuleSymbols
+            else:
+                current_attributes = symbol.attributes
+                new_attributes = getAttributes(template)
+                symbol.setOptionsFromAttributes(current_attributes + new_attributes)
             symbol.loadDomainDependantEntryNodeAttributes(entry)
             if isModuleSymbols:
                 symbol.loadModuleNodeAttributes(parentNode)
@@ -708,9 +718,10 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
                 symbol.loadRoutineNodeAttributes(parentNode, parallelRegionTemplates)
             self.currSymbolsByName[dependantName] = symbol
         if self.debugPrint:
-            sys.stderr.write("Symbols loaded from template. Symbols currently active in scope: %s. Module Symbol Property: %s\n" %(
+            sys.stderr.write("Symbols loaded from template. Symbols currently active in scope: %s. Module Symbol Property: %s. Dependant Names: %s\n" %(
                 str(self.currSymbolsByName.values()),
-                str([self.currSymbolsByName[symbolName].isModuleSymbol for symbolName in self.currSymbolsByName.keys()])
+                str([self.currSymbolsByName[symbolName].isModuleSymbol for symbolName in self.currSymbolsByName.keys()]),
+                str(dependantNames)
             ))
 
     def analyseSymbolInformationOnCurrentLine(self, line, analyseImports=True):

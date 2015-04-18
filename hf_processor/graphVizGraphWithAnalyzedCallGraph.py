@@ -63,6 +63,8 @@ parser.add_option("-o", "--outFile", dest="output",
                   help="output png to OUT", metavar="OUT")
 parser.add_option("-d", "--debug", action="store_true", dest="debug",
                   help="show debug print in standard error output")
+parser.add_option("--less", action="store_true", dest="less",
+                  help="omit white and grey routines")
 
 (options, args) = parser.parse_args()
 
@@ -80,7 +82,8 @@ data = srcFile.read()
 srcFile.close()
 doc = parseString(data)
 
-graph = pydot.Dot(graph_type='digraph', rankdir='LR')
+# graph = pydot.Dot(graph_type='digraph', rankdir='LR', fontsize="20")
+graph = pydot.Dot(graph_type='digraph', fontsize="27")
 
 parallelRegions = doc.getElementsByTagName("activeParallelRegions")
 routinesWithActiveRegions = []
@@ -101,22 +104,37 @@ for routine in doc.getElementsByTagName("routine"):
 # 	addCallers(callGraphDict, routineDict, calls, routineName)
 # 	addCallees(callGraphDict, routineDict, calls, routineName)
 
-callGraphEdges = callGraphDict.keys()
-for callGraphEdge in callGraphEdges:
-	edge = pydot.Edge(callGraphEdge[0], callGraphEdge[1])
-	graph.add_edge(edge)
-
 routines = doc.getElementsByTagName("routine")
 routineNames = routineDict.keys()
-for routineName in routineNames:
+
+def getRegionPosition(routineName):
 	routineMatch = None
 	for routine in routines:
 		if routine.getAttribute("name") == routineName:
 			routineMatch = routine
 			break
 	if not routineMatch:
-		continue
+		return None
 	regionPosition = routineMatch.getAttribute("parallelRegionPosition")
+	if regionPosition == None:
+		return 'unspecified'
+	return regionPosition
+
+callGraphEdges = callGraphDict.keys()
+for callGraphEdge in callGraphEdges:
+	regionPosition0 = getRegionPosition(callGraphEdge[0])
+	if options.less == True and regionPosition0 not in ["inside", "within", "outside"]:
+		continue
+	regionPosition1 = getRegionPosition(callGraphEdge[1])
+	if options.less == True and regionPosition1 not in ["inside", "within", "outside"]:
+		continue
+	edge = pydot.Edge(callGraphEdge[0], callGraphEdge[1], penwidth=5)
+	graph.add_edge(edge)
+
+for routineName in routineNames:
+	regionPosition = getRegionPosition(routineName)
+	if not regionPosition:
+		continue
 	fillColor = "gray"
 	if regionPosition == "inside":
 		fillColor = "green"
@@ -124,16 +142,16 @@ for routineName in routineNames:
 		fillColor = "orange"
 	elif regionPosition == "outside":
 		fillColor = "red"
+	if options.less != True or fillColor != "gray":
+		node = pydot.Node(routineName, style="filled", fillcolor=fillColor, fontsize="30.0", penwidth=5)
+		graph.add_node(node)
 
-	node = pydot.Node(routineName, style="filled", fillcolor=fillColor)
-	graph.add_node(node)
-
-legend = pydot.Cluster(graph_name = 'Legend', label = 'Legend')
-legend.add_node(pydot.Node(name='parallel region inside', style='filled', fillcolor="green"))
-legend.add_node(pydot.Node(name='parallel region within', style='filled', fillcolor="orange"))
-legend.add_node(pydot.Node(name='parallel region outside', style='filled', fillcolor="red"))
-legend.add_node(pydot.Node(name='not affected by parallel region', style='filled', fillcolor="gray"))
-legend.add_node(pydot.Node(name='not in h90 file'))
+legend = pydot.Cluster(graph_name = 'Legend', label = 'Legend', penwidth=3)
+legend.add_node(pydot.Node(name='parallel region inside', style='filled', fillcolor="green", fontsize="30.0", penwidth=5))
+legend.add_node(pydot.Node(name='parallel region within', style='filled', fillcolor="orange", fontsize="30.0", penwidth=5))
+legend.add_node(pydot.Node(name='parallel region outside', style='filled', fillcolor="red", fontsize="30.0", penwidth=5))
+legend.add_node(pydot.Node(name='not affected by parallel region', style='filled', fillcolor="gray", fontsize="30.0", penwidth=5))
+legend.add_node(pydot.Node(name='not in h90 file', fontsize="30.0", penwidth=5))
 graph.add_subgraph(legend)
 
 graph.write_png(output)

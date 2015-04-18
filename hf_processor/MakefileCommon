@@ -589,11 +589,11 @@ ${CG_DIR}CG_GPU.xml: ${CG_DIR}rawCG.xml
 
 ${CG_DIR}CG_CPU.png: ${CG_DIR}CG_CPU.xml
 	@echo ...creating $@ from $< >${DEBUG_OUTPUT}
-	@python ${TOOLSDIR}/graphVizGraphWithAnalyzedCallGraph.py -i $< ${H90_PREPROCESSOR_ARGS} -o $@
+	python ${TOOLSDIR}/graphVizGraphWithAnalyzedCallGraph.py -i $< ${H90_PREPROCESSOR_ARGS} -o $@
 
 ${CG_DIR}CG_GPU.png: ${CG_DIR}CG_GPU.xml
 	@echo ...creating $@ from $< >${DEBUG_OUTPUT}
-	@python ${TOOLSDIR}/graphVizGraphWithAnalyzedCallGraph.py -i $< ${H90_PREPROCESSOR_ARGS} -o $@
+	python ${TOOLSDIR}/graphVizGraphWithAnalyzedCallGraph.py -i $< ${H90_PREPROCESSOR_ARGS} -o $@
 
 ${SRC_DIR_CPU}%.f90: %.f90
 	@echo ...copying file into $@ >${DEBUG_OUTPUT}

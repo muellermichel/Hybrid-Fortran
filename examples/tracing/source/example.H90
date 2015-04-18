@@ -175,8 +175,7 @@ contains
     @end parallelRegion `\
   end subroutine
 
-!Note the use of AT_MISTAKE storage order macro in order to make the tracer check for wrong storage orders.
-!Also note: array d is an allocatable array which hasn't been allocated yet - this needs to be checked by the
+!Note: array d is an allocatable array which hasn't been allocated yet - this needs to be checked by the
 !tracer as well.
 #define GET_FAULTY_WRAPPER_IMPLEMENTATION(datatype, bytes) \
   subroutine GET_FUNCTION_NAME(faulty_wrapper, datatype, bytes)(a, b, c, d) `\
@@ -187,7 +186,7 @@ contains
     datatype(bytes), dimension(NZ), intent(out) :: c `\
     integer(4) :: x, y, z `\
     @domainDependant{domName(x,y,z), domSize(NX,NY,NZ), attribute(autoDom)} `\
-    a, b, c, d `\
+    a, b, c `\
     @end domainDependant `\
     @domainDependant{attribute(autoDom)} `\
     d `\

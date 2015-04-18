@@ -19,8 +19,9 @@ module simple_weather
   implicit none
   real(8), pointer, dimension(:,:,:) :: thermal_energy, thermal_energy_updated
   real(8), allocatable, dimension(:,:) :: surface_thermal_energy, planetary_thermal_energy
+  real(8) :: t_start_output_cycle, t_start_output_cycle_w_io
   @domainDependant{attribute(autoDom,host), domName(i,j,k), domSize(0:nx+1,0:ny+1,nz)}
-  thermal_energy
+  thermal_energy, thermal_energy_updated
   @end domainDependant
 
   @domainDependant{attribute(autoDom,host), domName(i,j), domSize(0:nx+1,0:ny+1)}
@@ -28,14 +29,15 @@ module simple_weather
   @end domainDependant
   contains
 
-  subroutine initialize(nx,ny,nz)
+  subroutine initialize(nx_in,ny_in,nz_in)
     use commons
-    integer(4), intent(in) :: nx, ny, nz
+    use time_profiling
+    integer(4), intent(in) :: nx_in, ny_in, nz_in
     integer(4) :: i, j, k
     @domainDependant{}
     @end domainDependant
 
-    call initialize_domains(nx,ny,nz)
+    call initialize_domains(nx_in,ny_in,nz_in)
     allocate(thermal_energy(0:nx+1,0:ny+1,nz))
     allocate(thermal_energy_updated(0:nx+1,0:ny+1,nz))
     allocate(surface_thermal_energy(0:nx+1,0:ny+1))
@@ -43,9 +45,9 @@ module simple_weather
 
     !initialize to 0K with a 300K cube in the middle
     thermal_energy(:,:,:) = 0.0d0
-    do k=50,150
-      do j=50,150
-        do i=50,150
+    do k=floor(nz/4.0d0),ceiling(3.0d0*nz/4.0d0)
+      do j=floor(ny/4.0d0),ceiling(3.0d0*ny/4.0d0)
+        do i=floor(nx/4.0d0),ceiling(3.0d0*nx/4.0d0)
           thermal_energy(i,j,k) = 300.0d0
         end do
       end do
@@ -59,11 +61,13 @@ module simple_weather
     use commons
     use dynamical_processes, only: diffuse
     use physical_processes, only: run_physics
+    use time_profiling
+    use helper_functions, only: getTime
     real(8), intent(in) :: start_time, end_time, timestep, output_timestep
     real(8), pointer, dimension(:,:,:) :: thermal_energy_temp
     real(8) :: time
     @domainDependant {attribute(autoDom, transferHere)}
-    thermal_energy, thermal_energy_updated
+    thermal_energy, thermal_energy_updated, surface_thermal_energy, planetary_thermal_energy
     @end domainDependant
 
     @domainDependant {attribute(autoDom, present)}
@@ -71,9 +75,11 @@ module simple_weather
     @end domainDependant
 
     time = start_time
+    call time_profiling_ini()
+    call getTime(t_start_output_cycle)
+    call getTime(t_start_output_cycle_w_io)
     do while (.true.)
       if (modulo(time + 0.001d0, output_timestep) < 0.01d0) then
-        write(6,*) "writing data at t=", time
         call write_data(thermal_energy, "thermal_energy", time)
       end if
       call run_physics(thermal_energy, surface_thermal_energy, planetary_thermal_energy)
@@ -92,7 +98,8 @@ module simple_weather
 
   subroutine write_data(output_data, prefix, time)
     use commons
-    use helper_functions, only: writeToFile
+    use time_profiling
+    use helper_functions, only: writeToFile, getTime
     real(8), dimension(0:nx+1,0:ny+1,nz), intent(in) :: output_data
     real(8), dimension(0:nx+1,0:ny+1,nz) :: output_data_ijk
     character(len=*), intent(in) :: prefix
@@ -102,8 +109,15 @@ module simple_weather
     @domainDependant {attribute(autoDom, present)}
     output_data
     @end domainDependant
-
     !$acc update host(output_data)
+
+    write(6,*) "total diffusion time used: ", counter1
+    write(6,*) "total diffusion boundary time used: ", counter4
+    write(6,*) "total physics time used: ", counter2
+    call time_profiling_ini()
+    call incrementCounter(counter_timestep, t_start_output_cycle)
+
+    write(6,*) "writing data at t=", time
     do k = 1, nz
       do j = 0, ny+1
         do i = 0, nx+1
@@ -111,9 +125,16 @@ module simple_weather
         end do
       end do
     end do
-    write(6,*) "thermal energy at k=140, x=100, y=100: ", output_data_ijk(100,100,140)
+    write(6,*) "bounds: ", nx, ny, nz
     write(path, '(A,A,A,F0.1,A)') './out/', trim(prefix), '_', time, '.dat'
     call writeToFile(path, output_data_ijk)
+
+    call incrementCounter(counter3, t_start_output_cycle_w_io)
+    write(6,*) "total output cycle time used w/ IO: ", counter3
+    write(6,*) "total output cycle time used w/o IO: ", counter_timestep
+
+    call getTime(t_start_output_cycle)
+    call getTime(t_start_output_cycle_w_io)
   end subroutine
 
   subroutine cleanup()
@@ -126,10 +147,23 @@ end module
 
 program main
   use simple_weather
+  use M_kracken
   implicit none
+  integer(4) :: nx, ny, nz
+  real(8) :: end_time, timestep, output_timestep
 
-  call initialize(200, 200, 200)
-  call simulate(0.0d0, 100.0d0, 0.1d0, 10.0d0)
+  call kracken('cmd', "-nx 200 -ny 200 -nz 200 -te 100.0d0 -ts 0.1d0 -tso 10.0d0")
+  nx = iget('cmd_nx')
+  ny = iget('cmd_ny')
+  nz = iget('cmd_nz')
+  end_time = rget('cmd_te')
+  timestep = rget('cmd_ts')
+  output_timestep = rget('cmd_tso')
+
+  write(6,'(A,I0,A,I0,A,I0)') "Initializing with nx: ", nx, " ny: ", ny, " nz: ", nz
+  call initialize(nx, ny, nz)
+  write(6,'(A,F0.1,A,F0.1,A,F0.1)') "Starting simulation. End Time: ", end_time, " Timestep: ", timestep, " Output Timestep: ", output_timestep
+  call simulate(0.0d0, end_time, timestep, output_timestep)
   call cleanup
   stop
 end program main

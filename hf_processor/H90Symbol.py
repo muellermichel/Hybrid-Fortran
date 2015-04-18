@@ -181,11 +181,11 @@ class Symbol(object):
     isMatched = False
     isOnDevice = False
     isUsingDevicePostfix = False
-    isPresent = False
+    _isPresent = False
     isAutomatic = False
     isPointer = False
     isAutoDom = False
-    isToBeTransfered = False
+    _isToBeTransfered = False
     isCompacted = False
     isModuleSymbol = False
     declPattern = None
@@ -246,13 +246,13 @@ class Symbol(object):
         self.parallelRegionTemplates = None
         self.declaredDimensionSizes = None
 
-        self.isPresent = False
+        self._isPresent = False
         self.isAutoDom = False
-        self.isToBeTransfered = False
-        self.isHostSymbol = False
+        self._isToBeTransfered = False
+        self._isHostSymbol = False
         self.isCompacted = False
-        attributes = getAttributes(self.template)
-        self.setOptionsFromAttributes(attributes)
+        self.attributes = getAttributes(self.template)
+        self.setOptionsFromAttributes(self.attributes)
         self.domPPName = None
         self.accPPName = None
 
@@ -263,17 +263,41 @@ class Symbol(object):
         return self.domainRepresentation()
 
     def __eq__(self, other):
+        if other == None:
+            return False
         return self.automaticName() == other.automaticName()
     def __ne__(self, other):
+        if other == None:
+            return True
         return self.automaticName() != other.automaticName()
     def __lt__(self, other):
+        if other == None:
+            return False
         return self.automaticName() < other.automaticName()
     def __le__(self, other):
+        if other == None:
+            return False
         return self.automaticName() <= other.automaticName()
     def __gt__(self, other):
+        if other == None:
+            return True
         return self.automaticName() > other.automaticName()
     def __ge__(self, other):
+        if other == None:
+            return False
         return self.automaticName() >= other.automaticName()
+
+    @property
+    def isHostSymbol(self):
+        return self._isHostSymbol and not self._isPresent and not self._isToBeTransfered
+
+    @property
+    def isPresent(self):
+        return self._isPresent
+
+    @property
+    def isToBeTransfered(self):
+        return self._isToBeTransfered
 
     @property
     def numOfParallelDomains(self):
@@ -300,15 +324,15 @@ class Symbol(object):
 
     def setOptionsFromAttributes(self, attributes):
         if "present" in attributes:
-            self.isPresent = True
+            self._isPresent = True
         if "autoDom" in attributes:
             self.isAutoDom = True
         if "host" in attributes:
-            self.isHostSymbol = True
+            self._isHostSymbol = True
         if "transferHere" in attributes:
-            if self.isPresent:
+            if self._isPresent:
                 raise Exception("Symbol %s has contradicting attributes 'transferHere' and 'present'" %(self))
-            self.isToBeTransfered = True
+            self._isToBeTransfered = True
         if self.debugPrint:
             sys.stderr.write("[" + str(self) + ".init " + str(self.initLevel) + "] attributes set\n")
 
@@ -341,6 +365,8 @@ class Symbol(object):
 
         self.intent = domainDependantEntryNode.getAttribute("intent") if self.intent in [None, ''] else self.intent
         self.declarationPrefix = domainDependantEntryNode.getAttribute("declarationPrefix") if self.declarationPrefix in [None, ''] else self.declarationPrefix
+        if self.isModuleSymbol:
+            self.sourceModule = "HF90_LOCAL_MODULE"
         self.sourceModule = domainDependantEntryNode.getAttribute("sourceModule") if self.sourceModule in [None, ''] else self.sourceModule
         self.sourceSymbol = domainDependantEntryNode.getAttribute("sourceSymbol") if self.sourceSymbol in [None, ''] else self.sourceSymbol
         self.isPointer = domainDependantEntryNode.getAttribute("isPointer") == "yes" if not self.isPointer else self.isPointer
@@ -1033,16 +1059,13 @@ Please specify the domains and their sizes with domName and domSize attributes i
 Currently loaded template: %s\n" %(
                 accPP, str(accPPIsExplicit), self.activeDomainsMatchSpecification, self.numOfParallelDomains, self.template.toxml() if self.template != None else "None"
             ))
-        if use_domain_reordering and accPP != "":
+        if use_domain_reordering and accPP != "" and self.activeDomainsMatchSpecification:
             needsAdditionalClosingBracket = True
-            if accPPIsExplicit and self.activeDomainsMatchSpecification:
-                result += accPP + "("
-            else:
-                if parallelRegionNode:
-                    template = getTemplate(parallelRegionNode)
-                    if template != '':
-                        accPP += "_" + template
-                result += accPP + "("
+            if not accPPIsExplicit and parallelRegionNode:
+                template = getTemplate(parallelRegionNode)
+                if template != '':
+                    accPP += "_" + template
+            result += accPP + "("
         result += ",".join(iterators)
 
         if needsAdditionalClosingBracket:
@@ -1052,6 +1075,7 @@ Currently loaded template: %s\n" %(
 
     def declarationType(self):
         if self.sourceModule == "HF90_LOCAL_MODULE":
+            #$$$ this probably needs to be changed - we can't assume that module symbols are scalars anymore
             return DeclarationType.MODULE_SCALAR
         if self.sourceModule != None and self.sourceModule != "":
             return DeclarationType.IMPORTED_SCALAR

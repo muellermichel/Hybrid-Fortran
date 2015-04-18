@@ -20,14 +20,17 @@ implicit none
 contains
   subroutine diffuse(thermal_energy_updated, thermal_energy)
     use commons
+    use time_profiling
+    use helper_functions, only: getTime
     real(8), intent(out), dimension(0:nx+1,0:ny+1,nz) :: thermal_energy_updated
     real(8), intent(in), dimension(0:nx+1,0:ny+1,nz) :: thermal_energy
-    integer(4) :: k
     real(8) :: diffusion_velocity
+    real(8) :: t_start_diffusion, t_start_boundary
     @domainDependant{attribute(autoDom, present)}
     thermal_energy_updated, thermal_energy
     @end domainDependant
 
+    call getTime(t_start_diffusion)
     diffusion_velocity = 0.13d0
 
     @parallelRegion{domName(i,j), domSize(nx,ny), startAt(1,1), endAt(nx,ny)}
@@ -40,6 +43,8 @@ contains
     end do
     @end parallelRegion
 
+
+    call getTime(t_start_boundary)
     !surface and planetary boundary layer: Don't diffuse from above floor and ceiling
     @parallelRegion{domName(i,j), domSize(nx,ny)}
     thermal_energy_updated(i,j,1) = (1.0d0 - 5 * diffusion_velocity) * thermal_energy(i,j,1) + diffusion_velocity * ( &
@@ -73,5 +78,7 @@ contains
                                       & thermal_energy(nx,j,k) + thermal_energy(0,j,k) &
                                   & )
     @end parallelRegion
+    call incrementCounter(counter1, t_start_diffusion)
+    call incrementCounter(counter4, t_start_boundary)
   end subroutine
 end module

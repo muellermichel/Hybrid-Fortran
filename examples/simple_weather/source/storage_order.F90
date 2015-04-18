@@ -29,11 +29,13 @@
 ! ------ What Storage Orders are defined? -------
 #define IJK_ORDER 1
 #define KIJ_ORDER 2
-#define IKJ_ORDER 3
+#define KJI_ORDER 3
+#define IKJ_ORDER 4
 
 ! ------ What Computational Schemes are defined? -------
 #define STENCIL_SCHEME 1
 #define PARALLEL_VECTOR_SCHEME 2
+#define KJI_SCHEME 3
 
 ! ------ Define the Scheme to be used -------
 ! (1) In your CPU implementation, how do the computations look like?
@@ -41,13 +43,19 @@
 ! ----> Choose STENCIL_SCHEME
 ! If you have vectors or other subsets of your data computed in parallel, with no dependencies on neighbours in parallel dimensions:
 ! ----> Choose PARALLEL_VECTOR_SCHEME
+
+! We willfully choose the wrong order here
 #define CURRENT_SCHEME PARALLEL_VECTOR_SCHEME
+! #define CURRENT_SCHEME STENCIL_SCHEME
+! #define CURRENT_SCHEME KJI_SCHEME
 
 ! ------ Switch between storage orders ------
 #define CURR_ORDER IJK_ORDER
 #ifndef GPU
 #if (CURRENT_SCHEME == PARALLEL_VECTOR_SCHEME)
 #define CURR_ORDER KIJ_ORDER
+#elif (CURRENT_SCHEME == KJI_SCHEME)
+#define CURR_ORDER KJI_ORDER
 #endif
 #endif
 
@@ -56,6 +64,9 @@
 #if (CURR_ORDER == KIJ_ORDER)
 	#define AT(iParam, jParam, kParam) kParam, iParam, jParam
 	#define AT4(iParam, jParam, kParam, lParam) kParam, lParam, iParam, jParam
+#elif (CURR_ORDER == KJI_ORDER)
+	#define AT(iParam, jParam, kParam) kParam, jParam, iParam
+	#define AT4(iParam, jParam, kParam, lParam) kParam, lParam, jParam, iParam
 #elif (CURR_ORDER == IKJ_ORDER)
 	#define AT(iParam, jParam, kParam) iParam, kParam, jParam
 	#define AT4(iParam, jParam, kParam, lParam) iParam, kParam, lParam, jParam

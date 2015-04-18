@@ -173,8 +173,10 @@ TEST_WITH_EVERY_BUILD=false
 #############################################################################
 # implementation settings                                                   #
 #############################################################################
-CPU_IMPLEMENTATION_DEBUG=FortranImplementation
+CPU_IMPLEMENTATION_DEBUG=OpenMPFortranImplementation
 CPU_IMPLEMENTATION_PRODUCTION=OpenMPFortranImplementation
+# for sequential performance measurement
+# CPU_IMPLEMENTATION_PRODUCTION=FortranImplementation
 
 GPU_IMPLEMENTATION_EMULATION=PGIOpenACCFortranImplementation
 GPU_IMPLEMENTATION_DEBUG=PGIOpenACCFortranImplementation

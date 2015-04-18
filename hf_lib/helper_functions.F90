@@ -18,9 +18,9 @@
 #include "storage_order.F90"
 
 #ifndef CTIME
-#ifdef _OPENMP
+! #ifdef _OPENMP
 #define USE_OPENMP 1
-#endif
+! #endif
 #endif
 
 module helper_functions

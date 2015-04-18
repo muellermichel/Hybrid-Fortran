@@ -33,7 +33,7 @@ helper_functions_gpu: helper_functions.o
 # ADD YOUR DEPENDENCIES BELOW THIS LINE
 # -------->
 
-simple_weather.o: commons.o helper_functions.o dynamical_processes.o physical_processes.o ${USER_LIB}
-dynamical_processes.o: commons.o
-physical_processes.o: commons.o
+simple_weather.o: commons.o helper_functions.o time_profiling.o dynamical_processes.o physical_processes.o ${USER_LIB}
+dynamical_processes.o: commons.o time_profiling.o
+physical_processes.o: commons.o time_profiling.o
 

@@ -44,7 +44,7 @@ def getReductionClause(parallelRegionTemplate):
         for operator in reductionScalarsByOperator.keys()
     ])
 
-def getDataDirectiveAndUpdateOnDeviceFlags(currRoutineNode, currParallelRegionTemplates, dependantSymbols, createDeclaration, routineIsKernelCaller, enterOrExit='enter'):
+def getDataDirectiveAndUpdateOnDeviceFlags(currRoutineNode, currParallelRegionTemplates, dependantSymbols, createDeclaration, routineIsKernelCaller, debugPrint, enterOrExit='enter'):
     presentDeclaration = "present" # if currRoutineNode.getAttribute("parallelRegionPosition") == 'inside' else "deviceptr"
     copyDeclaration = "copyin"
     if enterOrExit != 'enter':
@@ -52,12 +52,21 @@ def getDataDirectiveAndUpdateOnDeviceFlags(currRoutineNode, currParallelRegionTe
     result = ""
     dataDeclarations = ""
     if enterOrExit == 'enter':
-        dataDeclarations += "!$acc enter data if(hf_symbols_are_device_present) "
+        dataDeclarations += "!$acc enter data "
     else:
-        dataDeclarations += "!$acc exit data if(hf_symbols_are_device_present) "
+        dataDeclarations += "!$acc exit data "
     dataDeclarationsRequired = False
     commaRequired = False
     for index, symbol in enumerate(dependantSymbols):
+        if debugPrint:
+            sys.stderr.write("analyzing symbol %s for data directive. Domains: %s, IsHostSymbol: %s, IsPresent: %s, IsToBeTransfered: %s, SourceModule: %s\n" %(
+                symbol.name,
+                str(symbol.domains),
+                symbol.isHostSymbol,
+                symbol.isPresent,
+                symbol.isToBeTransfered,
+                str(symbol.sourceModule)
+            ))
         #Rules that lead to a symbol not being touched by directives
         symbol.isOnDevice = False
         if not symbol.domains or len(symbol.domains) == 0:
@@ -74,6 +83,9 @@ def getDataDirectiveAndUpdateOnDeviceFlags(currRoutineNode, currParallelRegionTe
         and (symbol.intent in ["in", "inout", "out"] or not symbol.sourceModule in [None,""]):
             symbol.isOnDevice = True
             continue
+        if currRoutineNode.getAttribute('parallelRegionPosition') != 'inside'\
+        and not symbol.sourceModule in [None,""]:
+            continue
 
         #Rules for kernel wrapper routines and symbols declared to be transfered
         newDataDeclarations = ""
@@ -86,7 +98,11 @@ def getDataDirectiveAndUpdateOnDeviceFlags(currRoutineNode, currParallelRegionTe
                 symbol.isOnDevice = False
         elif symbol.intent == "inout" or not symbol.sourceModule in [None,""]:
             newDataDeclarations += "%s(%s)" %(copyDeclaration, symbol.name)
-        elif (symbol.intent == "out"):
+            if enterOrExit == 'enter':
+                symbol.isOnDevice = True
+            else:
+                symbol.isOnDevice = True
+        elif symbol.intent == "out":
             #We need to be careful here: Because of branching around kernels it could easily happen that
             #copyout data is not being written inside the data region, thus overwriting the host data with garbage.
             newDataDeclarations += "%s(%s)" %(copyDeclaration, symbol.name)
@@ -627,7 +643,7 @@ class OpenMPFortranImplementation(FortranImplementation):
     def parallelRegionBegin(self, parallelRegionTemplate, outerBranchLevel=0):
         if self.currDependantSymbols == None:
             raise Exception("parallel region without any dependant arrays")
-        openMPLines = "!$OMP PARALLEL DO DEFAULT(Private) %s " %(getReductionClause(parallelRegionTemplate).upper())
+        openMPLines = "!$OMP PARALLEL DO DEFAULT(firstprivate) %s " %(getReductionClause(parallelRegionTemplate).upper())
         openMPLines += "SHARED(%s)\n" %(', '.join([symbol.deviceName() for symbol in self.currDependantSymbols]))
         return openMPLines + FortranImplementation.parallelRegionBegin(self, parallelRegionTemplate)
 
@@ -791,6 +807,7 @@ end subroutine
             dependantSymbols,
             self.createDeclaration,
             routineIsKernelCaller,
+            'DEBUG_PRINT' in self.optionFlags,
             enterOrExit='enter'
         )
         self.currRoutineHasDataDeclarations = dataDeclarationsRequired
@@ -859,7 +876,15 @@ end subroutine
     def subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, is_subroutine_end):
         result = ""
         if self.currRoutineHasDataDeclarations:
-            dataDirective, _ = getDataDirectiveAndUpdateOnDeviceFlags(self.currRoutineNode, self.currParallelRegionTemplates, dependantSymbols, self.createDeclaration, routineIsKernelCaller, enterOrExit='exit')
+            dataDirective, _ = getDataDirectiveAndUpdateOnDeviceFlags(
+                self.currRoutineNode,
+                self.currParallelRegionTemplates,
+                dependantSymbols,
+                self.createDeclaration,
+                routineIsKernelCaller,
+                'DEBUG_PRINT' in self.optionFlags,
+                enterOrExit='exit'
+            )
             result += dataDirective
         if is_subroutine_end:
             self.currRoutineNode = None

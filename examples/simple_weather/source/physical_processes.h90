@@ -20,17 +20,22 @@ implicit none
 contains
   subroutine run_physics(thermal_energy, surface_thermal_energy, planetary_thermal_energy)
     use commons
+    use time_profiling
+    use helper_functions, only: getTime
     real(8), intent(inout), dimension(0:nx+1,0:ny+1,nz) :: thermal_energy
     real(8), intent(in), dimension(0:nx+1,0:ny+1) :: surface_thermal_energy, planetary_thermal_energy
+    real(8) :: t_start_physics
     @domainDependant{attribute(autoDom, present)}
     thermal_energy, surface_thermal_energy, planetary_thermal_energy
     @end domainDependant
 
+    call getTime(t_start_physics)
     @parallelRegion{appliesTo(CPU), domName(i,j), domSize(0:nx+1,0:ny+1), startAt(0,0), endAt(nx+1,ny+1)}
-    call radiate(thermal_energy(i,j,:))
-    call exchange_heat_with_boundary(thermal_energy(i,j,:), surface_thermal_energy(i,j), 1)
-    call exchange_heat_with_boundary(thermal_energy(i,j,:), planetary_thermal_energy(i,j), nz)
+    call radiate(thermal_energy)
+    call exchange_heat_with_boundary(thermal_energy, surface_thermal_energy, 1)
+    call exchange_heat_with_boundary(thermal_energy, planetary_thermal_energy, nz)
     @end parallelRegion
+    call incrementCounter(counter2, t_start_physics)
   end subroutine
 
   subroutine radiate(thermal_energy)

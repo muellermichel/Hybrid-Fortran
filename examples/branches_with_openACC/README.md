@@ -1,1 +1,0 @@
-Since neither OpenACC nor CUDA Fortran support branches outside of kernels,	we want to make sure that Hybrid Fortran code doesn't contain that pattern. The expected behavior of this example is thus to fail at compilation.

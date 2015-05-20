@@ -172,6 +172,7 @@ TEST_EXECUTABLES=""
 # !New in Version 0.9
 #OPTIONAL, can be used to specify the naming pattern of files that are being created by your tests, using bash syntax, as seen from the respective executable's directory.
 #As an example, if your script is placed in tests/my_test/my_run_script.sh and the output is files of the form tests/my_test/my_output*, specify "my_output*" here.
+#If you have multiple test executables, separate the output files with spaces and surround the list with double quotes.
 #This will be used by the Hybrid Fortran test framework to pick up output files and compare them to reference files that you provide in a ref.tar.gz in the
 #test executable's directory. Compatible with simple .dat files as well as netcdf. Please refer to the manual for more information.
 TEST_OUTPUT_FILE_PATTERN=""

@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 # Copyright (C) 2014 Michel Müller, Tokyo Institute of Technology
 
@@ -88,7 +89,7 @@ for i in "${!argStringsArr[@]}"; do
 		touch ./log_lastRun.txt
 		echo "running valgrind with: " >> ./log_lastRun.txt
 		echo "valgrind --log-file='./log_lastRun.txt' --suppressions=$HF_DIR/hf_config/valgrind_errors.supp ./${executable_name} ${argString} &>/dev/null" >> ./log_lastRun.txt
-		`valgrind --log-file='./log_lastRun.txt' --suppressions=$HF_DIR/hf_config/valgrind_errors.supp ./${executable_name} ${argString} &>/dev/null`
+		valgrind --log-file='./log_lastRun.txt' --suppressions=$HF_DIR/hf_config/valgrind_errors.supp ./${executable_name} ${argString} &>/dev/null && :
 		cat ./log_lastRun.txt 2>&1 | grep 'Unrecognised instruction' &> './log_temp.txt'
 		if [[ -s './log_temp.txt' ]]; then
 			echo "fail"
@@ -115,12 +116,8 @@ for i in "${!argStringsArr[@]}"; do
 		if [ -e ./ref.tar.gz ] && [ ! -e $refPath ]; then
 			if ! $extractionAttempted; then
 				echo "extracting reference data"
-		    	tar -xzvf ./ref.tar.gz > /dev/null
-		    	rc=$?
-		    	if [[ $rc != 0 ]] ; then
-		    		exit 1
-		    	fi
-		    	extractionAttempted=true
+				tar -xzvf ./ref.tar.gz > /dev/null
+				extractionAttempted=true
 			fi
 			if [ -e ./ref.tar.gz ] && [ ! -e $refPath ]; then
 				echo "Error with ${configuration_name} tests: Reference data directory $refPath not part of the reference data in ./ref.tar.gz" 1>&2
@@ -137,10 +134,10 @@ for i in "${!argStringsArr[@]}"; do
 
 	echo -n "calling ${executable_name} ( with parameters ${argString} ) for ${configuration_name} ,"
 	if [ -z "$HF_RUN_OVER_SSH" ]; then
-		timingResult=$(./${executable_name} ${argString} 2>./log_lastRun.txt)
+		timingResult=$(./${executable_name} ${argString} 2>./log_lastRun.txt && :)
 		rc=$?
 	else
-		timingResult=$(ssh $HF_RUN_OVER_SSH "cd ${working_dir} && ./${executable_name}" ${argString} 2>./log_lastRun.txt)
+		timingResult=$(ssh $HF_RUN_OVER_SSH "cd ${working_dir} && ./${executable_name}" ${argString} 2>./log_lastRun.txt && :)
 		rc=$?
 	fi
 	if [[ $rc != 0 ]] ; then
@@ -153,7 +150,7 @@ for i in "${!argStringsArr[@]}"; do
 		cat ./log_lastRun.txt >> ./log.txt
 	    exit $rc
 	fi
-	cat ./log_lastRun.txt | grep -i -e 'fatal error'
+	cat ./log_lastRun.txt | grep -i -e 'fatal error' && :
 	errorgrep_rc=$?
 	if [[ $errorgrep_rc != 1 ]] ; then
 		echo "fail"
@@ -166,7 +163,7 @@ for i in "${!argStringsArr[@]}"; do
 	    exit 102
 	fi
 	if [ "$configuration_name" = "validation" ] && [ -e $refPath ]; then
-		${HF_DIR}/hf_bin/allAccuracy.sh $refPath "$output_file_pattern" $source_before $source_after 2>>./log_lastRun.txt
+		${HF_DIR}/hf_bin/allAccuracy.sh $refPath "$output_file_pattern" $source_before $source_after 2>>./log_lastRun.txt && :
 		rc=$?
 		validationResult=""
 		cat ./log_lastRun.txt >> ./log.txt

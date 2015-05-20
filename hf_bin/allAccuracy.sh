@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 # Copyright (C) 2014 Michel Müller, Tokyo Institute of Technology
 
@@ -29,7 +30,7 @@ echo "Performing accuracy tests with files $output_file_pattern against $referen
 output_file_found=false
 if [ -n "$source_before" ]; then
 	echo "sourcing $source_before before accuracy tests" 1>&2
-	source $source_before
+	source $source_before && :
 	rc=$?
 	if [ $rc -ne 0 ] ; then
 	    echo "prescript has returned error $rc"
@@ -58,7 +59,7 @@ for i in $output_file_pattern; do
 		echo "Current directory: $(pwd)" 1>&2
 		echo "Contents of output directory: " 1>&2
 		ls $(dirname $i) 1>&2
-		python ${HF_DIR}/hf_bin/accuracy.py -f $i --reference $refPath $formatParam
+		python ${HF_DIR}/hf_bin/accuracy.py -f $i --reference $refPath $formatParam && :
 		rc=$?
 		if [ $errorVal -eq 0 ] ; then
 		    errorVal=$rc
@@ -71,7 +72,7 @@ for i in $output_file_pattern; do
 done
 if [ -n "$source_after" ]; then
 	echo "sourcing $source_after after accuracy tests" 1>&2
-	source $source_after
+	source $source_after && :
 	rc=$?
 	if [ $rc -ne 0 ] ; then
 	    echo "postscript has returned error $rc" 1>&2

@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 # Copyright (C) 2014 Michel Müller, Tokyo Institute of Technology
 
@@ -29,7 +30,7 @@ for executable in $executables; do
 	testDir=$(dirname ${executable})
 	executableName=$(basename ${executable})
 	cd ${testDir}
-	${HF_DIR}/hf_bin/runTest.sh $executableName $architecture validation "$output_file_pattern" $source_before $source_after
+	${HF_DIR}/hf_bin/runTest.sh $executableName $architecture validation "$output_file_pattern" $source_before $source_after && :
 	rc=$?
 	if [[ $rc != 0 ]] && [[ "$run_mode" != "debug" ]] ; then
 		cd ${currDir}
@@ -39,7 +40,7 @@ for executable in $executables; do
 	validation_rc=${rc}
 	# if [[ "$run_mode" = "debug" ]] && [[ $validation_rc != 0 ]]; then
 	# 	echo "There was an error during the validation run. Since we're in debug mode, repeating the test with valgrind running. This might take a while."
-	# 	${HF_DIR}/hf_bin/runTest.sh $executableName $architecture valgrind "$output_file_pattern" $source_before $source_after
+	# 	${HF_DIR}/hf_bin/runTest.sh $executableName $architecture valgrind "$output_file_pattern" $source_before $source_after && :
 	# 	rc=$?
 	# 	if [[ $rc != 0 ]] ; then
 	# 		cd ${currDir}

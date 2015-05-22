@@ -152,33 +152,42 @@ FRAMEWORK_NON_HYBRID_EXECUTABLE_PATHS_POST=$(subst ",,${FRAMEWORK_NON_HYBRID_EXE
 FRAMEWORK_NON_HYBRID_INSTALLED_EXECUTABLE_PATHS_POST=$(subst ",,${FRAMEWORK_NON_HYBRID_INSTALLED_EXECUTABLE_PATHS})
 NON_HYBRID_EXECUTABLES=$(addprefix $(DIR_CPU),$(FRAMEWORK_NON_HYBRID_EXECUTABLE_PATHS_POST))
 
-EXECUTABLES_CPU_OUT=$(addprefix $(DIR_CPU),$(FRAMEWORK_EXECUTABLE_PATHS_POST))
-EXECUTABLES_GPU_OUT=$(addprefix $(DIR_GPU),$(FRAMEWORK_EXECUTABLE_PATHS_POST))
-BUILD_TARGETS_CPU= build_hybrid_cpu build_framework_cpu
-BUILD_TARGETS_GPU= build_hybrid_gpu build_framework_gpu
+FRAMEWORK_EXECUTABLES_CPU=$(addprefix $(DIR_CPU),$(FRAMEWORK_EXECUTABLE_PATHS_POST))
+FRAMEWORK_EXECUTABLES_GPU=$(addprefix $(DIR_GPU),$(FRAMEWORK_EXECUTABLE_PATHS_POST))
+EXECUTABLES_POST=${FRAMEWORK_EXECUTABLE_PATHS_POST}
 
 else
 
 EXECUTABLES_POST=$(subst ",,${EXECUTABLES})
-EXECUTABLES_CPU=$(addprefix $(DIR_CPU),$(notdir ${EXECUTABLES_POST}))
-EXECUTABLES_GPU=$(addprefix $(DIR_GPU),$(notdir ${EXECUTABLES_POST}))
-EXECUTABLES_CPU_OUT=$(patsubst %,%.out,$(EXECUTABLES_CPU))
-EXECUTABLES_GPU_OUT=$(patsubst %,%.out,$(EXECUTABLES_GPU))
-BUILD_TARGETS_CPU=${EXECUTABLES_CPU_OUT}
-BUILD_TARGETS_GPU=${EXECUTABLES_GPU_OUT}
 
 endif
+
+EXECUTABLES_CPU=$(addprefix $(DIR_CPU),$(notdir ${EXECUTABLES_POST}))
+EXECUTABLES_GPU=$(addprefix $(DIR_GPU),$(notdir ${EXECUTABLES_POST}))
+EXECUTABLES_CPU_OUT=$(EXECUTABLES_CPU)
+EXECUTABLES_GPU_OUT=$(EXECUTABLES_GPU)
+
+BUILD_TARGETS_CPU=${EXECUTABLES_CPU_OUT}
+BUILD_TARGETS_GPU=${EXECUTABLES_GPU_OUT}
 #############################################################################
 
 #############################################################################
 # Determine tests and installation                                          #
 #############################################################################
+ifdef FRAMEWORK_MAKEFILE
+
+INSTALLED_EXECUTABLES_CPU_PRE=$(shell ${HF_DIR}/hf_bin/getFrameworkInstallPaths.sh "${EXECUTABLES_CPU_OUT}" "${FRAMEWORK_INSTALLED_EXECUTABLE_PATHS_POST}" cpu)
+INSTALLED_EXECUTABLES_CPU=${INSTALLED_EXECUTABLES_CPU_PRE} $(shell ${HF_DIR}/hf_bin/getFrameworkInstallPaths.sh "${NON_HYBRID_EXECUTABLES}" "${FRAMEWORK_NON_HYBRID_INSTALLED_EXECUTABLE_PATHS_POST}")
+INSTALLED_EXECUTABLES_GPU=$(shell ${HF_DIR}/hf_bin/getFrameworkInstallPaths.sh "${EXECUTABLES_GPU_OUT}" "${FRAMEWORK_INSTALLED_EXECUTABLE_PATHS_POST}" gpu)
+
+else
 ifdef EXECUTABLES_POST
 ifdef TESTDIR
 
 INSTALLED_EXECUTABLES_CPU=$(foreach executable,$(EXECUTABLES_POST),${TESTDIR}/${executable}/${executable}_cpu)
 INSTALLED_EXECUTABLES_GPU=$(foreach executable,$(EXECUTABLES_POST),${TESTDIR}/${executable}/${executable}_gpu)
 
+endif
 endif
 endif
 
@@ -203,20 +212,11 @@ TEST_TARGET_GPU = ${TEST_EXECUTABLES_POST}
 
 endif
 
-ifdef FRAMEWORK_MAKEFILE
-
-INSTALL_TARGETS_CPU= install_framework_executables_cpu install_non_hybrid_framework_executables
-INSTALL_TARGETS_GPU= install_framework_executables_gpu
-ADDITIONAL_CLEANUPS_CPU= clean_installed_framework_executables_cpu clean_installed_non_hybrid_framework_executables
-ADDITIONAL_CLEANUPS_GPU= clean_installed_framework_executables_gpu
-else
-
-INSTALL_TARGETS_CPU= ${INSTALLED_EXECUTABLES_CPU}
-INSTALL_TARGETS_GPU= ${INSTALLED_EXECUTABLES_GPU}
 ADDITIONAL_CLEANUPS_CPU= clean_installed_executables_cpu
 ADDITIONAL_CLEANUPS_GPU= clean_installed_executables_gpu
 
-endif
+INSTALL_TARGETS_CPU= ${INSTALLED_EXECUTABLES_CPU}
+INSTALL_TARGETS_GPU= ${INSTALLED_EXECUTABLES_GPU}
 #############################################################################
 
 #############################################################################
@@ -255,6 +255,18 @@ define debugecho
 @[ -t 1 ] && tput sgr0
 endef
 
+define uniq
+  $(eval seen :=)
+  $(foreach _,$1,$(if $(filter $_,${seen}),,$(eval seen += $_)))
+  ${seen}
+endef
+
+define trim
+  $(eval trimmed :=)
+  $(eval trimmed=$(echo -e "$1" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'))
+  ${trimmed}
+endef
+
 SRC_FORT_COMMON_DIRS=$(dir $(SRC_FORT)) $(dir $(SRC_H90_ALL))
 
 vpath %.f $(SRC_FORT_COMMON_DIRS)
@@ -264,7 +276,7 @@ vpath %.F90 $(SRC_FORT_COMMON_DIRS)
 vpath %.h90 $(SRC_FORT_COMMON_DIRS)
 vpath %.H90 $(SRC_FORT_COMMON_DIRS)
 
-.PHONY: all clean clean_cpu clean_gpu install install_cpu install_gpu install_framework_executables_cpu install_framework_executables_gpu graphs build build_cpu build_gpu create_install_directories source source_cpu source_gpu tests tests_cpu tests_gpu framework_sources framework_sources_cpu framework_sources_gpu build_hybrid_cpu build_hybrid_gpu build_framework_cpu build_framework_gpu install_non_hybrid_framework_executables configfiles_cpu configfiles_gpu
+.PHONY: all clean clean_cpu clean_gpu clean_installed_executables_cpu clean_installed_executables_gpu install install_cpu install_gpu install_framework_executables_cpu install_framework_executables_gpu graphs build build_cpu build_gpu create_install_directories source source_cpu source_gpu tests tests_cpu tests_gpu framework_sources framework_sources_cpu framework_sources_gpu build_hybrid_cpu build_hybrid_gpu build_framework_cpu build_framework_gpu configfiles_cpu configfiles_gpu
 
 .SUFFIXES: .f90 .F90 .h90 .H90 .f .F .P90
 
@@ -298,76 +310,10 @@ clean_gpu: ${ADDITIONAL_CLEANUPS_GPU}
 	rm -f ${CG_DIR}${GPU_CALLGRAPH_FILE}
 
 clean_installed_executables_cpu:
-	rm -f ${INSTALLED_EXECUTABLES_CPU}
+	rm -f ${INSTALLED_EXECUTABLES_CPU} $(addsuffix .dSYM, $(INSTALLED_EXECUTABLES_CPU))
 
 clean_installed_executables_gpu:
 	rm -f ${INSTALLED_EXECUTABLES_GPU}
-
-clean_installed_non_hybrid_framework_executables:
-	@( set -e && \
-	  executable_list=( ${NON_HYBRID_EXECUTABLES} ) && \
-	  install_path_list=( ${FRAMEWORK_NON_HYBRID_INSTALLED_EXECUTABLE_PATHS_POST} ) && \
-	  index=0 && \
-	  for executable in $${executable_list[*]} ; do \
-	    target_path="" && \
-	    install_path=$${install_path_list[$$index]} && \
-	    if [[ $executable == *.* ]] ; then \
-	      filename_with_extension=$${executable##*/} && \
-	      extension=$${filename_with_extension##*.} && \
-	      filename=$${filename_with_extension%.*} && \
-	      target_path=$${install_path}/$${filename}.$${extension} ; \
-	    else \
-	      filename=$${executable##*/} && \
-	      target_path=$${install_path}/$${filename} ; \
-	    fi && \
-	    echo "removing installed executable: $$target_path" && \
-	    rm -rf $$target_path $${target_path}.dSYM && \
-	    index=$$[index + 1] ; \
-	  done )
-
-clean_installed_framework_executables_cpu:
-	@( set -e && \
-	  executable_list=( ${EXECUTABLES_CPU_OUT} ) && \
-	  install_path_list=( ${FRAMEWORK_INSTALLED_EXECUTABLE_PATHS_POST} ) && \
-	  index=0 && \
-	  for executable in $${executable_list[*]} ; do \
-	    target_path="" && \
-	    install_path=$${install_path_list[$$index]} && \
-	    if [[ $executable == *.* ]] ; then \
-	      filename_with_extension=$${executable##*/} && \
-	      extension=$${filename_with_extension##*.} && \
-	      filename=$${filename_with_extension%.*} && \
-	      target_path=$${install_path}/$${filename}_cpu.$${extension} ; \
-	    else \
-	      filename=$${executable##*/} && \
-	      target_path=$${install_path}/$${filename}_cpu ; \
-	    fi && \
-	    echo "removing installed executable: $$target_path" && \
-	    rm -rf $$target_path $${target_path}.dSYM && \
-	    index=$$[index + 1] ; \
-	  done )
-
-clean_installed_framework_executables_gpu:
-	@( set -e && \
-	  executable_list=( ${EXECUTABLES_GPU_OUT} ) && \
-	  install_path_list=( ${FRAMEWORK_INSTALLED_EXECUTABLE_PATHS_POST} ) && \
-	  index=0 && \
-	  for executable in $${executable_list[*]} ; do \
-	    target_path="" && \
-	    install_path=$${install_path_list[$$index]} && \
-	    if [[ $executable == *.* ]] ; then \
-	      filename_with_extension=$${executable##*/} && \
-	      extension=$${filename_with_extension##*.} && \
-	      filename=$${filename_with_extension%.*} && \
-	      target_path=$${install_path}/$${filename}_gpu.$${extension} ; \
-	    else \
-	      filename=$${executable##*/} && \
-	      target_path=$${install_path}/$${filename}_gpu ; \
-	    fi && \
-	    echo "removing installed executable: $$target_path" && \
-	    rm -f $$target_path && \
-	    index=$$[index + 1] ; \
-	  done )
 
 build: build_cpu build_gpu
 
@@ -399,9 +345,21 @@ ${FRAMEWORK_CONFIGURE_OUTPUT}:
 	@echo "..it looks like you haven't run ./configure yet - let's do that now"
 	@./configure
 
+ifdef FRAMEWORK_MAKEFILE
+${FRAMEWORK_EXECUTABLES_CPU}: build_framework_cpu
+${FRAMEWORK_EXECUTABLES_GPU}: build_framework_gpu
+define install_rules_from_framework
+.SECONDEXPANSION:
+$(1)%: $(2)%
+	@echo "...........creating $$@ from $$<"
+	@cp -fp $$< $$@
+endef
+$(foreach framework_dir,$(shell ${HF_DIR}/hf_bin/trim.sh $(call uniq,$(dir ${FRAMEWORK_EXECUTABLES_CPU}))),$(eval $(call install_rules_from_framework,${DIR_CPU},$(framework_dir))))
+$(foreach framework_dir,$(shell ${HF_DIR}/hf_bin/trim.sh $(call uniq,$(dir ${FRAMEWORK_EXECUTABLES_GPU}))),$(eval $(call install_rules_from_framework,${DIR_GPU},$(framework_dir))))
+else
 ${EXECUTABLES_CPU_OUT}: build_hybrid_cpu
-
 ${EXECUTABLES_GPU_OUT}: build_hybrid_gpu
+endif
 
 build_hybrid_cpu: ${CG_DIR}CG_CPU.xml configfiles_cpu ${SRC_ALL_CPU} framework_sources_cpu ${AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH_CPU}
 	$(call yellowecho,"..entering ${SRC_DIR_CPU}")
@@ -420,75 +378,6 @@ build_framework_cpu: build_hybrid_cpu framework_sources_cpu
 build_framework_gpu: build_hybrid_gpu framework_sources_gpu
 	$(call yellowecho,"..building framework with ${FRAMEWORK_MAKEFILE_GPU} and build arguments '${BUILD_ARGS}'")
 	@cd $(dir ${FRAMEWORK_MAKEFILE_GPU}) && make GPU=1 ${BUILD_ARGS} GPU_BUILD=1
-
-install_non_hybrid_framework_executables: build_cpu
-	@( set -e && \
-	  executable_list=( ${NON_HYBRID_EXECUTABLES} ) && \
-	  install_path_list=( ${FRAMEWORK_NON_HYBRID_INSTALLED_EXECUTABLE_PATHS_POST} ) && \
-	  index=0 && \
-	  for executable in $${executable_list[*]} ; do \
-	    target_path="" && \
-	    install_path=$${install_path_list[$$index]} && \
-	    if [[ $executable == *.* ]] ; then \
-	      filename_with_extension=$${executable##*/} && \
-	      extension=$${filename_with_extension##*.} && \
-	      filename=$${filename_with_extension%.*} && \
-	      target_path=$${install_path}/$${filename}.$${extension} ; \
-	    else \
-	      filename=$${executable##*/} && \
-	      target_path=$${install_path}/$${filename} ; \
-	    fi && \
-	    echo "..installing executable $$executable to $$target_path" && \
-	    mkdir -p $$(dirname $$target_path) && \
-	    cp -f $$executable $$target_path && \
-	    index=$$[index + 1] ; \
-	  done )
-
-install_framework_executables_cpu: build_cpu
-	@( set -e && \
-	  executable_list=( ${EXECUTABLES_CPU_OUT} ) && \
-	  install_path_list=( ${FRAMEWORK_INSTALLED_EXECUTABLE_PATHS_POST} ) && \
-	  index=0 && \
-	  for executable in $${executable_list[*]} ; do \
-	    target_path="" && \
-	    install_path=$${install_path_list[$$index]} && \
-	    if [[ $executable == *.* ]] ; then \
-	      filename_with_extension=$${executable##*/} && \
-	      extension=$${filename_with_extension##*.} && \
-	      filename=$${filename_with_extension%.*} && \
-	      target_path=$${install_path}/$${filename}_cpu.$${extension} ; \
-	    else \
-	      filename=$${executable##*/} && \
-	      target_path=$${install_path}/$${filename}_cpu ; \
-	    fi && \
-	    echo "..installing executable $$executable to $$target_path" && \
-	    mkdir -p $$(dirname $$target_path) && \
-	    cp -f $$executable $$target_path && \
-	    index=$$[index + 1] ; \
-	  done )
-
-install_framework_executables_gpu: build_gpu
-	@( set -e && \
-	  executable_list=( ${EXECUTABLES_GPU_OUT} ) && \
-	  install_path_list=( ${FRAMEWORK_INSTALLED_EXECUTABLE_PATHS_POST} ) && \
-	  index=0 && \
-	  for executable in $${executable_list[*]} ; do \
-	    target_path="" && \
-	    install_path=$${install_path_list[$$index]} && \
-	    if [[ $executable == *.* ]] ; then \
-	      filename_with_extension=$${executable##*/} && \
-	      extension=$${filename_with_extension##*.} && \
-	      filename=$${filename_with_extension%.*} && \
-	      target_path=$${install_path}/$${filename}_gpu.$${extension} ; \
-	    else \
-	      filename=$${executable##*/} && \
-	      target_path=$${install_path}/$${filename}_gpu ; \
-	    fi && \
-	    echo "..installing executable $$executable to $$target_path" && \
-	    mkdir -p $$(dirname $$target_path) && \
-	    cp -f $$executable $$target_path && \
-	    index=$$[index + 1] ; \
-	  done )
 
 create_install_directories:
 	@echo "..creating install directories {$(dir ${INSTALLED_EXECUTABLES_CPU})}" >${DEBUG_OUTPUT}
@@ -530,15 +419,14 @@ ${DIR_GPU}${AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH}: ${SRC_ALL_GPU} framework_sou
 	@cd ${DIR_GPU} && ${AUTO_DEPENDENCY_GENERATOR_SCRIPT} $(addprefix ${SRC_DIR_COMMON}/, $(notdir $(SRC_ALL_GPU))) > ${AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH} 2>${DEBUG_OUTPUT}
 endif
 
+define install_rules
 .SECONDEXPANSION:
-${TESTDIR}/%_cpu: $${DIR_CPU}$$(notdir %).out create_install_directories
-	@echo "...........creating $@ from $<"
-	@cp -fp $< $@
-
-.SECONDEXPANSION:
-${TESTDIR}/%_gpu: $${DIR_GPU}$$(notdir %).out create_install_directories
-	@echo "...........creating $@ from $<"
-	@cp -fp $< $@
+$3%$1: $(2)$$(notdir %) create_install_directories
+	@echo "...........creating $$@ from $$<"
+	@cp -fp $$< $$@
+endef
+$(foreach install_dir,$(shell ${HF_DIR}/hf_bin/trim.sh "$(call uniq,$(dir "${INSTALLED_EXECUTABLES_CPU}"))"),$(eval $(call install_rules,_cpu,${DIR_CPU},$(install_dir))))
+$(foreach install_dir,$(shell ${HF_DIR}/hf_bin/trim.sh "$(call uniq,$(dir "${INSTALLED_EXECUTABLES_GPU}"))"),$(eval $(call install_rules,_gpu,${DIR_GPU},$(install_dir))))
 
 ${CG_DIR}rawCG.xml: ${SRC_H90TGT_HFPP}
 	@echo "...........hybrid files have been modified => building and testing hybrid callgraph"

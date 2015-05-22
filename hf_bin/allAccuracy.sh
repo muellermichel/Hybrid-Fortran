@@ -27,7 +27,6 @@ if [ -z "$output_file_pattern" ]; then
 	output_file_pattern="./out/*.dat"
 fi
 echo "Performing accuracy tests with files $output_file_pattern against $reference_path; prescript: $source_before; postscript: $source_after" 1>&2
-output_file_found=false
 if [ -n "$source_before" ]; then
 	echo "sourcing $source_before before accuracy tests" 1>&2
 	source $source_before && :
@@ -37,8 +36,8 @@ if [ -n "$source_before" ]; then
 	    exit $rc
 	fi
 fi
+output_file_found=false
 for i in $output_file_pattern; do
-	output_file_found=true
 	filename=$(basename $i)
 	extension=`echo $filename | cut -s -d'.' -f2`
 	filename=${filename%.*}
@@ -51,13 +50,17 @@ for i in $output_file_pattern; do
 	if [[ $extension == "nc" || $extension == "" ]]; then
 		formatParam="--netcdf"
 	fi
-	echo "checking against ${refPath}" 1>&2
 	if [ ! -e ${refPath} ]; then
-		echo "Error in accuracy test: Cannot find file ${refPath}. Please set 'TEST_OUTPUT_FILE_PATTERN' in config/MakesettingsGeneral." 1>&2
-		exit 2
+		echo "skipping ${refPath} (doesn't exist)" 1>&2
 	else
+		echo "checking against ${refPath}" 1>&2
 		echo "Current directory: $(pwd)" 1>&2
 		echo "Contents of output directory: " 1>&2
+		if [ ! -e ${i} ]; then
+			echo "output file ${i} expected but not found" 1>&2
+			exit 2
+		fi
+		output_file_found=true
 		ls $(dirname $i) 1>&2
 		python ${HF_DIR}/hf_bin/accuracy.py -f $i --reference $refPath $formatParam && :
 		rc=$?

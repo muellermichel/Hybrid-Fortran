@@ -23,15 +23,10 @@ import sys, pdb
 import math
 import traceback
 
-def unpackNextRecord(file, readEndianFormat, numOfBytesPerValue, typeSpecifier):
-	header = file.read(4)
-	if (len(header) != 4):
-		#we have reached the end of the file
+def unpackNextArray(file, readEndianFormat, numOfBytesPerValue, typeSpecifier):
+	recordByteLength = unpackNextInteger(file, readEndianFormat)
+	if recordByteLength == None:
 		return None
-
-	headerFormat = '%si' %(readEndianFormat)
-	headerUnpacked = struct.unpack(headerFormat, header)
-	recordByteLength = headerUnpacked[0]
 	if (recordByteLength % numOfBytesPerValue != 0):
 		raise Exception, "Odd record length: %i, modulo %i == 0 expected. Is the file endian correct?" %(recordByteLength, numOfBytesPerValue)
 		return None
@@ -42,18 +37,74 @@ def unpackNextRecord(file, readEndianFormat, numOfBytesPerValue, typeSpecifier):
 		raise Exception, "Could not read %i bytes as expected. Only %i bytes read." %(recordByteLength, len(data))
 		return None
 
-	trailer = file.read(4)
-	if (len(trailer) != 4):
+	redundantRecordLength = unpackNextInteger(file, readEndianFormat)
+	if redundantRecordLength == None:
 		raise Exception, "Could not read trailer."
-		return None
-	trailerUnpacked = struct.unpack(headerFormat, trailer)
-	redundantRecordLength = trailerUnpacked[0]
 	if (recordByteLength != redundantRecordLength):
 		raise Exception, "Header and trailer do not match."
 		return None
 
 	dataFormat = '%s%i%s' %(readEndianFormat, recordLength, typeSpecifier)
 	return struct.unpack(dataFormat, data)
+
+def unpackNextInteger(file, readEndianFormat):
+	data = file.read(4)
+	if (len(data) != 4):
+		#we have reached the end of the file
+		return None
+
+	format = '%si' %(readEndianFormat)
+	unpacked = struct.unpack(format, data)
+	return unpacked[0]
+
+def unpackNextFloat(file, readEndianFormat, numOfBytesPerValue, typeSpecifier):
+	data = file.read(numOfBytesPerValue)
+	if (len(data) != numOfBytesPerValue):
+		#we have reached the end of the file
+		return None
+
+	format = '%s%s' %(readEndianFormat, typeSpecifier)
+	unpacked = struct.unpack(format, data)
+	return unpacked[0]
+
+def unpackNextRecord(file, readEndianFormat, numOfBytesPerValue, typeSpecifier, verbose=False):
+	currentPosition = file.tell()
+	content = None
+	eof = False
+	try:
+		content = unpackNextArray(file, readEndianFormat, numOfBytesPerValue, typeSpecifier)
+		eof = content == None
+	except Exception as e:
+		if verbose:
+			sys.stderr.write("Could not unpack record as array (%s) - trying integer\n" %(str(e)))
+	if eof:
+		return None
+	if content != None:
+		if verbose:
+			sys.stderr.write("This record seems to be an array of length %i\n" %(len(content)))
+		return content
+
+	try:
+		file.seek(currentPosition)
+		content = unpackNextInteger(file, readEndianFormat)
+		eof = content == None
+	except Exception as e:
+		if verbose:
+			sys.stderr.write("Could not unpack record as integer (%s) - trying float as last option\n" %(str(e)))
+	if eof:
+		return None
+	if content != None:
+		if verbose:
+			sys.stderr.write("This record seems to be an integer with value %i\n" %(content))
+		return [content]
+
+	file.seek(currentPosition)
+	content = unpackNextFloat(file, readEndianFormat, numOfBytesPerValue, typeSpecifier)
+	if content == None:
+		return None
+	if verbose:
+		sys.stderr.write("This record seems to be a float with value %s\n" %(str(content)))
+	return [content]
 
 def rootMeanSquareDeviation(tup, tupRef, eps):
 	err = 0.0
@@ -106,6 +157,8 @@ def run_accuracy_test_for_datfile(options, eps):
 	readEndianFormat = '>'
 	if (options.readEndian == "little"):
 		readEndianFormat = '<'
+	if options.verbose:
+		sys.stderr.write("performing accuracy test, %i bytes per value, %s endian, float\n" %(numOfBytesPerValue, readEndianFormat))
 	inFile = None
 	refFile = None
 	try:
@@ -123,7 +176,7 @@ def run_accuracy_test_for_datfile(options, eps):
 			unpackedRef = None
 			if refFile != None:
 				try:
-					unpackedRef = unpackNextRecord(refFile, readEndianFormat, numOfBytesPerValue, typeSpecifier)
+					unpackedRef = unpackNextRecord(refFile, readEndianFormat, numOfBytesPerValue, typeSpecifier, options.verbose)
 				except(Exception), e:
 					sys.stderr.write("Error reading record %i from %s: %s\n" %(i, str(options.refFile), e))
 					sys.exit(1)
@@ -131,10 +184,13 @@ def run_accuracy_test_for_datfile(options, eps):
 					break;
 			unpacked = None
 			try:
-				unpacked = unpackNextRecord(inFile, readEndianFormat, numOfBytesPerValue, typeSpecifier)
+				unpacked = unpackNextRecord(inFile, readEndianFormat, numOfBytesPerValue, typeSpecifier, options.verbose)
 			except(Exception), e:
 				sys.stderr.write("Error reading record %i from %s: %s\n" %(i, str(options.inFile), e))
 				sys.exit(1)
+
+			if options.verbose and unpacked != None and unpackedRef != None:
+				sys.stderr.write("Processing record %i: %i values unpacked for record, %i values unpacked for reference.\n" %(i, len(unpacked), len(unpackedRef)))
 
 			if unpacked == None and unpackedRef != None:
 				sys.stderr.write("Error in %s: Record expected, could not load record it\n" %(str(options.inFile)))

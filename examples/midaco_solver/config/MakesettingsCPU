@@ -34,10 +34,10 @@ ARFLAGS=rv
 #############################################################################
 FC=pgf90
 LD=pgf90
-FFLAGS_PRODUCTION= -Minfo=inline,ipa -Mneginfo -I/usr/local/include -r8 -O4
-FFLAGS_DEBUG= -g -Mbounds -Mchkptr -Minfo=accel,inline -Mneginfo -Minform=inform -I/usr/local/include -r8
-LDFLAGS_PRODUCTION= -L/usr/local/lib -lpp
-LDFLAGS_DEBUG= -L/usr/local/lib -lpp
+FFLAGS_PRODUCTION= -Minfo=inline,ipa -Mneginfo -I/usr/local/include -fast -mp
+FFLAGS_DEBUG= -g -mp -Mbounds -Mchkptr -Minfo=accel,inline -Mneginfo -Minform=inform -usr/local/include
+LDFLAGS_PRODUCTION= -L/usr/local/lib -lpp -fast -mp
+LDFLAGS_DEBUG= -L/usr/local/lib -lpp -mp
 
 #############################################################################
 # uncomment these settings to use pgfortran                                 #

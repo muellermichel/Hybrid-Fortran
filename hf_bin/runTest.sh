@@ -71,11 +71,13 @@ else
 	refPostfixesArr=( "" )
 fi
 
+rm -rf $output_file_pattern
+output_file_pattern_list=( ${output_file_pattern} )
+mkdir -p "$(dirname output_file_pattern_list[0])"
+
 extractionAttempted=false
 referenceAvailable=false
 for i in "${!argStringsArr[@]}"; do
-	rm -rf $output_file_pattern
-	mkdir -p "$(dirname $output_file_pattern)"
 	argString=""
 	if [[ $executable_name == "*${architecture}*" ]] ; then
 		argString=${argStringsArr[$i]}

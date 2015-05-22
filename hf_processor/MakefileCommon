@@ -166,6 +166,10 @@ EXECUTABLES_CPU=$(addprefix $(DIR_CPU),$(notdir ${EXECUTABLES_POST}))
 EXECUTABLES_GPU=$(addprefix $(DIR_GPU),$(notdir ${EXECUTABLES_POST}))
 EXECUTABLES_CPU_OUT=$(EXECUTABLES_CPU)
 EXECUTABLES_GPU_OUT=$(EXECUTABLES_GPU)
+ifndef FRAMEWORK_MAKEFILE
+EXECUTABLES_CPU_OUT=$(addsuffix .out,$(EXECUTABLES_CPU))
+EXECUTABLES_GPU_OUT=$(addsuffix .out,$(EXECUTABLES_GPU))
+endif
 
 BUILD_TARGETS_CPU=${EXECUTABLES_CPU_OUT}
 BUILD_TARGETS_GPU=${EXECUTABLES_GPU_OUT}
@@ -419,14 +423,20 @@ ${DIR_GPU}${AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH}: ${SRC_ALL_GPU} framework_sou
 	@cd ${DIR_GPU} && ${AUTO_DEPENDENCY_GENERATOR_SCRIPT} $(addprefix ${SRC_DIR_COMMON}/, $(notdir $(SRC_ALL_GPU))) > ${AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH} 2>${DEBUG_OUTPUT}
 endif
 
+$(warning ${INSTALLED_EXECUTABLES_CPU})
 define install_rules
 .SECONDEXPANSION:
-$3%$1: $(2)$$(notdir %) create_install_directories
+$3%$1: $(2)$$(notdir %)$(4) create_install_directories $$(warning $(2)$$(notdir %)$(4))
 	@echo "...........creating $$@ from $$<"
 	@cp -fp $$< $$@
 endef
-$(foreach install_dir,$(shell ${HF_DIR}/hf_bin/trim.sh "$(call uniq,$(dir "${INSTALLED_EXECUTABLES_CPU}"))"),$(eval $(call install_rules,_cpu,${DIR_CPU},$(install_dir))))
-$(foreach install_dir,$(shell ${HF_DIR}/hf_bin/trim.sh "$(call uniq,$(dir "${INSTALLED_EXECUTABLES_GPU}"))"),$(eval $(call install_rules,_gpu,${DIR_GPU},$(install_dir))))
+ifdef FRAMEWORK_MAKEFILE
+$(foreach install_dir,$(shell ${HF_DIR}/hf_bin/trim.sh $(call uniq,$(dir ${INSTALLED_EXECUTABLES_CPU}))),$(eval $(call install_rules,_cpu,${DIR_CPU},$(install_dir))))
+$(foreach install_dir,$(shell ${HF_DIR}/hf_bin/trim.sh $(call uniq,$(dir ${INSTALLED_EXECUTABLES_GPU}))),$(eval $(call install_rules,_gpu,${DIR_GPU},$(install_dir))))
+else
+$(foreach install_dir,$(shell ${HF_DIR}/hf_bin/trim.sh $(call uniq,$(dir ${INSTALLED_EXECUTABLES_CPU}))),$(eval $(call install_rules,_cpu,${DIR_CPU},$(install_dir),.out)))
+$(foreach install_dir,$(shell ${HF_DIR}/hf_bin/trim.sh $(call uniq,$(dir ${INSTALLED_EXECUTABLES_GPU}))),$(eval $(call install_rules,_gpu,${DIR_GPU},$(install_dir),.out)))
+endif
 
 ${CG_DIR}rawCG.xml: ${SRC_H90TGT_HFPP}
 	@echo "...........hybrid files have been modified => building and testing hybrid callgraph"

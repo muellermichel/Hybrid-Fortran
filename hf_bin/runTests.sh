@@ -24,13 +24,14 @@ architecture=$3
 output_file_pattern=$4
 source_before=$5
 source_after=$6
+formatParam="${7}"
 currDir=`pwd`
 
 for executable in $executables; do
 	testDir=$(dirname ${executable})
 	executableName=$(basename ${executable})
 	cd ${testDir}
-	${HF_DIR}/hf_bin/runTest.sh $executableName $architecture validation "$output_file_pattern" $source_before $source_after && :
+	${HF_DIR}/hf_bin/runTest.sh "$executableName" "$architecture" validation "$output_file_pattern" "$source_before" "$source_after" "$formatParam" && :
 	rc=$?
 	if [[ $rc != 0 ]] && [[ "$run_mode" != "debug" ]] ; then
 		cd ${currDir}

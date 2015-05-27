@@ -160,6 +160,13 @@ SOURCE_THIS_BEFORE_TESTING=
 #virtualenv - in this case, specify the virtualenv deactivate script here with an absolute path.
 SOURCE_THIS_AFTER_TESTING=
 
+# !New in Version 0.95
+#OPTIONAL, can be used to specify parameters for the test system that can be passed to the accuracy test. The following parameters can be used:
+#  -b BYTES, --bytesPerValue=BYTES  (defaults to 8, relevant only if you use .DAT files)
+#  -r [big/little], --readEndian=[big/little] (defaults to little, relevant only if you use .DAT files)
+#  -e EPS, --epsilon=EPS (Throw an error if at any point the error becomes higher than EPS. Defaults to 1E-9.)
+ACCURACY_TEST_PARAMETERS=""
+
 # !New in Version 0.9
 #OPTIONAL, can be used to have the 'make tests' interface with custom executables - for example when you need to run multiple executables for your
 #tests, you can create a run-script in a test-subdirectory together with all the input data you need and you can specify these script paths using TEST_EXECUTABLES.

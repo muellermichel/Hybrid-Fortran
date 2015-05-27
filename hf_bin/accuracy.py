@@ -157,8 +157,7 @@ def run_accuracy_test_for_datfile(options, eps):
 	readEndianFormat = '>'
 	if (options.readEndian == "little"):
 		readEndianFormat = '<'
-	if options.verbose:
-		sys.stderr.write("performing accuracy test, %i bytes per value, %s endian, float\n" %(numOfBytesPerValue, readEndianFormat))
+	sys.stderr.write("performing accuracy test with .DAT file, %i bytes per value, %s endian, float\n" %(numOfBytesPerValue, readEndianFormat))
 	inFile = None
 	refFile = None
 	try:
@@ -327,9 +326,9 @@ parser.add_option("-f", "--file", dest="inFile",
                   help="read from FILE", metavar="FILE", default="in.dat")
 parser.add_option("--reference", dest="refFile",
                   help="reference FILE", metavar="FILE", default=None)
-parser.add_option("-b", "--bytesPerValue", dest="bytes", default="4")
+parser.add_option("-b", "--bytesPerValue", dest="bytes", default="8")
 parser.add_option("-p", "--printFirstValues", dest="printNum", default="0")
-parser.add_option("-r", "--readEndian", dest="readEndian", default="big")
+parser.add_option("-r", "--readEndian", dest="readEndian", default="little")
 parser.add_option("--netcdf", action="store_true", dest="netcdf")
 parser.add_option("-v", action="store_true", dest="verbose")
 parser.add_option("-e", "--epsilon", metavar="EPS", dest="epsilon", help="Throw an error if at any point the error becomes higher than EPS. Defaults to 1E-9.")

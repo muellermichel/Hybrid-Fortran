@@ -38,6 +38,7 @@ if [ -n "$source_before" ]; then
 	fi
 fi
 output_file_found=false
+error_found=false
 for i in $output_file_pattern; do
 	filename=$(basename $i)
 	extension=`echo $filename | cut -s -d'.' -f2`
@@ -58,7 +59,7 @@ for i in $output_file_pattern; do
 		echo "Contents of output directory: " 1>&2
 		if [ ! -e ${i} ]; then
 			echo "output file ${i} expected but not found" 1>&2
-			exit 2
+			error_found=true
 		fi
 		output_file_found=true
 		ls $(dirname $i) 1>&2
@@ -69,7 +70,7 @@ for i in $output_file_pattern; do
 		fi
 		if [ $rc -ne 0 ] ; then
 		    echo "Accuracy test has returned error $rc" 1>&2
-		    exit $rc
+		    error_found=true
 		fi
 	fi
 done
@@ -85,5 +86,8 @@ fi
 if ! $output_file_found; then
      echo "error in allAccuracy.sh: no output files found. The program to be tested probably could not complete its run." 1>&2
      exit 1
+fi
+if $error_found; then
+	exit 2
 fi
 exit $(( errorVal ))

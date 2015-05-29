@@ -63,7 +63,8 @@ for i in $output_file_pattern; do
 		fi
 		output_file_found=true
 		ls $(dirname $i) 1>&2
-		python ${HF_DIR}/hf_bin/accuracy.py -f $i --reference "$refPath" "$formatParam" && :
+		echo "calling accuracy with format paramter ${formatParam}" 1>&2
+		python ${HF_DIR}/hf_bin/accuracy.py -f $i --reference "$refPath" $formatParam && :
 		rc=$?
 		if [ $errorVal -eq 0 ] ; then
 		    errorVal=$rc

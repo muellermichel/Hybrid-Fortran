@@ -29,7 +29,7 @@
 
 from xml.dom.minidom import Document, parseString
 from optparse import OptionParser
-from H90CallGraphParser import H90toF90Printer, H90XMLSymbolDeclarationExtractor
+from H90CallGraphParser import H90toF90Printer
 from GeneralHelper import openFile
 import os
 import sys

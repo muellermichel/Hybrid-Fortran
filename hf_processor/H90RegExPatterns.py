@@ -50,6 +50,7 @@ class H90RegExPatterns:
     templatePattern = None
     templateEndPattern = None
     symbolAccessPattern = None
+    argumentPattern = None
 
     def __init__(self):
         self.blankPattern = re.compile(r'\s', re.IGNORECASE)
@@ -78,4 +79,5 @@ class H90RegExPatterns:
         self.templatePattern = re.compile(r'\s*@scheme\s*{(.*)}.*', re.IGNORECASE)
         self.templateEndPattern = re.compile(r'\s*@end\s*scheme.*', re.IGNORECASE)
         self.symbolAccessPattern = re.compile(r'\s*\((.*)', re.IGNORECASE)
+        self.argumentPattern = re.compile(r'\s*,?\s*(\w+)\s*\(?(?:.*?)\)?\s*,?\s*(.*)', re.IGNORECASE)
 

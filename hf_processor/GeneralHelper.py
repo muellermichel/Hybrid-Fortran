@@ -125,6 +125,7 @@ def findRightMostOccurrenceNotInsideQuotes(stringToMatch, stringToSearch, rightS
 
 class BracketAnalyzer(object):
     currLevel = 0
+    bracketsHaveEverOpened = False
     searchPattern = ""
     openingPattern = ""
     closingPattern = ""
@@ -133,6 +134,7 @@ class BracketAnalyzer(object):
 
     def __init__(self, openingChar="(", closingChar=")", pass_in_regex_pattern=False):
         self.currLevel = 0
+        self.bracketsHaveEverOpened = False
         self.openingChar = openingChar
         self.closingChar = closingChar
         if pass_in_regex_pattern:
@@ -158,27 +160,28 @@ class BracketAnalyzer(object):
 
         startLevel = self.currLevel
         substring = ""
-        innerBracketsFound = False
         while match:
             work = match.group(3)
             substring += match.group(1) + match.group(2)
-            if charPattern.match(match.group(2)) != None and (innerBracketsFound == False or self.currLevel == startLevel):
+            if charPattern.match(match.group(2)) != None and (self.bracketsHaveEverOpened == False or self.currLevel == startLevel):
                 return substring, work, self.currLevel
             elif self.openingPattern.match(match.group(2)) != None:
-                innerBracketsFound = True
+                self.bracketsHaveEverOpened = True
                 self.currLevel += 1
             elif self.closingPattern.match(match.group(2)) != None:
                 self.currLevel -= 1
             elif charPattern.match(match.group(2)) == None:
                 raise Exception("Something went wrong in the bracket analysis for string %s - cannot rematch a search character" %(string))
             match = charSearchPattern.match(work)
-            if self.currLevel < startLevel or (innerBracketsFound == True and self.currLevel == startLevel):
+            if self.currLevel < startLevel or (self.bracketsHaveEverOpened == True and self.currLevel == startLevel):
                 break
-        if self.currLevel < startLevel or (innerBracketsFound == True and self.currLevel == startLevel):
+        if self.currLevel < startLevel or (self.bracketsHaveEverOpened == True and self.currLevel == startLevel):
             return substring, work, self.currLevel
         else:
             return "", string, self.currLevel
 
+    #in case the brackets are not closed, the reminder will be an empty string
+    #if this happens, this method may be called again, using the same bracket analyzer, with the continued string.
     def splitAfterClosingBrackets(self, string):
         work = string
         match = self.searchPattern.match(work)
@@ -188,6 +191,7 @@ class BracketAnalyzer(object):
         substring = ""
         while match:
             if self.openingPattern.match(match.group(2)) != None:
+                self.bracketsHaveEverOpened = True
                 self.currLevel += 1
             elif self.closingPattern.match(match.group(2)) != None:
                 if self.currLevel == 0:
@@ -205,11 +209,22 @@ class BracketAnalyzer(object):
         else:
             return string, ""
 
+    #in case the brackets are not closed, the reminder will be an empty string
+    #if this happens, this method may be called again, using the same bracket analyzer, with the continued string.
+    def getTextWithinBracketsAndReminder(self, string):
+        text, remainder = self.splitAfterClosingBrackets(string)
+        #cut away the left and right bracket
+        text = text.partition(self.openingChar)[2]
+        text = text.rpartition(self.closingChar)[0]
+        return text, remainder
+
+    #$$$ some code duplication here with 'splitAfterClosingBrackets' and 'splitAfterCharacterOnSameLevelOrClosingBrackets' - should use a common helper routine
     def currLevelAfterString(self, string):
         work = string
         match = self.searchPattern.match(work)
         while match:
             if self.openingPattern.match(match.group(2)) != None:
+                self.bracketsHaveEverOpened = True
                 self.currLevel += 1
             elif self.closingPattern.match(match.group(2)) != None:
                 if self.currLevel == 0:

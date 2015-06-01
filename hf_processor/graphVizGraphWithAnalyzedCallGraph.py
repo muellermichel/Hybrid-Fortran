@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: UTF-8 -*-
 
-# Copyright (C) 2014 Michel Müller, Tokyo Institute of Technology
+# Copyright (C) 2015 Michel Müller, Tokyo Institute of Technology
 
 # This file is part of Hybrid Fortran.
 
@@ -54,6 +54,19 @@ def addCallees(callGraphDict, routineDict, calls, routineName):
 			routineDict[callee] = ""
 			addCallees(callGraphDict, routineDict, calls, callee)
 
+def getRegionPosition(routineName):
+	routineMatch = None
+	for routine in routines:
+		if routine.getAttribute("name") == routineName:
+			routineMatch = routine
+			break
+	if not routineMatch:
+		return None
+	regionPosition = routineMatch.getAttribute("parallelRegionPosition")
+	if regionPosition == None:
+		return 'unspecified'
+	return regionPosition
+
 ##################### MAIN ##############################
 #get all program arguments
 parser = OptionParser()
@@ -82,8 +95,8 @@ data = srcFile.read()
 srcFile.close()
 doc = parseString(data)
 
-# graph = pydot.Dot(graph_type='digraph', rankdir='LR', fontsize="20")
-graph = pydot.Dot(graph_type='digraph', fontsize="27")
+graph = pydot.Dot(graph_type='digraph', rankdir='LR', fontsize="20", compound=True)
+# graph = pydot.Dot(graph_type='digraph', fontsize="27") #more useful for academic papers when there is a low number of nodes
 
 parallelRegions = doc.getElementsByTagName("activeParallelRegions")
 routinesWithActiveRegions = []
@@ -94,57 +107,64 @@ for parallelRegion in parallelRegions:
 calls = doc.getElementsByTagName("call")
 callGraphDict = {}
 routineDict = {}
+routineByName = {}
+routinesBySourceDict = {}
+sourceByRoutineNames = {}
+sourceNameByRoutineNames = {}
 for routine in doc.getElementsByTagName("routine"):
 	routineName = routine.getAttribute("name")
+	sourceName = routine.getAttribute("source")
+	routinesInSourceList = routinesBySourceDict.get(sourceName, [])
+	routinesInSourceList.append(routine)
+	routinesBySourceDict[sourceName] = routinesInSourceList
+	sourceNameByRoutineNames[routineName] = sourceName
 	addCallers(callGraphDict, routineDict, calls, routineName)
 	addCallees(callGraphDict, routineDict, calls, routineName)
-
-# for routine in routinesWithActiveRegions:
-# 	routineName = routine.getAttribute("name")
-# 	addCallers(callGraphDict, routineDict, calls, routineName)
-# 	addCallees(callGraphDict, routineDict, calls, routineName)
 
 routines = doc.getElementsByTagName("routine")
 routineNames = routineDict.keys()
 
-def getRegionPosition(routineName):
-	routineMatch = None
-	for routine in routines:
-		if routine.getAttribute("name") == routineName:
-			routineMatch = routine
-			break
-	if not routineMatch:
-		return None
-	regionPosition = routineMatch.getAttribute("parallelRegionPosition")
-	if regionPosition == None:
-		return 'unspecified'
-	return regionPosition
+sourceClustersByName = {}
+for sourceName in routinesBySourceDict.keys():
+	source = pydot.Cluster(sourceName, label=sourceName, penwidth=3)
+	sourceClustersByName[sourceName] = source
+	graph.add_subgraph(source)
+
+for sourceName in sourceClustersByName.keys():
+	source = sourceClustersByName[sourceName]
+	for routine in routinesBySourceDict[sourceName]:
+		routineName = routine.getAttribute("name")
+		routineByName[routineName] = routine
+		regionPosition = getRegionPosition(routineName)
+		fillColor = "gray"
+		if regionPosition == "inside":
+			fillColor = "green"
+		elif regionPosition == "within":
+			fillColor = "orange"
+		elif regionPosition == "outside":
+			fillColor = "red"
+		if options.less != True or fillColor != "gray":
+			node = pydot.Node(routineName, style="filled", fillcolor=fillColor, fontsize="30.0", penwidth=5)
+			source.add_node(node)
 
 callGraphEdges = callGraphDict.keys()
-for callGraphEdge in callGraphEdges:
-	regionPosition0 = getRegionPosition(callGraphEdge[0])
+for (caller, callee) in callGraphEdges:
+	callerSourceName = sourceNameByRoutineNames[caller]
+	calleeSourceName = sourceNameByRoutineNames[callee]
+	regionPosition0 = getRegionPosition(caller)
 	if options.less == True and regionPosition0 not in ["inside", "within", "outside"]:
 		continue
-	regionPosition1 = getRegionPosition(callGraphEdge[1])
+	regionPosition1 = getRegionPosition(callee)
 	if options.less == True and regionPosition1 not in ["inside", "within", "outside"]:
 		continue
-	edge = pydot.Edge(callGraphEdge[0], callGraphEdge[1], penwidth=5)
+	edge = pydot.Edge(
+		caller,
+		callee,
+		penwidth=5
+		# ltail=sourceClustersByName[callerSourceName].get_name(),
+		# lhead=sourceClustersByName[calleeSourceName].get_name()
+	)
 	graph.add_edge(edge)
-
-for routineName in routineNames:
-	regionPosition = getRegionPosition(routineName)
-	if not regionPosition:
-		continue
-	fillColor = "gray"
-	if regionPosition == "inside":
-		fillColor = "green"
-	elif regionPosition == "within":
-		fillColor = "orange"
-	elif regionPosition == "outside":
-		fillColor = "red"
-	if options.less != True or fillColor != "gray":
-		node = pydot.Node(routineName, style="filled", fillcolor=fillColor, fontsize="30.0", penwidth=5)
-		graph.add_node(node)
 
 legend = pydot.Cluster(graph_name = 'Legend', label = 'Legend', penwidth=3)
 legend.add_node(pydot.Node(name='parallel region inside', style='filled', fillcolor="green", fontsize="30.0", penwidth=5))
@@ -153,8 +173,4 @@ legend.add_node(pydot.Node(name='parallel region outside', style='filled', fillc
 legend.add_node(pydot.Node(name='not affected by parallel region', style='filled', fillcolor="gray", fontsize="30.0", penwidth=5))
 legend.add_node(pydot.Node(name='not in h90 file', fontsize="30.0", penwidth=5))
 graph.add_subgraph(legend)
-
 graph.write_png(output)
-
-
-

@@ -39,6 +39,41 @@ class ParallelRegionDomain(object):
         self.startsAt = startsAt
         self.endsAt = endsAt
 
+def addCallers(callGraphDict, routineDict, calls, routineName):
+    for call in calls:
+        callee = call.getAttribute("callee")
+        caller = call.getAttribute("caller")
+        if callee == routineName:
+            entry = (caller, callee)
+            callGraphDict[entry] = ""
+            routineDict[caller] = ""
+            routineDict[callee] = ""
+            addCallers(callGraphDict, routineDict, calls, caller)
+
+def addCallees(callGraphDict, routineDict, calls, routineName):
+    for call in calls:
+        callee = call.getAttribute("callee")
+        caller = call.getAttribute("caller")
+        if caller == routineName:
+            entry = (caller, callee)
+            callGraphDict[entry] = ""
+            routineDict[caller] = ""
+            routineDict[callee] = ""
+            addCallees(callGraphDict, routineDict, calls, callee)
+
+def getRegionPosition(routineName, routines):
+    routineMatch = None
+    for routine in routines:
+        if routine.getAttribute("name") == routineName:
+            routineMatch = routine
+            break
+    if not routineMatch:
+        return None
+    regionPosition = routineMatch.getAttribute("parallelRegionPosition")
+    if regionPosition == None:
+        return 'unspecified'
+    return regionPosition
+
 #TODO: refactor the call lookups in the parser to use this index
 def getCallersByCalleeName(callNodes):
     callersByCalleeName = {}

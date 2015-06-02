@@ -45,6 +45,28 @@ def openFile(file_name, mode):
     else:
         return the_file
 
+def prettyprint(obj):
+    def convert_to_json(obj):
+        from xml.dom.minidom import Document, Node
+        import pprint
+        output_json = None
+        if type(obj) == dict:
+            output_json = {}
+            for key in obj.keys():
+                output_json[key] = convert_to_json(obj[key])
+        elif type(obj) == list:
+            output_json = []
+            for entry in obj:
+                output_json.append(convert_to_json(entry))
+        elif isinstance(obj, Document) or isinstance(obj, Node):
+            output_json = obj.toxml()
+        else:
+            output_json = unicode(obj)
+        return output_json
+
+    import json
+    print json.dumps(convert_to_json(obj), sort_keys=True, indent=4, separators=(',', ': '))
+
 def enum(*sequential, **named):
     enums = dict(zip(sequential, range(len(sequential))), **named)
     return type('Enum', (), enums)

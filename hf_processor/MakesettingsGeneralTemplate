@@ -43,6 +43,10 @@ EXECUTABLES="example"
 # program shared memory specifically, this setting makes more sense).
 # If you need Device capabilities below 3.x, you should add this flag because of
 # incompatibilities with the HF cache setup with older CUDA versions.
+#
+# DEBUG_PRINT:
+# Adds debug print to the implementation.
+#
 OPTION_FLAGS=
 
 #############################################################################

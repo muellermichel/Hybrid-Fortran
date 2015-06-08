@@ -457,9 +457,12 @@ class FortranImplementation(object):
     onDevice = False
     multipleParallelRegionsPerSubroutineAllowed = True
     optionFlags = []
+    currDependantSymbols = None
+    currParallelRegionTemplateNode = None
 
     def __init__(self, optionFlags):
         self.currDependantSymbols = None
+        self.currParallelRegionTemplateNode = None
         if type(optionFlags) == list:
             self.optionFlags = optionFlags
 
@@ -479,10 +482,17 @@ class FortranImplementation(object):
         return ""
 
     def kernelCallPreparation(self, parallelRegionTemplate, calleeNode=None):
+        self.currParallelRegionTemplateNode = parallelRegionTemplate
         return ""
 
     def kernelCallPost(self, symbolsByName, calleeRoutineNode):
-        return ""
+        if calleeRoutineNode.getAttribute('parallelRegionPosition') != 'within':
+            return ""
+        result = ""
+        if 'DEBUG_PRINT' in self.optionFlags:
+            result += getRuntimeDebugPrintStatements(symbolsByName, calleeRoutineNode, self.currParallelRegionTemplateNode)
+        self.currParallelRegionTemplateNode = None
+        return result
 
     def subroutinePrefix(self, routineNode):
         return ''
@@ -1001,7 +1011,6 @@ class CUDAFortranImplementation(FortranImplementation):
 
     def __init__(self, optionFlags):
         self.currRoutineNode = None
-        self.currParallelRegionTemplateNode = None
         FortranImplementation.__init__(self, optionFlags)
 
     def warningOnUnrecognizedSubroutineCallInParallelRegion(self, callerName, calleeName):
@@ -1012,9 +1021,9 @@ class CUDAFortranImplementation(FortranImplementation):
         return "<<< cugrid, cublock >>>"
 
     def kernelCallPreparation(self, parallelRegionTemplate, calleeNode=None):
+        result = FortranImplementation.kernelCallPreparation(self, parallelRegionTemplate, calleeNode)
         if not appliesTo(["GPU"], parallelRegionTemplate):
             return ""
-        self.currParallelRegionTemplateNode = parallelRegionTemplate
         gridPreparationStr = ""
         if calleeNode != None and "DO_NOT_TOUCH_GPU_CACHE_SETTINGS" not in self.optionFlags:
             gridPreparationStr += "cuerror = cudaFuncSetCacheConfig(%s, cudaFuncCachePreferL1)\n" %(calleeNode.getAttribute('name'))
@@ -1042,14 +1051,14 @@ end if\n" %(calleeNode.getAttribute('name'))
                 gridPreparationStr +=  "%s = 1" %(gridSizeVarNames[i])
                 blockStr += "1"
             gridStr += "%s" %(gridSizeVarNames[i])
-        result = gridPreparationStr + "\n" + gridStr + ")\n" + blockStr + ")\n"
+        result += gridPreparationStr + "\n" + gridStr + ")\n" + blockStr + ")\n"
         return result
 
     def kernelCallPost(self, symbolsByName, calleeRoutineNode):
-        self.currParallelRegionTemplateNode = None
+        result = FortranImplementation.kernelCallPost(self, symbolsByName, calleeRoutineNode)
         if calleeRoutineNode.getAttribute('parallelRegionPosition') != 'within':
-            return ""
-        result = getCUDAErrorHandling(calleeRoutineNode)
+            return result
+        result += getCUDAErrorHandling(calleeRoutineNode)
         #TODO: remove
         #result = result + getTempDeallocationsAfterKernelCall(symbolsByName)
         return result
@@ -1252,15 +1261,12 @@ Symbols vs transferHere attributes:\n%s" %(str([(symbol.name, symbol.transferHer
     def parallelRegionBegin(self, parallelRegionTemplate, outerBranchLevel=0):
         # if appliesTo(["GPU"], parallelRegionTemplate) and outerBranchLevel != 0:
         #     raise Exception("Cannot implement a GPU parallel region inside a branch. Please move this parallel region into its own subroutine.")
-
-        self.currParallelRegionTemplateNode = parallelRegionTemplate
         domains = getDomainsWithParallelRegionTemplate(parallelRegionTemplate)
         regionStr = self.iteratorDefinitionBeforeParallelRegion(domains)
         regionStr += self.safetyOutsideRegion(domains)
         return regionStr
 
     def parallelRegionEnd(self, parallelRegionTemplate, outerBranchLevel=0):
-        self.currParallelRegionTemplateNode = None
         return ""
 
     def declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates):
@@ -1322,18 +1328,13 @@ class DebugCUDAFortranImplementation(CUDAFortranImplementation):
         return result
 
     def kernelCallPost(self, symbolsByName, calleeRoutineNode):
+        result = CUDAFortranImplementation.kernelCallPost(self, symbolsByName, calleeRoutineNode)
         if calleeRoutineNode.getAttribute('parallelRegionPosition') != 'within':
-            return ""
-        result = getCUDAErrorHandling(calleeRoutineNode, errorVariable="cuerror", stopImmediately=False)
-        #michel 2013-4-18: Note, that doing the stop *after* trying to print the memory state hasn't really helped so far.
-        #CUDA seems to fail any memcopy attempts after a kernel fails - maybe there is some method to clear the error state before
-        #doing memcopy?
-        result = result + getRuntimeDebugPrintStatements(symbolsByName, calleeRoutineNode, self.currParallelRegionTemplateNode)
-        result = result + "if(cuerror .NE. cudaSuccess) then\n"\
+            return result
+        result += getCUDAErrorHandling(calleeRoutineNode, errorVariable="cuerror", stopImmediately=False)
+        result += result + "if(cuerror .NE. cudaSuccess) then\n"\
                 "\tstop 1\n" \
             "end if\n"
-        #TODO: remove
-        #result = result + getTempDeallocationsAfterKernelCall(symbolsByName)
         return result
 
     def declarationEndPrintStatements(self):

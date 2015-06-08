@@ -111,7 +111,7 @@ end module example
 
 program main
   use example, only: data_region_wrapper, data_region_wrapper2, data_region_wrapper4, data_region_wrapper5, assert_values
-  use my_module, only: a, b, c, d, used_in_acc_routine
+  use my_module, only: a, b, a2, b2, c, d, c2, d2, used_in_acc_routine
   use kernels3, only: outer_wrapper3
   use kernels5, only: kernels5_initialize, kernels5_cleanup
 !   use kernels6, only: kernels6_initialize, kernels6_cleanup
@@ -123,8 +123,12 @@ program main
 
   allocate(a(DOM(NX,NY,NZ)))
   allocate(b(DOM(NX,NY,NZ)))
+  allocate(a2(DOM(NX,NY,NZ)))
+  allocate(b2(DOM(NX,NY,NZ)))
   allocate(c(DOM(NX,NY,NZ)))
   allocate(d(DOM(NX,NY,NZ)))
+  allocate(c2(DOM(NX,NY,NZ)))
+  allocate(d2(DOM(NX,NY,NZ)))
 
   a(:,:,:) = 1.0d0
   b(:,:,:) = 2.0d0
@@ -137,8 +141,14 @@ program main
   call assert_values(c, 3.0d0)
   call assert_values(d, 2.0d0)
 
+  a(:,:,:) = 1.0d0
+  b(:,:,:) = 2.0d0
+  a2(:,:,:) = 1.0d0
+  b2(:,:,:) = 2.0d0
   c(:,:,:) = 0.0d0
   d(:,:,:) = 0.0d0
+  c2(:,:,:) = 0.0d0
+  d2(:,:,:) = 0.0d0
   call data_region_wrapper2()
   write(0,*) "calculation2 complete"
   call assert_values(c, 3.0d0)

@@ -27,7 +27,7 @@
 
 from GeneralHelper import openFile, prettyprint
 from DomHelper import addCallers, addCallees, getRegionPosition
-from H90SymbolDependencyGraphAnalyzer import SymbolDependencyAnalyzer
+from H90SymbolDependencyGraphAnalyzer import SymbolDependencyAnalyzer, SymbolType, SymbolAnalysis
 from xml.dom.minidom import Document, parseString
 from optparse import OptionParser
 import pydot
@@ -64,11 +64,58 @@ output = "./out.png"
 if options.output:
 	output = options.output
 
-legendFontSize = "8.0"
-defaultFontSize = "15.0"
-graphPenWidth = 2
+smallFontSize = "8.0"
+defaultFontSize = "10.0"
+clusterFontSize = "30.0"
+graphPenWidth = 1
 moduleClusterPenwidth = 1
 firstLevelClusterPenwidth = 3
+font = "Sans-Serif"
+symbolColorsByType = {
+	SymbolType.UNDEFINED : "#ffa3a3",
+    SymbolType.ARGUMENT_WITH_DOMAIN_DEPENDANT_SPEC : "#afffad",
+    SymbolType.ARGUMENT : "#ffcd94",
+    SymbolType.MODULE_DATA_USED_IN_CALLEE_GRAPH : "#c76060",
+    SymbolType.MODULE_DATA : "#ff5747",
+    SymbolType.MODULE_DATA_USED_IN_CALLEE_GRAPH_WITH_DOMAIN_DEPENDANT_SPEC : "#bf60c7",
+    SymbolType.MODULE_DATA_WITH_DOMAIN_DEPENDANT_SPEC : "#00ccf0",
+    SymbolType.DOMAIN_DEPENDANT : "#aac760"
+}
+
+def getNodeLabel(routineName, symbolAnalysis, regionPosition):
+	symbolRows = []
+	fillColor = "gray"
+	if regionPosition == "inside":
+		fillColor = "green"
+	elif regionPosition == "within":
+		fillColor = "orange"
+	elif regionPosition == "outside":
+		fillColor = "red"
+	for analysisEntry in symbolAnalysis:
+		symbolRowColor = symbolColorsByType[analysisEntry.symbolType]
+		symbolRows.append("<TD BGCOLOR='%s'>%s</TD>" %(
+			symbolRowColor,
+			("</TD><TD BGCOLOR='%s'>" %(symbolRowColor)).join([
+				"<FONT POINT-SIZE='%s'>%s</FONT>" %(smallFontSize, entry) if entry else ""
+				for entry in [
+					str(analysisEntry.aliasNamesByRoutineName.get(routineName, analysisEntry.name)),
+					str(analysisEntry.sourceSymbol),
+					str(analysisEntry.sourceModule)
+				]
+			])
+		))
+	return "<<TABLE BORDER='0' CELLBORDER='1' CELLSPACING='0' CELLPADDING='4'><TR>%s</TR></TABLE>>" %(
+		"</TR><TR>".join([ #routine name header
+					"<TD COLSPAN='3' BGCOLOR='%s'>%s</TD>" %(fillColor, routineName)
+				] +
+				# [ #labels
+				# 	"<TD>%s</TD>" %("</TD><TD>".join([
+				# 		"<FONT POINT-SIZE='%s'>%s</FONT>" %(smallFontSize, entry) for entry in ["local", "s.name", "s.module"] #
+				# 	]))
+				# ] +
+				symbolRows #symbols
+		)
+	)
 
 #read in working xml
 srcFile = openFile(str(options.source),'r')
@@ -84,13 +131,24 @@ if options.debug:
 	prettyprint(analyzer.callsByCallerName)
 	print "=== callGraphEdgesByCallerName ==="
 	prettyprint(analyzer.callGraphEdgesByCallerName)
+	print "=== routines by name ==="
+	prettyprint(analyzer.routinesByName)
 
-graph = pydot.Dot(graph_type='digraph', rankdir='LR', fontsize=defaultFontSize, compound=True)
+if options.symbolGraphRootRoutine:
+	analysis = analyzer.getSymbolAnalysisByRoutine(options.symbolGraphRootRoutine)
+else:
+	analysis = analyzer.getSymbolAnalysisByRoutine()
+if options.debug:
+	print "=== analysis ==="
+	prettyprint(analysis)
+
+# graph = pydot.Dot(graph_type='digraph', rankdir='LR', fontsize=defaultFontSize, compound=True)
+graph = pydot.Dot(graph_type='digraph', fontsize=defaultFontSize, compound=True)
 # graph = pydot.Dot(graph_type='digraph', fontsize="27") #more useful for academic papers when there is a low number of nodes
 
 ### Callgraph Generation ###
-callgraph = pydot.Cluster(graph_name = 'Callgraph', label = 'Callgraph', penwidth=firstLevelClusterPenwidth)
-graph.add_subgraph(callgraph)
+# callgraph = pydot.Cluster(graph_name = 'Callgraph', label = 'Callgraph', fontname=font, penwidth=firstLevelClusterPenwidth)
+# graph.add_subgraph(callgraph)
 routineByName = {}
 routinesBySourceDict = {}
 sourceNameByRoutineNames = {}
@@ -105,9 +163,9 @@ for routine in routines:
 
 sourceClustersByName = {}
 for sourceName in routinesBySourceDict.keys():
-	source = pydot.Cluster(sourceName, label=sourceName, penwidth=moduleClusterPenwidth)
+	source = pydot.Cluster(sourceName, label=sourceName, fontsize=clusterFontSize, fontname=font, penwidth=moduleClusterPenwidth, fillcolor="#e1e1e0", style="rounded, filled")
 	sourceClustersByName[sourceName] = source
-	callgraph.add_subgraph(source)
+	graph.add_subgraph(source)
 
 aliasNamesByRoutineName = None
 if options.symbolName:
@@ -119,43 +177,85 @@ for sourceName in sourceClustersByName.keys():
 		routineName = routine.getAttribute("name")
 		routineByName[routineName] = routine
 		regionPosition = getRegionPosition(routineName, routines)
-		fillColor = "gray"
-		if regionPosition == "inside":
-			fillColor = "green"
-		elif regionPosition == "within":
-			fillColor = "orange"
-		elif regionPosition == "outside":
-			fillColor = "red"
-		label = routineName
+		symbolAnalysis = []
+		for symbolName in analysis.get(routineName, {}).keys():
+			for callEntry in analysis[routineName][symbolName]:
+				symbolAnalysis.append(callEntry)
+		label = getNodeLabel(routineName, symbolAnalysis, regionPosition)
 		if aliasNamesByRoutineName:
 			label = "%s s.alias: %s" %(routineName, aliasNamesByRoutineName.get(routineName, "n/a"))
-		if options.less != True or fillColor != "gray":
-			node = pydot.Node(routineName, label=label, style="filled", fillcolor=fillColor, fontsize=defaultFontSize, penwidth=graphPenWidth)
+		if not options.less or regionPosition in ["inside", "within", "outside"]:
+			node = pydot.Node(routineName, label=label, shape="plaintext", fontname=font, fontsize=defaultFontSize, penwidth=graphPenWidth)
 			source.add_node(node)
 
+edges = {}
 for callerName in analyzer.callGraphEdgesByCallerName.keys():
 	for (caller, callee) in analyzer.callGraphEdgesByCallerName[callerName]:
-		callerSourceName = sourceNameByRoutineNames[caller]
-		calleeSourceName = sourceNameByRoutineNames[callee]
-		regionPosition0 = getRegionPosition(caller, routines)
-		if options.less == True and regionPosition0 not in ["inside", "within", "outside"]:
-			continue
-		regionPosition1 = getRegionPosition(callee, routines)
-		if options.less == True and regionPosition1 not in ["inside", "within", "outside"]:
-			continue
-		edge = pydot.Edge(
-			caller,
-			callee,
-			penwidth=graphPenWidth
-		)
-		callgraph.add_edge(edge)
+		edges[(caller, callee)] = None
+for (caller, callee) in edges.keys():
+	callerSourceName = sourceNameByRoutineNames.get(caller)
+	calleeSourceName = sourceNameByRoutineNames.get(callee)
+	if not callerSourceName or not calleeSourceName:
+		continue
+	regionPosition0 = getRegionPosition(caller, routines)
+	if options.less == True and regionPosition0 not in ["inside", "within", "outside"]:
+		continue
+	regionPosition1 = getRegionPosition(callee, routines)
+	if options.less == True and regionPosition1 not in ["inside", "within", "outside"]:
+		continue
+	edge = pydot.Edge(
+		caller,
+		callee,
+		penwidth=graphPenWidth
+	)
+	graph.add_edge(edge)
 
 legend = pydot.Cluster(graph_name = 'Legend', label = 'Legend', penwidth=moduleClusterPenwidth)
-legend.add_node(pydot.Node(name='parallel region inside', style='filled', fillcolor="green", fontsize=legendFontSize, penwidth=graphPenWidth))
-legend.add_node(pydot.Node(name='parallel region within', style='filled', fillcolor="orange", fontsize=legendFontSize, penwidth=graphPenWidth))
-legend.add_node(pydot.Node(name='parallel region outside', style='filled', fillcolor="red", fontsize=legendFontSize, penwidth=graphPenWidth))
-legend.add_node(pydot.Node(name='not affected by parallel region', style='filled', fillcolor="gray", fontsize=legendFontSize, penwidth=graphPenWidth))
-legend.add_node(pydot.Node(name='not in h90 file', fontsize=legendFontSize, penwidth=graphPenWidth))
-callgraph.add_subgraph(legend)
-
+exampleSymbolAnalysis1 = SymbolAnalysis()
+exampleSymbolAnalysis1.name = "local_name (module data with domain dependant spec)"
+exampleSymbolAnalysis1.sourceModule = "source module"
+exampleSymbolAnalysis1.sourceSymbol = "source symbol name"
+exampleSymbolAnalysis1.symbolType = SymbolType.MODULE_DATA_WITH_DOMAIN_DEPENDANT_SPEC
+exampleSymbolAnalysis2 = SymbolAnalysis()
+exampleSymbolAnalysis2.name = "local_name (module data used in callee graph with domain dependant spec)"
+exampleSymbolAnalysis2.sourceModule = "source module"
+exampleSymbolAnalysis2.sourceSymbol = "source symbol name"
+exampleSymbolAnalysis2.symbolType = SymbolType.MODULE_DATA_USED_IN_CALLEE_GRAPH_WITH_DOMAIN_DEPENDANT_SPEC
+exampleSymbolAnalysis3 = SymbolAnalysis()
+exampleSymbolAnalysis3.name = "local_name (module data without domain dependant spec)"
+exampleSymbolAnalysis3.sourceModule = "source module"
+exampleSymbolAnalysis3.sourceSymbol = "source symbol name"
+exampleSymbolAnalysis3.symbolType = SymbolType.MODULE_DATA
+exampleSymbolAnalysis4 = SymbolAnalysis()
+exampleSymbolAnalysis4.name = "local_name (module data used in callee graph without domain dependant spec)"
+exampleSymbolAnalysis4.sourceModule = "source module"
+exampleSymbolAnalysis4.sourceSymbol = "source symbol name"
+exampleSymbolAnalysis4.symbolType = SymbolType.MODULE_DATA_USED_IN_CALLEE_GRAPH
+exampleSymbolAnalysis5 = SymbolAnalysis()
+exampleSymbolAnalysis5.name = "local_name of routine argument with domain dependant spec"
+exampleSymbolAnalysis5.symbolType = SymbolType.ARGUMENT_WITH_DOMAIN_DEPENDANT_SPEC
+exampleSymbolAnalysis6 = SymbolAnalysis()
+exampleSymbolAnalysis6.name = "local_name of routine argument without domain dependant spec"
+exampleSymbolAnalysis6.symbolType = SymbolType.ARGUMENT
+exampleSymbolAnalysis7 = SymbolAnalysis()
+exampleSymbolAnalysis7.name = "name of local symbol with domain dependant spec"
+exampleSymbolAnalysis7.symbolType = SymbolType.DOMAIN_DEPENDANT
+exampleSymbolAnalysis8 = SymbolAnalysis()
+exampleSymbolAnalysis8.name = "name of local symbol without domain dependant spec"
+exampleSymbolAnalysis8.symbolType = SymbolType.UNDEFINED
+exampleSymbolAnalysis = [
+	exampleSymbolAnalysis1,
+	exampleSymbolAnalysis2,
+	exampleSymbolAnalysis3,
+	exampleSymbolAnalysis4,
+	exampleSymbolAnalysis5,
+	exampleSymbolAnalysis6,
+	exampleSymbolAnalysis7,
+	exampleSymbolAnalysis8
+]
+legend.add_node(pydot.Node("example", label=getNodeLabel('routine name (parallel region inside)', exampleSymbolAnalysis, "inside"), shape="plaintext", fontname=font, fontsize=defaultFontSize, penwidth=graphPenWidth))
+legend.add_node(pydot.Node("example2", label=getNodeLabel('routine name (parallel region within)', [], "within"), shape="plaintext", fontname=font, fontsize=defaultFontSize, penwidth=graphPenWidth))
+legend.add_node(pydot.Node("example3", label=getNodeLabel('routine name (parallel region outside)', [], "outside"), shape="plaintext", fontname=font, fontsize=defaultFontSize, penwidth=graphPenWidth))
+legend.add_node(pydot.Node("example4", label=getNodeLabel('routine name (not affected by parallel region)', [], ""), shape="plaintext", fontname=font, fontsize=defaultFontSize, penwidth=graphPenWidth))
+graph.add_subgraph(legend)
 graph.write_png(output)

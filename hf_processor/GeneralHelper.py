@@ -53,7 +53,7 @@ def prettyprint(obj):
         if type(obj) == dict:
             output_json = {}
             for key in obj.keys():
-                output_json[key] = convert_to_json(obj[key])
+                output_json[str(key)] = convert_to_json(obj[key])
         elif type(obj) == list:
             output_json = []
             for entry in obj:

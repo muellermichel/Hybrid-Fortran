@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: UTF-8 -*-
 
-# Copyright (C) 2014 Michel Müller, Tokyo Institute of Technology
+# Copyright (C) 2015 Michel Müller, Tokyo Institute of Technology
 
 # This file is part of Hybrid Fortran.
 
@@ -30,7 +30,92 @@
 
 
 from xml.dom.minidom import Document
-from DomHelper import addCallers, addCallees, createOrGetFirstNodeWithName
+from DomHelper import addCallers, addCallees, createOrGetFirstNodeWithName, getDomainDependantTemplatesAndEntries
+from GeneralHelper import enum, prettyprint
+
+SymbolType = enum(
+    "UNDEFINED",
+    "ARGUMENT_WITH_DOMAIN_DEPENDANT_SPEC",
+    "ARGUMENT",
+    "MODULE_DATA_USED_IN_CALLEE_GRAPH",
+    "MODULE_DATA",
+    "MODULE_DATA_USED_IN_CALLEE_GRAPH_WITH_DOMAIN_DEPENDANT_SPEC",
+    "MODULE_DATA_WITH_DOMAIN_DEPENDANT_SPEC",
+    "DOMAIN_DEPENDANT"
+)
+
+DOMAIN_DEPENDANT_TYPES = [
+    SymbolType.ARGUMENT_WITH_DOMAIN_DEPENDANT_SPEC,
+    SymbolType.MODULE_DATA_USED_IN_CALLEE_GRAPH_WITH_DOMAIN_DEPENDANT_SPEC,
+    SymbolType.MODULE_DATA_WITH_DOMAIN_DEPENDANT_SPEC,
+    SymbolType.DOMAIN_DEPENDANT
+]
+
+MODULE_DATA_TYPES = [
+    SymbolType.MODULE_DATA_USED_IN_CALLEE_GRAPH,
+    SymbolType.MODULE_DATA,
+    SymbolType.MODULE_DATA_USED_IN_CALLEE_GRAPH_WITH_DOMAIN_DEPENDANT_SPEC,
+    SymbolType.MODULE_DATA_WITH_DOMAIN_DEPENDANT_SPEC
+]
+
+class SymbolAnalysis:
+    aliasNamesByRoutineName = None
+    argumentIndexByRoutineName = None
+    symbolType = SymbolType.UNDEFINED
+    sourceModule = ""
+    sourceSymbol = ""
+    name = None
+
+    def __init__(self):
+        self.aliasNamesByRoutineName = {}
+        self.argumentIndexByRoutineName = {}
+
+    def __unicode__(self):
+        return unicode(self.__repr__())
+
+    def __repr__(self):
+        return "[Symbol %s (Type %s, from %s:%s); Aliases: %s; Argument Indices: %s]" %(
+            self.name,
+            str(self.symbolType),
+            str(self.sourceModule),
+            str(self.sourceSymbol),
+            str(self.aliasNamesByRoutineName),
+            str(self.argumentIndexByRoutineName)
+        )
+
+    def updateWith(self, analysis, routineName):
+        for routineName in analysis.aliasNamesByRoutineName:
+            self.aliasNamesByRoutineName[routineName] = analysis.aliasNamesByRoutineName[routineName]
+        for routineName in analysis.argumentIndexByRoutineName:
+            self.argumentIndexByRoutineName[routineName] = analysis.argumentIndexByRoutineName[routineName]
+        if self.symbolType == SymbolType.UNDEFINED:
+            self.symbolType = analysis.symbolType
+        elif self.symbolType in DOMAIN_DEPENDANT_TYPES \
+        and analysis.symbolType not in DOMAIN_DEPENDANT_TYPES:
+            raise Exception(
+                "Symbol %s is declared as domain dependant upstream (type %s), but doesn't have any domain dependant information later in the callgraph stream (%s, type %s)." %(
+                    self.name,
+                    str(self.symbolType),
+                    routineName,
+                    str(analysis.symbolType)
+                )
+            )
+        if (not type(self.sourceModule) in [unicode, str] or self.sourceModule == "") \
+        and (type(analysis.sourceModule) in [unicode, str] and analysis.sourceModule != ""):
+            raise Exception(
+                "Symbol %s is imported from a module downstream in a callgraph (%s) while not being a module symbol earlier in the stream. SourceModule found where not expected." %(
+                    self.name,
+                    routineName
+                )
+            )
+        if (not type(self.sourceSymbol) in [unicode, str] or self.sourceSymbol == "") \
+        and (type(analysis.sourceSymbol) in [unicode, str] and analysis.sourceSymbol != ""):
+            raise Exception(
+                "Symbol %s is imported from a module downstream in a callgraph (%s) while not being a module symbol earlier in the stream. SourceSymbol found where not expected." %(
+                    self.name,
+                    routineName
+                )
+            )
 
 class SymbolDependencyAnalyzer:
     doc = None
@@ -88,6 +173,171 @@ class SymbolDependencyAnalyzer:
         self.callsByCallerName = callsByCallerName
         self.doc = doc
         self.symbolsNode = createOrGetFirstNodeWithName('symbols', doc)
+
+    def getSymbolAnalysisFor(self, routineName, symbolAnalysis=None, symbolAnalysisByNameAndSource=None, call=None):
+        if symbolAnalysis == None:
+            symbolAnalysis = {}
+        if symbolAnalysisByNameAndSource == None:
+            symbolAnalysisByNameAndSource = {}
+        routine = self.routinesByName.get(routineName)
+        if not routine:
+            return symbolAnalysis, symbolAnalysisByNameAndSource
+        routineArguments = [
+            argument.getAttribute("symbolName")
+            for argument in routine.getElementsByTagName("argument")
+        ]
+        callArguments = []
+        if call != None:
+            callArguments = [
+                argument.getAttribute("symbolName")
+                for argument in call.getElementsByTagName("argument")
+            ]
+            if call.getAttribute("callee") != routineName:
+                raise Exception("call passed to analysis of %s is not a call to this routine: %s" %(
+                    routineName,
+                    prettyprint(call)
+                ))
+            if len(callArguments) != len(routineArguments):
+                raise Exception(
+                    "Argument list from caller %s (%s) do not match routine arguments (%s) for routine %s" %(
+                        call.getAttribute("caller"),
+                        str(callArguments),
+                        str(routineArguments),
+                        routineArguments
+                    )
+                )
+        templates_and_entries = getDomainDependantTemplatesAndEntries(
+            self.doc,
+            routine
+        )
+        analysisToAdd = {}
+
+        #check arguments to this routine - temporarily remove previous calls from the analysis.
+        #we don't want to overwrite information from previous calls.
+        temporarilyStoredAnalysisByArgumentName = {}
+        for argIndex, _ in enumerate(callArguments):
+            localArgumentName = routineArguments[argIndex]
+            if not (routineName, localArgumentName) in symbolAnalysis:
+                continue
+            temporarilyStoredAnalysisByArgumentName[localArgumentName] = symbolAnalysis[(routineName, localArgumentName)]
+            del symbolAnalysis[(routineName, localArgumentName)]
+
+        #Symbol Analysis based on local information
+        for (_, entry) in templates_and_entries:
+            analysis = SymbolAnalysis()
+            analysis.name = entry.firstChild.nodeValue
+            analysis.sourceModule = entry.getAttribute("sourceModule")
+            analysis.sourceSymbol = entry.getAttribute("sourceSymbol")
+            analysis.aliasNamesByRoutineName[routineName] = analysis.name
+            argIndex = -1
+            try:
+                argIndex = routineArguments.index(analysis.name)
+            except Exception:
+                pass
+            if argIndex > -1:
+                analysis.argumentIndexByRoutineName[routineName] = argIndex
+            if argIndex > -1:
+                analysis.symbolType = SymbolType.ARGUMENT_WITH_DOMAIN_DEPENDANT_SPEC
+            elif type(analysis.sourceModule) in [unicode, str] and analysis.sourceModule != "":
+                analysis.symbolType = SymbolType.MODULE_DATA_WITH_DOMAIN_DEPENDANT_SPEC
+            else:
+                analysis.symbolType = SymbolType.DOMAIN_DEPENDANT
+            analysisToAdd[analysis.name] = analysis
+        for argIndex, argument in enumerate(routineArguments):
+            if argument in analysisToAdd:
+                continue
+            analysis = SymbolAnalysis()
+            analysis.name = argument
+            analysis.symbolType = SymbolType.ARGUMENT
+            analysis.argumentIndexByRoutineName[routineName] = argIndex
+            analysisToAdd[analysis.name] = analysis
+
+        #Symbol Analysis based on caller
+        #--> check whether an analysis has already been done, update that and add it under the current routine, symbolName tuple
+        for symbolName in analysisToAdd.keys():
+            currentAnalysis = analysisToAdd[symbolName]
+            argIndex = currentAnalysis.argumentIndexByRoutineName.get(routineName, -1)
+            existingSymbolAnalysis = None
+            if argIndex > -1 and len(callArguments) > 0:
+                symbolNameInCaller = callArguments[argIndex]
+                callerName = call.getAttribute("caller")
+                existingSymbolAnalysis = symbolAnalysis.get((callerName, symbolNameInCaller), [])
+            elif currentAnalysis.symbolType in MODULE_DATA_TYPES:
+                existingModuleSymbolAnalysis = symbolAnalysisByNameAndSource.get((currentAnalysis.sourceSymbol, currentAnalysis.sourceModule))
+                if existingModuleSymbolAnalysis:
+                    existingSymbolAnalysis = [existingModuleSymbolAnalysis]
+                else:
+                    existingSymbolAnalysis = []
+            else:
+                existingSymbolAnalysis = [currentAnalysis]
+            for analysis in existingSymbolAnalysis:
+                if not isinstance(analysis, SymbolAnalysis):
+                    raise Exception("unexpected error in routine %s: current analysis list contains unexpected objects: %s" %(
+                        routineName,
+                        str(existingSymbolAnalysis)
+                    ))
+
+            if len(existingSymbolAnalysis) == 0 or (len(existingSymbolAnalysis) == 1 and existingSymbolAnalysis[0] == currentAnalysis):
+                symbolAnalysis[(routineName, symbolName)] = [currentAnalysis]
+                if currentAnalysis.symbolType in MODULE_DATA_TYPES:
+                    symbolAnalysisByNameAndSource[(currentAnalysis.sourceSymbol, currentAnalysis.sourceModule)] = currentAnalysis
+            else:
+                for analysis in existingSymbolAnalysis:
+                    analysis.updateWith(currentAnalysis, routineName)
+                symbolAnalysis[(routineName, symbolName)] = existingSymbolAnalysis
+
+        #Analyse callgraph downstream from here
+        for call in self.callsByCallerName.get(routineName, []):
+            if call.getAttribute("caller") != routineName:
+                raise Exception(
+                    "unexpected error when constructing callgraph for symbol aliases"
+                )
+            calleeName = call.getAttribute("callee")
+
+            symbolAnalysis, symbolAnalysisByNameAndSource = self.getSymbolAnalysisFor(
+                calleeName,
+                symbolAnalysis=symbolAnalysis,
+                symbolAnalysisByNameAndSource=symbolAnalysisByNameAndSource,
+                call=call
+            )
+        for argumentName in temporarilyStoredAnalysisByArgumentName.keys():
+            symbolAnalysis[(routineName, argumentName)] = temporarilyStoredAnalysisByArgumentName[argumentName] + symbolAnalysis.get((routineName, argumentName), [])
+
+        return symbolAnalysis, symbolAnalysisByNameAndSource
+
+    def getRootRoutines(self):
+        return [
+            routine
+            for routine in self.routinesByName.values()
+            if len(self.callsByCalleeName.get(routine.getAttribute("name"), [])) == 0
+        ]
+
+    def getSymbolAnalysis(self):
+        symbolAnalysis = {}
+        for routine in self.getRootRoutines():
+            symbolAnalysis, _ = self.getSymbolAnalysisFor(
+                routine.getAttribute("name"),
+                symbolAnalysis=symbolAnalysis
+            )
+        return symbolAnalysis
+
+    def getSymbolAnalysisForCallGraphStartingFrom(self, routineName):
+        symbolAnalysis, _ = self.getSymbolAnalysisFor(routineName)
+        return symbolAnalysis
+
+    def getSymbolAnalysisByRoutine(self, startingFromRoutine=None):
+        symbolAnalysis = None
+        if startingFromRoutine:
+            symbolAnalysis = self.getSymbolAnalysisForCallGraphStartingFrom(startingFromRoutine)
+        else:
+            symbolAnalysis = self.getSymbolAnalysis()
+        symbolAnalysisByRoutine = {}
+        for (routineName, symbolName) in symbolAnalysis.keys():
+            if routineName in symbolAnalysisByRoutine:
+                symbolAnalysisByRoutine[routineName][symbolName] = symbolAnalysis[(routineName, symbolName)]
+            else:
+                symbolAnalysisByRoutine[routineName] = {symbolName:symbolAnalysis[(routineName, symbolName)]}
+        return symbolAnalysisByRoutine
 
     def getAliasNamesByRoutineName(self, symbolName, routineName):
         aliasNamesByRoutineName = {routineName:symbolName}

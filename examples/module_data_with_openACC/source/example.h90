@@ -31,11 +31,11 @@ contains
 
   subroutine data_region_wrapper2()
     use kernels2, only: wrapper2
-    use my_module, only: a, b, c, d
+    use my_module, only: a, b, c, d, a2, b2, c2, d2
     implicit none
 
     @domainDependant{attribute(autoDom,transferHere)}
-    a, b, c, d
+    a, b, c, d, a2, b2, c2, d2
     @end domainDependant
 
     call wrapper2()
@@ -143,6 +143,8 @@ program main
   write(0,*) "calculation2 complete"
   call assert_values(c, 3.0d0)
   call assert_values(d, 2.0d0)
+  call assert_values(c2, 3.0d0)
+  call assert_values(d2, 2.0d0)
 
   c(:,:,:) = 0.0d0
   d(:,:,:) = 0.0d0

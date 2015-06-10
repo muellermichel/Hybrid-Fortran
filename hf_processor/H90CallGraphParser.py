@@ -52,6 +52,9 @@ class FortranRoutineArgumentParser:
         self.bracketAnalyzer = BracketAnalyzer()
         self.symbolNames = []
 
+    def __repr__(self):
+        return "[ArgParser (status %s): %s]" %(str(self.status), str(self.symbolNames))
+
     @property
     def status(self):
         if self.bracketAnalyzer.bracketsHaveEverOpened and self.bracketAnalyzer.level == 0:
@@ -572,8 +575,11 @@ class H90CallGraphParser(object):
             self.lineNo += 1
 
         if (self.state != 'none'):
-            sys.stderr.write('Error when parsing file %s: File ended unexpectedly. Parser state: %s; Current Callee: %s; Current Subprocedure name: %s\n' \
-                %(str(fileName), self.state, self.currCalleeName, self.currSubprocName))
+            sys.stderr.write(
+                'Error when parsing file %s: File ended unexpectedly. Parser state: %s; Current Callee: %s; Current Subprocedure name: %s; Current Linenumber: %i; Current ArgumentParser: %s\n' %(
+                    str(fileName), self.state, self.currCalleeName, self.currSubprocName, self.lineNo, str(self.currArgumentParser)
+                )
+            )
             sys.exit(1)
         del self.lineNo
         del self.fileName

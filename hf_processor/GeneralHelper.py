@@ -81,8 +81,7 @@ def areIndexesWithinQuotes(stringToSearch):
     elif (len(quoteSections) - 1) % 2 != 0:
         raise Exception("Unexpected behavior of regex split. Please check your python version.")
     elif (len(quoteSections) - 1) % 4 != 0: #check re.split documentation to see how it works.
-        raise Exception("Use of line breaks and nested quotes within quoted strings is not supported in Hybrid Fortran. \
-Offending line: %s" %(stringToSearch))
+        pass
     else:
         quoteSections.reverse()
         currSection = quoteSections.pop()
@@ -144,6 +143,22 @@ def findRightMostOccurrenceNotInsideQuotes(stringToMatch, stringToSearch, rightS
         if numOfTrys >= 100:
             raise Exception("Could not find the string even after 100 tries.")
     return blankPos
+
+def findLeftMostOccurrenceNotInsideQuotes(stringToMatch, stringToSearch, leftStartAt=-1):
+    indexesWithinQuotes = areIndexesWithinQuotes(stringToSearch)
+    nextLeftStart = leftStartAt + 1
+    matchIndex = -1
+    for numOfTrys in range(1,101):
+        if nextLeftStart >= len(stringToMatch):
+            break
+        matchIndex = stringToSearch[nextLeftStart:].find(stringToMatch)
+        if matchIndex <= 0 or not indexesWithinQuotes[matchIndex]:
+            break
+        nextLeftStart = matchIndex + 1
+        matchIndex = -1
+        if numOfTrys >= 100:
+            raise Exception("Could not find the string even after 100 tries.")
+    return matchIndex
 
 class BracketAnalyzer(object):
     currLevel = 0

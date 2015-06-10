@@ -1,4 +1,4 @@
-# Copyright (C) 2014 Michel Müller, Tokyo Institute of Technology
+# Copyright (C) 2015 Michel Müller, Tokyo Institute of Technology
 
 # This file is part of Hybrid Fortran.
 
@@ -33,7 +33,9 @@
 #***************************************************************************#
 
 CONFIGDIR=./config/
+
 include ${CONFIGDIR}MakesettingsGeneral
+
 SHELL=/bin/bash
 
 ifeq ($(DEBUG_MODE),true)
@@ -426,10 +428,9 @@ ${DIR_GPU}${AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH}: ${SRC_ALL_GPU} framework_sou
 	@cd ${DIR_GPU} && ${AUTO_DEPENDENCY_GENERATOR_SCRIPT} $(addprefix ${SRC_DIR_COMMON}/, $(notdir $(SRC_ALL_GPU))) > ${AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH} 2>${DEBUG_OUTPUT}
 endif
 
-$(warning ${INSTALLED_EXECUTABLES_CPU})
 define install_rules
 .SECONDEXPANSION:
-$3%$1: $(2)$$(notdir %)$(4) create_install_directories $$(warning $(2)$$(notdir %)$(4))
+$3%$1: $(2)$$(notdir %)$(4) create_install_directories
 	@echo "...........creating $$@ from $$<"
 	@cp -fp $$< $$@
 endef
@@ -537,8 +538,8 @@ ${SRC_DIR_GPU}%.F: %.F
 	@mkdir -p ${SRC_DIR_GPU} && cp -fp $< $@
 
 ${SRC_DIR_HFPP}%.h90: %.h90
-	@echo ...copying file into $@ >${DEBUG_OUTPUT}
-	@mkdir -p ${SRC_DIR_HFPP} && cp -fp $< $@
+	@echo ...........preprocessing file $<
+	@mkdir -p ${SRC_DIR_HFPP} && python ${TOOLSDIR}/strip_fortran_line_continuations.py $< > $@
 
 define generate_p90_rules
 $(1)%.P90: ${SRC_DIR_HFPP}%.h90 $(2)implementationNamesByTemplate ${CG_DIR}$(3)
@@ -550,5 +551,5 @@ $(eval $(call generate_p90_rules,${SRC_DIR_CPU},${DIR_CPU},${CPU_CALLGRAPH_FILE}
 $(eval $(call generate_p90_rules,${SRC_DIR_GPU},${DIR_GPU},${GPU_CALLGRAPH_FILE}))
 
 ${SRC_DIR_HFPP}%.h90: %.H90
-	@echo ...........preprocessing file $@
-	@mkdir -p ${SRC_DIR_HFPP} && cd $(dir $<) && echo `pwd` && < $(notdir $<) sed "s/\/\//¢/g" | gcc -E -w ${PFLAGS} - | tr "\`" '\n' | sed "s/¢/\/\//g" > $@
+	@echo ...........preprocessing file $<
+	@mkdir -p ${SRC_DIR_HFPP} && cd $(dir $<) && python ${TOOLSDIR}/strip_fortran_line_continuations.py $(notdir $<) | sed "s/\/\//¢/g" | gcc -E -w ${PFLAGS} - | tr "\`" '\n' | sed "s/¢/\/\//g" > $@

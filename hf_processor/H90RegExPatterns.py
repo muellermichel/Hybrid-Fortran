@@ -54,8 +54,6 @@ class H90RegExPatterns:
 
     def __init__(self):
         self.blankPattern = re.compile(r'\s', re.IGNORECASE)
-        self.commentedPattern = re.compile(r'\s*\!', re.IGNORECASE)
-        self.trailingCommentPattern = re.compile(r'(.*?)(\!.*)', re.IGNORECASE)
         self.quotedStringPattern = re.compile(r'''(["'])''', re.IGNORECASE)
         self.subprocBeginPattern = re.compile(r'\s*\w*\s*subroutine\s*(\w*).*', re.IGNORECASE)
         self.subprocFirstLineParameterListPattern = re.compile(r'(.*?\()(.*)')

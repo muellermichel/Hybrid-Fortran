@@ -92,7 +92,7 @@ class FortranCodeSanitizer:
         self.tabDecreasingPattern = re.compile(r'(end\s|enddo).*', re.IGNORECASE)
         self.commentedPattern = re.compile(r'\s*\!', re.IGNORECASE)
         self.openMPLinePattern = re.compile(r'\s*\!\$OMP.*', re.IGNORECASE)
-        self.openACCLinePattern = re.compile(r'\s*\!\$acc.*', re.IGNORECASE)
+        self.openACCLinePattern = re.compile(r'\s*\!\$ACC.*', re.IGNORECASE)
         self.preprocessorPattern = re.compile(r'\s*\#', re.IGNORECASE)
         self.currNumOfTabs = 0
 
@@ -221,12 +221,6 @@ class H90CallGraphParser(object):
             pass_in_regex_pattern=True
         )
         super(H90CallGraphParser, self).__init__()
-
-    def purgeTrailingCommentsAndGetAdjustedLine(self, line):
-        commentPos = findRightMostOccurrenceNotInsideQuotes("!", line)
-        if commentPos < 0:
-            return line
-        return line[:commentPos]
 
     def processCallMatch(self, subProcCallMatch):
         if (not subProcCallMatch.group(1) or subProcCallMatch.group(1) == ''):
@@ -542,13 +536,8 @@ class H90CallGraphParser(object):
            'inside_branch': self.processInsideBranch,
            'inside_ignore': self.processInsideIgnore
          }
-        #exclude commented lines from analysis
-        if (self.patterns.commentedPattern.match(str(line))):
-            self.currentLine = line
-            return
 
-        #remove trailing comments
-        self.currentLine = self.purgeTrailingCommentsAndGetAdjustedLine(str(line))
+        self.currentLine = line
 
         #here we only load the current line into the branch analyzer for further use, we don't need the result of this method
         self.branchAnalyzer.currLevelAfterString(str(line))

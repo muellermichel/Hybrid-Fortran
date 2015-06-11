@@ -552,4 +552,4 @@ $(eval $(call generate_p90_rules,${SRC_DIR_GPU},${DIR_GPU},${GPU_CALLGRAPH_FILE}
 
 ${SRC_DIR_HFPP}%.h90: %.H90
 	@echo ...........preprocessing file $<
-	@mkdir -p ${SRC_DIR_HFPP} && cd $(dir $<) && python ${TOOLSDIR}/strip_fortran_line_continuations.py $(notdir $<) | sed "s/\/\//¢/g" | gcc -E -w ${PFLAGS} - | tr "\`" '\n' | sed "s/¢/\/\//g" > $@
+	@mkdir -p ${SRC_DIR_HFPP} && cd $(dir $<) && < $(notdir $<) sed "s/\/\//¢/g" | gcc -E -w ${PFLAGS} - | tr "\`" '\n' | sed "s/¢/\/\//g" | python ${TOOLSDIR}/strip_fortran_line_continuations.py > $@

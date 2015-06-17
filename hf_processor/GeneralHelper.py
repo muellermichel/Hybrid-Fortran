@@ -217,6 +217,30 @@ class BracketAnalyzer(object):
         else:
             return "", string, self.currLevel
 
+    def getListOfArgumentsInOpenedBracketsAndRemainder(self, string_without_opening_bracket):
+        work = string_without_opening_bracket
+        arguments = []
+        bracketLevel = 0
+        while len(work) > 0 and bracketLevel >= 0:
+            currArgument, work, bracketLevel = self.splitAfterCharacterOnSameLevelOrClosingBrackets(work, ',')
+            work = work.strip()
+            currArgument = currArgument.strip()
+            #just some sanity checks
+            if bracketLevel > 0:
+                raise Exception("There was a problem in the bracket analysis for the following string: %s" %(string_without_opening_bracket))
+            elif bracketLevel == 0 and work == "" or bracketLevel < 0 and currArgument[-1] != ')':
+                raise Exception("Closing bracket expected but none found in argument string: %s" %(string_without_opening_bracket))
+            if bracketLevel == 0 and len(work) > 0 and work[0] == ',':
+                work = work[1:len(work)]
+            if len(currArgument) > 0 and currArgument[-1] == ',' or len(currArgument) > 0 and currArgument[-1] == ')' and bracketLevel < 0:
+                currArgument = currArgument[0:len(currArgument)-1]
+            if currArgument == "" and bracketLevel < 0:
+                break
+            if currArgument == "":
+                raise Exception("Invalid empty argument. Analyzed string: %s; Arguments so far: %s; Remainder: %s" %(string_without_opening_bracket, str(arguments), work))
+            arguments.append(currArgument.strip())
+        return arguments, work
+
     #in case the brackets are not closed, the reminder will be an empty string
     #if this happens, this method may be called again, using the same bracket analyzer, with the continued string.
     def splitAfterClosingBrackets(self, string):

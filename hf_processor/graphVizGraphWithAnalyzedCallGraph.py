@@ -43,6 +43,8 @@ parser.add_option("-o", "--outFile", dest="output",
                   help="output png to OUT", metavar="OUT")
 parser.add_option("-d", "--debug", action="store_true", dest="debug",
                   help="show debug print in standard error output")
+parser.add_option("--allSymbols", action="store_true", dest="allSymbols",
+                  help="show table of all symbols passed through subroutine in tables for each subroutine")
 parser.add_option("--symbolName", dest="symbolName",
                   help="symbol to generate a dependency graph for")
 parser.add_option("--symbolGraphRootRoutine", dest="symbolGraphRootRoutine",
@@ -134,16 +136,20 @@ if options.debug:
 	print "=== routines by name ==="
 	prettyprint(analyzer.routinesByName)
 
+analysis = None
 if options.symbolGraphRootRoutine:
 	analysis = analyzer.getSymbolAnalysisByRoutine(options.symbolGraphRootRoutine)
-else:
+elif options.allSymbols:
 	analysis = analyzer.getSymbolAnalysisByRoutine()
-if options.debug:
+if options.debug and analysis != None:
 	print "=== analysis ==="
 	prettyprint(analysis)
 
-# graph = pydot.Dot(graph_type='digraph', rankdir='LR', fontsize=defaultFontSize, compound=True)
-graph = pydot.Dot(graph_type='digraph', fontsize=defaultFontSize, compound=True)
+if analysis == None:
+	#without the symbol analysis the graph looks best left-to-right
+	graph = pydot.Dot(graph_type='digraph', rankdir='LR', fontsize=defaultFontSize, compound=True)
+else:
+	graph = pydot.Dot(graph_type='digraph', fontsize=defaultFontSize, compound=True)
 # graph = pydot.Dot(graph_type='digraph', fontsize="27") #more useful for academic papers when there is a low number of nodes
 
 ### Callgraph Generation ###
@@ -178,9 +184,10 @@ for sourceName in sourceClustersByName.keys():
 		routineByName[routineName] = routine
 		regionPosition = getRegionPosition(routineName, routines)
 		symbolAnalysis = []
-		for symbolName in analysis.get(routineName, {}).keys():
-			for callEntry in analysis[routineName][symbolName]:
-				symbolAnalysis.append(callEntry)
+		if analysis != None:
+			for symbolName in analysis.get(routineName, {}).keys():
+				for callEntry in analysis[routineName][symbolName]:
+					symbolAnalysis.append(callEntry)
 		label = getNodeLabel(routineName, symbolAnalysis, regionPosition)
 		if aliasNamesByRoutineName:
 			label = "%s s.alias: %s" %(routineName, aliasNamesByRoutineName.get(routineName, "n/a"))

@@ -43,37 +43,21 @@ import pdb
 import traceback
 
 class FortranRoutineArgumentParser:
-    argumentAnalyzer = None
     arguments = None
 
     def __init__(self):
-        self.argumentAnalyzer = BracketAnalyzer()
         self.arguments = []
 
     def __repr__(self):
         return "[ArgParser: %s]" %(str(self.arguments))
 
     def processString(self, string, patterns):
-        argumentText, remainder = self.argumentAnalyzer.getTextWithinBracketsAndRemainder(string)
-        if self.argumentAnalyzer.level != 0:
-            raise Exception("Unbalanced parantheses on code line '%s'" %(string))
-        work = argumentText.strip()
-        bracketLevel = 0
-        while len(work) > 0 and bracketLevel >= 0:
-            currArgument, work, bracketLevel = self.argumentAnalyzer.splitAfterCharacterOnSameLevelOrClosingBrackets(work, ',')
-            work = work.strip()
-            currArgument = currArgument.strip()
-            #just some sanity checks
-            if bracketLevel != 0:
-                raise Exception("Unbalanced parantheses on code line '%s'" %(string))
-            if len(currArgument) > 0 and currArgument[-1] == ',':
-                currArgument = currArgument[0:len(currArgument)-1]
-            if len(currArgument) == 0 and work != "":
-                currArgument = work
-                work = ""
-            if currArgument == "":
-                raise Exception("Empty argument in code line %s. Arguments parsed so far: %s. Work: %s" %(string, self.arguments, work))
-            self.arguments.append(currArgument)
+        argumentMatch = patterns.argumentPattern.match(string)
+        if not argumentMatch:
+            return
+        currBracketAnalyzer = BracketAnalyzer()
+        arguments, _ = currBracketAnalyzer.getListOfArgumentsInOpenedBracketsAndRemainder(argumentMatch.group(1))
+        self.arguments = arguments
 
 class FortranCodeSanitizer:
     currNumOfTabs = 0
@@ -1029,34 +1013,11 @@ This is not allowed for implementations using %s.\
 
     def processSymbolMatchAndGetAdjustedLine(self, line, symbolMatch, symbol, isInsideSubroutineCall, isPointerAssignment):
         def getAccessorsAndRemainder(accessorString):
-            currBracketAnalyzer = BracketAnalyzer()
-            accessors = []
             symbol_access_match = self.patterns.symbolAccessPattern.match(accessorString)
             if not symbol_access_match:
-                return accessors, accessorString
-            work = symbol_access_match.group(1)
-            if len(work) < 1:
-                raise Exception("unmatched opening bracket: %s" %(accessorString))
-            bracketLevel = 0
-            while len(work) > 0 and bracketLevel >= 0:
-                currAccessor, work, bracketLevel = currBracketAnalyzer.splitAfterCharacterOnSameLevelOrClosingBrackets(work, ',')
-                work = work.strip()
-                currAccessor = currAccessor.strip()
-                #just some sanity checks
-                if bracketLevel > 0:
-                    raise Exception("There was a problem in the bracket analysis for the following string: %s" %(accessorString))
-                elif bracketLevel == 0 and work == "" or bracketLevel < 0 and currAccessor[-1] != ')':
-                    raise Exception("Closing bracket expected but none found in accessor string: %s" %(accessorString))
-                if bracketLevel == 0 and len(work) > 0 and work[0] == ',':
-                    work = work[1:len(work)]
-                if len(currAccessor) > 0 and currAccessor[-1] == ',' or len(currAccessor) > 0 and currAccessor[-1] == ')' and bracketLevel < 0:
-                    currAccessor = currAccessor[0:len(currAccessor)-1]
-                if currAccessor == "" and bracketLevel < 0:
-                    break
-                if currAccessor == "":
-                    raise Exception("Invalid empty accessor. Analyzed string: %s; Accessors so far: %s; Remainder: %s" %(accessorString, str(accessors), work))
-                accessors.append(currAccessor.strip())
-            return accessors, work
+                return [], accessorString
+            currBracketAnalyzer = BracketAnalyzer()
+            return currBracketAnalyzer.getListOfArgumentsInOpenedBracketsAndRemainder(symbol_access_match.group(1))
 
         #match the symbol's postfix again in the current given line. (The prefix could have changed from the last match.)
         postfix = symbolMatch.group(3)

@@ -255,7 +255,7 @@ def setTemplateInfos(doc, parent, specText, templateParentNodeName, templateNode
         templateNode.appendChild(settingNode)
         textAfterSettingName = settingMatch.group(2)
         settingBracketAnalyzer = BracketAnalyzer()
-        settingText, remainder = settingBracketAnalyzer.getTextWithinBracketsAndReminder(textAfterSettingName)
+        settingText, remainder = settingBracketAnalyzer.getTextWithinBracketsAndRemainder(textAfterSettingName)
         appendSeparatedTextAsNodes(settingText, ',', doc, settingNode, 'entry')
 
     #deduplicate the definition

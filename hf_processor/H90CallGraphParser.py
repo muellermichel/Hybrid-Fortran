@@ -42,38 +42,36 @@ import uuid
 import pdb
 import traceback
 
-ArgumentParser = enum("DONE", "STARTED", "NOTHING_TO_DO")
-
 class FortranRoutineArgumentParser:
-    bracketAnalyzer = None
-    symbolNames = None
+    argumentAnalyzer = None
+    arguments = None
 
     def __init__(self):
-        self.bracketAnalyzer = BracketAnalyzer()
-        self.symbolNames = []
+        self.argumentAnalyzer = BracketAnalyzer()
+        self.arguments = []
 
     def __repr__(self):
-        return "[ArgParser (status %s): %s]" %(str(self.status), str(self.symbolNames))
-
-    @property
-    def status(self):
-        if self.bracketAnalyzer.bracketsHaveEverOpened and self.bracketAnalyzer.level == 0:
-            return ArgumentParser.DONE
-        if self.bracketAnalyzer.level > 0:
-            return ArgumentParser.STARTED
-        return ArgumentParser.NOTHING_TO_DO
+        return "[ArgParser: %s]" %(str(self.arguments))
 
     def processString(self, string, patterns):
-        if self.status == ArgumentParser.DONE:
-            raise Exception("This argument parser has already done its duty by completely parsing a set of arguments - please use a fresh FortranRoutineArgumentParser")
-        argumentText, remainder = self.bracketAnalyzer.getTextWithinBracketsAndReminder(string)
-        argumentMatch = patterns.argumentPattern.match(argumentText)
-        while argumentMatch != None:
-            argumentName = argumentMatch.group(1)
-            argumentRemainder = argumentMatch.group(2)
-            self.symbolNames.append(argumentName)
-            argumentMatch = patterns.argumentPattern.match(argumentRemainder)
-        return self.status
+        argumentText, remainder = self.argumentAnalyzer.getTextWithinBracketsAndRemainder(string)
+        if self.argumentAnalyzer.level != 0:
+            raise Exception("Unbalanced parantheses on code line '%s'" %(string))
+        work = argumentText.strip()
+        bracketLevel = 0
+        while len(work) > 0 and bracketLevel >= 0:
+            currArgument, work, bracketLevel = self.argumentAnalyzer.splitAfterCharacterOnSameLevelOrClosingBrackets(work, ',')
+            work = work.strip()
+            currArgument = currArgument.strip()
+            #just some sanity checks
+            if bracketLevel != 0:
+                raise Exception("Unbalanced parantheses on code line '%s'" %(string))
+            if len(currArgument) == 0 and work != "":
+                currArgument = work
+                work = ""
+            if currArgument[-1] == ',':
+                currArgument = currArgument[0:len(currArgument)-1]
+            self.arguments.append(currArgument)
 
 class FortranCodeSanitizer:
     currNumOfTabs = 0
@@ -198,7 +196,6 @@ class H90CallGraphParser(object):
     '''A minimal implementation of this class implements one or more process*Match routines'''
     debugPrint = False
     state = 'none'
-    stateBeforeCall = "undefined"
     currSubprocName = None
     currModuleName = None
     currArgumentParser = None
@@ -212,7 +209,6 @@ class H90CallGraphParser(object):
     def __init__(self):
         self.patterns = H90RegExPatterns()
         self.state = "none"
-        self.stateBeforeCall = "undefined"
         self.currCalleeName = None
         self.currArguments = None
         self.branchAnalyzer = BracketAnalyzer(
@@ -227,20 +223,14 @@ class H90CallGraphParser(object):
             raise Exception("subprocedure call without matching subprocedure name")
         self.currArgumentParser = FortranRoutineArgumentParser()
         self.currArgumentParser.processString(subProcCallMatch.group(0), self.patterns)
-        self.currArguments = self.currArgumentParser.symbolNames
+        self.currArguments = self.currArgumentParser.arguments
         self.currCalleeName = subProcCallMatch.group(1)
-        if self.currArgumentParser.status == ArgumentParser.STARTED:
-            self.stateBeforeCall = self.state
-            self.state = "inside_subroutine_call"
         return
 
     def processCallPost(self):
         self.currArguments = None
         self.currArgumentParser = None
         self.currCalleeName = None
-        if self.stateBeforeCall != "undefined":
-            self.state = self.stateBeforeCall
-        self.stateBeforeCall = "undefined"
 
     def processProcBeginMatch(self, subProcBeginMatch):
         if self.debugPrint:
@@ -282,7 +272,7 @@ class H90CallGraphParser(object):
             return
         textAfterSettingName = settingMatch.group(2)
         settingBracketAnalyzer = BracketAnalyzer()
-        settingText, remainder = settingBracketAnalyzer.getTextWithinBracketsAndReminder(textAfterSettingName)
+        settingText, remainder = settingBracketAnalyzer.getTextWithinBracketsAndRemainder(textAfterSettingName)
         self.currTemplateName = settingText
 
     def processTemplateEndMatch(self, templateEndMatch):
@@ -336,13 +326,6 @@ class H90CallGraphParser(object):
         elif templateEndMatch:
             self.processTemplateEndMatch(templateEndMatch)
 
-        elif self.currArgumentParser:
-            if self.currArgumentParser.status in [ArgumentParser.DONE, ArgumentParser.NOTHING_TO_DO]:
-                self.state ='inside_declarations'
-                specificationsBeginHere = True
-                self.processSubprocStartPost()
-            self.processNoMatch()
-
         elif domainDependantMatch:
             self.state = 'inside_moduleDomainDependantRegion'
             self.processDomainDependantMatch(domainDependantMatch)
@@ -358,12 +341,11 @@ class H90CallGraphParser(object):
             self.currSubprocName = subProcBeginMatch.group(1)
             self.currArgumentParser = FortranRoutineArgumentParser()
             self.currArgumentParser.processString(subProcBeginMatch.group(0), self.patterns)
-            self.currArguments = self.currArgumentParser.symbolNames
+            self.currArguments = self.currArgumentParser.arguments
             self.processProcBeginMatch(subProcBeginMatch)
-            if self.currArgumentParser.status in [ArgumentParser.DONE, ArgumentParser.NOTHING_TO_DO]:
-                self.state ='inside_declarations'
-                specificationsBeginHere = True
-                self.processSubprocStartPost()
+            self.state ='inside_declarations'
+            specificationsBeginHere = True
+            self.processSubprocStartPost()
 
         elif (self.patterns.subprocEndPattern.match(str(line))):
             raise Exception("end subprocedure without matching begin subprocedure")
@@ -377,13 +359,6 @@ class H90CallGraphParser(object):
     def processSubprocStartPost(self):
         self.currArgumentParser = None
         self.currArguments = None
-
-    def processInsideSubroutineCall(self, line):
-        self.currArgumentParser.processString(line, self.patterns)
-        if self.currArgumentParser.status == ArgumentParser.DONE:
-            self.processCallPost()
-        elif self.currArgumentParser.status == ArgumentParser.NOTHING_TO_DO:
-            raise Exception("something unexpected happened when parsing arguments")
 
     def processInsideDeclarationsState(self, line):
         subProcCallMatch = self.patterns.subprocCallPattern.match(str(line))
@@ -532,7 +507,6 @@ class H90CallGraphParser(object):
            'inside_parallelRegion': self.processInsideParallelRegionState,
            'inside_domainDependantRegion': self.processInsideDomainDependantRegionState,
            'inside_subroutine_body': self.processInsideSubroutineBodyState,
-           'inside_subroutine_call': self.processInsideSubroutineCall,
            'inside_branch': self.processInsideBranch,
            'inside_ignore': self.processInsideIgnore
          }
@@ -599,7 +573,7 @@ class H90XMLCallGraphGenerator(H90CallGraphParser):
         call = self.doc.createElement('call')
         call.setAttribute('caller', self.currSubprocName)
         call.setAttribute('callee', subProcName)
-        if self.state == "inside_parallelRegion" or self.stateBeforeCall == "inside_parallelRegion":
+        if self.state == "inside_parallelRegion":
             call.setAttribute('parallelRegionPosition', 'surround')
         if (not firstDuplicateChild(self.calls, call)):
             self.calls.appendChild(call)
@@ -1784,16 +1758,6 @@ This is not allowed for implementations using %s.\
             adjustedLine += self.implementation.loopPreparation().strip() + '\n'
         adjustedLine += self.processSymbolsAndGetAdjustedLine(line, isInsideSubroutineCall=False)
         self.prepareLine(adjustedLine, self.tab_insideSub)
-
-    def processInsideSubroutineCall(self, line):
-        super(H90toF90Printer, self).processInsideSubroutineCall(line)
-        adjustedLine = ""
-
-        adjustedLine = self.processSymbolsAndGetAdjustedLine(line, isInsideSubroutineCall=True)
-
-        if self.currCalleeNode and self.state != "inside_subroutine_call":
-            adjustedLine = self.processCallPostAndGetAdjustedLine(adjustedLine)
-        self.prepareLine(adjustedLine.rstrip() + "\n", "")
 
     def processInsideDomainDependantRegionState(self, line):
         super(H90toF90Printer, self).processInsideDomainDependantRegionState(line)

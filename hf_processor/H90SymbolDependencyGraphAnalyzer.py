@@ -199,11 +199,12 @@ class SymbolDependencyAnalyzer:
                 ))
             if len(callArguments) != len(routineArguments):
                 raise Exception(
-                    "Argument list from caller %s (%s) do not match routine arguments (%s) for routine %s" %(
+                    "Argument list from caller %s has different length (%i) than routine argument list (%i) for routine %s : %s" %(
                         call.getAttribute("caller"),
-                        str(callArguments),
-                        str(routineArguments),
-                        routineArguments
+                        len(callArguments),
+                        len(routineArguments),
+                        routineName,
+                        str(callArguments)
                     )
                 )
         templates_and_entries = getDomainDependantTemplatesAndEntries(

@@ -444,7 +444,7 @@ endif
 
 ${CG_DIR}rawCG.xml: ${SRC_H90TGT_HFPP}
 	@echo "...........hybrid files have been modified => building and testing hybrid callgraph"
-	@echo ..calling python ${TOOLSDIR}/annotatedCallGraphFromH90SourceDir.py -i ${SRC_DIR_COMMON} ${H90_PREPROCESSOR_ARGS} >${DEBUG_OUTPUT}
+	@echo ..calling python ${TOOLSDIR}/annotatedCallGraphFromH90SourceDir.py -i ${SRC_DIR_HFPP} ${H90_PREPROCESSOR_ARGS} >${DEBUG_OUTPUT}
 	@mkdir -p ${CG_DIR} && python ${TOOLSDIR}/annotatedCallGraphFromH90SourceDir.py -i ${SRC_DIR_HFPP} ${H90_PREPROCESSOR_ARGS} > $@
 
 ${DIR_CPU}implementationNamesByTemplate: ${CG_DIR}rawCG.xml
@@ -544,7 +544,7 @@ ${SRC_DIR_HFPP}%.h90: %.h90
 define generate_p90_rules
 $(1)%.P90: ${SRC_DIR_HFPP}%.h90 $(2)implementationNamesByTemplate ${CG_DIR}$(3)
 	@$$(call yellowecho,"...........converting $$(notdir $$<)")
-	@${HF_DIR}/hf_bin/convert.sh $$< $$@ ${CG_DIR}$(3) $(2) $(1) ${H90_PREPROCESSOR_ARGS} ${OPTION_FLAGS}
+	@${HF_DIR}/hf_bin/convert.sh $$< $$@ ${CG_DIR}$(3) $(2) $(1) "${H90_PREPROCESSOR_ARGS}" "${OPTION_FLAGS}"
 endef
 
 $(eval $(call generate_p90_rules,${SRC_DIR_CPU},${DIR_CPU},${CPU_CALLGRAPH_FILE}))

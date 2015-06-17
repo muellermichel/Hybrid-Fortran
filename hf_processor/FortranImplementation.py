@@ -394,7 +394,7 @@ def getDebugOffsetString(domainTuple):
     elif dependantDomSize in userdefinedDomNames:
         offset = "DEBUG_OUT_%s" %(dependantDomSize.strip())
     else:
-        offset = "1"
+        offset = "DEBUG_OUT_x"
     return offset
 
 def getRuntimeDebugPrintStatements(symbolsByName, calleeRoutineNode, parallelRegionNode):
@@ -427,7 +427,7 @@ def getRuntimeDebugPrintStatements(symbolsByName, calleeRoutineNode, parallelReg
                     symbol.domains[i]
                 )
             )
-        result = result + "cuTemp = %s\n" %(symbol.accessRepresentation(iterators, offsets, parallelRegionNode))
+        result = result + "hf_output_temp = %s\n" %(symbol.accessRepresentation(iterators, offsets, parallelRegionNode))
         #michel 2013-4-18: the Fortran-style memcopy as used right now in the above line creates a runtime error immediately
         #                  if we'd like to catch such errors ourselves, we need to use the cuda API memcopy calls - however we
         #                  then also need information about the symbol size, which isn't available in the current implementation
@@ -448,7 +448,7 @@ def getRuntimeDebugPrintStatements(symbolsByName, calleeRoutineNode, parallelReg
             formStr = formStr + "I3"
         formStr = formStr + ",A,E13.5)'"
         domainsStr = domainsStr + ",'):"
-        result = result + "write(0,%s) '%s@%s', cuTemp\n" %(formStr, symbol.name, domainsStr)
+        result = result + "write(0,%s) '%s@%s', hf_output_temp\n" %(formStr, symbol.name, domainsStr)
     result = result + "write(0,*) '**********************************************'\n"
     result = result + "write(0,*) ''\n"
     return result
@@ -563,7 +563,10 @@ class FortranImplementation(object):
         return regionStr
 
     def declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates):
-        return getIteratorDeclaration(currRoutineNode, currParallelRegionTemplates, ["CPU", ""])
+        result = ""
+        if 'DEBUG_PRINT' in self.optionFlags:
+            result += "real(8) :: hf_output_temp\n"
+        return result + getIteratorDeclaration(currRoutineNode, currParallelRegionTemplates, ["CPU", ""])
 
     def subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, is_subroutine_end):
         return ''
@@ -822,6 +825,8 @@ end subroutine
         )
         self.currRoutineHasDataDeclarations = dataDeclarationsRequired
         result = ""
+        if 'DEBUG_PRINT' in self.optionFlags:
+            result += "real(8) :: hf_output_temp\n"
         result += getIteratorDeclaration(currRoutineNode, currParallelRegionTemplates, ["GPU"])
         result += "integer(4) :: hf_symbols_are_device_present\n"
         for symbol in dependantSymbols:
@@ -1272,6 +1277,8 @@ Symbols vs transferHere attributes:\n%s" %(str([(symbol.name, symbol.transferHer
     def declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates):
         self.currRoutineNode = currRoutineNode
         result = ""
+        if 'DEBUG_PRINT' in self.optionFlags:
+            result += "real(8) :: hf_output_temp\n"
         result += getIteratorDeclaration(currRoutineNode, currParallelRegionTemplates, ["GPU"])
 
         if routineIsKernelCaller:
@@ -1308,7 +1315,7 @@ Symbols vs transferHere attributes:\n%s" %(str([(symbol.name, symbol.transferHer
 class DebugCUDAFortranImplementation(CUDAFortranImplementation):
 
     def declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates):
-        result = "real(8) :: cuTemp\n"
+        result = "real(8) :: hf_output_temp\n"
         result = result + CUDAFortranImplementation.declarationEnd(self, dependantSymbols, routineIsKernelCaller, \
             currRoutineNode, currParallelRegionTemplates)
         return result

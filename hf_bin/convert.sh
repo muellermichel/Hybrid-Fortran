@@ -25,7 +25,7 @@ metadata_file=${3}
 build_dir=${4}
 build_dir_sources=${5}
 preprocessor_args=${6}
-option_flags=${7}
+option_flags=$(echo -n ${7})
 
 conversion_command="python ${HF_DIR}/hf_processor/generateF90fromH90AndAnalyzedCallGraph.py -i ${input_file} -c ${metadata_file} --implementation=${build_dir}implementationNamesByTemplate --optionFlags=${option_flags} ${preprocessor_args} > ${build_dir_sources}hf_temp.P90"
 echo "$conversion_command"

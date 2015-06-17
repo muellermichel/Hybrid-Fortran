@@ -60,7 +60,7 @@ parser.add_option("--optionFlags", dest="optionFlags",
 (options, args) = parser.parse_args()
 
 optionFlags = options.optionFlags.split(',') if options.optionFlags != None else []
-if options.debug:
+if options.debug and 'DEBUG_PRINT' not in optionFlags:
 	optionFlags.append('DEBUG_PRINT')
 
 if (not options.sourceFile):

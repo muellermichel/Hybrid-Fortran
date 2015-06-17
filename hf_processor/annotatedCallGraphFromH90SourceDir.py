@@ -63,7 +63,6 @@ filesInDir = dirEntries(str(options.sourceDir), True, 'h90')
 for fileInDir in filesInDir:
     parser = H90XMLCallGraphGenerator(doc)
     parser.debugPrint = options.debug
-    #pdb.set_trace()
     parser.processFile(fileInDir)
     if options.debug:
       sys.stderr.write("first pass for " + fileInDir + " finished\n")

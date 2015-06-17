@@ -302,7 +302,10 @@ def run_accuracy_test_for_netcdf(options, eps):
 					passed_string = "input: \n%s\nexpected:\n%s\nerrors found at:%s\nFAIL <-------" %(in_array, ref_array, greater_than_epsilon)
 				else:
 					first_occurrence = numpy.argmax(greater_than_epsilon==True)
-					passed_string = "first error at:%s; FAIL <-------" %(first_occurrence)
+					first_occurrence_index_tuple = numpy.unravel_index(first_occurrence, in_array.shape)
+					first_err_val = in_array[first_occurrence_index_tuple]
+					expected_val = ref_array[first_occurrence_index_tuple]
+					passed_string = "first error at:%s; first error value: %s; expected: %s; FAIL <-------" %(first_occurrence, first_err_val, expected_val)
 			elif root_mean_square_deviation > eps:
 				error_found = True
 				passed_string = "FAIL <-------"

@@ -248,7 +248,7 @@ class BracketAnalyzer(object):
 
     #in case the brackets are not closed, the reminder will be an empty string
     #if this happens, this method may be called again, using the same bracket analyzer, with the continued string.
-    def getTextWithinBracketsAndReminder(self, string):
+    def getTextWithinBracketsAndRemainder(self, string):
         text, remainder = self.splitAfterClosingBrackets(string)
         #cut away the left and right bracket
         text = text.partition(self.openingChar)[2]

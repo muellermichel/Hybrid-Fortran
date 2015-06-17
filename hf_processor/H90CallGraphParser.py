@@ -66,11 +66,13 @@ class FortranRoutineArgumentParser:
             #just some sanity checks
             if bracketLevel != 0:
                 raise Exception("Unbalanced parantheses on code line '%s'" %(string))
+            if len(currArgument) > 0 and currArgument[-1] == ',':
+                currArgument = currArgument[0:len(currArgument)-1]
             if len(currArgument) == 0 and work != "":
                 currArgument = work
                 work = ""
-            if currArgument[-1] == ',':
-                currArgument = currArgument[0:len(currArgument)-1]
+            if currArgument == "":
+                raise Exception("Empty argument in code line %s. Arguments parsed so far: %s. Work: %s" %(string, self.arguments, work))
             self.arguments.append(currArgument)
 
 class FortranCodeSanitizer:

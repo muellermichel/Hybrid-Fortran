@@ -43,6 +43,8 @@ parser.add_option("-o", "--outFile", dest="output",
                   help="output png to OUT", metavar="OUT")
 parser.add_option("-d", "--debug", action="store_true", dest="debug",
                   help="show debug print in standard error output")
+parser.add_option("--root", dest="root",
+                  help="only graph what's touched from callgraph root")
 parser.add_option("--allSymbols", action="store_true", dest="allSymbols",
                   help="show table of all symbols passed through subroutine in tables for each subroutine")
 parser.add_option("--symbolName", dest="symbolName",
@@ -66,8 +68,8 @@ output = "./out.png"
 if options.output:
 	output = options.output
 
-smallFontSize = "8.0"
-defaultFontSize = "10.0"
+smallFontSize = "10.0"
+defaultFontSize = "13.0"
 clusterFontSize = "30.0"
 graphPenWidth = 1
 moduleClusterPenwidth = 1
@@ -159,7 +161,29 @@ routineByName = {}
 routinesBySourceDict = {}
 sourceNameByRoutineNames = {}
 routines = doc.getElementsByTagName("routine")
+
+edges = {}
+for callerName in analyzer.callGraphEdgesByCallerName.keys():
+	for (caller, callee) in analyzer.callGraphEdgesByCallerName[callerName]:
+		edges[(caller, callee)] = None
+
 for routine in routines:
+	routineName = routine.getAttribute("name")
+	routineByName[routineName] = routine
+
+if type(options.root) in [unicode, str] and options.root != "":
+	def mark_routine_and_heirs(routine_name):
+		routine = routineByName.get(routine_name)
+		if routine == None:
+			return
+		routine.setAttribute("cg_marked", True)
+		for (_, callee) in analyzer.callGraphEdgesByCallerName.get(routine_name, []):
+			mark_routine_and_heirs(callee)
+	mark_routine_and_heirs(options.root)
+
+for routine in routines:
+	if type(options.root) in [unicode, str] and options.root != "" and not routine.getAttribute("cg_marked"):
+		continue
 	routineName = routine.getAttribute("name")
 	sourceName = routine.getAttribute("source")
 	routinesInSourceList = routinesBySourceDict.get(sourceName, [])
@@ -181,7 +205,6 @@ for sourceName in sourceClustersByName.keys():
 	source = sourceClustersByName[sourceName]
 	for routine in routinesBySourceDict[sourceName]:
 		routineName = routine.getAttribute("name")
-		routineByName[routineName] = routine
 		regionPosition = getRegionPosition(routineName, routines)
 		symbolAnalysis = []
 		if analysis != None:
@@ -195,11 +218,13 @@ for sourceName in sourceClustersByName.keys():
 			node = pydot.Node(routineName, label=label, shape="plaintext", fontname=font, fontsize=defaultFontSize, penwidth=graphPenWidth)
 			source.add_node(node)
 
-edges = {}
-for callerName in analyzer.callGraphEdgesByCallerName.keys():
-	for (caller, callee) in analyzer.callGraphEdgesByCallerName[callerName]:
-		edges[(caller, callee)] = None
 for (caller, callee) in edges.keys():
+	if type(options.root) in [unicode, str] and options.root != "":
+		callerRoutine = routineByName.get(caller)
+		calleeRoutine = routineByName.get(callee)
+		if callerRoutine == None or not callerRoutine.getAttribute("cg_marked")\
+		or calleeRoutine == None or not calleeRoutine.getAttribute("cg_marked"):
+			continue
 	callerSourceName = sourceNameByRoutineNames.get(caller)
 	calleeSourceName = sourceNameByRoutineNames.get(callee)
 	if not callerSourceName or not calleeSourceName:
@@ -250,16 +275,20 @@ exampleSymbolAnalysis7.symbolType = SymbolType.DOMAIN_DEPENDANT
 exampleSymbolAnalysis8 = SymbolAnalysis()
 exampleSymbolAnalysis8.name = "name of local symbol without domain dependant spec"
 exampleSymbolAnalysis8.symbolType = SymbolType.UNDEFINED
-exampleSymbolAnalysis = [
-	exampleSymbolAnalysis1,
-	exampleSymbolAnalysis2,
-	exampleSymbolAnalysis3,
-	exampleSymbolAnalysis4,
-	exampleSymbolAnalysis5,
-	exampleSymbolAnalysis6,
-	exampleSymbolAnalysis7,
-	exampleSymbolAnalysis8
-]
+exampleSymbolAnalysis = None
+if options.symbolGraphRootRoutine or options.allSymbols:
+	exampleSymbolAnalysis = [
+		exampleSymbolAnalysis1,
+		exampleSymbolAnalysis2,
+		exampleSymbolAnalysis3,
+		exampleSymbolAnalysis4,
+		exampleSymbolAnalysis5,
+		exampleSymbolAnalysis6,
+		exampleSymbolAnalysis7,
+		exampleSymbolAnalysis8
+	]
+else:
+	exampleSymbolAnalysis = []
 legend.add_node(pydot.Node("example", label=getNodeLabel('routine name (parallel region inside)', exampleSymbolAnalysis, "inside"), shape="plaintext", fontname=font, fontsize=defaultFontSize, penwidth=graphPenWidth))
 legend.add_node(pydot.Node("example2", label=getNodeLabel('routine name (parallel region within)', [], "within"), shape="plaintext", fontname=font, fontsize=defaultFontSize, penwidth=graphPenWidth))
 legend.add_node(pydot.Node("example3", label=getNodeLabel('routine name (parallel region outside)', [], "outside"), shape="plaintext", fontname=font, fontsize=defaultFontSize, penwidth=graphPenWidth))

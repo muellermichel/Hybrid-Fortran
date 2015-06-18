@@ -270,7 +270,8 @@ def run_accuracy_test_for_netcdf(options, eps):
 			ref_array = None
 			if not key in refFile.variables:
 				sys.stderr.write("Error: variable %s not found in reference netcdf file %s\n" %(key, options.refFile))
-				sys.exit(1)
+				error_found = True
+				continue
 			in_variable = inFile.variables[key]
 			if in_variable.dtype.kind == 'S':
 				sys.stderr.write("Skipping variable %s with data type %s\n" %(key, in_variable.dtype))
@@ -278,11 +279,18 @@ def run_accuracy_test_for_netcdf(options, eps):
 			ref_variable = refFile.variables[key]
 			if in_variable.dtype != ref_variable.dtype:
 				sys.stderr.write("Error: variable %s has different datatypes - infile: %s, reference: %s\n" %(key, in_variable.dtype, ref_variable.dtype))
-				sys.exit(1)
-			shape_comparison = numpy.equal(in_variable.shape, ref_variable.shape)
+				error_found = True
+				continue
+			try:
+				shape_comparison = numpy.equal(in_variable.shape, ref_variable.shape)
+			except Exception:
+				sys.stderr.write("Error: variable %s's shape (%s) could not be compared to the reference shape (%s)\n" %(key, str(in_variable.shape), ref_variable.shape))
+				error_found = True
+				continue
 			if not numpy.all(shape_comparison):
 				sys.stderr.write("Error: variable %s has different shapes - infile: %s, reference: %s\n" %(key, in_variable.shape, ref_variable.shape))
-				sys.exit(1)
+				error_found = True
+				continue
 			in_array = get_array_from_netcdf_variable(in_variable)
 			ref_array = get_array_from_netcdf_variable(ref_variable)
 			absolute_difference = numpy.abs(in_array - ref_array)

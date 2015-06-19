@@ -385,14 +385,23 @@ def getTempDeallocationsAfterKernelCall(symbolsByName):
     return result
 
 def getDebugOffsetString(domainTuple):
+    def getUpperBound(domainSizeSpec):
+        boundaries = domainSizeSpec.split(':')
+        if len(boundaries) == 1:
+            return boundaries[0].strip()
+        if len(boundaries) == 2:
+            return boundaries[1].strip()
+        raise Exception("Unexpected domain size specification: %s" %(domainSizeSpec))
+
     #$$$ change this - it must be consistant with storage_order.F90
-    userdefinedDomNames = ["x", "y", "z", "nz", "i", "j", "vertical", "verticalPlus", "KMAX_CONST", "KMP1_CONST"]
+    userdefinedDomNames = ["x", "y", "z", "nz", "i", "j", "vertical", "verticalPlus", "KMAX_CONST", "KMP1_CONST", "ntlm", "ngm"]
     (dependantDomName, dependantDomSize) = domainTuple
+    upperBound = getUpperBound(dependantDomSize)
     offset = ""
     if dependantDomName in userdefinedDomNames:
         offset = "DEBUG_OUT_%s" %(dependantDomName.strip())
-    elif dependantDomSize in userdefinedDomNames:
-        offset = "DEBUG_OUT_%s" %(dependantDomSize.strip())
+    elif upperBound in userdefinedDomNames:
+        offset = "DEBUG_OUT_%s" %(upperBound)
     else:
         offset = "DEBUG_OUT_x"
     return offset
@@ -409,25 +418,15 @@ def getRuntimeDebugPrintStatements(symbolsByName, calleeRoutineNode, parallelReg
         if not symbol.domains or len(symbol.domains) == 0:
             continue
         offsets = []
-        for i in range(len(symbol.domains) - symbol.numOfParallelDomains):
-            newDebugOffsetString = getDebugOffsetString(
-                symbol.domains[i + symbol.numOfParallelDomains]
-            )
+        for domain in symbol.domains:
+            newDebugOffsetString = getDebugOffsetString(domain)
             if newDebugOffsetString in offsets:
                 #if there are multiple dimensions with the same sizes, use the second specified macro
                 # - else we'd be always showing the diagonal of quadratic matrices.
                 offsets.append(newDebugOffsetString + "_2")
             else:
                 offsets.append(newDebugOffsetString)
-        iterators = []
-        for i in range(symbol.numOfParallelDomains):
-            (dependantDomName, dependantDomSize) = symbol.domains[i]
-            iterators.append(
-                getDebugOffsetString(
-                    symbol.domains[i]
-                )
-            )
-        result = result + "hf_output_temp = %s\n" %(symbol.accessRepresentation(iterators, offsets, parallelRegionNode))
+        result = result + "hf_output_temp = %s\n" %(symbol.accessRepresentation([], offsets, parallelRegionNode))
         #michel 2013-4-18: the Fortran-style memcopy as used right now in the above line creates a runtime error immediately
         #                  if we'd like to catch such errors ourselves, we need to use the cuda API memcopy calls - however we
         #                  then also need information about the symbol size, which isn't available in the current implementation
@@ -437,7 +436,7 @@ def getRuntimeDebugPrintStatements(symbolsByName, calleeRoutineNode, parallelReg
         #         "\twrite(0, *) 'CUDA error when attempting to copy value from %s:', cudaGetErrorString(cuErrorMemcopy)\n" \
         #         "stop 1\n" \
         #     "end if\n" %(symbol.name)
-        joinedDomains = iterators + offsets
+        joinedDomains = offsets
         domainsStr = "(',"
         formStr = "'(A,"
         for i in range(len(joinedDomains)):

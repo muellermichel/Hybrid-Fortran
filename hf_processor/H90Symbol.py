@@ -554,7 +554,7 @@ class Symbol(object):
             self.intent = intentMatch.group(1)
         elif not self.intent or self.intent.strip() == "":
             self.intent = ""
-        elif not self.intent == intentMatch.group(1):
+        elif not intentMatch or self.intent != intentMatch.group(1):
             raise Exception("Symbol %s's intent was previously defined already and does not match the declaration on this line. Previously loaded intent: %s, new intent: %s" %(str(self), self.intent, intentMatch.group(1)))
 
         #   check whether this is a pointer

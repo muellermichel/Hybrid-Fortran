@@ -21,6 +21,7 @@ sync_to_*
 *.lot
 *.tex.backup
 *.kilepr
+*.cprof
 Thesis.*
 csthesis.*
 doc/src/declarationOfOriginality.pdf

@@ -27,6 +27,7 @@
 
 from xml.dom.minidom import Document
 from GeneralHelper import BracketAnalyzer, enum
+# from ordereddict import OrderedDict
 import uuid
 import re
 
@@ -132,8 +133,28 @@ def appendSeparatedTextAsNodes(text, separator, doc, parent, nodeName):
         entryNode.appendChild(textNode)
         parent.appendChild(entryNode)
 
-def firstDuplicateChild(parent, newNode):
+def firstDuplicateChild(parent, newNode, cgDoc=None):
     '''Get first duplicate for the newNode within parent's childNodes'''
+    ## trying to make this faster, but with th erecursiveness it's tricky
+    # currAttributes = OrderedDict()
+    # if hasattr(newNode, "tagName"):
+    #     currAttributes["tagName"] = newNode.tagName
+    # currAttributeNames = sorted([name for (name, value) in newNode.attributes.items() if name != "id"])
+    # for attributeName in currAttributeNames:
+    #     currAttributes[attributeName] = newNode.attributes[attributeName]
+    # attributeTuple = tuple(currAttributes.values())
+    # attributeCache = None
+    # if cgDoc and hasattr(cgDoc, "__attributeCache")
+    #     attributeCache = cgDoc.__attributeCache
+    # elif cgDoc:
+    #     attributeCache = {}
+    #     cgDoc.__attributeCache = attributeCache
+    # if attributeCache and attributeTuple in attributeCache:
+    #     return attributeCache[attributeTuple]
+    # if attributeCache:
+    #     attributeCache[attributeTuple] = newNode
+    #     return None
+
     nodesWithDuplicateAttributes = []
     for childNode in parent.childNodes:
         if hasattr(childNode, "tagName") and ((not hasattr(newNode, "tagName")) or childNode.tagName != newNode.tagName):
@@ -279,14 +300,21 @@ def setTemplateInfos(doc, parent, specText, templateParentNodeName, templateNode
     return entry, templateNode
 
 def regionTemplatesByID(cgDoc, templateTypeName):
-    templateNodes = cgDoc.getElementsByTagName(templateTypeName)
+    regionTemplatesByID = None
+    if hasattr(cgDoc, "__templateCache"):
+        regionTemplatesByID = cgDoc.__templateCache.get(templateTypeName)
+    else:
+        cgDoc.__templateCache = {}
+    if regionTemplatesByID:
+        return regionTemplatesByID
     regionTemplatesByID = {}
+    templateNodes = cgDoc.getElementsByTagName(templateTypeName)
     for templateNode in templateNodes:
         idStr = templateNode.getAttribute('id')
         if not idStr or idStr == '':
             raise Exception("Template definition without id attribute.")
         regionTemplatesByID[idStr] = templateNode
-
+    cgDoc.__templateCache[templateTypeName] = regionTemplatesByID
     return regionTemplatesByID
 
 RoutineNodeInitStage = enum("NO_DIRECTIVES",

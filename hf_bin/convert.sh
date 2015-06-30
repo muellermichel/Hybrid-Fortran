@@ -27,7 +27,10 @@ build_dir_sources=${5}
 preprocessor_args=${6}
 option_flags=$(echo -n ${7})
 
-conversion_command="python ${HF_DIR}/hf_processor/generateF90fromH90AndAnalyzedCallGraph.py -i ${input_file} -c ${metadata_file} --implementation=${build_dir}implementationNamesByTemplate --optionFlags=${option_flags} ${preprocessor_args} > ${build_dir_sources}hf_temp.P90"
+input_basename=$(basename "$input_file")
+input_filename="${input_basename%.*}"
+
+conversion_command="python -m cProfile -o ${build_dir_sources}${input_filename}.cprof ${HF_DIR}/hf_processor/generateF90fromH90AndAnalyzedCallGraph.py -i ${input_file} -c ${metadata_file} --implementation=${build_dir}implementationNamesByTemplate --optionFlags=${option_flags} ${preprocessor_args} > ${build_dir_sources}hf_temp.P90"
 echo "$conversion_command"
 eval "$conversion_command"
 if [ ! -e ${output_file} ]; then

@@ -445,7 +445,7 @@ endif
 ${CG_DIR}rawCG.xml: ${SRC_H90TGT_HFPP}
 	@echo "...........hybrid files have been modified => building and testing hybrid callgraph"
 	@echo ..calling python ${TOOLSDIR}/annotatedCallGraphFromH90SourceDir.py -i ${SRC_DIR_HFPP} ${H90_PREPROCESSOR_ARGS} >${DEBUG_OUTPUT}
-	@mkdir -p ${CG_DIR} && python ${TOOLSDIR}/annotatedCallGraphFromH90SourceDir.py -i ${SRC_DIR_HFPP} ${H90_PREPROCESSOR_ARGS} > $@
+	@mkdir -p ${CG_DIR} && python -m cProfile -o "raw_cg.cprof" ${TOOLSDIR}/annotatedCallGraphFromH90SourceDir.py -i ${SRC_DIR_HFPP} ${H90_PREPROCESSOR_ARGS} > $@
 
 ${DIR_CPU}implementationNamesByTemplate: ${CG_DIR}rawCG.xml
 	@mkdir -p ${DIR_CPU} && ${HF_DIR}/hf_bin/getImplementationNameByTemplate.sh cpu ${IMPLEMENTATION_MODE_SPECIFIER} ${CONFIGDIR}MakesettingsGeneral ${CG_DIR}rawCG.xml > ${DIR_CPU}implementationNamesByTemplate
@@ -459,11 +459,11 @@ ${CG_DIR}CG_CPU.xml: ${CG_DIR}rawCG.xml
 		if [ -e $@ ]; then \
 			mv $@ $@.ref ; \
 		fi )
-	@echo ..calling python ${TOOLSDIR}/loopAnalysisWithAnnotatedCallGraph.py -i $< ${H90_PREPROCESSOR_ARGS} -a CPU >${DEBUG_OUTPUT}
+	@echo ..calling python -m cProfile -o "cg_cpu.cprof" ${TOOLSDIR}/loopAnalysisWithAnnotatedCallGraph.py -i $< ${H90_PREPROCESSOR_ARGS} -a CPU >${DEBUG_OUTPUT}
 	@mkdir -p ${CG_DIR} && python ${TOOLSDIR}/loopAnalysisWithAnnotatedCallGraph.py -i $< ${H90_PREPROCESSOR_ARGS} -a CPU > $@
 	@(set -e && \
-		mkdir -p ${SRC_DIR_GPU} && \
-		SOURCES_TO_REGENERATE=`python ${TOOLSDIR}/getSourcesToBeProcessed.py -i $@ -r $@.ref ${H90_PREPROCESSOR_ARGS}` && \
+		mkdir -p ${SRC_DIR_CPU} && \
+		SOURCES_TO_REGENERATE=`python -m cProfile -o "${SRC_DIR_CPU}cg_cpu.cprof" ${TOOLSDIR}/getSourcesToBeProcessed.py -i $@ -r $@.ref ${H90_PREPROCESSOR_ARGS}` && \
 		PATHS_TO_REGENERATE="" && \
 		for SOURCE in $${SOURCES_TO_REGENERATE[*]} ; do \
 	   	PATHS_TO_REGENERATE="$${PATHS_TO_REGENERATE} ${SRC_DIR_CPU}$${SOURCE}.F90" ; \
@@ -539,7 +539,7 @@ ${SRC_DIR_GPU}%.F: %.F
 
 ${SRC_DIR_HFPP}%.h90: %.h90
 	@echo ...........preprocessing file $<
-	@mkdir -p ${SRC_DIR_HFPP} && python ${TOOLSDIR}/strip_fortran_line_continuations.py $< > $@
+	@mkdir -p ${SRC_DIR_HFPP} && python -m cProfile -o "$<_strip_continuations.cprof" ${TOOLSDIR}/strip_fortran_line_continuations.py $< > $@
 
 define generate_p90_rules
 $(1)%.P90: ${SRC_DIR_HFPP}%.h90 $(2)implementationNamesByTemplate ${CG_DIR}$(3)
@@ -552,4 +552,4 @@ $(eval $(call generate_p90_rules,${SRC_DIR_GPU},${DIR_GPU},${GPU_CALLGRAPH_FILE}
 
 ${SRC_DIR_HFPP}%.h90: %.H90
 	@echo ...........preprocessing file $<
-	@mkdir -p ${SRC_DIR_HFPP} && cd $(dir $<) && < $(notdir $<) sed "s/\/\//¢/g" | gcc -E -w ${PFLAGS} - | tr "\`" '\n' | sed "s/¢/\/\//g" | python ${TOOLSDIR}/strip_fortran_line_continuations.py > $@
+	@mkdir -p ${SRC_DIR_HFPP} && cd $(dir $<) && < $(notdir $<) sed "s/\/\//¢/g" | gcc -E -w ${PFLAGS} - | tr "\`" '\n' | sed "s/¢/\/\//g" | python -m cProfile -o "$(notdir $<)_strip_continuations.cprof" ${TOOLSDIR}/strip_fortran_line_continuations.py > $@

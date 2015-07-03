@@ -16,9 +16,10 @@
 ! along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
 module simple_weather
+  use iso_c_binding
   implicit none
   real(8), pointer, dimension(:,:,:) :: thermal_energy, thermal_energy_updated
-  real(8), allocatable, dimension(:,:) :: surface_thermal_energy, planetary_thermal_energy
+  real(8), allocatable, target, dimension(:,:) :: surface_thermal_energy, planetary_thermal_energy
   real(8) :: t_start_output_cycle, t_start_output_cycle_w_io
   @domainDependant{attribute(autoDom,host), domName(i,j,k), domSize(0:nx+1,0:ny+1,nz)}
   thermal_energy, thermal_energy_updated
@@ -29,7 +30,7 @@ module simple_weather
   @end domainDependant
   contains
 
-  subroutine initialize(nx_in,ny_in,nz_in)
+  subroutine initialize(nx_in,ny_in,nz_in) bind(C, name="initialize")
     use commons
     use time_profiling
     integer(4), intent(in) :: nx_in, ny_in, nz_in
@@ -45,7 +46,7 @@ module simple_weather
 
     !initialize to 0K with a 300K cube in the middle
     thermal_energy(:,:,:) = 0.0d0
-    do k=floor(nz/4.0d0),ceiling(3.0d0*nz/4.0d0)
+    do k=max(floor(nz/4.0d0),1),ceiling(3.0d0*nz/4.0d0)
       do j=floor(ny/4.0d0),ceiling(3.0d0*ny/4.0d0)
         do i=floor(nx/4.0d0),ceiling(3.0d0*nx/4.0d0)
           thermal_energy(i,j,k) = 300.0d0
@@ -57,7 +58,27 @@ module simple_weather
     surface_thermal_energy(:,:) = 330.d0
   end subroutine
 
-  subroutine simulate(start_time, end_time, timestep, output_timestep)
+  function getThermalEnergyPtr() result(cptr) bind(C, name="getThermalEnergyPtr")
+    type(c_ptr) :: cptr
+    cptr = c_loc(thermal_energy(AT(0,0,1)))
+  end function
+
+  function getThermalEnergyUpdatedPtr() result(cptr) bind(C, name="getThermalEnergyUpdatedPtr")
+    type(c_ptr) :: cptr
+    cptr = c_loc(thermal_energy_updated(AT(0,0,1)))
+  end function
+
+  function getSurfaceThermalEnergyPtr() result(cptr) bind(C, name="getSurfaceThermalEnergyPtr")
+    type(c_ptr) :: cptr
+    cptr = c_loc(surface_thermal_energy(1,1))
+  end function
+
+  function getPlanetaryThermalEnergyUpdatedPtr() result(cptr) bind(C, name="getPlanetaryThermalEnergyUpdatedPtr")
+    type(c_ptr) :: cptr
+    cptr = c_loc(planetary_thermal_energy(1,1))
+  end function
+
+  subroutine simulate(start_time, end_time, timestep, output_timestep) bind(C, name="simulate")
     use commons
     use dynamical_processes, only: diffuse
     use physical_processes, only: run_physics
@@ -132,12 +153,9 @@ module simple_weather
     call incrementCounter(counter3, t_start_output_cycle_w_io)
     write(6,*) "total output cycle time used w/ IO: ", counter3
     write(6,*) "total output cycle time used w/o IO: ", counter_timestep
-
-    call getTime(t_start_output_cycle)
-    call getTime(t_start_output_cycle_w_io)
   end subroutine
 
-  subroutine cleanup()
+  subroutine cleanup() bind(C, name="cleanup")
     deallocate(thermal_energy)
     deallocate(thermal_energy_updated)
     deallocate(surface_thermal_energy)
@@ -145,25 +163,25 @@ module simple_weather
   end subroutine
 end module
 
-program main
-  use simple_weather
-  use M_kracken
-  implicit none
-  integer(4) :: nx, ny, nz
-  real(8) :: end_time, timestep, output_timestep
+! program main
+!   use simple_weather
+!   use M_kracken
+!   implicit none
+!   integer(4) :: nx, ny, nz
+!   real(8) :: end_time, timestep, output_timestep
 
-  call kracken('cmd', "-nx 200 -ny 200 -nz 200 -te 100.0d0 -ts 0.1d0 -tso 10.0d0")
-  nx = iget('cmd_nx')
-  ny = iget('cmd_ny')
-  nz = iget('cmd_nz')
-  end_time = rget('cmd_te')
-  timestep = rget('cmd_ts')
-  output_timestep = rget('cmd_tso')
+!   call kracken('cmd', "-nx 200 -ny 200 -nz 200 -te 100.0d0 -ts 0.1d0 -tso 10.0d0")
+!   nx = iget('cmd_nx')
+!   ny = iget('cmd_ny')
+!   nz = iget('cmd_nz')
+!   end_time = rget('cmd_te')
+!   timestep = rget('cmd_ts')
+!   output_timestep = rget('cmd_tso')
 
-  write(6,'(A,I0,A,I0,A,I0)') "Initializing with nx: ", nx, " ny: ", ny, " nz: ", nz
-  call initialize(nx, ny, nz)
-  write(6,'(A,F0.1,A,F0.1,A,F0.1)') "Starting simulation. End Time: ", end_time, " Timestep: ", timestep, " Output Timestep: ", output_timestep
-  call simulate(0.0d0, end_time, timestep, output_timestep)
-  call cleanup
-  stop
-end program main
+!   write(6,'(A,I0,A,I0,A,I0)') "Initializing with nx: ", nx, " ny: ", ny, " nz: ", nz
+!   call initialize(nx, ny, nz)
+!   write(6,'(A,F0.1,A,F0.1,A,F0.1)') "Starting simulation. End Time: ", end_time, " Timestep: ", timestep, " Output Timestep: ", output_timestep
+!   call simulate(0.0d0, end_time, timestep, output_timestep)
+!   call cleanup
+!   stop
+! end program main

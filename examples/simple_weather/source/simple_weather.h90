@@ -21,6 +21,16 @@ module simple_weather
   real(8), pointer, dimension(:,:,:) :: thermal_energy, thermal_energy_updated
   real(8), allocatable, target, dimension(:,:) :: surface_thermal_energy, planetary_thermal_energy
   real(8) :: t_start_output_cycle, t_start_output_cycle_w_io
+
+  interface
+    subroutine test(thermal_energy, nx, ny, nz) bind(C, name="test")
+     use iso_c_binding,only: c_int, c_double
+
+     integer(c_int),value :: nx, ny, nz
+     real(c_double), dimension(nx,ny,nz) :: thermal_energy
+    end subroutine test
+  end interface
+
   @domainDependant{attribute(autoDom,host), domName(i,j,k), domSize(0:nx+1,0:ny+1,nz)}
   thermal_energy, thermal_energy_updated
   @end domainDependant
@@ -163,25 +173,26 @@ module simple_weather
   end subroutine
 end module
 
-! program main
-!   use simple_weather
-!   use M_kracken
-!   implicit none
-!   integer(4) :: nx, ny, nz
-!   real(8) :: end_time, timestep, output_timestep
+program main
+  use simple_weather
+  use M_kracken
+  implicit none
+  integer(4) :: nx, ny, nz
+  real(8) :: end_time, timestep, output_timestep
 
-!   call kracken('cmd', "-nx 200 -ny 200 -nz 200 -te 100.0d0 -ts 0.1d0 -tso 10.0d0")
-!   nx = iget('cmd_nx')
-!   ny = iget('cmd_ny')
-!   nz = iget('cmd_nz')
-!   end_time = rget('cmd_te')
-!   timestep = rget('cmd_ts')
-!   output_timestep = rget('cmd_tso')
+  call kracken('cmd', "-nx 200 -ny 200 -nz 200 -te 100.0d0 -ts 0.1d0 -tso 10.0d0")
+  nx = iget('cmd_nx')
+  ny = iget('cmd_ny')
+  nz = iget('cmd_nz')
+  end_time = rget('cmd_te')
+  timestep = rget('cmd_ts')
+  output_timestep = rget('cmd_tso')
 
-!   write(6,'(A,I0,A,I0,A,I0)') "Initializing with nx: ", nx, " ny: ", ny, " nz: ", nz
-!   call initialize(nx, ny, nz)
-!   write(6,'(A,F0.1,A,F0.1,A,F0.1)') "Starting simulation. End Time: ", end_time, " Timestep: ", timestep, " Output Timestep: ", output_timestep
-!   call simulate(0.0d0, end_time, timestep, output_timestep)
-!   call cleanup
-!   stop
-! end program main
+  write(6,'(A,I0,A,I0,A,I0)') "Initializing with nx: ", nx, " ny: ", ny, " nz: ", nz
+  call initialize(nx, ny, nz)
+  call test(thermal_energy, nx, ny, nz)
+  write(6,'(A,F0.1,A,F0.1,A,F0.1)') "Starting simulation. End Time: ", end_time, " Timestep: ", timestep, " Output Timestep: ", output_timestep
+  call simulate(0.0d0, end_time, timestep, output_timestep)
+  call cleanup
+  stop
+end program main

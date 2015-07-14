@@ -55,6 +55,7 @@ SRC_PP=$(wildcard ./*.P90)
 SRC_FORT=$(wildcard ./*.f90)
 SRC_FORT_FIXED=$(wildcard ./*.f)
 SRC_PP_FIXED=$(wildcard ./*.F)
+SRC_C=$(wildcard ./*.c)
 
 EXECUTABLES_POST=$(subst ",,${EXECUTABLES})
 EXECUTABLES_OUT=$(patsubst %,%.out,${EXECUTABLES_POST})
@@ -64,7 +65,8 @@ OBJ_PP=$(SRC_PP:.P90=.o)
 OBJ_FORT90=$(filter-out $(OBJ_PP),$(SRC_FORT:.f90=.o))
 OBJ_FORT_FIXED=$(SRC_FORT_FIXED:.f=.o)
 OBJ_PP_FIXED=$(SRC_PP_FIXED:.F=.o)
-OBJ_PRE1=${OBJ_PP} ${OBJ_FORT90} ${OBJ_FORT_FIXED} ${OBJ_PP_FIXED}
+OBJ_C=$(SRC_C:.c=.o)
+OBJ_PRE1=${OBJ_PP} ${OBJ_FORT90} ${OBJ_FORT_FIXED} ${OBJ_PP_FIXED} ${OBJ_C}
 OBJ_PRE2=$(patsubst ./%,%,${OBJ_PRE1})
 OBJ=$(filter-out $(EXECUTABLES_O),$(OBJ_PRE2))
 
@@ -72,9 +74,7 @@ USER_LIB=lib${HYBRID_LIBRARY_FILENAME_POSTFIX}.a
 
 VPATH=$OBJDIR
 
-.SUFFIXES: .out .o .il .F90 .f90 .F .f .P90
-# Do not delete intermediate f90 files
-.PRECIOUS: %.f90
+.SUFFIXES: .out .o .il .F90 .f90 .F .f .P90 .c
 
 all: ${EXECUTABLES_OUT} ${USER_LIB}
 
@@ -110,6 +110,10 @@ ${USER_LIB}: $(OBJ)
 %.o: %.f
 	$(call blueecho,"..........compiling $< in $(CURDIR)")
 	$(FC) $(FFLAGS) $(PFLAGS) -c $< -o $@
+
+%.o: %.c
+	$(call blueecho,"..........compiling $< in $(CURDIR)")
+	$(CC) $(CFLAGS) $(PFLAGS) -c $< -o $@
 
 helper_functions.o: storage_order.F90
 helper_functions_gpu.o: storage_order.F90

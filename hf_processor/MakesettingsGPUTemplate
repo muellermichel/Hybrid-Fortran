@@ -32,6 +32,7 @@
 # compiler and linker choice                                                #
 #############################################################################
 FC=pgf90
+CC=pgcc
 LD=pgf90
 
 ifdef EMULATED
@@ -66,6 +67,4 @@ LDFLAGS= -Mcuda=cc3x -fast -ta=nvidia,cc3x,time -Minfo=accel,inline -Mneginfo -l
 endif
 endif
 
-
-
-
+CFLAGS=${FFLAGS}

@@ -18,21 +18,29 @@
 module simple_weather
   use iso_c_binding
   implicit none
-  real(8), pointer, dimension(:,:,:) :: thermal_energy, thermal_energy_updated
+  real(8), pointer, dimension(:,:,:) :: thermal_energy, thermal_energy_c, thermal_energy_updated
   real(8), allocatable, target, dimension(:,:) :: surface_thermal_energy, planetary_thermal_energy
   real(8) :: t_start_output_cycle, t_start_output_cycle_w_io
 
   interface
-    subroutine test(thermal_energy, nx, ny, nz) bind(C, name="test")
-     use iso_c_binding,only: c_int, c_double
+    subroutine print_slice(thermal_energy, slice_k, nx, ny, nz) bind(C, name="print_slice")
+      use iso_c_binding,only: c_int, c_double
 
-     integer(c_int),value :: nx, ny, nz
-     real(c_double), dimension(nx,ny,nz) :: thermal_energy
-    end subroutine test
+      integer(c_int),value :: nx, ny, nz, slice_k
+      real(c_double), dimension(0:nx+1,0:ny+1,nz) :: thermal_energy
+    end subroutine print_slice
+    subroutine diffuse_c(thermal_energy_updated, thermal_energy, nx, ny, nz) bind(C, name="diffuse_c")
+      use iso_c_binding,only: c_int, c_double
+
+      integer(c_int),value :: nx, ny, nz
+      real(c_double), dimension(0:nx+1,0:ny+1,nz) :: thermal_energy_updated, thermal_energy
+    end subroutine diffuse_c
+    subroutine cleanup_kernels() bind(C, name="cleanup_kernels")
+    end subroutine cleanup_kernels
   end interface
 
   @domainDependant{attribute(autoDom,host), domName(i,j,k), domSize(0:nx+1,0:ny+1,nz)}
-  thermal_energy, thermal_energy_updated
+  thermal_energy, thermal_energy_c, thermal_energy_updated
   @end domainDependant
 
   @domainDependant{attribute(autoDom,host), domName(i,j), domSize(0:nx+1,0:ny+1)}
@@ -40,7 +48,7 @@ module simple_weather
   @end domainDependant
   contains
 
-  subroutine initialize(nx_in,ny_in,nz_in) bind(C, name="initialize")
+  subroutine initialize(nx_in,ny_in,nz_in)
     use commons
     use time_profiling
     integer(4), intent(in) :: nx_in, ny_in, nz_in
@@ -50,6 +58,7 @@ module simple_weather
 
     call initialize_domains(nx_in,ny_in,nz_in)
     allocate(thermal_energy(0:nx+1,0:ny+1,nz))
+    allocate(thermal_energy_c(0:nx+1,0:ny+1,nz))
     allocate(thermal_energy_updated(0:nx+1,0:ny+1,nz))
     allocate(surface_thermal_energy(0:nx+1,0:ny+1))
     allocate(planetary_thermal_energy(0:nx+1,0:ny+1))
@@ -63,45 +72,28 @@ module simple_weather
         end do
       end do
     end do
+    thermal_energy_c(:,:,:) = thermal_energy(:,:,:)
     thermal_energy_updated(:,:,:) = 0.0d0
     planetary_thermal_energy(:,:) = 200.0d0
     surface_thermal_energy(:,:) = 330.d0
   end subroutine
 
-  function getThermalEnergyPtr() result(cptr) bind(C, name="getThermalEnergyPtr")
-    type(c_ptr) :: cptr
-    cptr = c_loc(thermal_energy(AT(0,0,1)))
-  end function
-
-  function getThermalEnergyUpdatedPtr() result(cptr) bind(C, name="getThermalEnergyUpdatedPtr")
-    type(c_ptr) :: cptr
-    cptr = c_loc(thermal_energy_updated(AT(0,0,1)))
-  end function
-
-  function getSurfaceThermalEnergyPtr() result(cptr) bind(C, name="getSurfaceThermalEnergyPtr")
-    type(c_ptr) :: cptr
-    cptr = c_loc(surface_thermal_energy(1,1))
-  end function
-
-  function getPlanetaryThermalEnergyUpdatedPtr() result(cptr) bind(C, name="getPlanetaryThermalEnergyUpdatedPtr")
-    type(c_ptr) :: cptr
-    cptr = c_loc(planetary_thermal_energy(1,1))
-  end function
-
-  subroutine simulate(start_time, end_time, timestep, output_timestep) bind(C, name="simulate")
+  subroutine simulate(thermal_energy_current, start_time, end_time, timestep, output_timestep, use_c)
     use commons
     use dynamical_processes, only: diffuse
     use physical_processes, only: run_physics
     use time_profiling
     use helper_functions, only: getTime
+    real(8), intent(inout), dimension(0:nx+1,0:ny+1,nz), pointer :: thermal_energy_current
     real(8), intent(in) :: start_time, end_time, timestep, output_timestep
-    real(8), pointer, dimension(:,:,:) :: thermal_energy_temp
+    logical, intent (in) :: use_c
+    real(8), pointer, dimension(0:nx+1,0:ny+1,nz) :: thermal_energy_temp
     real(8) :: time
     @domainDependant {attribute(autoDom, transferHere)}
-    thermal_energy, thermal_energy_updated, surface_thermal_energy, planetary_thermal_energy
+    thermal_energy_current, thermal_energy_updated, surface_thermal_energy, planetary_thermal_energy
     @end domainDependant
 
-    @domainDependant {attribute(autoDom, present)}
+    @domainDependant {attribute(autoDom, host)}
     thermal_energy_temp
     @end domainDependant
 
@@ -111,14 +103,26 @@ module simple_weather
     call getTime(t_start_output_cycle_w_io)
     do while (.true.)
       if (modulo(time + 0.001d0, output_timestep) < 0.01d0) then
-        call write_data(thermal_energy, "thermal_energy", time)
+        call write_data(thermal_energy_current, "thermal_energy", time)
       end if
-      call run_physics(thermal_energy, surface_thermal_energy, planetary_thermal_energy)
-      call diffuse(thermal_energy_updated, thermal_energy)
+      call run_physics(thermal_energy_current, surface_thermal_energy, planetary_thermal_energy)
+      if (use_c) then
+#ifndef GPU
+        !$acc data copyin(thermal_energy_current) copy(thermal_energy_updated)
+#endif
+        !$acc host_data use_device(thermal_energy_current,thermal_energy_updated)
+        call diffuse_c(thermal_energy_updated, thermal_energy_current, nx, ny, nz)
+        !$acc end host_data
+#ifndef GPU
+        !$acc end data
+#endif
+      else
+        call diffuse(thermal_energy_updated, thermal_energy_current)
+      end if
 
       thermal_energy_temp => thermal_energy_updated
-      thermal_energy_updated => thermal_energy
-      thermal_energy => thermal_energy_temp
+      thermal_energy_updated => thermal_energy_current
+      thermal_energy_current => thermal_energy_temp
 
       time = time + timestep
       if (time > end_time) then
@@ -126,6 +130,27 @@ module simple_weather
       end if
     end do
   end subroutine
+
+  subroutine check(current, reference)
+    use commons
+    real(8), dimension(0:nx+1,0:ny+1,nz), intent(in) :: current, reference
+    integer(4) :: i, j, k
+    @domainDependant {attribute(autoDom, host)}
+    current, reference
+    @end domainDependant
+
+    do k = 1, nz
+      do j = 0, ny+1
+        do i = 0, nx+1
+          if (abs(current(i,j,k) - reference(i,j,k)) > 1E-10) then
+            write(6,*) "delta > tol. curr:", current(i,j,k), ", ref:", reference(i,j,k), "i: ", i, "j: ", j, "k: ", k
+            stop
+          end if
+        end do
+      end do
+    end do
+
+  end subroutine check
 
   subroutine write_data(output_data, prefix, time)
     use commons
@@ -140,7 +165,9 @@ module simple_weather
     @domainDependant {attribute(autoDom, present)}
     output_data
     @end domainDependant
+#ifdef GPU
     !$acc update host(output_data)
+#endif
 
     write(6,*) "total diffusion time used: ", counter1
     write(6,*) "total diffusion boundary time used: ", counter4
@@ -165,11 +192,34 @@ module simple_weather
     write(6,*) "total output cycle time used w/o IO: ", counter_timestep
   end subroutine
 
-  subroutine cleanup() bind(C, name="cleanup")
+  subroutine cleanup()
+    use commons
+
+    write(6,*) "cleaning up..."
+    call print_slice(thermal_energy, 0, nx, ny, nz)
     deallocate(thermal_energy)
+    deallocate(thermal_energy_c)
     deallocate(thermal_energy_updated)
     deallocate(surface_thermal_energy)
     deallocate(planetary_thermal_energy)
+  end subroutine
+
+  subroutine testrun_cuda_kernels()
+    real(8), allocatable, dimension(:,:,:) :: test_data, updated_test_data
+    integer(4) :: nx, ny, nz
+
+    nx = 1
+    ny = 1
+    nz = 3
+    allocate(test_data(nz,0:nx+1,0:ny+1))
+    allocate(updated_test_data(nz,0:nx+1,0:ny+1))
+    test_data(:,:,:) = 0.0d0
+    updated_test_data(:,:,:) = 0.0d0
+    !$acc data copyin(test_data) copy(updated_test_data)
+    !$acc host_data use_device(test_data,updated_test_data)
+    call diffuse_c(updated_test_data, test_data, nx, ny, nz)
+    !$acc end host_data
+    !$acc end data
   end subroutine
 end module
 
@@ -188,11 +238,18 @@ program main
   timestep = rget('cmd_ts')
   output_timestep = rget('cmd_tso')
 
+!   call testrun_cuda_kernels
+!   write(6,*) "test done"
+
   write(6,'(A,I0,A,I0,A,I0)') "Initializing with nx: ", nx, " ny: ", ny, " nz: ", nz
   call initialize(nx, ny, nz)
-  call test(thermal_energy, nx, ny, nz)
   write(6,'(A,F0.1,A,F0.1,A,F0.1)') "Starting simulation. End Time: ", end_time, " Timestep: ", timestep, " Output Timestep: ", output_timestep
-  call simulate(0.0d0, end_time, timestep, output_timestep)
+  call simulate(thermal_energy, 0.0d0, end_time, timestep, output_timestep, .false.)
+  thermal_energy_updated(:,:,:) = 0.0d0
+  call simulate(thermal_energy_c, 0.0d0, end_time, timestep, output_timestep, .true.)
+  call check(thermal_energy_c, thermal_energy)
+  write(6,*) "cuda version checks out"
   call cleanup
+  write(6,*) "stopping..."
   stop
 end program main

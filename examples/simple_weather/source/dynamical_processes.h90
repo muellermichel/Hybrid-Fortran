@@ -26,6 +26,7 @@ contains
     real(8), intent(in), dimension(0:nx+1,0:ny+1,nz) :: thermal_energy
     real(8) :: diffusion_velocity
     real(8) :: t_start_diffusion, t_start_boundary
+    integer(4) :: k
     @domainDependant{attribute(autoDom, present)}
     thermal_energy_updated, thermal_energy
     @end domainDependant
@@ -78,7 +79,7 @@ contains
                                       & thermal_energy(nx,j,k) + thermal_energy(0,j,k) &
                                   & )
     @end parallelRegion
-    call incrementCounter(counter1, t_start_diffusion)
     call incrementCounter(counter4, t_start_boundary)
+    call incrementCounter(counter1, t_start_diffusion)
   end subroutine
 end module

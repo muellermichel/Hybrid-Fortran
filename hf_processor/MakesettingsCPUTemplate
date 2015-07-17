@@ -30,6 +30,16 @@ AR=ar
 ARFLAGS=rv
 
 #############################################################################
+# CUDA                                                                      #
+#############################################################################
+CUDAC = nvcc
+ifdef DEBUG
+CUDAFLAGS = -G -arch compute_30
+else
+CUDAFLAGS = -O3 -arch compute_30
+endif
+
+#############################################################################
 # uncomment these settings to use pgf90                                     #
 #############################################################################
 FC=pgf90
@@ -37,8 +47,8 @@ CC=pgcc
 LD=pgf90
 FFLAGS_PRODUCTION= -Minfo=inline,ipa -Mneginfo -I/usr/local/include -O3
 FFLAGS_DEBUG= -g -Mbounds -Mchkptr -Minfo=accel,inline -Mneginfo -Minform=inform -I/usr/local/include
-LDFLAGS_PRODUCTION= -L/usr/local/lib -l${HYBRID_LIBRARY_FILENAME_POSTFIX}
-LDFLAGS_DEBUG= -L/usr/local/lib -l${HYBRID_LIBRARY_FILENAME_POSTFIX}
+LDFLAGS_PRODUCTION= -L/usr/local/lib -L${NVDIR}/lib64 -l${HYBRID_LIBRARY_FILENAME_POSTFIX} -lcudart -lstdc++
+LDFLAGS_DEBUG= -L/usr/local/lib -L${NVDIR}/lib64 -l${HYBRID_LIBRARY_FILENAME_POSTFIX} -lcudart -lstdc++
 
 #############################################################################
 # uncomment these settings to use pgfortran                                 #
@@ -47,8 +57,8 @@ LDFLAGS_DEBUG= -L/usr/local/lib -l${HYBRID_LIBRARY_FILENAME_POSTFIX}
 # LD=pgfortran
 # FFLAGS_PRODUCTION= -Minfo=inline,ipa -Mneginfo -I/usr/local/include -O4
 # FFLAGS_DEBUG= -g -Mbounds -Mchkptr -Minfo=accel,inline -Mneginfo -Minform=inform -I/usr/local/include
-# LDFLAGS_PRODUCTION= -L/usr/local/lib -l${HYBRID_LIBRARY_FILENAME_POSTFIX}
-# LDFLAGS_DEBUG= -L/usr/local/lib -l${HYBRID_LIBRARY_FILENAME_POSTFIX}
+# LDFLAGS_PRODUCTION= -L/usr/local/lib -L${NVDIR}/lib64 -l${HYBRID_LIBRARY_FILENAME_POSTFIX} -lcudart -lstdc++
+# LDFLAGS_DEBUG= -L/usr/local/lib -L${NVDIR}/lib64 -l${HYBRID_LIBRARY_FILENAME_POSTFIX} -lcudart -lstdc++
 
 #############################################################################
 # uncomment these settings to use ifort                                     #
@@ -58,8 +68,8 @@ LDFLAGS_DEBUG= -L/usr/local/lib -l${HYBRID_LIBRARY_FILENAME_POSTFIX}
 # LD=ifort
 # FFLAGS_PRODUCTION= -fast -openmp -I/usr/local/include
 # FFLAGS_DEBUG= -g -I/usr/local/include
-# LDFLAGS_PRODUCTION= -openmp -L/usr/local/lib -l${HYBRID_LIBRARY_FILENAME_POSTFIX}
-# LDFLAGS_DEBUG= -L/usr/local/lib -l${HYBRID_LIBRARY_FILENAME_POSTFIX}
+# LDFLAGS_PRODUCTION= -openmp -L/usr/local/lib -L${NVDIR}/lib64 -l${HYBRID_LIBRARY_FILENAME_POSTFIX} -lcudart -lstdc++
+# LDFLAGS_DEBUG= -L/usr/local/lib -L${NVDIR}/lib64 -l${HYBRID_LIBRARY_FILENAME_POSTFIX} -lcudart -lstdc++
 # AR=xiar #use this for support of Intel compiler with OpenMP
 
 ifdef DEBUG

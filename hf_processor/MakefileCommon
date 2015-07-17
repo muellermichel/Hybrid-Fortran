@@ -116,7 +116,7 @@ SRC_F90_PRE='$(shell find ${SRC_DIR_COMMON} -type f -name '*.f90' -o -name '*.f'
 SRC_F90=$(shell python ${TOOLSDIR}filterExceptions.py --paths ${SRC_F90_PRE} --exceptions ${EXCEPTIONS})
 SRC_F90PP_PRE='$(shell find ${SRC_DIR_COMMON} -type f -name '*.F90' -o -name '*.F')'
 SRC_F90PP=$(shell python ${TOOLSDIR}filterExceptions.py --paths ${SRC_F90PP_PRE} --exceptions ${EXCEPTIONS})
-SRC_C_PRE='$(shell find ${SRC_DIR_COMMON} -type f -name '*.c')'
+SRC_C_PRE='$(shell find ${SRC_DIR_COMMON} -type f -name '*.c' -o -name '*.cu')'
 SRC_C=$(shell python ${TOOLSDIR}filterExceptions.py --paths ${SRC_C_PRE} --exceptions ${EXCEPTIONS})
 
 SRC_LIB_FORT=$(shell find ${LIBDIR} -type f -name '*.f90')
@@ -290,6 +290,7 @@ endef
 SRC_FORT_COMMON_DIRS=$(dir $(SRC_FORT)) $(dir $(SRC_H90_ALL)) $(dir $(SRC_C))
 
 vpath %.c $(SRC_FORT_COMMON_DIRS)
+vpath %.cu $(SRC_FORT_COMMON_DIRS)
 vpath %.f $(SRC_FORT_COMMON_DIRS)
 vpath %.F $(SRC_FORT_COMMON_DIRS)
 vpath %.f90 $(SRC_FORT_COMMON_DIRS)
@@ -299,7 +300,7 @@ vpath %.H90 $(SRC_FORT_COMMON_DIRS)
 
 .PHONY: all clean clean_cpu clean_gpu clean_installed_executables_cpu clean_installed_executables_gpu install install_cpu install_gpu install_framework_executables_cpu install_framework_executables_gpu graphs build build_cpu build_gpu create_install_directories source source_cpu source_gpu tests tests_cpu tests_gpu framework_sources framework_sources_cpu framework_sources_gpu build_hybrid_cpu build_hybrid_gpu build_framework_cpu build_framework_gpu configfiles_cpu configfiles_gpu
 
-.SUFFIXES: .f90 .F90 .h90 .H90 .f .F .P90 .c
+.SUFFIXES: .f90 .F90 .h90 .H90 .f .F .P90 .c .cu
 
 all: build_cpu build_gpu
 
@@ -533,6 +534,10 @@ ${SRC_DIR_CPU}%.c: %.c
 	@echo ...copying file into $@ >${DEBUG_OUTPUT}
 	@mkdir -p ${SRC_DIR_CPU} && cp -fp $< $@
 
+${SRC_DIR_CPU}%.cu: %.cu
+	@echo ...copying file into $@ >${DEBUG_OUTPUT}
+	@mkdir -p ${SRC_DIR_CPU} && cp -fp $< $@
+
 ${SRC_DIR_GPU}%.f90: %.f90
 	@echo ...copying file into $@ >${DEBUG_OUTPUT}
 	@mkdir -p ${SRC_DIR_GPU} && cp -fp $< $@
@@ -554,6 +559,10 @@ ${SRC_DIR_GPU}%.F: %.F
 	@mkdir -p ${SRC_DIR_GPU} && cp -fp $< $@
 
 ${SRC_DIR_GPU}%.c: %.c
+	@echo ...copying file into $@ >${DEBUG_OUTPUT}
+	@mkdir -p ${SRC_DIR_GPU} && cp -fp $< $@
+
+${SRC_DIR_GPU}%.cu: %.cu
 	@echo ...copying file into $@ >${DEBUG_OUTPUT}
 	@mkdir -p ${SRC_DIR_GPU} && cp -fp $< $@
 

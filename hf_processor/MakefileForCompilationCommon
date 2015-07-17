@@ -56,6 +56,7 @@ SRC_FORT=$(wildcard ./*.f90)
 SRC_FORT_FIXED=$(wildcard ./*.f)
 SRC_PP_FIXED=$(wildcard ./*.F)
 SRC_C=$(wildcard ./*.c)
+SRC_CU=$(wildcard ./*.cu)
 
 EXECUTABLES_POST=$(subst ",,${EXECUTABLES})
 EXECUTABLES_OUT=$(patsubst %,%.out,${EXECUTABLES_POST})
@@ -66,15 +67,19 @@ OBJ_FORT90=$(filter-out $(OBJ_PP),$(SRC_FORT:.f90=.o))
 OBJ_FORT_FIXED=$(SRC_FORT_FIXED:.f=.o)
 OBJ_PP_FIXED=$(SRC_PP_FIXED:.F=.o)
 OBJ_C=$(SRC_C:.c=.o)
-OBJ_PRE1=${OBJ_PP} ${OBJ_FORT90} ${OBJ_FORT_FIXED} ${OBJ_PP_FIXED} ${OBJ_C}
+OBJ_CU=$(SRC_CU:.cu=.o)
+OBJ_PRE1=${OBJ_PP} ${OBJ_FORT90} ${OBJ_FORT_FIXED} ${OBJ_PP_FIXED} ${OBJ_C} ${OBJ_CU}
 OBJ_PRE2=$(patsubst ./%,%,${OBJ_PRE1})
 OBJ=$(filter-out $(EXECUTABLES_O),$(OBJ_PRE2))
+$(warning $(OBJ))
 
 USER_LIB=lib${HYBRID_LIBRARY_FILENAME_POSTFIX}.a
 
 VPATH=$OBJDIR
 
-.SUFFIXES: .out .o .il .F90 .f90 .F .f .P90 .c
+.SUFFIXES: .out .o .il .F90 .f90 .F .f .P90 .c .cu
+
+.PRECIOUS: %.f90
 
 all: ${EXECUTABLES_OUT} ${USER_LIB}
 
@@ -114,6 +119,10 @@ ${USER_LIB}: $(OBJ)
 %.o: %.c
 	$(call blueecho,"..........compiling $< in $(CURDIR)")
 	$(CC) $(CFLAGS) $(PFLAGS) -c $< -o $@
+
+%.o: %.cu
+	$(call blueecho,"..........compiling $< in $(CURDIR)")
+	$(CUDAC) $(CUDAFLAGS) $(PFLAGS) -c $< -o $@
 
 helper_functions.o: storage_order.F90
 helper_functions_gpu.o: storage_order.F90

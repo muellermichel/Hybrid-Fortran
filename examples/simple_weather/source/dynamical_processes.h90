@@ -70,15 +70,15 @@ contains
                                   & )
     @end parallelRegion
 
-    !cyclic diffusion: halos J-K
-    @parallelRegion{domName(j,k), domSize(0:ny+1,nz), startAt(0,1), endAt(ny+1,nz)}
-    thermal_energy_updated(0,j,k) = (1.0d0 - 2 * diffusion_velocity) * thermal_energy(0,j,k) + diffusion_velocity * ( &
-                                      & thermal_energy(1,j,k) + thermal_energy(nx+1,j,k) &
-                                  & )
-    thermal_energy_updated(nx+1,j,k) = (1.0d0 - 2 * diffusion_velocity) * thermal_energy(nx+1,j,k) + diffusion_velocity * ( &
-                                      & thermal_energy(nx,j,k) + thermal_energy(0,j,k) &
-                                  & )
-    @end parallelRegion
+!     !cyclic diffusion: halos J-K
+!     @parallelRegion{domName(j,k), domSize(0:ny+1,nz), startAt(0,1), endAt(ny+1,nz)}
+!     thermal_energy_updated(0,j,k) = (1.0d0 - 2 * diffusion_velocity) * thermal_energy(0,j,k) + diffusion_velocity * ( &
+!                                       & thermal_energy(1,j,k) + thermal_energy(nx+1,j,k) &
+!                                   & )
+!     thermal_energy_updated(nx+1,j,k) = (1.0d0 - 2 * diffusion_velocity) * thermal_energy(nx+1,j,k) + diffusion_velocity * ( &
+!                                       & thermal_energy(nx,j,k) + thermal_energy(0,j,k) &
+!                                   & )
+!     @end parallelRegion
     call incrementCounter(counter4, t_start_boundary)
     call incrementCounter(counter1, t_start_diffusion)
   end subroutine

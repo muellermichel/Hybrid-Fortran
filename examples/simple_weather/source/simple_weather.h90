@@ -35,8 +35,6 @@ module simple_weather
       integer(c_int),value :: nx, ny, nz
       real(c_double), dimension(0:nx+1,0:ny+1,nz) :: thermal_energy_updated, thermal_energy
     end subroutine diffuse_c
-    subroutine cleanup_kernels() bind(C, name="cleanup_kernels")
-    end subroutine cleanup_kernels
   end interface
 
   @domainDependant{attribute(autoDom,host), domName(i,j,k), domSize(0:nx+1,0:ny+1,nz)}
@@ -107,15 +105,15 @@ module simple_weather
       end if
       call run_physics(thermal_energy_current, surface_thermal_energy, planetary_thermal_energy)
       if (use_c) then
-#ifndef GPU
+#ifdef GPU
+        !$acc data present(thermal_energy_current,thermal_energy_updated)
+#else
         !$acc data copyin(thermal_energy_current) copy(thermal_energy_updated)
 #endif
         !$acc host_data use_device(thermal_energy_current,thermal_energy_updated)
         call diffuse_c(thermal_energy_updated, thermal_energy_current, nx, ny, nz)
         !$acc end host_data
-#ifndef GPU
         !$acc end data
-#endif
       else
         call diffuse(thermal_energy_updated, thermal_energy_current)
       end if
@@ -134,16 +132,22 @@ module simple_weather
   subroutine check(current, reference)
     use commons
     real(8), dimension(0:nx+1,0:ny+1,nz), intent(in) :: current, reference
-    integer(4) :: i, j, k
+    integer(4) :: i, j, k, num_of_errors
+    real(8) :: error
     @domainDependant {attribute(autoDom, host)}
     current, reference
     @end domainDependant
 
-    do k = 1, nz
-      do j = 0, ny+1
-        do i = 0, nx+1
-          if (abs(current(i,j,k) - reference(i,j,k)) > 1E-10) then
-            write(6,*) "delta > tol. curr:", current(i,j,k), ", ref:", reference(i,j,k), "i: ", i, "j: ", j, "k: ", k
+    num_of_errors = 0
+    do j = 0, ny+1
+      do i = 0, nx+1
+        do k = 1, nz
+          error = abs(current(i,j,k) - reference(i,j,k))/abs(reference(i,j,k))
+          if (error > 1E-10) then
+            write(6,*) "delta > tol. error: ", error, ", curr:", current(i,j,k), ", ref:", reference(i,j,k), "i: ", i, "j: ", j, "k: ", k
+            num_of_errors = num_of_errors + 1
+          end if
+          if (num_of_errors .gt. 4) then
             stop
           end if
         end do
@@ -196,7 +200,6 @@ module simple_weather
     use commons
 
     write(6,*) "cleaning up..."
-    call print_slice(thermal_energy, 0, nx, ny, nz)
     deallocate(thermal_energy)
     deallocate(thermal_energy_c)
     deallocate(thermal_energy_updated)
@@ -244,8 +247,10 @@ program main
   write(6,'(A,I0,A,I0,A,I0)') "Initializing with nx: ", nx, " ny: ", ny, " nz: ", nz
   call initialize(nx, ny, nz)
   write(6,'(A,F0.1,A,F0.1,A,F0.1)') "Starting simulation. End Time: ", end_time, " Timestep: ", timestep, " Output Timestep: ", output_timestep
+  write(6,*) "================== Hybrid Fortran Version =================="
   call simulate(thermal_energy, 0.0d0, end_time, timestep, output_timestep, .false.)
   thermal_energy_updated(:,:,:) = 0.0d0
+  write(6,*) "================== CUDA C Version =================="
   call simulate(thermal_energy_c, 0.0d0, end_time, timestep, output_timestep, .true.)
   call check(thermal_energy_c, thermal_energy)
   write(6,*) "cuda version checks out"

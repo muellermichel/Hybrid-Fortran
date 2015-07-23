@@ -34,9 +34,9 @@ ARFLAGS=rv
 #############################################################################
 CUDAC = nvcc
 ifdef DEBUG
-CUDAFLAGS = -G --gpu-architecture=compute_35 --gpu-code=compute_35
+CUDAFLAGS = -G -Xptxas="-v" --gpu-architecture=compute_35 --gpu-code=compute_35 -lineinfo
 else
-CUDAFLAGS = -O3 --gpu-architecture=compute_35 --gpu-code=compute_35
+CUDAFLAGS = -O3 --gpu-architecture=compute_35 --gpu-code=compute_35 -lineinfo
 endif
 
 #############################################################################

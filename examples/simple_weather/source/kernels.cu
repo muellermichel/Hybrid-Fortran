@@ -20,7 +20,7 @@
 	int block_size_x = block_size_x_in, block_size_y = block_size_y_in, block_size_z = block_size_z_in; \
 	dim3 threads(block_size_x, block_size_y, block_size_z)
 
-#define BLOCK_SIZE_X 32
+#define BLOCK_SIZE_X 16
 #define BLOCK_SIZE_Y 16
 #define BLOCK_SIZE_Z 1
 
@@ -50,16 +50,38 @@ __launch_bounds__( BLOCK_SIZE_X * BLOCK_SIZE_Y * BLOCK_SIZE_Z)
 diffuse_kernel(
 	OUT thermal_energy_updated, IN thermal_energy, INT_VALUE nx, INT_VALUE ny, INT_VALUE nz, FP_VALUE scale_0, FP_VALUE scale_rest
 ) {
-	int i = blockIdx.x*blockDim.x + threadIdx.x + 1;
-	int j = blockIdx.y*blockDim.y + threadIdx.y + 1;
-	if (i > nx || j > ny) {
+	int i = blockIdx.x*BLOCK_SIZE_X + threadIdx.x + 1;
+	int j = blockIdx.y*BLOCK_SIZE_Y + threadIdx.y + 1;
+	if (i >= nx + 2 || j >= ny + 2) {
 		return;
 	}
 
+	__shared__ double thermal_energy_shared[BLOCK_SIZE_X + 2][BLOCK_SIZE_Y + 2];
+
 	for (int k = 1; k < nz-1; k++) {
-		double updated = scale_0 * ACCESS_3D(thermal_energy,i,j,k) + scale_rest * (
-			ACCESS_3D(thermal_energy,i-1,j,k) + ACCESS_3D(thermal_energy,i+1,j,k) +
-			ACCESS_3D(thermal_energy,i,j-1,k) + ACCESS_3D(thermal_energy,i,j+1,k) +
+		int i_shared = threadIdx.x + 1;
+		int j_shared = threadIdx.y + 1;
+		__syncthreads();
+		thermal_energy_shared[i_shared][j_shared] = ACCESS_3D(thermal_energy,i,j,k);
+		if (threadIdx.x == 0) {
+			thermal_energy_shared[0][j_shared] = ACCESS_3D(thermal_energy,i-1,j,k);
+		}
+		if (threadIdx.x == BLOCK_SIZE_X - 1) {
+			thermal_energy_shared[BLOCK_SIZE_X + 1][j_shared] = ACCESS_3D(thermal_energy,i+1,j,k);
+		}
+		if (threadIdx.y == 0) {
+			thermal_energy_shared[i_shared][0] = ACCESS_3D(thermal_energy,i,j-1,k);
+		}
+		if (threadIdx.y == BLOCK_SIZE_Y - 1) {
+			thermal_energy_shared[i_shared][BLOCK_SIZE_Y + 1] = ACCESS_3D(thermal_energy,i,j+1,k);
+		}
+		__syncthreads();
+		if (i > nx || j > ny) {
+			continue;
+		}
+		double updated = scale_0 * thermal_energy_shared[i_shared][j_shared] + scale_rest * (
+			thermal_energy_shared[i_shared-1][j_shared] + thermal_energy_shared[i_shared+1][j_shared] +
+			thermal_energy_shared[i_shared][j_shared-1] + thermal_energy_shared[i_shared][j_shared+1] +
 			ACCESS_3D(thermal_energy,i,j,k-1) + ACCESS_3D(thermal_energy,i,j,k+1)
 		);
 
@@ -177,8 +199,6 @@ void diffuse_c(
     	return;
     }
 
-
-
     //timing setup
     cudaEvent_t start, start_boundary, stop;
 	gpuErrchk(cudaEventCreate(&start));
@@ -186,6 +206,8 @@ void diffuse_c(
 	gpuErrchk(cudaEventCreate(&stop));
 
     //kernel setup
+    cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte);
+    cudaDeviceSetCacheConfig(cudaFuncCachePreferShared);
     gpuErrchk(cudaEventRecord(start, 0));
     DEFINE_THREADS(BLOCK_SIZE_X, BLOCK_SIZE_Y, BLOCK_SIZE_Z);
 	double diffusion_velocity = 0.13;

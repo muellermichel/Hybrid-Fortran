@@ -29,9 +29,10 @@ module simple_weather
       integer(c_int),value :: nx, ny, nz, slice_k
       real(c_double), dimension(0:nx+1,0:ny+1,nz) :: thermal_energy
     end subroutine print_slice
-    subroutine diffuse_c(thermal_energy_updated, thermal_energy, nx, ny, nz) bind(C, name="diffuse_c")
+    subroutine diffuse_c(runtime_total_s, runtime_boundary_s, thermal_energy_updated, thermal_energy, nx, ny, nz) bind(C, name="diffuse_c")
       use iso_c_binding,only: c_int, c_double
 
+      real(c_double) :: runtime_total_s, runtime_boundary_s
       integer(c_int),value :: nx, ny, nz
       real(c_double), dimension(0:nx+1,0:ny+1,nz) :: thermal_energy_updated, thermal_energy
     end subroutine diffuse_c
@@ -86,7 +87,7 @@ module simple_weather
     real(8), intent(in) :: start_time, end_time, timestep, output_timestep
     logical, intent (in) :: use_c
     real(8), pointer, dimension(0:nx+1,0:ny+1,nz) :: thermal_energy_temp
-    real(8) :: time
+    real(8) :: time, curr_elapsed_runtime_diffusion, curr_elapsed_runtime_boundary
     @domainDependant {attribute(autoDom, transferHere)}
     thermal_energy_current, thermal_energy_updated, surface_thermal_energy, planetary_thermal_energy
     @end domainDependant
@@ -111,7 +112,9 @@ module simple_weather
         !$acc data copyin(thermal_energy_current) copy(thermal_energy_updated)
 #endif
         !$acc host_data use_device(thermal_energy_current,thermal_energy_updated)
-        call diffuse_c(thermal_energy_updated, thermal_energy_current, nx, ny, nz)
+        call diffuse_c(curr_elapsed_runtime_diffusion, curr_elapsed_runtime_boundary, thermal_energy_updated, thermal_energy_current, nx, ny, nz)
+        call incrementCounterWithElapsed(counter4, curr_elapsed_runtime_boundary)
+        call incrementCounterWithElapsed(counter1, curr_elapsed_runtime_diffusion)
         !$acc end host_data
         !$acc end data
       else
@@ -210,6 +213,7 @@ module simple_weather
   subroutine testrun_cuda_kernels()
     real(8), allocatable, dimension(:,:,:) :: test_data, updated_test_data
     integer(4) :: nx, ny, nz
+    real(8) :: curr_elapsed_runtime_diffusion, curr_elapsed_runtime_boundary
 
     nx = 1
     ny = 1
@@ -220,7 +224,7 @@ module simple_weather
     updated_test_data(:,:,:) = 0.0d0
     !$acc data copyin(test_data) copy(updated_test_data)
     !$acc host_data use_device(test_data,updated_test_data)
-    call diffuse_c(updated_test_data, test_data, nx, ny, nz)
+    call diffuse_c(curr_elapsed_runtime_diffusion, curr_elapsed_runtime_boundary, updated_test_data, test_data, nx, ny, nz)
     !$acc end host_data
     !$acc end data
   end subroutine

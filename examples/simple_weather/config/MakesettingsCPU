@@ -34,9 +34,9 @@ ARFLAGS=rv
 #############################################################################
 CUDAC = nvcc
 ifdef DEBUG
-CUDAFLAGS = -G -arch compute_30
+CUDAFLAGS = -G --gpu-architecture=compute_35 --gpu-code=compute_35
 else
-CUDAFLAGS = -O3 -arch compute_30
+CUDAFLAGS = -O3 --gpu-architecture=compute_35 --gpu-code=compute_35
 endif
 
 #############################################################################
@@ -45,10 +45,10 @@ endif
 FC=pgf90
 CC=pgcc
 LD=pgf90
-FFLAGS_PRODUCTION= -Mcuda=cc3x -ta=nvidia,cc3x -Minfo=inline,ipa -Mneginfo -I/usr/local/include -fast
-FFLAGS_DEBUG= -g -Mcuda=cc3x -ta=nvidia,cc3x -Mbounds -Mchkptr -Minfo=accel,inline -Mneginfo -Minform=inform -I/usr/local/include
-LDFLAGS_PRODUCTION= -Mcuda=cc3x -ta=nvidia,cc3x -L/usr/local/lib -L${NVDIR}/lib64 -l${HYBRID_LIBRARY_FILENAME_POSTFIX} -lcudart -lstdc++
-LDFLAGS_DEBUG= -Mcuda=cc3x -ta=nvidia,cc3x -L/usr/local/lib -L${NVDIR}/lib64 -l${HYBRID_LIBRARY_FILENAME_POSTFIX} -lcudart -lstdc++
+FFLAGS_PRODUCTION= -Mcuda=6.5,cc35 -ta=nvidia,cc35 -Minfo=inline,ipa -Mneginfo -fast
+FFLAGS_DEBUG= -g -Mcuda=6.5,cc35 -ta=nvidia,cc35 -Mbounds -Mchkptr -Minfo=accel,inline -Mneginfo -Minform=inform
+LDFLAGS_PRODUCTION= -Mcuda=6.5,cc35 -ta=nvidia,cc35 -L${NVDIR}/lib64 -l${HYBRID_LIBRARY_FILENAME_POSTFIX} -lcudart -lstdc++
+LDFLAGS_DEBUG= -Mcuda=6.5,cc35 -ta=nvidia,cc35 -L${NVDIR}/lib64 -l${HYBRID_LIBRARY_FILENAME_POSTFIX} -lcudart -lstdc++
 
 #############################################################################
 # uncomment these settings to use pgfortran                                 #

@@ -16,9 +16,16 @@
 #define DEFINE_GRID(grid_name, problem_size_x, problem_size_y, problem_size_z) \
 	dim3 grid_name(GET_GRID_DIM(problem_size_x, block_size_x), GET_GRID_DIM(problem_size_y, block_size_y), GET_GRID_DIM(problem_size_z, block_size_z))
 
+#define DEFINE_GRID_2D(grid_name, problem_size_x, problem_size_y) \
+	dim3 grid_name(GET_GRID_DIM(problem_size_x, block_size_x_2d), GET_GRID_DIM(problem_size_y, block_size_y_2d))
+
 #define DEFINE_THREADS(block_size_x_in, block_size_y_in, block_size_z_in) \
 	int block_size_x = block_size_x_in, block_size_y = block_size_y_in, block_size_z = block_size_z_in; \
 	dim3 threads(block_size_x, block_size_y, block_size_z)
+
+#define DEFINE_THREADS_2D(block_size_x_in, block_size_y_in) \
+	int block_size_x_2d = block_size_x_in, block_size_y_2d = block_size_y_in; \
+	dim3 threads_2d(block_size_x_2d, block_size_y_2d)
 
 #define BLOCK_SIZE_X 16
 #define BLOCK_SIZE_Y 8
@@ -266,6 +273,7 @@ void diffuse_c(
     cudaDeviceSetCacheConfig(cudaFuncCachePreferShared);
     gpuErrchk(cudaEventRecord(start, 0));
     DEFINE_THREADS(BLOCK_SIZE_X, BLOCK_SIZE_Y, BLOCK_SIZE_Z);
+    DEFINE_THREADS_2D(BLOCK_SIZE_X, BLOCK_SIZE_Y);
 	double diffusion_velocity = 0.13;
 
 	//kernel launch for the inner region
@@ -277,21 +285,21 @@ void diffuse_c(
 
 	//kernel launch for IJ boundaries (surface + planetary)
 	gpuErrchk(cudaEventRecord(start_boundary, 0));
-	DEFINE_GRID(grid_ij, nx, ny, 0);
+	DEFINE_GRID_2D(grid_ij, nx, ny);
 	ij_boundaries<<<grid_ij, threads>>>(
 		thermal_energy_updated, thermal_energy, nx, ny, nz, 1.0 - 5.0 * diffusion_velocity, diffusion_velocity
 	);
 	gpuErrchk(cudaDeviceSynchronize());
 
 	//kernel launch for IK boundaries (cyclic)
-	DEFINE_GRID(grid_ik, nx+2, nz, 0);
+	DEFINE_GRID_2D(grid_ik, nx+2, nz);
 	ik_boundaries<<<grid_ik, threads>>>(
 		thermal_energy_updated, thermal_energy, nx, ny, nz, 1.0 - 2.0 * diffusion_velocity, diffusion_velocity
 	);
 	gpuErrchk(cudaDeviceSynchronize());
 
 	//kernel launch for JK boundaries (cyclic)
-	DEFINE_GRID(grid_jk, ny+2, nz, 0);
+	DEFINE_GRID_2D(grid_jk, ny+2, nz);
 	jk_boundaries<<<grid_jk, threads>>>(
 		thermal_energy_updated, thermal_energy, nx, ny, nz, 1.0 - 2.0 * diffusion_velocity, diffusion_velocity
 	);

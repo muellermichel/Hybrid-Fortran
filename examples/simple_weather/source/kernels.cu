@@ -21,8 +21,9 @@
 	dim3 threads(block_size_x, block_size_y, block_size_z)
 
 #define BLOCK_SIZE_X 16
-#define BLOCK_SIZE_Y 16
-#define BLOCK_SIZE_Z 1
+#define BLOCK_SIZE_Y 8
+#define BLOCK_SIZE_Z 4
+#define K_SLICE_SHARED 8
 
 #define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
 inline void gpuAssert(cudaError_t code, char *file, int line, bool abort=true) {
@@ -42,11 +43,124 @@ extern "C" {
 	void diffuse_c(
 		OUT runtime_total_s, OUT runtime_boundary_s, OUT thermal_energy_updated, IN thermal_energy, INT_VALUE nx, INT_VALUE ny, INT_VALUE nz
 	);
-	void cleanup_kernels();
 }
 
 __global__ void
-__launch_bounds__( BLOCK_SIZE_X * BLOCK_SIZE_Y * BLOCK_SIZE_Z)
+__launch_bounds__(BLOCK_SIZE_X * BLOCK_SIZE_Y * BLOCK_SIZE_Z)
+diffuse_kernel_ijk(
+	OUT thermal_energy_updated, IN thermal_energy, INT_VALUE nx, INT_VALUE ny, INT_VALUE nz, FP_VALUE scale_0, FP_VALUE scale_rest
+) {
+	int i = blockIdx.x*BLOCK_SIZE_X + threadIdx.x + 1;
+	int j = blockIdx.y*BLOCK_SIZE_Y + threadIdx.y + 1;
+	int k_minus_1 = blockIdx.z*BLOCK_SIZE_Z + threadIdx.z;
+	int k = k_minus_1 + 1;
+	if (i >= nx + 2 || j >= ny + 2 || k >= nz) {
+		return;
+	}
+
+	int n_slices = ceil((float)(nz-2)/K_SLICE_SHARED);
+	int i_stride = 1;
+	int j_stride = nx + 2;
+	int k_stride = j_stride * (ny + 2);
+	int idx_down = i + j * j_stride + k_minus_1 * k_stride;
+	int idx_center = idx_down + k_stride;
+	int idx_up = idx_center + k_stride;
+	int idx_east = idx_center - i_stride;
+	int idx_west = idx_center + i_stride;
+	int idx_south = idx_center - j_stride;
+	int idx_north = idx_center + j_stride;
+	int i_shared = threadIdx.x + 1;
+	int j_shared = threadIdx.y + 1;
+	int k_shared = threadIdx.z + 1;
+
+	__syncthreads();
+	thermal_energy_shared[k_shared][j_shared][i_shared] = thermal_energy[idx_center];
+	if (threadIdx.x == 0) {
+		thermal_energy_shared[j_shared][0] = thermal_energy[idx_east];
+	}
+	if (threadIdx.x == BLOCK_SIZE_X - 1) {
+		thermal_energy_shared[j_shared][BLOCK_SIZE_X + 1] = thermal_energy[idx_west];
+	}
+	if (threadIdx.y == 0) {
+		thermal_energy_shared[0][i_shared] = thermal_energy[idx_south];
+	}
+	if (threadIdx.y == BLOCK_SIZE_Y - 1) {
+		thermal_energy_shared[BLOCK_SIZE_Y + 1][i_shared] = thermal_energy[idx_north];
+	}
+	if (threadIdx.y == 0) {
+		thermal_energy_shared[0][i_shared] = thermal_energy[idx_south];
+	}
+	if (threadIdx.y == BLOCK_SIZE_Y - 1) {
+		thermal_energy_shared[BLOCK_SIZE_Y + 1][i_shared] = thermal_energy[idx_north];
+	}
+	__syncthreads();
+
+
+	__shared__ double thermal_energy_shared[K_SLICE_SHARED][BLOCK_SIZE_Y + 2][BLOCK_SIZE_X + 2];
+	for (int s = 0; s < n_slices; s++) {
+
+		__syncthreads();
+		for (int k_shared = 0; k < K_SLICE_SHARED; k++) {
+			thermal_energy_shared[k_shared][j_shared][i_shared] = thermal_energy[idx_center];
+			if (threadIdx.x == 0) {
+				thermal_energy_shared[j_shared][0] = thermal_energy[idx_east];
+			}
+			if (threadIdx.x == BLOCK_SIZE_X - 1) {
+				thermal_energy_shared[j_shared][BLOCK_SIZE_X + 1] = thermal_energy[idx_west];
+			}
+			if (threadIdx.y == 0) {
+				thermal_energy_shared[0][i_shared] = thermal_energy[idx_south];
+			}
+			if (threadIdx.y == BLOCK_SIZE_Y - 1) {
+				thermal_energy_shared[BLOCK_SIZE_Y + 1][i_shared] = thermal_energy[idx_north];
+			}
+		}
+		__syncthreads();
+
+		if (i > nx || j > ny || k >= nz - 1) {
+			continue;
+		}
+
+		for (int k_shared = 1; k < K_SLICE_SHARED; k++) {
+			int k = k_shared + s * K_SLICE_SHARED
+			if (k >= nz - 1) {
+				return;
+			}
+
+
+
+			double updated = scale_0 * thermal_energy_shared[j_shared][i_shared] + scale_rest * (
+				thermal_energy_shared[j_shared][i_shared-1] + thermal_energy_shared[j_shared][i_shared+1] +
+				thermal_energy_shared[j_shared-1][i_shared] + thermal_energy_shared[j_shared+1][i_shared] +
+				thermal_energy[idx_down] + thermal_energy[idx_up]
+			);
+
+			// printf("read@0: %f\n", i, j, k, thermal_energy[0]);
+			// printf("read@10: %f\n", i, j, k, thermal_energy[10]);
+
+			// printf("read@i=%i,j=%i,k=%i: %f\n", i, j, k, ACCESS_3D(thermal_energy,i,j,k));
+			// printf("read@i=%i-1,j=%i,k=%i: %f\n", i, j, k, ACCESS_3D(thermal_energy,i-1,j,k));
+			// printf("read@i=%i+1,j=%i,k=%i: %f\n", i, j, k, ACCESS_3D(thermal_energy,i+1,j,k));
+			// printf("read@i=%i,j=%i-1,k=%i: %f\n", i, j, k, ACCESS_3D(thermal_energy,i,j-1,k));
+			// printf("read@i=%i,j=%i+1,k=%i: %f\n", i, j, k, ACCESS_3D(thermal_energy,i,j+1,k));
+			// printf("read@i=%i,j=%i,k=%i-1: %f\n", i, j, k, ACCESS_3D(thermal_energy,i,j,k-1));
+			// printf("read@i=%i,j=%i,k=%i+1: %f\n", i, j, k, ACCESS_3D(thermal_energy,i,j,k+1));
+			// printf("@i=%i,j=%i,k=%i: %f\n", i, j, k, updated);
+			thermal_energy_updated[idx_center] = updated;
+
+			idx_down = idx_center;
+			idx_center = idx_up;
+			idx_up = idx_center + k_stride;
+			idx_east = idx_center - i_stride;
+			idx_west = idx_center + i_stride;
+			idx_south = idx_center - j_stride;
+			idx_north = idx_center + j_stride;
+		}
+	}
+}
+
+__global__ void
+__launch_bounds__(BLOCK_SIZE_X * BLOCK_SIZE_Y * BLOCK_SIZE_Z)
 diffuse_kernel(
 	OUT thermal_energy_updated, IN thermal_energy, INT_VALUE nx, INT_VALUE ny, INT_VALUE nz, FP_VALUE scale_0, FP_VALUE scale_rest
 ) {
@@ -101,7 +215,7 @@ diffuse_kernel(
 }
 
 __global__ void
-__launch_bounds__( BLOCK_SIZE_X * BLOCK_SIZE_Y * BLOCK_SIZE_Z)
+__launch_bounds__(BLOCK_SIZE_X * BLOCK_SIZE_Y * BLOCK_SIZE_Z)
 ij_boundaries(
 	OUT thermal_energy_updated, IN thermal_energy, INT_VALUE nx, INT_VALUE ny, INT_VALUE nz, FP_VALUE scale_0, FP_VALUE scale_rest
 ) {
@@ -123,7 +237,7 @@ ij_boundaries(
 }
 
 __global__ void
-__launch_bounds__( BLOCK_SIZE_X * BLOCK_SIZE_Y * BLOCK_SIZE_Z)
+__launch_bounds__(BLOCK_SIZE_X * BLOCK_SIZE_Y * BLOCK_SIZE_Z)
 ik_boundaries(
 	OUT thermal_energy_updated, IN thermal_energy, INT_VALUE nx, INT_VALUE ny, INT_VALUE nz, FP_VALUE scale_0, FP_VALUE scale_rest
 ) {
@@ -148,7 +262,7 @@ ik_boundaries(
 }
 
 __global__ void
-__launch_bounds__( BLOCK_SIZE_X * BLOCK_SIZE_Y * BLOCK_SIZE_Z)
+__launch_bounds__(BLOCK_SIZE_X * BLOCK_SIZE_Y * BLOCK_SIZE_Z)
 jk_boundaries(
 	OUT thermal_energy_updated, IN thermal_energy, INT_VALUE nx, INT_VALUE ny, INT_VALUE nz, FP_VALUE scale_0, FP_VALUE scale_rest
 ) {
@@ -173,12 +287,6 @@ void print_slice(IN thermal_energy, INT_VALUE slice_k, INT_VALUE nx, INT_VALUE n
 		}
 		printf("\n");
 	}
-}
-
-void cleanup_kernels() {
-	printf("resetting CUDA devices");
-	cudaDeviceReset();
-	printf("done resetting CUDA devices");
 }
 
 void diffuse_c(
@@ -213,22 +321,26 @@ void diffuse_c(
 	double diffusion_velocity = 0.13;
 
 	//kernel launch for the inner region
-	DEFINE_GRID(grid_ij_inner, nx, ny, 0);
-	diffuse_kernel<<<grid_ij_inner, threads>>>(
+	DEFINE_GRID(grid_ijk, nx, ny, nz-2);
+	diffuse_kernel_ijk<<<grid_ij_inner, threads>>>(
 		thermal_energy_updated, thermal_energy, nx, ny, nz, 1.0 - 6.0 * diffusion_velocity, diffusion_velocity
 	);
+	gpuErrchk(cudaDeviceSynchronize());
 
 	//kernel launch for IJ boundaries (surface + planetary)
 	gpuErrchk(cudaEventRecord(start_boundary, 0));
-	ij_boundaries<<<grid_ij_inner, threads>>>(
+	DEFINE_GRID(grid_ij, nx, ny, 0);
+	ij_boundaries<<<grid_ij, threads>>>(
 		thermal_energy_updated, thermal_energy, nx, ny, nz, 1.0 - 5.0 * diffusion_velocity, diffusion_velocity
 	);
+	gpuErrchk(cudaDeviceSynchronize());
 
 	//kernel launch for IK boundaries (cyclic)
 	DEFINE_GRID(grid_ik, nx+2, nz, 0);
 	ik_boundaries<<<grid_ik, threads>>>(
 		thermal_energy_updated, thermal_energy, nx, ny, nz, 1.0 - 2.0 * diffusion_velocity, diffusion_velocity
 	);
+	gpuErrchk(cudaDeviceSynchronize());
 
 	//kernel launch for JK boundaries (cyclic)
 	DEFINE_GRID(grid_jk, ny+2, nz, 0);

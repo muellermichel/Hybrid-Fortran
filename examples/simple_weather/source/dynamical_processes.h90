@@ -44,7 +44,6 @@ contains
     end do
     @end parallelRegion
 
-
     call getTime(t_start_boundary)
     !surface and planetary boundary layer: Don't diffuse from above floor and ceiling
     @parallelRegion{domName(i,j), domSize(nx,ny)}
@@ -80,6 +79,7 @@ contains
                                   & )
     @end parallelRegion
     call incrementCounter(counter4, t_start_boundary)
+
     call incrementCounter(counter1, t_start_diffusion)
   end subroutine
 end module

@@ -73,90 +73,38 @@ diffuse_kernel_ijk(
 	int j_shared = threadIdx.y + 1;
 	int k_shared = threadIdx.z + 1;
 
-	__syncthreads();
+	__shared__ double thermal_energy_shared[BLOCK_SIZE_Z + 2][BLOCK_SIZE_Y + 2][BLOCK_SIZE_X + 2];
+
 	thermal_energy_shared[k_shared][j_shared][i_shared] = thermal_energy[idx_center];
 	if (threadIdx.x == 0) {
-		thermal_energy_shared[j_shared][0] = thermal_energy[idx_east];
+		thermal_energy_shared[k_shared][j_shared][0] = thermal_energy[idx_east];
 	}
 	if (threadIdx.x == BLOCK_SIZE_X - 1) {
-		thermal_energy_shared[j_shared][BLOCK_SIZE_X + 1] = thermal_energy[idx_west];
+		thermal_energy_shared[k_shared][j_shared][BLOCK_SIZE_X + 1] = thermal_energy[idx_west];
 	}
 	if (threadIdx.y == 0) {
-		thermal_energy_shared[0][i_shared] = thermal_energy[idx_south];
+		thermal_energy_shared[k_shared][0][i_shared] = thermal_energy[idx_south];
 	}
 	if (threadIdx.y == BLOCK_SIZE_Y - 1) {
-		thermal_energy_shared[BLOCK_SIZE_Y + 1][i_shared] = thermal_energy[idx_north];
+		thermal_energy_shared[k_shared][BLOCK_SIZE_Y + 1][i_shared] = thermal_energy[idx_north];
 	}
-	if (threadIdx.y == 0) {
-		thermal_energy_shared[0][i_shared] = thermal_energy[idx_south];
+	if (threadIdx.z == 0) {
+		thermal_energy_shared[0][j_shared][i_shared] = thermal_energy[idx_down];
 	}
-	if (threadIdx.y == BLOCK_SIZE_Y - 1) {
-		thermal_energy_shared[BLOCK_SIZE_Y + 1][i_shared] = thermal_energy[idx_north];
+	if (threadIdx.z == BLOCK_SIZE_Z - 1) {
+		thermal_energy_shared[BLOCK_SIZE_Z + 1][j_shared][i_shared] = thermal_energy[idx_up];
 	}
+	if (i > nx || j > ny || k >= nz - 1) {
+		return;
+	}
+
 	__syncthreads();
-
-
-	__shared__ double thermal_energy_shared[K_SLICE_SHARED][BLOCK_SIZE_Y + 2][BLOCK_SIZE_X + 2];
-	for (int s = 0; s < n_slices; s++) {
-
-		__syncthreads();
-		for (int k_shared = 0; k < K_SLICE_SHARED; k++) {
-			thermal_energy_shared[k_shared][j_shared][i_shared] = thermal_energy[idx_center];
-			if (threadIdx.x == 0) {
-				thermal_energy_shared[j_shared][0] = thermal_energy[idx_east];
-			}
-			if (threadIdx.x == BLOCK_SIZE_X - 1) {
-				thermal_energy_shared[j_shared][BLOCK_SIZE_X + 1] = thermal_energy[idx_west];
-			}
-			if (threadIdx.y == 0) {
-				thermal_energy_shared[0][i_shared] = thermal_energy[idx_south];
-			}
-			if (threadIdx.y == BLOCK_SIZE_Y - 1) {
-				thermal_energy_shared[BLOCK_SIZE_Y + 1][i_shared] = thermal_energy[idx_north];
-			}
-		}
-		__syncthreads();
-
-		if (i > nx || j > ny || k >= nz - 1) {
-			continue;
-		}
-
-		for (int k_shared = 1; k < K_SLICE_SHARED; k++) {
-			int k = k_shared + s * K_SLICE_SHARED
-			if (k >= nz - 1) {
-				return;
-			}
-
-
-
-			double updated = scale_0 * thermal_energy_shared[j_shared][i_shared] + scale_rest * (
-				thermal_energy_shared[j_shared][i_shared-1] + thermal_energy_shared[j_shared][i_shared+1] +
-				thermal_energy_shared[j_shared-1][i_shared] + thermal_energy_shared[j_shared+1][i_shared] +
-				thermal_energy[idx_down] + thermal_energy[idx_up]
-			);
-
-			// printf("read@0: %f\n", i, j, k, thermal_energy[0]);
-			// printf("read@10: %f\n", i, j, k, thermal_energy[10]);
-
-			// printf("read@i=%i,j=%i,k=%i: %f\n", i, j, k, ACCESS_3D(thermal_energy,i,j,k));
-			// printf("read@i=%i-1,j=%i,k=%i: %f\n", i, j, k, ACCESS_3D(thermal_energy,i-1,j,k));
-			// printf("read@i=%i+1,j=%i,k=%i: %f\n", i, j, k, ACCESS_3D(thermal_energy,i+1,j,k));
-			// printf("read@i=%i,j=%i-1,k=%i: %f\n", i, j, k, ACCESS_3D(thermal_energy,i,j-1,k));
-			// printf("read@i=%i,j=%i+1,k=%i: %f\n", i, j, k, ACCESS_3D(thermal_energy,i,j+1,k));
-			// printf("read@i=%i,j=%i,k=%i-1: %f\n", i, j, k, ACCESS_3D(thermal_energy,i,j,k-1));
-			// printf("read@i=%i,j=%i,k=%i+1: %f\n", i, j, k, ACCESS_3D(thermal_energy,i,j,k+1));
-			// printf("@i=%i,j=%i,k=%i: %f\n", i, j, k, updated);
-			thermal_energy_updated[idx_center] = updated;
-
-			idx_down = idx_center;
-			idx_center = idx_up;
-			idx_up = idx_center + k_stride;
-			idx_east = idx_center - i_stride;
-			idx_west = idx_center + i_stride;
-			idx_south = idx_center - j_stride;
-			idx_north = idx_center + j_stride;
-		}
-	}
+	double updated = scale_0 * thermal_energy_shared[k_shared][j_shared][i_shared] + scale_rest * (
+		thermal_energy_shared[k_shared][j_shared][i_shared-1] + thermal_energy_shared[k_shared][j_shared][i_shared+1] +
+		thermal_energy_shared[k_shared][j_shared-1][i_shared] + thermal_energy_shared[k_shared][j_shared+1][i_shared] +
+		thermal_energy_shared[k_shared-1][j_shared][i_shared] + thermal_energy_shared[k_shared+1][j_shared][i_shared]
+	);
+	thermal_energy_updated[idx_center] = updated;
 }
 
 __global__ void
@@ -322,7 +270,7 @@ void diffuse_c(
 
 	//kernel launch for the inner region
 	DEFINE_GRID(grid_ijk, nx, ny, nz-2);
-	diffuse_kernel_ijk<<<grid_ij_inner, threads>>>(
+	diffuse_kernel_ijk<<<grid_ijk, threads>>>(
 		thermal_energy_updated, thermal_energy, nx, ny, nz, 1.0 - 6.0 * diffusion_velocity, diffusion_velocity
 	);
 	gpuErrchk(cudaDeviceSynchronize());

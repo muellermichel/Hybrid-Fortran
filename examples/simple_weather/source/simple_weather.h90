@@ -145,7 +145,11 @@ module simple_weather
     do j = 0, ny+1
       do i = 0, nx+1
         do k = 1, nz
-          error = abs(current(i,j,k) - reference(i,j,k))/abs(reference(i,j,k))
+          if (abs(reference(i,j,k) > 1E-10)) then
+            error = abs(current(i,j,k) - reference(i,j,k))/abs(reference(i,j,k))
+          else
+            error = abs(current(i,j,k) - reference(i,j,k))
+          end if
           if (error > 1E-10) then
             write(6,*) "delta > tol. error: ", error, ", curr:", current(i,j,k), ", ref:", reference(i,j,k), "i: ", i, "j: ", j, "k: ", k
             num_of_errors = num_of_errors + 1

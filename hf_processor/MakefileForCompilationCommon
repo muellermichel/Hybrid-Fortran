@@ -27,6 +27,8 @@ include ./MakesettingsGeneral
 HYBRID_LIBRARY_FILENAME_POSTFIX?=pp
 include ./Makesettings
 
+SHELL=/bin/bash
+
 ifdef VERBOSE
 DEBUG_OUTPUT=&1
 else
@@ -96,9 +98,10 @@ ${USER_LIB}: $(OBJ)
 # first we preprocess such that everything gets included, then we replace ` to \n in order to get
 # multiline macros working, then we remove all multiline c-style comments with sed.
 # finally, # comment lines are removed since these lines inserted by gcc -E will confuse Fortran debuggers.
+.DELETE_ON_ERROR:
 %.f90: %.P90
 	$(call blueecho,"..........preprocessing $< in $(CURDIR)")
-	@< $< sed "s/\/\//¢/g" | gcc -E -w ${PFLAGS} - | tr "\`" '\n' | sed "s/¢/\/\//g" | sed '/^#/ d' > $@
+	@set -o pipefail; < $< sed "s/\/\//¢/g" | gcc -E -w ${PFLAGS} - | tr "\`" '\n' | sed "s/¢/\/\//g" | sed '/^#/ d' > $@
 
 %.o: %.F90
 	$(call blueecho,"..........compiling $< in $(CURDIR)")

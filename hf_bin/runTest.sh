@@ -31,12 +31,23 @@ working_dir=$(pwd)
 if [ -z "$output_file_pattern" ]; then
 	output_file_pattern="./out/*.dat"
 fi
+if [ -z "$configuration_name" ]; then
+	configuration_name="normal"
+fi
 date=`date`
 echo "------- testing ${executable_name} for ${configuration_name} on ${architecture} ; ${date} in ${working_dir} ; output pattern: ${output_file_pattern} -------" | tee -a ./log.txt 1>&2
 configFile="./testConfig_${configuration_name}.txt"
+configFileParams="./testConfigParams_${configuration_name}.txt"
 argStringsArr=( )
 refPostfixesArr=( )
-if [ -e ${configFile} ]; then
+if [ -e ${configFileParams} ]; then
+	echo "paramater config file ${configFileParams} found" 1>&2
+	while read line || [[ -n $line ]]; do
+		argStringsArr+=("$line")
+		refPostfixesArr+=(_`echo $line | tr " " "_"`)
+	done <${configFileParams}
+elif [ -e ${configFile} ]; then
+	echo "config file ${configFile} found" 1>&2
 	col_idx=1
 	while true
 	do
@@ -68,6 +79,7 @@ if [ -e ${configFile} ]; then
 		col_idx=$(( $col_idx + 2 ))
 	done
 else
+	echo "no config file found ($configFileParams or $configFile) - starting executable without command line parameters" 1>&2
 	argStringsArr=( "" )
 	refPostfixesArr=( "" )
 fi
@@ -128,12 +140,8 @@ for i in "${!argStringsArr[@]}"; do
 			fi
 		fi
 	fi
-	if [ "$configuration_name" = "valgrind" ]; then
-		argString="${argString} valgrind"
-	fi
 
 	remoteCallPrefix=""
-
 
 	echo -n "calling ${executable_name} ( with parameters ${argString} ) for ${configuration_name} ,"
 	if [ -z "$HF_RUN_OVER_SSH" ]; then

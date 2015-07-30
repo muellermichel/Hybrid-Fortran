@@ -314,6 +314,9 @@ def run_accuracy_test_for_netcdf(options, eps):
 					first_err_val = in_array[first_occurrence_index_tuple]
 					expected_val = ref_array[first_occurrence_index_tuple]
 					passed_string = "first error at:%s; first error value: %s; expected: %s; FAIL <-------" %(first_occurrence, first_err_val, expected_val)
+					numpy.set_printoptions(precision=3)
+					passed_string += "\n === curr === \n" + str(in_array)
+					passed_string += "\n === ref === \n" + str(ref_array)
 			elif root_mean_square_deviation > eps:
 				error_found = True
 				passed_string = "FAIL <-------"

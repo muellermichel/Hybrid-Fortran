@@ -147,11 +147,7 @@ if options.debug and analysis != None:
 	print "=== analysis ==="
 	prettyprint(analysis)
 
-if analysis == None:
-	#without the symbol analysis the graph looks best left-to-right
-	graph = pydot.Dot(graph_type='digraph', rankdir='LR', fontsize=defaultFontSize, compound=True)
-else:
-	graph = pydot.Dot(graph_type='digraph', fontsize=defaultFontSize, compound=True)
+graph = pydot.Dot(graph_type='digraph', rankdir='LR', fontsize=defaultFontSize, compound=True)
 # graph = pydot.Dot(graph_type='digraph', fontsize="27") #more useful for academic papers when there is a low number of nodes
 
 ### Callgraph Generation ###

@@ -48,21 +48,19 @@ for i in $output_file_pattern; do
 	else
 		refPath="${reference_path}${filename}.${extension}"
 	fi
-	if [[ $extension == "nc" || $extension == "" ]]; then
-		formatParam="${formatParam} --netcdf"
-	fi
 	if [ ! -e ${refPath} ]; then
 		echo "skipping ${refPath} (doesn't exist)" 1>&2
 	else
 		echo "checking against ${refPath}" 1>&2
-		echo "Current directory: $(pwd)" 1>&2
-		echo "Contents of output directory: " 1>&2
 		if [ ! -e ${i} ]; then
 			echo "output file ${i} expected but not found" 1>&2
 			error_found=true
 		fi
+		if [[ $extension == "nc" ]]; then
+			echo "Using NetCDF module for accuracy test"
+			formatParam="${formatParam} --netcdf"
+		fi
 		output_file_found=true
-		ls $(dirname $i) 1>&2
 		echo "calling accuracy with format paramter ${formatParam}" 1>&2
 		python ${HF_DIR}/hf_bin/accuracy.py -f $i --reference "$refPath" $formatParam && :
 		rc=$?

@@ -59,7 +59,8 @@ parser.add_option("--optionFlags", dest="optionFlags",
 									help="can be used to switch on or off the following flags (comma separated): DO_NOT_TOUCH_GPU_CACHE_SETTINGS")
 (options, args) = parser.parse_args()
 
-optionFlags = options.optionFlags.split(',') if options.optionFlags != None else []
+optionFlags = [flag for flag in options.optionFlags.split(',') if flag not in ['', None]] if options.optionFlags != None else []
+sys.stderr.write('Option Flags: %s\n' %(optionFlags))
 if options.debug and 'DEBUG_PRINT' not in optionFlags:
 	optionFlags.append('DEBUG_PRINT')
 

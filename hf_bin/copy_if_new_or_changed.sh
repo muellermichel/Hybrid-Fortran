@@ -39,23 +39,21 @@ b_file=${2}
 # echo "$conversion_command"
 # eval "$conversion_command"
 
-if [ ! -e ${b_file} ]; then
-	echo "Error: B-File does not exist" >&2
-	echo "2"
-	exit
-fi
 if [ ! -e ${a_file} ]; then
-	echo "1"
-	exit
+	echo "Error: B-File does not exist" >&2
+	exit 2
+fi
+if [ ! -e ${b_file} ]; then
+	cp ${a_file} ${b_file}
+	exit 0
 	# mv ${build_dir_sources}hf_temp.P90 ${output_file}
 fi
 
-diff ${b_file} ${a_file} > /dev/null 2>&1 && :
+diff ${a_file} ${b_file} > /dev/null 2>&1 && :
 diff_result=$?
 if [ $diff_result -eq 1 ]; then
-	echo "1"
-	exit
+	cp ${a_file} ${b_file}
+	exit 0
 	# mv ${build_dir_sources}hf_temp.P90 ${output_file}
 fi
-echo "0"
-exit
+exit 0

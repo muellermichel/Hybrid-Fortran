@@ -114,6 +114,7 @@ def rootMeanSquareDeviation(tup, tupRef, eps):
 	firstErr = -1
 	firstErrVal = 0.0
 	firstErrExpected = 0.0
+	value_range = max(tup) - min(tup) if len(tup) > 0 else 0
 	for val in tup:
 		expectedVal = tupRef[i]
 		newErr = val - expectedVal
@@ -131,12 +132,13 @@ def rootMeanSquareDeviation(tup, tupRef, eps):
 			newErrSquare = 0.0
 			firstErrVal = val
 			firstErrExpected = expectedVal
-		elif abs(newErr) > eps and firstErr == -1:
+		elif (value_range > eps and (abs(newErr) / value_range) > eps and firstErr == -1) or \
+		(value_range <= eps and abs(newErr) > eps and firstErr == -1):
 			firstErr = i
 			firstErrVal = val
 			firstErrExpected = expectedVal
 		err = err + newErrSquare
-	return math.sqrt(err), firstErr, firstErrVal, firstErrExpected
+	return math.sqrt(err) / value_range if value_range > eps else math.sqrt(err), firstErr, firstErrVal, firstErrExpected
 
 def checkIntegrity(tup):
 	for index, val in enumerate(tup):
@@ -298,7 +300,9 @@ def run_accuracy_test_for_netcdf(options, eps):
 			passed_string = "pass"
 			if numpy.count_nonzero(ref_array) == 0:
 				passed_string += "(WARNING:Reference is Zero Matrix!)"
+			value_range = numpy.max(in_array) - numpy.min(in_array)
 			root_mean_square_deviation = numpy.sqrt(numpy.mean((in_array - ref_array)**2))
+			root_mean_square_deviation = root_mean_square_deviation / value_range if value_range > eps else root_mean_square_deviation
 			if math.isnan(root_mean_square_deviation):
 				passed_string = "FAIL <-------"
 				error_found = True

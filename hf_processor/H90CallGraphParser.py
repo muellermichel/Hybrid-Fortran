@@ -660,6 +660,30 @@ class H90XMLCallGraphGenerator(H90CallGraphParser):
             return
         appendSeparatedTextAsNodes(line, ',', self.doc, self.currDomainDependantRelationNode, 'entry')
 
+def getSymbolsByName(cgDoc, parentNode, parallelRegionTemplates, isModuleSymbols=False, debugPrint=False):
+    templatesAndEntries = getDomainDependantTemplatesAndEntries(cgDoc, parentNode)
+    dependantNames = []
+    symbolsByName = {}
+    for template, entry in templatesAndEntries:
+        dependantName = entry.firstChild.nodeValue
+        if dependantName in dependantNames:
+            raise Exception("Symbol %s has multiple @domainDependant definitions. Please remove all but one." %(dependantName))
+        dependantNames.append(dependantName)
+        symbol = symbolsByName.get(dependantName)
+        if symbol == None:
+            symbol = Symbol(dependantName, template, debugPrint=debugPrint)
+            symbol.isModuleSymbol = isModuleSymbols
+        else:
+            current_attributes = symbol.attributes
+            new_attributes = getAttributes(template)
+            symbol.setOptionsFromAttributes(current_attributes + new_attributes)
+        symbol.loadDomainDependantEntryNodeAttributes(entry)
+        if isModuleSymbols:
+            symbol.loadModuleNodeAttributes(parentNode)
+        else:
+            symbol.loadRoutineNodeAttributes(parentNode, parallelRegionTemplates)
+        symbolsByName[dependantName] = symbol
+    return symbolsByName
 
 class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
     cgDoc = None
@@ -715,27 +739,13 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
         super(H90CallGraphAndSymbolDeclarationsParser, self).__init__()
 
     def loadSymbolsFromTemplate(self, parentNode, parallelRegionTemplates, isModuleSymbols=False):
-        templatesAndEntries = getDomainDependantTemplatesAndEntries(self.cgDoc, parentNode)
-        dependantNames = []
-        for template, entry in templatesAndEntries:
-            dependantName = entry.firstChild.nodeValue
-            if dependantName in dependantNames:
-                raise Exception("Symbol %s has multiple @domainDependant definitions. Please remove all but one." %(dependantName))
-            dependantNames.append(dependantName)
-            symbol = self.currSymbolsByName.get(dependantName)
-            if symbol == None:
-                symbol = Symbol(dependantName, template, debugPrint=self.debugPrint)
-                symbol.isModuleSymbol = isModuleSymbols
-            else:
-                current_attributes = symbol.attributes
-                new_attributes = getAttributes(template)
-                symbol.setOptionsFromAttributes(current_attributes + new_attributes)
-            symbol.loadDomainDependantEntryNodeAttributes(entry)
-            if isModuleSymbols:
-                symbol.loadModuleNodeAttributes(parentNode)
-            else:
-                symbol.loadRoutineNodeAttributes(parentNode, parallelRegionTemplates)
-            self.currSymbolsByName[dependantName] = symbol
+        self.currSymbolsByName.update(getSymbolsByName(
+            self.cgDoc,
+            parentNode,
+            parallelRegionTemplates,
+            isModuleSymbols=isModuleSymbols,
+            debugPrint=self.debugPrint
+        ))
         if self.debugPrint:
             sys.stderr.write("Symbols loaded from template. Symbols currently active in scope: %s. Module Symbol Property: %s. Dependant Names: %s\n" %(
                 str(self.currSymbolsByName.values()),
@@ -967,6 +977,8 @@ class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
     stateBeforeBranch = None
     currParallelRegionRelationNode = None
     currParallelRegionTemplateNode = None
+    symbolsByModuleName = None
+    symbolAnalysisByRoutineName = None
 
     def __init__(self, cgDoc, implementationsByTemplateName):
         self.implementationsByTemplateName = implementationsByTemplateName
@@ -982,6 +994,23 @@ class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
         self.codeSanitizer = FortranCodeSanitizer()
         self.currParallelRegionRelationNode = None
         self.currParallelRegionTemplateNode = None
+        from H90SymbolDependencyGraphAnalyzer import SymbolDependencyAnalyzer, SymbolType, SymbolAnalysis
+        analyzer = SymbolDependencyAnalyzer(cgDoc)
+        symbolAnalysis = analyzer.getSymbolAnalysisByRoutine()
+        self.symbolAnalysisByRoutineName = {}
+        for (routineName, symbolName) in symbolAnalysis:
+            self.symbolAnalysisByRoutineName[routineName] = self.symbolAnalysisByRoutineName.get(routineName, []) + [symbolAnalysis[(routineName, symbolName)]]
+        self.symbolsByModuleNameAndSymbolName = {}
+        for moduleName in self.moduleNodesByName.keys():
+            moduleNode = self.moduleNodesByName.get(moduleName)
+            if not moduleNode:
+                continue
+            self.symbolsByModuleNameAndSymbolName[moduleName] = getSymbolsByName(
+                self.cgDoc,
+                moduleNode,
+                None,
+                isModuleSymbols=True
+            )
         super(H90toF90Printer, self).__init__(cgDoc)
 
     @property
@@ -1154,12 +1183,22 @@ This is not allowed for implementations using %s.\
     def processCallPostAndGetAdjustedLine(self, line):
         allSymbolsPassedByName = self.symbolsPassedInCurrentCallByName.copy()
         additionalSymbols = self.additionalSymbolsByCalleeName.get(self.currCalleeName)
+        additionalModuleSymbols = []
+        for symbolAnalysis in self.symbolAnalysisByRoutineName.get(self.currCalleeName, []):
+            if not symbolAnalysis.isModuleSymbol:
+                continue
+            symbol = self.symbolsByModuleNameAndSymbolName.get(symbolAnalysis.sourceModule, {}).get(symbolAnalysis.name)
+            if symbol == None:
+                raise Exception("Symbol with name %s has an analysis available but can't be found in module symbol database for module %s" %(
+                    symbolAnalysis.name,
+                    symbolAnalysis.sourceModule
+                ))
+            additionalModuleSymbols.append(symbol)
         additionalDeclarations = []
         if additionalSymbols:
             additionalDeclarations = additionalSymbols[1]
-        for symbol in additionalDeclarations:
+        for symbol in additionalDeclarations + additionalModuleSymbols:
             allSymbolsPassedByName[symbol.name] = symbol
-
         adjustedLine = line + "\n" + self.implementation.kernelCallPost(allSymbolsPassedByName, self.currCalleeNode)
         self.symbolsPassedInCurrentCallByName = {}
         self.currCalleeNode = None

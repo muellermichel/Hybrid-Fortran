@@ -44,20 +44,6 @@ SymbolType = enum(
     "DOMAIN_DEPENDANT"
 )
 
-DOMAIN_DEPENDANT_TYPES = [
-    SymbolType.ARGUMENT_WITH_DOMAIN_DEPENDANT_SPEC,
-    SymbolType.MODULE_DATA_USED_IN_CALLEE_GRAPH_WITH_DOMAIN_DEPENDANT_SPEC,
-    SymbolType.MODULE_DATA_WITH_DOMAIN_DEPENDANT_SPEC,
-    SymbolType.DOMAIN_DEPENDANT
-]
-
-MODULE_DATA_TYPES = [
-    SymbolType.MODULE_DATA_USED_IN_CALLEE_GRAPH,
-    SymbolType.MODULE_DATA,
-    SymbolType.MODULE_DATA_USED_IN_CALLEE_GRAPH_WITH_DOMAIN_DEPENDANT_SPEC,
-    SymbolType.MODULE_DATA_WITH_DOMAIN_DEPENDANT_SPEC
-]
-
 class SymbolAnalysis:
     aliasNamesByRoutineName = None
     argumentIndexByRoutineName = None
@@ -83,6 +69,24 @@ class SymbolAnalysis:
             str(self.argumentIndexByRoutineName)
         )
 
+    @property
+    def isModuleSymbol(self):
+        return self.symbolType in [
+            SymbolType.MODULE_DATA_USED_IN_CALLEE_GRAPH,
+            SymbolType.MODULE_DATA,
+            SymbolType.MODULE_DATA_USED_IN_CALLEE_GRAPH_WITH_DOMAIN_DEPENDANT_SPEC,
+            SymbolType.MODULE_DATA_WITH_DOMAIN_DEPENDANT_SPEC
+        ]
+
+    @property
+    def isDomainDependant(self):
+        return self.symbolType in [
+            SymbolType.ARGUMENT_WITH_DOMAIN_DEPENDANT_SPEC,
+            SymbolType.MODULE_DATA_USED_IN_CALLEE_GRAPH_WITH_DOMAIN_DEPENDANT_SPEC,
+            SymbolType.MODULE_DATA_WITH_DOMAIN_DEPENDANT_SPEC,
+            SymbolType.DOMAIN_DEPENDANT
+        ]
+
     def updateWith(self, analysis, routineName):
         for routineName in analysis.aliasNamesByRoutineName:
             self.aliasNamesByRoutineName[routineName] = analysis.aliasNamesByRoutineName[routineName]
@@ -90,8 +94,8 @@ class SymbolAnalysis:
             self.argumentIndexByRoutineName[routineName] = analysis.argumentIndexByRoutineName[routineName]
         if self.symbolType == SymbolType.UNDEFINED:
             self.symbolType = analysis.symbolType
-        elif self.symbolType in DOMAIN_DEPENDANT_TYPES \
-        and analysis.symbolType not in DOMAIN_DEPENDANT_TYPES:
+        elif self.isDomainDependant \
+        and not analysis.isDomainDependant:
             raise Exception(
                 "Symbol %s is declared as domain dependant upstream (type %s), but doesn't have any domain dependant information later in the callgraph stream (%s, type %s)." %(
                     self.name,
@@ -263,7 +267,7 @@ class SymbolDependencyAnalyzer:
                 symbolNameInCaller = callArguments[argIndex]
                 callerName = call.getAttribute("caller")
                 existingSymbolAnalysis = symbolAnalysis.get((callerName, symbolNameInCaller), [])
-            elif currentAnalysis.symbolType in MODULE_DATA_TYPES:
+            elif currentAnalysis.isModuleSymbol:
                 existingModuleSymbolAnalysis = symbolAnalysisByNameAndSource.get((currentAnalysis.sourceSymbol, currentAnalysis.sourceModule))
                 if existingModuleSymbolAnalysis:
                     existingSymbolAnalysis = [existingModuleSymbolAnalysis]
@@ -280,7 +284,7 @@ class SymbolDependencyAnalyzer:
 
             if len(existingSymbolAnalysis) == 0 or (len(existingSymbolAnalysis) == 1 and existingSymbolAnalysis[0] == currentAnalysis):
                 symbolAnalysis[(routineName, symbolName)] = [currentAnalysis]
-                if currentAnalysis.symbolType in MODULE_DATA_TYPES:
+                if currentAnalysis.isModuleSymbol:
                     symbolAnalysisByNameAndSource[(currentAnalysis.sourceSymbol, currentAnalysis.sourceModule)] = currentAnalysis
             else:
                 for analysis in existingSymbolAnalysis:

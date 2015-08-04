@@ -58,15 +58,15 @@ def getDataDirectiveAndUpdateOnDeviceFlags(currRoutineNode, currParallelRegionTe
     dataDeclarationsRequired = False
     commaRequired = False
     for index, symbol in enumerate(dependantSymbols):
-        if debugPrint:
-            sys.stderr.write("analyzing symbol %s for data directive. Domains: %s, IsHostSymbol: %s, IsPresent: %s, IsToBeTransfered: %s, SourceModule: %s\n" %(
-                symbol.name,
-                str(symbol.domains),
-                symbol.isHostSymbol,
-                symbol.isPresent,
-                symbol.isToBeTransfered,
-                str(symbol.sourceModule)
-            ))
+        # if debugPrint:
+        #     sys.stderr.write("analyzing symbol %s for data directive. Domains: %s, IsHostSymbol: %s, IsPresent: %s, IsToBeTransfered: %s, SourceModule: %s\n" %(
+        #         symbol.name,
+        #         str(symbol.domains),
+        #         symbol.isHostSymbol,
+        #         symbol.isPresent,
+        #         symbol.isToBeTransfered,
+        #         str(symbol.sourceModule)
+        #     ))
         #Rules that lead to a symbol not being touched by directives
         symbol.isOnDevice = False
         if not symbol.domains or len(symbol.domains) == 0:
@@ -411,12 +411,23 @@ def getRuntimeDebugPrintStatements(symbolsByName, calleeRoutineNode, parallelReg
     if not routineName:
         raise Exception("Callee routine name undefined.")
     result = "write(0,*) '*********** kernel %s finished *************** '\n" %(routineName)
-
     symbolNames = sorted(symbolsByName.keys())
-    for symbolName in symbolNames:
-        symbol = symbolsByName[symbolName]
-        if not symbol.domains or len(symbol.domains) == 0:
-            continue
+    symbolsToPrint = [
+        symbolsByName[symbolName] for symbolName in symbolNames
+        if symbolsByName[symbolName].domains and len(symbolsByName[symbolName].domains) != 0
+    ]
+    offsetStringsByDomain = dict(
+        (domain, getDebugOffsetString(domain)) for domain in sum([symbol.domains for symbol in symbolsToPrint], [])
+    )
+    symbolClauses = [
+        symbol.name + "(" + ", ".join([
+            "%s:%s" %(offsetStringsByDomain[domain],offsetStringsByDomain[domain])
+            for domain in symbol.domains
+        ]) + ")"
+        for symbol in symbolsToPrint
+    ]
+    result += "!$acc update if(hf_symbols_are_device_present) host(%s)\n" %(", ".join(symbolClauses)) if len(symbolsToPrint) > 0 else ""
+    for symbol in symbolsToPrint:
         offsets = []
         for domain in symbol.domains:
             newDebugOffsetString = getDebugOffsetString(domain)
@@ -828,10 +839,15 @@ end subroutine
             result += "real(8) :: hf_output_temp\n"
         result += getIteratorDeclaration(currRoutineNode, currParallelRegionTemplates, ["GPU"])
         result += "integer(4) :: hf_symbols_are_device_present\n"
-        for symbol in dependantSymbols:
-            if symbol.isOnDevice:
-                result += "hf_symbols_are_device_present = acc_is_present(%s)\n" %(symbol.name)
-                break
+        devicePresentSymbols = [symbol for symbol in dependantSymbols if symbol.isOnDevice]
+        if len(devicePresentSymbols) > 0:
+            for symbol in dependantSymbols:
+                if symbol.declarationType() != DeclarationType.LOCAL_ARRAY:
+                    result += "hf_symbols_are_device_present = acc_is_present(%s)\n" %(symbol.name)
+                    break
+            else:
+                if currRoutineNode.getAttribute("parallelRegionPosition") in ['inside', 'within']:
+                    raise Exception("kernel or kernel wrapper only has temporary data on the device - no input or output possible here.")
         if dataDeclarationsRequired == True:
             result += dataDirective
         result += self.declarationEndPrintStatements()

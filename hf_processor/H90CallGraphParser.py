@@ -98,42 +98,44 @@ class FortranCodeSanitizer:
             if len(codeLine) <= howManyCharsPerLine:
                 sanitizedCodeLines.append(codeLine)
                 continue
-            currLine = codeLine
-            oldLineLength = -1
+            remainder = codeLine
+            previousLineLength = len(remainder)
             blankPos = -1
-            while len(currLine) > howManyCharsPerLine - len(lineSep):
-                isOpenMPDirectiveLine = self.openMPLinePattern.match(currLine) != None
-                isOpenACCDirectiveLine = self.openACCLinePattern.match(currLine) != None
-                if commentChar in currLine and not isOpenMPDirectiveLine and not isOpenACCDirectiveLine:
-                    commentPos = currLine.find(commentChar)
+            while len(remainder) > howManyCharsPerLine - len(lineSep):
+                isOpenMPDirectiveLine = self.openMPLinePattern.match(remainder) != None
+                isOpenACCDirectiveLine = self.openACCLinePattern.match(remainder) != None
+                if commentChar in remainder and not isOpenMPDirectiveLine and not isOpenACCDirectiveLine:
+                    commentPos = remainder.find(commentChar)
                     if commentPos <= howManyCharsPerLine:
                         break
                 #find a blank that's NOT within a quoted string
-                blankPos = findRightMostOccurrenceNotInsideQuotes(' ', currLine, rightStartAt=howManyCharsPerLine - len(lineSep))
-                if blankPos < 1 or (oldLineLength != -1 and len(currLine[:blankPos]) >= oldLineLength):
+                blankPos = findRightMostOccurrenceNotInsideQuotes(' ', remainder, rightStartAt=howManyCharsPerLine - len(lineSep))
+                currLine = remainder[:blankPos] + lineSep if blankPos >= 1 else remainder
+                if blankPos >= 1 and isOpenMPDirectiveLine:
+                    remainder = '!$OMP& ' + remainder[blankPos:]
+                elif blankPos >= 1 and isOpenACCDirectiveLine:
+                    remainder = '!$acc& ' + remainder[blankPos:]
+                elif blankPos >= 1:
+                    remainder = '& ' + remainder[blankPos:]
+                else:
+                    remainder = ""
+                sanitizedCodeLines.append(currLine)
+                if blankPos < 1 or len(remainder) >= previousLineLength:
                     #blank not found or at beginning of line
                     #-> bail out in order to avoid infinite loop - just keep the line as it was.
                     sys.stderr.write(
-                        "WARNING: The following line could not be broken up for Fortran compatibility - no suitable spaces found: %s\n" %(
+                        "WARNING: The following line could not be broken up for Fortran compatibility - no suitable spaces found: %s (remainder: %s)\n" %(
                             currLine,
+                            remainder
                         )
                     )
-                    sanitizedCodeLines.append(currLine)
-                    currLine = ""
+                    remainder = ""
                     break
-                else:
-                    sanitizedCodeLines.append(currLine[:blankPos] + lineSep)
-                    oldLineLength = len(currLine)
-                    if isOpenMPDirectiveLine:
-                        currLine = '!$OMP& ' + currLine[blankPos:]
-                    elif isOpenACCDirectiveLine:
-                        currLine = '!$acc& ' + currLine[blankPos:]
-                    else:
-                        currLine = '& ' + currLine[blankPos:]
+                previousLineLength = len(remainder)
             if toBeCommented:
                 currLine = commentChar + " " + currLine
-            if currLine != "":
-                sanitizedCodeLines.append(currLine)
+            if remainder != "":
+                sanitizedCodeLines.append(remainder)
 
         # ----------- re indent codelines ----------------------------- #
         # ----------- and strip whitespace ---------------------------- #

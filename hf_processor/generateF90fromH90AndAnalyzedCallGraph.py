@@ -81,6 +81,11 @@ try:
 	implementationNamesByTemplateName=None
 	try:
 		implementationNamesByTemplateName=json.loads(getDataFromFile(options.implementation))
+	except ValueError as e:
+		sys.stderr.write('Error decoding implementation json (%s): %s\n' \
+			%(str(options.implementation), str(e))
+		)
+		sys.exit(1)
 	except Exception as e:
 		sys.stderr.write('Could not interpret implementation parameter as json file to read. Trying to use it as an implementation name directly\n')
 		implementationNamesByTemplateName={'default':options.implementation}
@@ -95,11 +100,6 @@ try:
 	f90printer = H90toF90Printer(cgDoc, implementationsByTemplateName)
 	f90printer.debugPrint = options.debug
 	f90printer.processFile(options.sourceFile)
-except ValueError as e:
-	sys.stderr.write('Error decoding implementation json (%s): %s\n' \
-		%(str(options.implementation), str(e))
-	)
-	sys.exit(1)
 except Exception as e:
 	sys.stderr.write('Error when generating F90 from H90 file %s: %s\n%s\n' \
 		%(str(options.sourceFile), str(e), traceback.format_exc())

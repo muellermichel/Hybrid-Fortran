@@ -27,7 +27,7 @@ formatParam="${5}"
 if [ -z "$output_file_pattern" ]; then
 	output_file_pattern="./out/*.dat"
 fi
-echo "Performing accuracy tests with files $output_file_pattern against $reference_path; prescript: $source_before; postscript: $source_after" 1>&2
+echo "Performing accuracy tests with files $output_file_pattern against $reference_path; prescript: $source_before; postscript: $source_after; path: $(pwd)" 1>&2
 if [ -n "$source_before" ]; then
 	echo "sourcing $source_before before accuracy tests" 1>&2
 	source $source_before && :
@@ -43,17 +43,18 @@ for i in $output_file_pattern; do
 	filename=$(basename $i)
 	extension=`echo $filename | cut -s -d'.' -f2`
 	filename=${filename%.*}
+	dirname=$(dirname $i)
 	if [ -z "$extension" ]; then
 		refPath="${reference_path}${filename}"
 	else
 		refPath="${reference_path}${filename}.${extension}"
 	fi
-	if [ ! -e ${refPath} ]; then
+	if [ ! -f ${refPath} ]; then
 		echo "skipping ${refPath} (doesn't exist)" 1>&2
 	else
 		echo "checking against ${refPath}" 1>&2
-		if [ ! -e ${i} ]; then
-			echo "output file ${i} expected but not found" 1>&2
+		if [ ! -f ${i} ]; then
+			echo "output file ${i} expected but not found from $(pwd)" 1>&2
 			error_found=true
 		fi
 		formatParamCurr="${formatParam}"

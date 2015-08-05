@@ -407,6 +407,12 @@ def getDebugOffsetString(domainTuple):
     return offset
 
 def getRuntimeDebugPrintStatements(symbolsByName, calleeRoutineNode, parallelRegionNode):
+    def wrap_in_acc_pp(string, symbol):
+        accPP = symbol.accPP()[0]
+        if accPP == "":
+            return string
+        return accPP + "(" + string + ")"
+
     routineName = calleeRoutineNode.getAttribute('name')
     if not routineName:
         raise Exception("Callee routine name undefined.")
@@ -420,10 +426,13 @@ def getRuntimeDebugPrintStatements(symbolsByName, calleeRoutineNode, parallelReg
         (domain, getDebugOffsetString(domain)) for domain in sum([symbol.domains for symbol in symbolsToPrint], [])
     )
     symbolClauses = [
-        symbol.name + "(" + ", ".join([
-            "%s:%s" %(offsetStringsByDomain[domain],offsetStringsByDomain[domain])
-            for domain in symbol.domains
-        ]) + ")"
+        symbol.name + "(" + wrap_in_acc_pp(
+            ",".join([
+                "%s:%s" %(offsetStringsByDomain[domain],offsetStringsByDomain[domain])
+                for domain in symbol.domains
+            ]),
+            symbol
+        ) + ")"
         for symbol in symbolsToPrint
     ]
     result += "!$acc update if(hf_symbols_are_device_present) host(%s)\n" %(", ".join(symbolClauses)) if len(symbolsToPrint) > 0 else ""
@@ -519,7 +528,7 @@ class FortranImplementation(object):
     def additionalIncludes(self):
         return ""
 
-    def getAdditionalSubroutineSymbols(self, cgDoc, routineNode, parallelRegionTemplates):
+    def getAdditionalKernelParameters(self, cgDoc, routineNode, parallelRegionTemplates):
         return [], []
 
     def extractListOfAdditionalSubroutineSymbols(self, routineNode, currSymbolsByName):
@@ -785,7 +794,7 @@ end subroutine
 
 #         #module scalars in kernels
 #         if parallelRegionPosition == "within" \
-#         and (declarationType == DeclarationType.IMPORTED_SCALAR or declarationType == DeclarationType.MODULE_SCALAR):
+#         and (declarationType == DeclarationType.FOREIGN_MODULE_SCALAR or declarationType == DeclarationType.LOCAL_MODULE_SCALAR):
 #             pass
 #             # adjustedLine = declarationDirectives + " ,intent(in), value ::" + symbolDeclarationStr
 
@@ -1083,7 +1092,7 @@ end if\n" %(calleeNode.getAttribute('name'))
         #result = result + getTempDeallocationsAfterKernelCall(symbolsByName)
         return result
 
-    def getAdditionalSubroutineSymbols(self, cgDoc, routineNode, parallelRegionTemplates):
+    def getAdditionalKernelParameters(self, cgDoc, routineNode, parallelRegionTemplates):
         additionalImports = []
         additionalDeclarations = []
         if not parallelRegionTemplates:
@@ -1226,7 +1235,7 @@ Symbols vs transferHere attributes:\n%s" %(str([(symbol.name, symbol.transferHer
 
         #module scalars in kernels
         if parallelRegionPosition == "within" \
-        and (declarationType == DeclarationType.IMPORTED_SCALAR or declarationType == DeclarationType.MODULE_SCALAR):
+        and (declarationType == DeclarationType.FOREIGN_MODULE_SCALAR or declarationType == DeclarationType.LOCAL_MODULE_SCALAR):
             adjustedLine = declarationDirectives + " ,intent(in), value ::" + symbolDeclarationStr
 
         #local arrays in kernels

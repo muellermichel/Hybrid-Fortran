@@ -516,8 +516,8 @@ class H90CallGraphParser(object):
             except Exception, e:
                 exc_type, exc_obj, exc_tb = sys.exc_info()
                 fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-                sys.stderr.write('Error when parsing file %s on line %i: %s; Print of line:\n%s\n' %(
-                        str(fileName), self.lineNo, str(e), str(line).strip()
+                sys.stderr.write('Error when parsing file %s on line %i: %s; Debug Print: %s; Print of line:\n%s\n' %(
+                        str(fileName), self.lineNo, str(e), self.debugPrint, str(line).strip()
                     )
                 )
                 if self.debugPrint:
@@ -747,10 +747,9 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
             debugPrint=self.debugPrint
         ))
         if self.debugPrint:
-            sys.stderr.write("Symbols loaded from template. Symbols currently active in scope: %s. Module Symbol Property: %s. Dependant Names: %s\n" %(
+            sys.stderr.write("Symbols loaded from template. Symbols currently active in scope: %s. Module Symbol Property: %s\n" %(
                 str(self.currSymbolsByName.values()),
-                str([self.currSymbolsByName[symbolName].isModuleSymbol for symbolName in self.currSymbolsByName.keys()]),
-                str(dependantNames)
+                str([self.currSymbolsByName[symbolName].isModuleSymbol for symbolName in self.currSymbolsByName.keys()])
             ))
 
     def analyseSymbolInformationOnCurrentLine(self, line, analyseImports=True):
@@ -958,12 +957,26 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
         self.entryNodesBySymbolName = {}
         self.currSymbols = []
 
+def getModuleArraysForCallee(calleeName, symbolAnalysisByRoutineNameAndSymbolName, symbolsByModuleNameAndSymbolName):
+    moduleSymbols = []
+    analysisBySymbolName = symbolAnalysisByRoutineNameAndSymbolName.get(calleeName, {})
+    for symbolCallAnalysis in analysisBySymbolName.values():
+        for symbolAnalysis in symbolCallAnalysis:
+            if not symbolAnalysis.isModuleSymbol:
+                continue
+            symbol = symbolsByModuleNameAndSymbolName.get(symbolAnalysis.sourceModule, {}).get(symbolAnalysis.name)
+            if symbol == None:
+                #this happens for scalars for example
+                continue
+            moduleSymbols.append(symbol)
+    return moduleSymbols
 
 class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
     currSubroutineImplementationNeedsToBeCommented = False
     currRoutineIsCallingParallelRegion = False
     currCalleeNode = None
-    additionalSymbolsByCalleeName = {}
+    additionalParametersByKernelName = None
+    additionalWrapperImportsByKernelName = None
     currAdditionalSubroutineParameters = []
     currAdditionalCompactedSubroutineParameters = []
     symbolsPassedInCurrentCallByName = {}
@@ -981,11 +994,13 @@ class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
     symbolAnalysisByRoutineName = None
 
     def __init__(self, cgDoc, implementationsByTemplateName):
+        super(H90toF90Printer, self).__init__(cgDoc)
         self.implementationsByTemplateName = implementationsByTemplateName
         self.currRoutineIsCallingParallelRegion = False
         self.currSubroutineImplementationNeedsToBeCommented = False
         self.symbolsPassedInCurrentCallByName = {}
-        self.additionalSymbolsByCalleeName = {}
+        self.additionalParametersByKernelName = {}
+        self.additionalWrapperImportsByKernelName = {}
         self.currParallelIterators = []
         self.currentLine = ""
         self.currCalleeNode = None
@@ -996,10 +1011,7 @@ class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
         self.currParallelRegionTemplateNode = None
         from H90SymbolDependencyGraphAnalyzer import SymbolDependencyAnalyzer, SymbolType, SymbolAnalysis
         analyzer = SymbolDependencyAnalyzer(cgDoc)
-        symbolAnalysis = analyzer.getSymbolAnalysisByRoutine()
-        self.symbolAnalysisByRoutineName = {}
-        for (routineName, symbolName) in symbolAnalysis:
-            self.symbolAnalysisByRoutineName[routineName] = self.symbolAnalysisByRoutineName.get(routineName, []) + [symbolAnalysis[(routineName, symbolName)]]
+        self.symbolAnalysisByRoutineNameAndSymbolName = analyzer.getSymbolAnalysisByRoutine()
         self.symbolsByModuleNameAndSymbolName = {}
         for moduleName in self.moduleNodesByName.keys():
             moduleNode = self.moduleNodesByName.get(moduleName)
@@ -1011,7 +1023,9 @@ class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
                 None,
                 isModuleSymbols=True
             )
-        super(H90toF90Printer, self).__init__(cgDoc)
+            for symbolName in self.symbolsByModuleNameAndSymbolName[moduleName]:
+                symbol = self.symbolsByModuleNameAndSymbolName[moduleName][symbolName]
+                symbol.sourceModule = moduleName
 
     @property
     def implementation(self):
@@ -1182,22 +1196,9 @@ This is not allowed for implementations using %s.\
 
     def processCallPostAndGetAdjustedLine(self, line):
         allSymbolsPassedByName = self.symbolsPassedInCurrentCallByName.copy()
-        additionalSymbols = self.additionalSymbolsByCalleeName.get(self.currCalleeName)
-        additionalModuleSymbols = []
-        for symbolAnalysis in self.symbolAnalysisByRoutineName.get(self.currCalleeName, []):
-            if not symbolAnalysis.isModuleSymbol:
-                continue
-            symbol = self.symbolsByModuleNameAndSymbolName.get(symbolAnalysis.sourceModule, {}).get(symbolAnalysis.name)
-            if symbol == None:
-                raise Exception("Symbol with name %s has an analysis available but can't be found in module symbol database for module %s" %(
-                    symbolAnalysis.name,
-                    symbolAnalysis.sourceModule
-                ))
-            additionalModuleSymbols.append(symbol)
-        additionalDeclarations = []
-        if additionalSymbols:
-            additionalDeclarations = additionalSymbols[1]
-        for symbol in additionalDeclarations + additionalModuleSymbols:
+        additionalImportsAndDeclarations = self.additionalParametersByKernelName.get(self.currCalleeName, ([],[]))
+        additionalModuleSymbols = getModuleArraysForCallee(self.currCalleeName, self.symbolAnalysisByRoutineNameAndSymbolName, self.symbolsByModuleNameAndSymbolName)
+        for symbol in additionalImportsAndDeclarations[1] + additionalModuleSymbols:
             allSymbolsPassedByName[symbol.name] = symbol
         adjustedLine = line + "\n" + self.implementation.kernelCallPost(allSymbolsPassedByName, self.currCalleeNode)
         self.symbolsPassedInCurrentCallByName = {}
@@ -1235,7 +1236,7 @@ This is not allowed for implementations using %s.\
         paramListMatch = self.patterns.subprocFirstLineParameterListPattern.match(arguments)
         if not paramListMatch and len(arguments.strip()) > 0:
             raise Exception("Subprocedure arguments without enclosing brackets. This is invalid in Hybrid Fortran")
-        additionalSymbolsSeparated = self.additionalSymbolsByCalleeName.get(self.currCalleeName)
+        additionalSymbolsSeparated = self.additionalParametersByKernelName.get(self.currCalleeName)
         toBeCompacted = []
         if additionalSymbolsSeparated and len(additionalSymbolsSeparated) > 1:
             toBeCompacted, declarationPrefix, otherImports = self.listCompactedSymbolsAndDeclarationPrefixAndOtherImports(additionalSymbolsSeparated[0])
@@ -1368,12 +1369,18 @@ This is not allowed for implementations using %s.\
             callee = self.routineNodesByProcName.get(calleeName)
             if not callee:
                 continue
-            additionalSymbolsForCallee = self.implementation.getAdditionalSubroutineSymbols( \
+            additionalSymbolsForCallee = self.implementation.getAdditionalKernelParameters( \
                 self.cgDoc, \
                 callee, \
                 self.parallelRegionTemplatesByProcName.get(calleeName) \
             )
-            self.additionalSymbolsByCalleeName[calleeName] = additionalSymbolsForCallee
+            if 'DEBUG_PRINT' in self.implementation.optionFlags:
+                self.additionalWrapperImportsByKernelName[calleeName] = getModuleArraysForCallee(
+                    calleeName,
+                    self.symbolAnalysisByRoutineNameAndSymbolName,
+                    self.symbolsByModuleNameAndSymbolName
+                )
+            self.additionalParametersByKernelName[calleeName] = additionalSymbolsForCallee
             if callee.getAttribute("parallelRegionPosition") != "within":
                 continue
             self.currRoutineIsCallingParallelRegion = True
@@ -1389,7 +1396,8 @@ This is not allowed for implementations using %s.\
     def processProcEndMatch(self, subProcEndMatch):
         self.processProcExitPoint(subProcEndMatch.group(0), is_subroutine_end=True)
         self.currRoutineIsCallingParallelRegion = False
-        self.additionalSymbolsByCalleeName = {}
+        self.additionalParametersByKernelName = {}
+        self.additionalWrapperImportsByKernelName = {}
         self.currAdditionalSubroutineParameters = []
         self.currAdditionalCompactedSubroutineParameters = []
         self.currSubroutineImplementationNeedsToBeCommented = False
@@ -1437,7 +1445,7 @@ This is not allowed for implementations using %s.\
             #-> need to pack all real symbols into an array to make it work reliably for cases where many reals are imported
             # why not integers? because they can be used as array boundaries.
             # Note: currently only a single real type per subroutine is supported for compaction
-            if declType in [DeclarationType.IMPORTED_SCALAR, DeclarationType.MODULE_SCALAR] \
+            if declType in [DeclarationType.FOREIGN_MODULE_SCALAR, DeclarationType.LOCAL_MODULE_SCALAR] \
             and 'real' in symbol.declarationPrefix.lower() \
             and (declarationPrefix == None \
             or symbol.declarationPrefix.strip().lower() == declarationPrefix.strip().lower()):
@@ -1474,7 +1482,7 @@ This is not allowed for implementations using %s.\
 
         if self.state != "inside_declarations" and self.state != "inside_module" and self.state != "inside_subroutine_call":
             additionalDeclarationsStr = ""
-            if len(self.additionalSymbolsByCalleeName.keys()) > 0:
+            if len(self.additionalParametersByKernelName.keys()) > 0:
                 additionalDeclarationsStr = "\n" + self.tab_insideSub + \
                  "! ****** additional symbols inserted by framework to emulate device support of language features\n"
 
@@ -1482,15 +1490,15 @@ This is not allowed for implementations using %s.\
             # additional symbols for called kernel                                  #
             #########################################################################
             packedRealSymbolsByCalleeName = {}
-            for calleeName in self.additionalSymbolsByCalleeName.keys():
-                additionalImports, additionalDeclarations = self.additionalSymbolsByCalleeName[calleeName]
+            for calleeName in self.additionalParametersByKernelName.keys():
+                additionalImports, additionalDeclarations = self.additionalParametersByKernelName[calleeName]
                 additionalImportSymbolsByName = {}
                 for symbol in additionalImports:
                     additionalImportSymbolsByName[symbol.name] = symbol
 
                 for symbol in additionalDeclarations:
                     declType = symbol.declarationType()
-                    if declType != DeclarationType.IMPORTED_SCALAR and declType != DeclarationType.LOCAL_ARRAY:
+                    if declType != DeclarationType.FOREIGN_MODULE_SCALAR and declType != DeclarationType.LOCAL_ARRAY:
                         continue
 
                     #in case the array uses domain sizes in the declaration that are additional symbols themselves
@@ -1542,8 +1550,8 @@ This is not allowed for implementations using %s.\
             #########################################################################
             ourSymbolsToAdd = sorted(
                 [symbol for symbol in self.currAdditionalSubroutineParameters
-                    if symbol.declarationType() in [DeclarationType.IMPORTED_SCALAR,
-                        DeclarationType.MODULE_SCALAR,
+                    if symbol.declarationType() in [DeclarationType.FOREIGN_MODULE_SCALAR,
+                        DeclarationType.LOCAL_MODULE_SCALAR,
                         DeclarationType.FRAMEWORK_ARRAY
                     ]
                 ] + self.currAdditionalCompactedSubroutineParameters
@@ -1566,7 +1574,7 @@ This is not allowed for implementations using %s.\
                         %(self.currSubprocName, symbol) \
                     )
 
-            if len(self.additionalSymbolsByCalleeName.keys()) > 0:
+            if len(self.additionalParametersByKernelName.keys()) > 0:
                 additionalDeclarationsStr = additionalDeclarationsStr + "! ****** end additional symbols\n\n"
             additionalDeclarationsStr += self.implementation.declarationEnd( \
                     self.currSymbolsByName.values(), \
@@ -1773,14 +1781,33 @@ This is not allowed for implementations using %s.\
 
     def processSpecificationBeginning(self):
         adjustedLine = self.currentLine
-        for calleeName in self.additionalSymbolsByCalleeName.keys():
-            additionalImports, _ = self.additionalSymbolsByCalleeName[calleeName]
-            for symbol in additionalImports:
-                declType = symbol.declarationType()
-                if declType != DeclarationType.IMPORTED_SCALAR and declType != DeclarationType.LOCAL_ARRAY:
-                    continue
-                adjustedLine = adjustedLine + "use %s, only : %s => %s\n" \
-                    %(symbol.sourceModule, symbol.automaticName(), symbol.sourceSymbol)
+        additionalImports = sum(
+            [self.additionalParametersByKernelName[kernelName][0] for kernelName in self.additionalParametersByKernelName.keys()],
+            []
+        ) + sum(
+            [self.additionalWrapperImportsByKernelName[kernelName] for kernelName in self.additionalWrapperImportsByKernelName.keys()],
+            []
+        )
+        sys.stderr.write("curr Module: %s; additional imports: %s\n" %(
+            self.currModuleName,
+            ["%s: %s from %s" %(symbol.name, symbol.declarationType(), symbol.sourceModule) for symbol in additionalImports]
+        ))
+        for symbol in additionalImports:
+            if symbol.declarationType() not in [DeclarationType.FOREIGN_MODULE_SCALAR, DeclarationType.LOCAL_ARRAY, DeclarationType.MODULE_ARRAY] \
+            or (symbol.declarationType() == DeclarationType.MODULE_ARRAY and symbol.sourceModule == self.currModuleName) \
+            or (symbol.declarationType() == DeclarationType.MODULE_ARRAY and type(symbol.sourceModule) in [str, unicode] and "HF90_" in symbol.sourceModule):
+                continue
+            if type(symbol.sourceModule) in [str, unicode] and "HF90_" in symbol.sourceModule:
+                adjustedLine = adjustedLine + "use %s, only : %s => %s\n" %(
+                    symbol.sourceModule,
+                    symbol.automaticName(),
+                    symbol.sourceSymbol
+                )
+            else:
+                adjustedLine = adjustedLine + "use %s, only : %s\n" %(
+                    symbol.sourceModule,
+                    symbol.name
+                )
 
         self.prepareLine(adjustedLine + self.implementation.additionalIncludes(), self.tab_insideSub)
 

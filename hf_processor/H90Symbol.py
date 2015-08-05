@@ -93,10 +93,12 @@ Init = enum("NOTHING_LOADED",
 #-> You cannot mix and match declarations of different types
 DeclarationType = enum("UNDEFINED",
     "LOCAL_ARRAY",
-    "IMPORTED_SCALAR",
-    "MODULE_SCALAR",
+    "LOCAL_MODULE_SCALAR",
+    "MODULE_ARRAY",
+    "FOREIGN_MODULE_SCALAR",
     "FRAMEWORK_ARRAY",
-    "OTHER"
+    "OTHER_ARRAY",
+    "OTHER_SCALAR"
 )
 
 def purgeFromDeclarationSettings(line, dependantSymbols, patterns, purgeList=['intent'], withAndWithoutIntent=True):
@@ -365,10 +367,10 @@ class Symbol(object):
 
         self.intent = domainDependantEntryNode.getAttribute("intent") if self.intent in [None, ''] else self.intent
         self.declarationPrefix = domainDependantEntryNode.getAttribute("declarationPrefix") if self.declarationPrefix in [None, ''] else self.declarationPrefix
-        if self.isModuleSymbol:
-            self.sourceModule = "HF90_LOCAL_MODULE"
         self.sourceModule = domainDependantEntryNode.getAttribute("sourceModule") if self.sourceModule in [None, ''] else self.sourceModule
         self.sourceSymbol = domainDependantEntryNode.getAttribute("sourceSymbol") if self.sourceSymbol in [None, ''] else self.sourceSymbol
+        if self.isModuleSymbol:
+            self.sourceModule = "HF90_LOCAL_MODULE" if self.sourceModule in [None, ''] else self.sourceModule
         self.isPointer = domainDependantEntryNode.getAttribute("isPointer") == "yes" if not self.isPointer else self.isPointer
         self.declaredDimensionSizes = domainDependantEntryNode.getAttribute("declaredDimensionSizes").split(",") if self.declaredDimensionSizes == None else self.declaredDimensionSizes
         if len(self.declaredDimensionSizes) > 0:
@@ -863,7 +865,7 @@ EXAMPLE:\n\
         return declarationPrefix + " " + name_prefix + self.domainRepresentation(use_domain_reordering)
 
     def automaticName(self):
-        if not self.routineNode or self.declarationType() == DeclarationType.MODULE_SCALAR:
+        if not self.routineNode or self.declarationType() == DeclarationType.LOCAL_MODULE_SCALAR:
             return self.name
 
         referencingName = self.name + "_hfauto_" + self.routineNode.getAttribute("name")
@@ -1078,16 +1080,24 @@ Currently loaded template: %s\n" %(
         return result
 
     def declarationType(self):
+        if len(self.domains) > 0:
+            if self.sourceModule == "HF90_LOCAL_MODULE":
+                return DeclarationType.MODULE_ARRAY
+            if self.sourceModule not in [None, ""]:
+                return DeclarationType.MODULE_ARRAY
+            if self.initLevel < Init.ROUTINENODE_ATTRIBUTES_LOADED:
+                return DeclarationType.UNDEFINED
+            if self.intent == "":
+                return DeclarationType.LOCAL_ARRAY
+            return DeclarationType.OTHER_ARRAY
+
         if self.sourceModule == "HF90_LOCAL_MODULE":
-            #$$$ this probably needs to be changed - we can't assume that module symbols are scalars anymore
-            return DeclarationType.MODULE_SCALAR
-        if self.sourceModule != None and self.sourceModule != "":
-            return DeclarationType.IMPORTED_SCALAR
+            return DeclarationType.LOCAL_MODULE_SCALAR
+        if self.sourceModule not in [None, ""]:
+            return DeclarationType.FOREIGN_MODULE_SCALAR
         if self.initLevel < Init.ROUTINENODE_ATTRIBUTES_LOADED:
             return DeclarationType.UNDEFINED
-        if self.intent == "" and len(self.domains) > 0:
-            return DeclarationType.LOCAL_ARRAY
-        return DeclarationType.OTHER
+        return DeclarationType.OTHER_SCALAR
 
 
     def getTemplateEntryNodeValues(self, parentName):

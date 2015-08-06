@@ -119,7 +119,7 @@ class FortranCodeSanitizer:
                     searchString = remainder[2:]
                     prevLineContinuation = remainder[:2]
                 startOffset = 0
-                while len(searchString) > howManyCharsPerLine - len(lineSep) + startOffset:
+                while len(searchString) + len(prevLineContinuation) > howManyCharsPerLine - len(lineSep) + startOffset:
                     blankPos = findRightMostOccurrenceNotInsideQuotes(' ', searchString, rightStartAt=howManyCharsPerLine - len(lineSep) + startOffset)
                     startOffset += 5 #if nothing is possible to break up it's better to go a little bit over the limit, often the compiler will still cope
                     if blankPos >= 1:

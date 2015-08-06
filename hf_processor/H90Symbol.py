@@ -947,7 +947,7 @@ Please specify the domains and their sizes with domName and domSize attributes i
                     result += ":"
                 else:
                     (domName, domSize) = self.domains[i]
-                    result += domSize
+                    result += domSize.strip()
             if needsAdditionalClosingBracket:
                 result = result + "))"
             else:
@@ -1016,7 +1016,7 @@ Please specify the domains and their sizes with domName and domSize attributes i
                     )
             if inside_subroutine_call and all([iterator == ':' for iterator in iterators]):
                 return [] #working around a problem in PGI 15.1: Inliner bails out in certain situations (module test kernel 3+4) if arrays are passed in like a(:,:,:).
-            return iterators
+            return [iterator.strip() for iterator in iterators]
 
         if self.debugPrint:
             sys.stderr.write("[" + str(self) + ".init " + str(self.initLevel) + "] producing access representation for symbol %s; parallel iterators: %s, offsets: %s\n" %(self.name, str(parallelIterators), str(offsets)))

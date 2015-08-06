@@ -124,16 +124,20 @@ class FortranCodeSanitizer:
                     startOffset += 5 #if nothing is possible to break up it's better to go a little bit over the limit, often the compiler will still cope
                     if blankPos >= 1:
                         break
-                currLine = prevLineContinuation + searchString[:blankPos] + lineSep if blankPos >= 1 else remainder
-                if blankPos >= 1 and isOpenMPDirectiveLine:
-                    remainder = '!$OMP& ' + searchString[blankPos:]
-                    remainderContainsLineContinuation = True
-                elif blankPos >= 1 and isOpenACCDirectiveLine:
-                    remainder = '!$acc& ' + searchString[blankPos:]
-                    remainderContainsLineContinuation = True
-                elif blankPos >= 1:
-                    remainder = '& ' + searchString[blankPos:]
-                    remainderContainsLineContinuation = True
+                if blankPos < 1:
+                    currLine = remainder
+                    remainder = ""
+                else:
+                    currLine = prevLineContinuation + searchString[:blankPos] + lineSep
+                    if blankPos >= 1 and isOpenMPDirectiveLine:
+                        remainder = '!$OMP& ' + searchString[blankPos:]
+                        remainderContainsLineContinuation = True
+                    elif blankPos >= 1 and isOpenACCDirectiveLine:
+                        remainder = '!$acc& ' + searchString[blankPos:]
+                        remainderContainsLineContinuation = True
+                    elif blankPos >= 1:
+                        remainder = '& ' + searchString[blankPos:]
+                        remainderContainsLineContinuation = True
                 sanitizedCodeLines.append(currLine)
                 if blankPos < 1 or len(remainder) >= previousLineLength:
                     #blank not found or at beginning of line

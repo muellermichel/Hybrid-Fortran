@@ -384,7 +384,7 @@ def getTempDeallocationsAfterKernelCall(symbolsByName):
         result = result + "deallocate(%s)\n" %(symbol.automaticName())
     return result
 
-def getDebugOffsetString(domainTuple):
+def getDebugOffsetString(domainTuple, previousOffsets):
     def getUpperBound(domainSizeSpec):
         boundaries = domainSizeSpec.split(':')
         if len(boundaries) == 1:
@@ -404,6 +404,10 @@ def getDebugOffsetString(domainTuple):
         offset = "DEBUG_OUT_%s" %(upperBound)
     else:
         offset = "DEBUG_OUT_x"
+    if offset in previousOffsets:
+        #if there are multiple dimensions with the same sizes, use the second specified macro
+        # - else we'd be always showing the diagonal of quadratic matrices.
+        offset += "_2"
     return offset
 
 def getRuntimeDebugPrintStatements(symbolsByName, calleeRoutineNode, parallelRegionNode):
@@ -422,14 +426,17 @@ def getRuntimeDebugPrintStatements(symbolsByName, calleeRoutineNode, parallelReg
         symbolsByName[symbolName] for symbolName in symbolNames
         if symbolsByName[symbolName].domains and len(symbolsByName[symbolName].domains) != 0
     ]
-    offsetStringsByDomain = dict(
-        (domain, getDebugOffsetString(domain)) for domain in sum([symbol.domains for symbol in symbolsToPrint], [])
-    )
+    offsetsBySymbolName = {}
+    for symbol in symbolsToPrint:
+        offsets = []
+        for domain in symbol.domains:
+            offsets.append(getDebugOffsetString(domain, offsets))
+        offsetsBySymbolName[symbol.name] = offsets
     symbolClauses = [
         symbol.name + "(" + wrap_in_acc_pp(
             ",".join([
-                "%s:%s" %(offsetStringsByDomain[domain],offsetStringsByDomain[domain])
-                for domain in symbol.domains
+                "%s:%s" %(offset, offset)
+                for offset in offsetsBySymbolName[symbol.name]
             ]),
             symbol
         ) + ")"
@@ -437,16 +444,7 @@ def getRuntimeDebugPrintStatements(symbolsByName, calleeRoutineNode, parallelReg
     ]
     result += "!$acc update if(hf_symbols_are_device_present) host(%s)\n" %(", ".join(symbolClauses)) if len(symbolsToPrint) > 0 else ""
     for symbol in symbolsToPrint:
-        offsets = []
-        for domain in symbol.domains:
-            newDebugOffsetString = getDebugOffsetString(domain)
-            if newDebugOffsetString in offsets:
-                #if there are multiple dimensions with the same sizes, use the second specified macro
-                # - else we'd be always showing the diagonal of quadratic matrices.
-                offsets.append(newDebugOffsetString + "_2")
-            else:
-                offsets.append(newDebugOffsetString)
-        result = result + "hf_output_temp = %s\n" %(symbol.accessRepresentation([], offsets, parallelRegionNode))
+        result = result + "hf_output_temp = %s\n" %(symbol.accessRepresentation([], offsetsBySymbolName[symbol.name], parallelRegionNode))
         #michel 2013-4-18: the Fortran-style memcopy as used right now in the above line creates a runtime error immediately
         #                  if we'd like to catch such errors ourselves, we need to use the cuda API memcopy calls - however we
         #                  then also need information about the symbol size, which isn't available in the current implementation

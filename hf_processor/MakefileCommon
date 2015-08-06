@@ -305,7 +305,7 @@ vpath %.H90 $(SRC_FORT_COMMON_DIRS)
 
 .PHONY: all clean clean_cpu clean_gpu clean_installed_executables_cpu clean_installed_executables_gpu install install_cpu install_gpu install_framework_executables_cpu install_framework_executables_gpu graphs build build_cpu build_gpu create_install_directories source source_cpu source_gpu tests tests_cpu tests_gpu framework_sources framework_sources_cpu framework_sources_gpu build_hybrid_cpu build_hybrid_gpu build_framework_cpu build_framework_gpu additional_configfiles_cpu additional_configfiles_gpu
 
-.PRECIOUS: %.P90.temp
+.PRECIOUS: %.temp
 
 .SUFFIXES: .f90 .F90 .h90 .H90 .f .F .P90 .c .cu
 

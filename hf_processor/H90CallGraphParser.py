@@ -101,6 +101,7 @@ class FortranCodeSanitizer:
             remainder = codeLine
             previousLineLength = len(remainder)
             blankPos = -1
+            remainderContainsLineContinuation = False
             while len(remainder) > howManyCharsPerLine - len(lineSep):
                 isOpenMPDirectiveLine = self.openMPLinePattern.match(remainder) != None
                 isOpenACCDirectiveLine = self.openACCLinePattern.match(remainder) != None
@@ -109,16 +110,30 @@ class FortranCodeSanitizer:
                     if commentPos <= howManyCharsPerLine:
                         break
                 #find a blank that's NOT within a quoted string
-                blankPos = findRightMostOccurrenceNotInsideQuotes(' ', remainder, rightStartAt=howManyCharsPerLine - len(lineSep))
-                currLine = remainder[:blankPos] + lineSep if blankPos >= 1 else remainder
+                searchString = remainder
+                prevLineContinuation = ""
+                if remainderContainsLineContinuation and (isOpenMPDirectiveLine or isOpenACCDirectiveLine):
+                    searchString = remainder[7:]
+                    prevLineContinuation = remainder[:7]
+                elif remainderContainsLineContinuation:
+                    searchString = remainder[2:]
+                    prevLineContinuation = remainder[:2]
+                startOffset = 0
+                while len(searchString) > howManyCharsPerLine - len(lineSep) + startOffset:
+                    blankPos = findRightMostOccurrenceNotInsideQuotes(' ', searchString, rightStartAt=howManyCharsPerLine - len(lineSep) + startOffset)
+                    startOffset += 5 #if nothing is possible to break up it's better to go a little bit over the limit, often the compiler will still cope
+                    if blankPos >= 1:
+                        break
+                currLine = prevLineContinuation + searchString[:blankPos] + lineSep if blankPos >= 1 else remainder
                 if blankPos >= 1 and isOpenMPDirectiveLine:
-                    remainder = '!$OMP& ' + remainder[blankPos:]
+                    remainder = '!$OMP& ' + searchString[blankPos:]
+                    remainderContainsLineContinuation = True
                 elif blankPos >= 1 and isOpenACCDirectiveLine:
-                    remainder = '!$acc& ' + remainder[blankPos:]
+                    remainder = '!$acc& ' + searchString[blankPos:]
+                    remainderContainsLineContinuation = True
                 elif blankPos >= 1:
-                    remainder = '& ' + remainder[blankPos:]
-                else:
-                    remainder = ""
+                    remainder = '& ' + searchString[blankPos:]
+                    remainderContainsLineContinuation = True
                 sanitizedCodeLines.append(currLine)
                 if blankPos < 1 or len(remainder) >= previousLineLength:
                     #blank not found or at beginning of line
@@ -129,7 +144,6 @@ class FortranCodeSanitizer:
                             remainder
                         )
                     )
-                    remainder = ""
                     break
                 previousLineLength = len(remainder)
             if toBeCommented:

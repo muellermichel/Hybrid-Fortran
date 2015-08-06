@@ -588,7 +588,7 @@ ${SRC_DIR_HFPP}%.h90: %.h90
 	@mkdir -p ${SRC_DIR_HFPP} && python ${TOOLSDIR}/strip_fortran_line_continuations.py $< > $@
 
 define generate_p90_rules
-$(1)%.P90.temp: ${SRC_DIR_HFPP}%.h90 $(2)implementationNamesByTemplate ${CG_DIR}$(3)
+$(1)%.P90.temp: ${SRC_DIR_HFPP}%.h90 $(2)implementationNamesByTemplate ${CG_DIR}$(3) storage_order.F90
 	@$$(call yellowecho,"...........converting $$(notdir $$<)")
 	python ${python_flags} ${HF_DIR}/hf_processor/generateF90fromH90AndAnalyzedCallGraph.py -i $$< -c ${CG_DIR}$(3) ${H90_PREPROCESSOR_ARGS} --implementation=$(2)implementationNamesByTemplate --optionFlags=${OPTION_FLAGS},${preprocessor_args} > $$@
 

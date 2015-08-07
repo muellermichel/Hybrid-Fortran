@@ -454,7 +454,7 @@ def getRuntimeDebugPrintStatements(symbolsByName, calleeRoutineNode, parallelReg
         #         "\twrite(0, *) 'CUDA error when attempting to copy value from %s:', cudaGetErrorString(cuErrorMemcopy)\n" \
         #         "stop 1\n" \
         #     "end if\n" %(symbol.name)
-        joinedDomains = offsets
+        joinedDomains = offsetsBySymbolName[symbol.name]
         domainsStr = "(',"
         formStr = "'(A,"
         for i in range(len(joinedDomains)):

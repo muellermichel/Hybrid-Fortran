@@ -394,7 +394,7 @@ def getDebugOffsetString(domainTuple, previousOffsets):
         raise Exception("Unexpected domain size specification: %s" %(domainSizeSpec))
 
     #$$$ change this - it must be consistant with storage_order.F90
-    userdefinedDomNames = ["x", "y", "z", "nz", "i", "j", "vertical", "verticalPlus", "KMAX_CONST", "KMP1_CONST", "ntlm", "ngm", "id_qa_e", 1, 2, 3, 4]
+    userdefinedDomNames = ["x", "y", "z", "nz", "i", "j", "vertical", "verticalPlus", "KMAX_CONST", "KMP1_CONST", "ntlm", "ngm", "id_qa_e", "1", "2", "3", "4"]
     (dependantDomName, dependantDomSize) = domainTuple
     upperBound = getUpperBound(dependantDomSize)
     offset = ""

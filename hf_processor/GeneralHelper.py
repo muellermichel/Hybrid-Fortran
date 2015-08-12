@@ -200,7 +200,8 @@ class BracketAnalyzer(object):
         while match:
             work = match.group(3)
             substring += match.group(1) + match.group(2)
-            if charPattern.match(match.group(2)) != None and (self.bracketsHaveEverOpened == False or self.currLevel == startLevel):
+            previousLevel = self.currLevel
+            if charPattern.match(match.group(2)) != None and self.bracketsHaveEverOpened == False:
                 return substring, work, self.currLevel
             elif self.openingPattern.match(match.group(2)) != None:
                 self.bracketsHaveEverOpened = True
@@ -210,34 +211,38 @@ class BracketAnalyzer(object):
             elif charPattern.match(match.group(2)) == None:
                 raise Exception("Something went wrong in the bracket analysis for string %s - cannot rematch a search character" %(string))
             match = charSearchPattern.match(work)
-            if self.currLevel < startLevel or (self.bracketsHaveEverOpened == True and self.currLevel == startLevel):
+            if self.currLevel < startLevel or (self.currLevel == startLevel and self.currLevel == previousLevel):
                 break
-        if self.currLevel < startLevel or (self.bracketsHaveEverOpened == True and self.currLevel == startLevel):
+        if self.currLevel <= startLevel:
             return substring, work, self.currLevel
-        else:
-            return "", string, self.currLevel
+        return "", string, self.currLevel
 
     def getListOfArgumentsInOpenedBracketsAndRemainder(self, string_without_opening_bracket):
+        self.currLevel = 1 #we pass a string where the opening bracket has been removed <-- need to fix level here so it doesn't prematurely split off arguments
+        self.bracketsHaveEverOpened = True
         work = string_without_opening_bracket
         arguments = []
         bracketLevel = 0
-        while len(work) > 0 and bracketLevel >= 0:
+        while len(work) > 0 and self.currLevel > 0:
             currArgument, work, bracketLevel = self.splitAfterCharacterOnSameLevelOrClosingBrackets(work, ',')
+            if bracketLevel > 1 or bracketLevel < 0:
+                raise Exception("Something went wrong when trying to split arguments from '%s'" %(work))
+            self.currLevel = bracketLevel
             work = work.strip()
             currArgument = currArgument.strip()
-            #just some sanity checks
-            if bracketLevel > 0:
-                raise Exception("There was a problem in the bracket analysis for the following string: %s" %(string_without_opening_bracket))
-            elif bracketLevel == 0 and work == "" or bracketLevel < 0 and currArgument[-1] != ')':
-                raise Exception("Closing bracket expected but none found in argument string: %s" %(string_without_opening_bracket))
-            if bracketLevel == 0 and len(work) > 0 and work[0] == ',':
+            if bracketLevel == 1 and len(work) > 0 and work[0] == ',':
                 work = work[1:len(work)]
-            if len(currArgument) > 0 and currArgument[-1] == ',' or len(currArgument) > 0 and currArgument[-1] == ')' and bracketLevel < 0:
+            if len(currArgument) > 0 and currArgument[-1] == ',' or len(currArgument) > 0 and currArgument[-1] == ')' and bracketLevel < 1:
                 currArgument = currArgument[0:len(currArgument)-1]
-            if currArgument == "" and bracketLevel < 0:
+            if currArgument == "" and bracketLevel == 0:
                 break
             if currArgument == "":
-                raise Exception("Invalid empty argument. Analyzed string: %s; Arguments so far: %s; Remainder: %s" %(string_without_opening_bracket, str(arguments), work))
+                raise Exception("Invalid empty argument. Analyzed string: %s; Bracket Level: %i; Arguments so far: %s; Remainder: %s" %(
+                    string_without_opening_bracket,
+                    bracketLevel,
+                    str(arguments),
+                    work
+                ))
             arguments.append(currArgument.strip())
         return arguments, work
 

@@ -705,13 +705,13 @@ def getSymbolsByName(cgDoc, parentNode, parallelRegionTemplates, isModuleSymbols
 
 class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
     cgDoc = None
-    currSymbolsByName = {}
-    symbolsOnCurrentLine = []
-    importsOnCurrentLine = []
-    routineNodesByProcName = {}
-    moduleNodesByName = {}
-    parallelRegionTemplatesByProcName = {}
-    parallelRegionTemplateRelationsByProcName = {}
+    currSymbolsByName = None
+    symbolsOnCurrentLine = None
+    importsOnCurrentLine = None
+    routineNodesByProcName = None
+    moduleNodesByName = None
+    parallelRegionTemplatesByProcName = None
+    parallelRegionTemplateRelationsByProcName = None
 
     def __init__(self, cgDoc):
         self.cgDoc = cgDoc
@@ -720,6 +720,8 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
         self.parallelRegionTemplateRelationsByProcName = {}
         self.symbolsOnCurrentLine = []
         self.importsOnCurrentLine = []
+        self.routineNodesByProcName = {}
+        self.moduleNodesByName = {}
 
         #build up dictionary of parallel regions by procedure name
         regionsByID = regionTemplatesByID(cgDoc, 'parallelRegionTemplate')
@@ -729,24 +731,24 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
             if not procName or procName == '':
                 raise Exception("Procedure without name.")
             self.routineNodesByProcName[procName] = routine
-
-            parallelRegionsParents = routine.getElementsByTagName('activeParallelRegions')
-            if not parallelRegionsParents or len(parallelRegionsParents) == 0:
-                continue
-            templateRelations = parallelRegionsParents[0].getElementsByTagName('templateRelation')
             regionTemplates = []
-            for templateRelation in templateRelations:
-                idStr = templateRelation.getAttribute('id')
-                if not idStr or idStr == '':
-                    raise Exception("Template relation without id attribute.")
-                regionTemplate = regionsByID.get(idStr, None)
-                if not regionTemplate:
-                    raise Exception("Template relation id %s could not be matched in procedure '%s'" %(idStr, procName))
-                regionTemplates.append(regionTemplate)
-            if len(templateRelations) > 0:
-                self.parallelRegionTemplateRelationsByProcName[procName] = templateRelations
-            if len(regionTemplates) > 0:
-                self.parallelRegionTemplatesByProcName[procName] = regionTemplates
+            parallelRegionsParents = routine.getElementsByTagName('activeParallelRegions')
+            if parallelRegionsParents and len(parallelRegionsParents) > 0:
+                templateRelations = parallelRegionsParents[0].getElementsByTagName('templateRelation')
+                for templateRelation in templateRelations:
+                    idStr = templateRelation.getAttribute('id')
+                    if not idStr or idStr == '':
+                        raise Exception("Template relation without id attribute.")
+                    regionTemplate = regionsByID.get(idStr, None)
+                    if not regionTemplate:
+                        raise Exception("Template relation id %s could not be matched in procedure '%s'" %(idStr, procName))
+                    regionTemplates.append(regionTemplate)
+                if len(templateRelations) > 0:
+                    self.parallelRegionTemplateRelationsByProcName[procName] = templateRelations
+                if len(regionTemplates) > 0:
+                    self.parallelRegionTemplatesByProcName[procName] = regionTemplates
+
+        #build up dictionary of modules
         modules = cgDoc.getElementsByTagName('module')
         for module in modules:
             moduleName = module.getAttribute('name')
@@ -995,14 +997,12 @@ class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
     currCalleeNode = None
     additionalParametersByKernelName = None
     additionalWrapperImportsByKernelName = None
-    currAdditionalSubroutineParameters = []
-    currAdditionalCompactedSubroutineParameters = []
-    symbolsPassedInCurrentCallByName = {}
-    currParallelIterators = []
+    currAdditionalSubroutineParameters = None
+    currAdditionalCompactedSubroutineParameters = None
+    symbolsPassedInCurrentCallByName = None
+    currParallelIterators = None
     intentPattern = None
     dimensionPattern = None
-    tab_insideSub = "\t\t"
-    tab_outsideSub = "\t"
     implementationsByTemplateName = None
     codeSanitizer = None
     stateBeforeBranch = None
@@ -1010,6 +1010,10 @@ class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
     currParallelRegionTemplateNode = None
     symbolsByModuleName = None
     symbolAnalysisByRoutineName = None
+    symbolsByRoutineNameAndSymbolName = None
+
+    tab_insideSub = "\t\t"
+    tab_outsideSub = "\t"
 
     def __init__(self, cgDoc, implementationsByTemplateName):
         super(H90toF90Printer, self).__init__(cgDoc)
@@ -1027,23 +1031,43 @@ class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
         self.codeSanitizer = FortranCodeSanitizer()
         self.currParallelRegionRelationNode = None
         self.currParallelRegionTemplateNode = None
-        from H90SymbolDependencyGraphAnalyzer import SymbolDependencyAnalyzer, SymbolType, SymbolAnalysis
-        analyzer = SymbolDependencyAnalyzer(cgDoc)
-        self.symbolAnalysisByRoutineNameAndSymbolName = analyzer.getSymbolAnalysisByRoutine()
-        self.symbolsByModuleNameAndSymbolName = {}
-        for moduleName in self.moduleNodesByName.keys():
-            moduleNode = self.moduleNodesByName.get(moduleName)
-            if not moduleNode:
-                continue
-            self.symbolsByModuleNameAndSymbolName[moduleName] = getSymbolsByName(
-                self.cgDoc,
-                moduleNode,
-                None,
-                isModuleSymbols=True
-            )
-            for symbolName in self.symbolsByModuleNameAndSymbolName[moduleName]:
-                symbol = self.symbolsByModuleNameAndSymbolName[moduleName][symbolName]
-                symbol.sourceModule = moduleName
+        self.symbolsByRoutineNameAndSymbolName = {}
+        try:
+            from H90SymbolDependencyGraphAnalyzer import SymbolDependencyAnalyzer, SymbolType, SymbolAnalysis
+            analyzer = SymbolDependencyAnalyzer(cgDoc)
+            self.symbolAnalysisByRoutineNameAndSymbolName = analyzer.getSymbolAnalysisByRoutine()
+            self.symbolsByModuleNameAndSymbolName = {}
+            for moduleName in self.moduleNodesByName.keys():
+                moduleNode = self.moduleNodesByName.get(moduleName)
+                if not moduleNode:
+                    continue
+                self.symbolsByModuleNameAndSymbolName[moduleName] = getSymbolsByName(
+                    self.cgDoc,
+                    moduleNode,
+                    None,
+                    isModuleSymbols=True
+                )
+                for symbolName in self.symbolsByModuleNameAndSymbolName[moduleName]:
+                    symbol = self.symbolsByModuleNameAndSymbolName[moduleName][symbolName]
+                    symbol.sourceModule = moduleName
+
+            for procName in self.routineNodesByProcName:
+                routine = self.routineNodesByProcName[procName]
+                procName = routine.getAttribute('name')
+                self.symbolsByRoutineNameAndSymbolName[procName] = getSymbolsByName(
+                    self.cgDoc,
+                    routine,
+                    self.parallelRegionTemplatesByProcName.get(procName,[]),
+                    isModuleSymbols=False,
+                    debugPrint=self.debugPrint
+                )
+        except Exception, e:
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+            sys.stderr.write('Error when initializing h90 conversion: %s\n' %(str(e)))
+            if self.debugPrint:
+                sys.stderr.write(traceback.format_exc())
+            sys.exit(1)
 
     @property
     def implementation(self):
@@ -1116,6 +1140,7 @@ This is not allowed for implementations using %s.\
                         "Symbol %s is accessed in an unexpected way. Note: '_d' postfix is reserved for internal use. Cannot match one of the following patterns: \npattern1: '%s'\npattern2: '%s'" \
                         %(symbol.name, pattern1, pattern2))
         prefix = currMatch.group(1)
+        numOfIndependentDomains = 0
         if accessPatternChangeRequired:
             numOfIndependentDomains = len(symbol.domains) - symbol.numOfParallelDomains
             offsets = []
@@ -1285,17 +1310,45 @@ This is not allowed for implementations using %s.\
 
         callPreparationForSymbols = ""
         callPostForSymbols = ""
-        if self.currCalleeNode and self.currCalleeNode.getAttribute("parallelRegionPosition") == "within":
+        # if self.currCalleeNode and self.currCalleeNode.getAttribute("parallelRegionPosition") == "within":
+        if self.currCalleeNode:
             if self.state != "inside_subroutine_call":
                 currSubprocNode = self.routineNodesByProcName.get(self.currSubprocName)
-                callPreparationForSymbols = "".join([
-                    self.implementation.callPreparationForPassedSymbol(currSubprocNode, symbol)
-                    for symbol in self.symbolsPassedInCurrentCallByName.values()
-                ])
-                callPostForSymbols = "".join([
-                    self.implementation.callPostForPassedSymbol(currSubprocNode, symbol)
-                    for symbol in self.symbolsPassedInCurrentCallByName.values()
-                ])
+                callPreparationForSymbols = ""
+                callPostForSymbols = ""
+                for symbol in self.symbolsPassedInCurrentCallByName.values():
+                    symbolsInCalleeByName = self.symbolsByRoutineNameAndSymbolName.get(self.currCalleeName)
+                    if symbolsInCalleeByName == None:
+                        raise Exception("No collection of symbols found for callee %s" %(self.currCalleeName))
+                    symbolNameInCallee = None
+                    for symbolName in symbolsInCalleeByName:
+                        symbolAnalysisPerCallee = self.symbolAnalysisByRoutineNameAndSymbolName.get(self.currCalleeName, {}).get(symbolName)
+                        if symbolAnalysisPerCallee == None or len(symbolAnalysisPerCallee) == 0:
+                            continue
+                        if symbolAnalysisPerCallee[0].aliasNamesByRoutineName.get(self.currSubprocName) == symbol.name:
+                            symbolNameInCallee = symbolName
+                            break
+                    if symbolNameInCallee == None:
+                        continue #this symbol isn't passed in to the callee
+                    symbolsInCalleeByName = self.symbolsByRoutineNameAndSymbolName.get(self.currCalleeName)
+                    if symbolsInCalleeByName == None:
+                        raise Exception("No collection of symbols found for callee %s" %(self.currCalleeName))
+                    symbolInCallee = symbolsInCalleeByName.get(symbolNameInCallee)
+                    if symbolInCallee == None:
+                        raise Exception("Symbol %s's data expected for callee %s, but could not be found" %(
+                            symbolNameInCallee,
+                            self.currCalleeName
+                        ))
+                    callPreparationForSymbols += self.implementation.callPreparationForPassedSymbol(
+                        currSubprocNode,
+                        symbolInCaller=symbol,
+                        symbolInCallee=symbolInCallee
+                    )
+                    callPostForSymbols += self.implementation.callPostForPassedSymbol(
+                        currSubprocNode,
+                        symbolInCaller=symbol,
+                        symbolInCallee=symbolInCallee
+                    )
                 adjustedLine = self.processCallPostAndGetAdjustedLine(adjustedLine)
 
         if self.state != "inside_subroutine_call":
@@ -1393,11 +1446,19 @@ This is not allowed for implementations using %s.\
                 self.parallelRegionTemplatesByProcName.get(calleeName) \
             )
             if 'DEBUG_PRINT' in self.implementation.optionFlags:
-                self.additionalWrapperImportsByKernelName[calleeName] = getModuleArraysForCallee(
+                tentativeAdditionalImports = getModuleArraysForCallee(
                     calleeName,
                     self.symbolAnalysisByRoutineNameAndSymbolName,
                     self.symbolsByModuleNameAndSymbolName
                 )
+                additionalImports = [
+                    symbol for symbol in tentativeAdditionalImports
+                    if symbol.name not in self.symbolsByRoutineNameAndSymbolName.get(self.currSubprocName, {})
+                ]
+                additionalImportsByName = {}
+                for symbol in additionalImports:
+                    additionalImportsByName[symbol.name] = symbol
+                self.additionalWrapperImportsByKernelName[calleeName] = additionalImportsByName.values()
             self.additionalParametersByKernelName[calleeName] = additionalSymbolsForCallee
             if callee.getAttribute("parallelRegionPosition") != "within":
                 continue
@@ -1594,11 +1655,21 @@ This is not allowed for implementations using %s.\
 
             if len(self.additionalParametersByKernelName.keys()) > 0:
                 additionalDeclarationsStr = additionalDeclarationsStr + "! ****** end additional symbols\n\n"
+            additionalImports = []
+            if 'DEBUG_PRINT' in self.implementation.optionFlags:
+                callsLibraries = self.cgDoc.getElementsByTagName("calls")
+                calls = callsLibraries[0].getElementsByTagName("call")
+                for call in calls:
+                    if call.getAttribute("caller") != self.currSubprocName:
+                        continue
+                    calleeName = call.getAttribute("callee")
+                    additionalImports += self.additionalWrapperImportsByKernelName.get(calleeName, [])
             additionalDeclarationsStr += self.implementation.declarationEnd( \
-                    self.currSymbolsByName.values(), \
-                    self.currRoutineIsCallingParallelRegion, \
-                    self.routineNodesByProcName[self.currSubprocName], \
-                    self.parallelRegionTemplatesByProcName.get(self.currSubprocName))
+                self.currSymbolsByName.values() + additionalImports, \
+                self.currRoutineIsCallingParallelRegion, \
+                self.routineNodesByProcName[self.currSubprocName], \
+                self.parallelRegionTemplatesByProcName.get(self.currSubprocName)
+            )
 
             #########################################################################
             # additional symbols to be packed into arrays                           #

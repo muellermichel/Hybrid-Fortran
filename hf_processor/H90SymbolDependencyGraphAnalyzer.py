@@ -32,6 +32,7 @@
 from xml.dom.minidom import Document
 from DomHelper import addCallers, addCallees, createOrGetFirstNodeWithName, getDomainDependantTemplatesAndEntries
 from GeneralHelper import enum, prettyprint
+import sys
 
 SymbolType = enum(
     "UNDEFINED",
@@ -202,15 +203,15 @@ class SymbolDependencyAnalyzer:
                     prettyprint(call)
                 ))
             if len(callArguments) != len(routineArguments):
-                raise Exception(
-                    "Argument list from caller %s has different length (%i) than routine argument list (%i) for routine %s : %s" %(
+                sys.stderr.write("WARNING: Cannot fully analyze symbol dependencies since argument list from caller %s has different length (%i) than routine argument list (%i) for routine %s.\nCall argument list: %s\n" %(
                         call.getAttribute("caller"),
                         len(callArguments),
                         len(routineArguments),
                         routineName,
                         str(callArguments)
-                    )
-                )
+                ))
+                return symbolAnalysis, symbolAnalysisByNameAndSource
+
         templates_and_entries = getDomainDependantTemplatesAndEntries(
             self.doc,
             routine
@@ -298,13 +299,15 @@ class SymbolDependencyAnalyzer:
                     "unexpected error when constructing callgraph for symbol aliases"
                 )
             calleeName = call.getAttribute("callee")
-
-            symbolAnalysis, symbolAnalysisByNameAndSource = self.getSymbolAnalysisFor(
-                calleeName,
-                symbolAnalysis=symbolAnalysis,
-                symbolAnalysisByNameAndSource=symbolAnalysisByNameAndSource,
-                call=call
-            )
+            try:
+                symbolAnalysis, symbolAnalysisByNameAndSource = self.getSymbolAnalysisFor(
+                    calleeName,
+                    symbolAnalysis=symbolAnalysis,
+                    symbolAnalysisByNameAndSource=symbolAnalysisByNameAndSource,
+                    call=call
+                )
+            except Exception as e:
+                raise Exception(str(e) + " Caught in analysis for caller %s." %(routineName))
         for argumentName in temporarilyStoredAnalysisByArgumentName.keys():
             symbolAnalysis[(routineName, argumentName)] = temporarilyStoredAnalysisByArgumentName[argumentName] + symbolAnalysis.get((routineName, argumentName), [])
 

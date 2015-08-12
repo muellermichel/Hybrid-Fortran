@@ -475,7 +475,7 @@ endif
 ${CG_DIR}rawCG.xml: ${SRC_H90TGT_HFPP}
 	@echo "...........hybrid files have been modified => building and testing hybrid callgraph"
 	@echo ..calling python ${TOOLSDIR}/annotatedCallGraphFromH90SourceDir.py -i ${SRC_DIR_HFPP} ${H90_PREPROCESSOR_ARGS} >${DEBUG_OUTPUT}
-	@mkdir -p ${CG_DIR} && python ${PYTHON_ARGS_GENERAL} ${PYTHON_ARGS_RAW_CG} ${TOOLSDIR}/annotatedCallGraphFromH90SourceDir.py -i ${SRC_DIR_HFPP} ${H90_PREPROCESSOR_ARGS} > $@
+	mkdir -p ${CG_DIR} && python ${PYTHON_ARGS_GENERAL} ${PYTHON_ARGS_RAW_CG} ${TOOLSDIR}/annotatedCallGraphFromH90SourceDir.py -i ${SRC_DIR_HFPP} ${H90_PREPROCESSOR_ARGS} > $@
 
 ${DIR_CPU}implementationNamesByTemplate: ${CG_DIR}rawCG.xml
 	@mkdir -p ${DIR_CPU} && ${HF_DIR}/hf_bin/getImplementationNameByTemplate.sh cpu ${IMPLEMENTATION_MODE_SPECIFIER} ${CONFIGDIR}MakesettingsGeneral ${CG_DIR}rawCG.xml > ${DIR_CPU}implementationNamesByTemplate

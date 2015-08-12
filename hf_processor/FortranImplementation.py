@@ -489,10 +489,10 @@ class FortranImplementation(object):
     def warningOnUnrecognizedSubroutineCallInParallelRegion(self, callerName, calleeName):
         return ""
 
-    def callPreparationForPassedSymbol(self, currRoutineNode, symbol):
+    def callPreparationForPassedSymbol(self, currRoutineNode, symbolInCaller, symbolInCallee):
         return ""
 
-    def callPostForPassedSymbol(self, currRoutineNode, symbol):
+    def callPostForPassedSymbol(self, currRoutineNode, symbolInCaller, symbolInCallee):
         return ""
 
     def kernelCallConfig(self):
@@ -712,23 +712,23 @@ end subroutine
     def additionalIncludes(self):
         return FortranImplementation.additionalIncludes(self) + "use openacc\nuse cudafor\n"
 
-    def callPreparationForPassedSymbol(self, currRoutineNode, symbol):
+    def callPreparationForPassedSymbol(self, currRoutineNode, symbolInCaller, symbolInCallee):
         if not currRoutineNode:
             return ""
         if currRoutineNode.getAttribute("parallelRegionPosition") != 'inside':
             return ""
-        if symbol.declarationType() != DeclarationType.LOCAL_ARRAY:
+        if symbolInCaller.declarationType() != DeclarationType.LOCAL_ARRAY:
             return ""
-        return "!$acc update device(%s) if(hf_symbols_are_device_present)\n" %(symbol.name)
+        return "!$acc update device(%s) if(hf_symbols_are_device_present)\n" %(symbolInCaller.name)
 
-    def callPostForPassedSymbol(self, currRoutineNode, symbol):
+    def callPostForPassedSymbol(self, currRoutineNode, symbolInCaller, symbolInCallee):
         if not currRoutineNode:
             return ""
         if currRoutineNode.getAttribute("parallelRegionPosition") != 'inside':
             return ""
-        if symbol.declarationType() != DeclarationType.LOCAL_ARRAY:
+        if symbolInCaller.declarationType() != DeclarationType.LOCAL_ARRAY:
             return ""
-        return "!$acc update host(%s) if(hf_symbols_are_device_present)\n" %(symbol.name)
+        return "!$acc update host(%s) if(hf_symbols_are_device_present)\n" %(symbolInCaller.name)
 
     def adjustDeclarationForDevice(self, line, patterns, dependantSymbols, routineIsKernelCaller, parallelRegionPosition):
         return line

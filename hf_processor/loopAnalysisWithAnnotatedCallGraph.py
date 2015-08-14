@@ -29,6 +29,7 @@
 
 from xml.dom.minidom import Document, parseString
 from xml.dom import NotFoundErr
+from H90SymbolDependencyGraphAnalyzer import SymbolDependencyAnalyzer, SymbolType, SymbolAnalysis
 from DomHelper import firstDuplicateChild, getNodeValue, getCalleesByCallerName, getCallersByCalleeName
 from GeneralHelper import openFile
 from optparse import OptionParser
@@ -36,6 +37,7 @@ import os
 import sys
 import pdb
 import traceback
+import pickle
 
 def getTemplateRelations(routineNode):
 	templateRelations = []
@@ -252,6 +254,15 @@ This may cause device attribute mismatch compiler errors. In this case please wr
 					messagesPresentedFor.append(kernelCallerName)
 					sys.stderr.write("...same for %s: calls kernel %s, kernel wrapper %s\n" %(kernelCallerName, routineName, kernelWrapperName))
 
+def analyseSymbols(doc):
+	symbolAnalyzer = SymbolDependencyAnalyzer(doc)
+	symbolAnalysisByRoutineNameAndSymbolName = symbolAnalyzer.getSymbolAnalysisByRoutine()
+	serializedSymbolAnalysis = pickle.dumps(symbolAnalysisByRoutineNameAndSymbolName)
+	symbolAnalysisNode = doc.createElement("symbolAnalysis")
+	doc.childNodes[0].appendChild(symbolAnalysisNode)
+	cdata = doc.createCDATASection(serializedSymbolAnalysis)
+	symbolAnalysisNode.appendChild(cdata)
+
 ##################### MAIN ##############################
 #get all program arguments
 parser = OptionParser()
@@ -282,8 +293,9 @@ doc = parseString(data)
 
 try:
 	analyseParallelRegions(doc, appliesTo)
+	analyseSymbols(doc)
 except Exception as e:
-	sys.stderr.write('Error when analysing callgraph file file %s: %s\n'
+	sys.stderr.write('Error when analysing callgraph file %s: %s\n'
 		%(str(options.source), str(e))
 	)
 	if options.debug:

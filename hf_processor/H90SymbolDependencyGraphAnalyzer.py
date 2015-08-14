@@ -46,16 +46,14 @@ SymbolType = enum(
 )
 
 class SymbolAnalysis:
-    aliasNamesByRoutineName = None
-    argumentIndexByRoutineName = None
-    symbolType = SymbolType.UNDEFINED
-    sourceModule = ""
-    sourceSymbol = ""
-    name = None
 
     def __init__(self):
         self.aliasNamesByRoutineName = {}
         self.argumentIndexByRoutineName = {}
+        self.symbolType = SymbolType.UNDEFINED
+        self.sourceModule = ""
+        self.sourceSymbol = ""
+        self.name = None
 
     def __unicode__(self):
         return unicode(self.__repr__())

@@ -1033,9 +1033,11 @@ class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
         self.currParallelRegionTemplateNode = None
         self.symbolsByRoutineNameAndSymbolName = {}
         try:
-            from H90SymbolDependencyGraphAnalyzer import SymbolDependencyAnalyzer, SymbolType, SymbolAnalysis
-            analyzer = SymbolDependencyAnalyzer(cgDoc)
-            self.symbolAnalysisByRoutineNameAndSymbolName = analyzer.getSymbolAnalysisByRoutine()
+            symbolAnalysisNodes = cgDoc.getElementsByTagName("symbolAnalysis")
+            if len(symbolAnalysisNodes) > 1:
+                raise Exception("more than one symbol analysis present")
+            import pickle
+            self.symbolAnalysisByRoutineNameAndSymbolName = pickle.loads(symbolAnalysisNodes[0].firstChild.wholeText)
             self.symbolsByModuleNameAndSymbolName = {}
             for moduleName in self.moduleNodesByName.keys():
                 moduleNode = self.moduleNodesByName.get(moduleName)

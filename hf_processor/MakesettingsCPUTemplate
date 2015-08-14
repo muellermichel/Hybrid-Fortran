@@ -30,7 +30,7 @@ AR=ar
 ARFLAGS=rv
 
 #############################################################################
-# CUDA                                                                      #
+# CUDA (in case you have device-only code in cu-sourcefiles)                #
 #############################################################################
 CUDAC = nvcc
 ifdef DEBUG
@@ -47,8 +47,22 @@ CC=pgcc
 LD=pgf90
 FFLAGS_PRODUCTION= -Minfo=inline,ipa -Mneginfo -I/usr/local/include -O3
 FFLAGS_DEBUG= -g -Mbounds -Mchkptr -Minfo=accel,inline -Mneginfo -Minform=inform -I/usr/local/include
-LDFLAGS_PRODUCTION= -L/usr/local/lib -L${NVDIR}/lib64 -l${HYBRID_LIBRARY_FILENAME_POSTFIX} -lcudart -lstdc++
-LDFLAGS_DEBUG= -L/usr/local/lib -L${NVDIR}/lib64 -l${HYBRID_LIBRARY_FILENAME_POSTFIX} -lcudart -lstdc++
+LDFLAGS_PRODUCTION= -L/usr/local/lib -l${HYBRID_LIBRARY_FILENAME_POSTFIX}
+LDFLAGS_DEBUG= -L/usr/local/lib -l${HYBRID_LIBRARY_FILENAME_POSTFIX}
+
+#############################################################################
+# uncomment these settings to use pgf90 for host code                       #
+# together with CUDA device code                                            #
+# IMPORTANT: NVDIR environment variable needs to be set to your             #
+# CUDA toolkit location                                                     #
+#############################################################################
+# FC=pgf90
+# CC=pgcc
+# LD=pgf90
+# FFLAGS_PRODUCTION= -Minfo=inline,ipa -Mneginfo -I/usr/local/include -O3
+# FFLAGS_DEBUG= -g -Mbounds -Mchkptr -Minfo=accel,inline -Mneginfo -Minform=inform -I/usr/local/include
+# LDFLAGS_PRODUCTION= -L/usr/local/lib -L${NVDIR}/lib64 -l${HYBRID_LIBRARY_FILENAME_POSTFIX} -lcudart -lstdc++
+# LDFLAGS_DEBUG= -L/usr/local/lib -L${NVDIR}/lib64 -l${HYBRID_LIBRARY_FILENAME_POSTFIX} -lcudart -lstdc++
 
 #############################################################################
 # uncomment these settings to use pgfortran                                 #

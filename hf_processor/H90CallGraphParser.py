@@ -439,8 +439,8 @@ class H90CallGraphParser(object):
         elif (parallelRegionEndMatch):
             self.processParallelRegionEndMatch(parallelRegionEndMatch)
             self.state = "inside_subroutine_body"
-        elif (self.patterns.earlyReturnPattern.match(str(line))):
-            raise Exception("early return in the same subroutine within parallelRegion not allowed")
+        # elif (self.patterns.earlyReturnPattern.match(str(line))):
+        #     raise Exception("early return in the same subroutine within parallelRegion not allowed")
         elif (self.patterns.parallelRegionPattern.match(str(line))):
             raise Exception("parallelRegion within parallelRegion not allowed")
         elif (self.patterns.subprocEndPattern.match(str(line))):

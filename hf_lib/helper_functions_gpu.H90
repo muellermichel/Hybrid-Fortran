@@ -42,11 +42,11 @@ contains
 		integer(4), intent(in) :: original
 		integer(4) INTENT_SLICED_OUT :: sliced
 
-		@domainDependant{attribute(present,autoDom), domName(x,j), domSize(nx_original, ny_original)}
+		@domainDependant{attribute(present,autoDom), domName(x,y), domSize(nx_original, ny_original)}
 		original
 		@end domainDependant
 
-		@domainDependant{attribute(present,autoDom), domName(x,j), domSize(nx, ny)}
+		@domainDependant{attribute(present,autoDom), domName(x,y), domSize(nx, ny)}
 		sliced
 		@end domainDependant
 
@@ -60,11 +60,11 @@ contains
 		integer(4), intent(in) :: original
 		integer(4) INTENT_SLICED_OUT :: sliced
 
-		@domainDependant{attribute(present,autoDom), domName(x,j), domSize(nx_original, ny_original)}
+		@domainDependant{attribute(present,autoDom), domName(x,y), domSize(nx_original, ny_original)}
 		original
 		@end domainDependant
 
-		@domainDependant{attribute(present,autoDom), domName(x,j), domSize(nx, ny)}
+		@domainDependant{attribute(present,autoDom), domName(x,y), domSize(nx, ny)}
 		sliced
 		@end domainDependant
 
@@ -77,15 +77,15 @@ contains
 
 	subroutine getSlice2D(sliced, original, nx, ny, nx_original, ny_original, offset_x, offset_y)
 		implicit none
-		real(8), intent(in) :: nx, ny, nx_original, ny_original, offset_x, offset_y
+		integer(4), intent(in) :: nx, ny, nx_original, ny_original, offset_x, offset_y
 		real(8), intent(in) :: original
 		real(8) INTENT_SLICED_OUT :: sliced
 
-		@domainDependant{attribute(present,autoDom), domName(x,j), domSize(nx_original, ny_original)}
+		@domainDependant{attribute(present,autoDom), domName(x,y), domSize(nx_original, ny_original)}
 		original
 		@end domainDependant
 
-		@domainDependant{attribute(present,autoDom), domName(x,j), domSize(nx, ny)}
+		@domainDependant{attribute(present,autoDom), domName(x,y), domSize(nx, ny)}
 		sliced
 		@end domainDependant
 
@@ -95,15 +95,15 @@ contains
 
 	subroutine getSlice2D_kernel(sliced, original, nx, ny, nx_original, ny_original, offset_x, offset_y)
 		implicit none
-		real(8), intent(in) :: nx, ny, nx_original, ny_original, offset_x, offset_y
+		integer(4), intent(in) :: nx, ny, nx_original, ny_original, offset_x, offset_y
 		real(8), intent(in) :: original
 		real(8) INTENT_SLICED_OUT :: sliced
 
-		@domainDependant{attribute(present,autoDom), domName(x,j), domSize(nx_original, ny_original)}
+		@domainDependant{attribute(present,autoDom), domName(x,y), domSize(nx_original, ny_original)}
 		original
 		@end domainDependant
 
-		@domainDependant{attribute(present,autoDom), domName(x,j), domSize(nx, ny)}
+		@domainDependant{attribute(present,autoDom), domName(x,y), domSize(nx, ny)}
 		sliced
 		@end domainDependant
 
@@ -117,14 +117,14 @@ contains
 	subroutine getSlice3D(sliced, original, nx, ny, nz, nx_original, ny_original, nz_original, offset_x, offset_y, offset_z)
 		implicit none
 		integer(4), intent(in) :: nx, ny, nz, nx_original, ny_original, nz_original, offset_x, offset_y, offset_z
-		integer(4), intent(in) :: original(nz_original)
-		integer(4) INTENT_SLICED_OUT :: sliced(nz)
+		real(8), intent(in) :: original(nz_original)
+		real(8) INTENT_SLICED_OUT :: sliced(nz)
 
-		@domainDependant{attribute(present,autoDom), domName(x,j,k), domSize(nx_original, ny_original, nz_original)}
+		@domainDependant{attribute(present,autoDom), domName(x,y,k), domSize(nx_original, ny_original, nz_original)}
 		original
 		@end domainDependant
 
-		@domainDependant{attribute(present,autoDom), domName(x,j,k), domSize(nx, ny, nz)}
+		@domainDependant{attribute(present,autoDom), domName(x,y,k), domSize(nx, ny, nz)}
 		sliced
 		@end domainDependant
 
@@ -135,21 +135,22 @@ contains
 	subroutine getSlice3D_kernel(sliced, original, nx, ny, nz, nx_original, ny_original, nz_original, offset_x, offset_y, offset_z)
 		implicit none
 		integer(4), intent(in) :: nx, ny, nz, nx_original, ny_original, nz_original, offset_x, offset_y, offset_z
-		integer(4), intent(in) :: original(nz_original)
-		integer(4) INTENT_SLICED_OUT :: sliced(nz)
+		real(8), intent(in) :: original(nz_original)
+		real(8) INTENT_SLICED_OUT :: sliced(nz)
+		integer(4) :: z
 
-		@domainDependant{attribute(present,autoDom), domName(x,j,k), domSize(nx_original, ny_original, nz_original)}
+		@domainDependant{attribute(present,autoDom), domName(x,y,k), domSize(nx_original, ny_original, nz_original)}
 		original
 		@end domainDependant
 
-		@domainDependant{attribute(present,autoDom), domName(x,j,k), domSize(nx, ny, nz)}
+		@domainDependant{attribute(present,autoDom), domName(x,y,k), domSize(nx, ny, nz)}
 		sliced
 		@end domainDependant
 
 		@parallelRegion{appliesTo(GPU), domName(x,y), domSize(nx, ny)}
 		@if {parallelRegion(within)}
 		do z = 1, nz
-			sliced(AT(x,y,z)) = original(AT(x + offset_x, y + offset_y, z + offset_z))
+			sliced(x,y,z) = original(x + offset_x, y + offset_y, z + offset_z)
 		end do
 		@end if
 		@end parallelRegion
@@ -157,15 +158,15 @@ contains
 
 	subroutine storeSlice2D(original, sliced, nx_original, ny_original, nx, ny, offset_x, offset_y)
 		implicit none
-		real(8), intent(in) :: nx, ny, nx_original, ny_original, offset_x, offset_y
+		integer(4), intent(in) :: nx, ny, nx_original, ny_original, offset_x, offset_y
 		real(8), intent(out) :: original
 		real(8) INTENT_SLICED_IN :: sliced
 
-		@domainDependant{attribute(present,autoDom), domName(x,j), domSize(nx_original, ny_original)}
+		@domainDependant{attribute(present,autoDom), domName(x,y), domSize(nx_original, ny_original)}
 		original
 		@end domainDependant
 
-		@domainDependant{attribute(present,autoDom), domName(x,j), domSize(nx, ny)}
+		@domainDependant{attribute(present,autoDom), domName(x,y), domSize(nx, ny)}
 		sliced
 		@end domainDependant
 
@@ -175,15 +176,15 @@ contains
 
 	subroutine storeSlice2D_kernel(original, sliced, nx_original, ny_original, nx, ny, offset_x, offset_y)
 		implicit none
-		real(8), intent(in) :: nx, ny, nx_original, ny_original, offset_x, offset_y
+		integer(4), intent(in) :: nx, ny, nx_original, ny_original, offset_x, offset_y
 		real(8), intent(out) :: original
 		real(8) INTENT_SLICED_IN :: sliced
 
-		@domainDependant{attribute(present,autoDom), domName(x,j), domSize(nx_original, ny_original)}
+		@domainDependant{attribute(present,autoDom), domName(x,y), domSize(nx_original, ny_original)}
 		original
 		@end domainDependant
 
-		@domainDependant{attribute(present,autoDom), domName(x,j), domSize(nx, ny)}
+		@domainDependant{attribute(present,autoDom), domName(x,y), domSize(nx, ny)}
 		sliced
 		@end domainDependant
 
@@ -200,11 +201,11 @@ contains
 		integer(4), intent(out) :: original(nz_original)
 		integer(4) INTENT_SLICED_IN :: sliced(nz)
 
-		@domainDependant{attribute(present,autoDom), domName(x,j,k), domSize(nx_original, ny_original, nz_original)}
+		@domainDependant{attribute(present,autoDom), domName(x,y,k), domSize(nx_original, ny_original, nz_original)}
 		original
 		@end domainDependant
 
-		@domainDependant{attribute(present,autoDom), domName(x,j,k), domSize(nx, ny, nz)}
+		@domainDependant{attribute(present,autoDom), domName(x,y,k), domSize(nx, ny, nz)}
 		sliced
 		@end domainDependant
 
@@ -216,19 +217,20 @@ contains
 		integer(4), intent(in) :: nx_original, ny_original, nz_original, nx, ny, nz, offset_x, offset_y, offset_z
 		integer(4), intent(out) :: original(nz_original)
 		integer(4) INTENT_SLICED_IN :: sliced(nz)
+		integer(4) :: z
 
-		@domainDependant{attribute(present,autoDom), domName(x,j,k), domSize(nx_original, ny_original, nz_original)}
+		@domainDependant{attribute(present,autoDom), domName(x,y,k), domSize(nx_original, ny_original, nz_original)}
 		original
 		@end domainDependant
 
-		@domainDependant{attribute(present,autoDom), domName(x,j,k), domSize(nx, ny, nz)}
+		@domainDependant{attribute(present,autoDom), domName(x,y,k), domSize(nx, ny, nz)}
 		sliced
 		@end domainDependant
 
 		@parallelRegion{appliesTo(GPU), domName(x,y), domSize(nx, ny)}
 		@if {parallelRegion(within)}
 		do z = 1, nz
-			original(AT(x + offset_x, y + offset_y, z + offset_z)) = sliced(AT(x,y,z))
+			original(x + offset_x, y + offset_y, z + offset_z) = sliced(x,y,z)
 		end do
 		@end if
 		@end parallelRegion

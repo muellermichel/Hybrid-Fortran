@@ -19,7 +19,22 @@
 #define NY_STRIDE_MAX 32
 
 module example
+  @if {architecture(GPU)}
+  real(8), dimension(NX_STRIDE_MAX, NY_STRIDE_MAX, NZ) :: a_stride, b_stride, c_stride, d_stride
+  @end if
 contains
+
+  subroutine initialize()
+    @if {architecture(GPU)}
+    #pragma acc enter data create(a_stride, b_stride, c_stride, d_stride)
+    @end if
+  end subroutine
+
+  subroutine cleanup()
+    @if {architecture(GPU)}
+    #pragma acc exit data delete(a_stride, b_stride, c_stride, d_stride)
+    @end if
+  end subroutine
 
   subroutine run(nx, ny, a, b, c, d)
     implicit none
@@ -53,17 +68,11 @@ contains
     integer(4) :: stride_x_offset, stride_y_offset
     integer(4) :: stride_x_size, stride_y_size
 
-    @domainDependant{domName(x,y,z), domSize(nx,ny,NZ), domPP(DOM), accPP(AT)}
+    @domainDependant{attribute(autoDom, transferHere), domName(x,y,z), domSize(nx,ny,NZ)}
     a, b, c, d
     @end domainDependant
 
     @if {parallelRegion(inside)}
-    real(8), dimension(DOM(NX_STRIDE_MAX, NY_STRIDE_MAX, NZ)), device :: a_stride, b_stride, c_stride, d_stride
-    real(8), dimension(DOM(nx, ny, NZ)), device :: a_d, b_d, c_d, d_d
-    a_d(:,:,:) = a(:,:,:)
-    b_d(:,:,:) = b(:,:,:)
-    c_d(:,:,:) = 15.d0
-    d_d(:,:,:) = 15.d0
     stride_x_size = min(nx, NX_STRIDE_MAX)
     stride_y_size = min(ny, NY_STRIDE_MAX)
     num_strides_x = nx / stride_x_size
@@ -72,17 +81,15 @@ contains
       do stride_y = 0, num_strides_y - 1
         stride_x_offset = stride_x * stride_x_size
         stride_y_offset = stride_y * stride_y_size
-        GET_SLICE_3D(a_stride, a_d)
-        GET_SLICE_3D(b_stride, b_d)
-        GET_SLICE_3D(c_stride, c_d)
-        GET_SLICE_3D(d_stride, d_d)
+        GET_SLICE_3D(a_stride, a)
+        GET_SLICE_3D(b_stride, b)
+        GET_SLICE_3D(c_stride, c)
+        GET_SLICE_3D(d_stride, d)
         call kernel_wrapper(stride_x_size, stride_y_size, a_stride, b_stride, c_stride, d_stride)
-        STORE_SLICE_3D(c_d, c_stride)
-        STORE_SLICE_3D(d_d, d_stride)
+        STORE_SLICE_3D(c, c_stride)
+        STORE_SLICE_3D(d, d_stride)
       end do
     end do
-    c(:,:,:) = c_d(:,:,:)
-    d(:,:,:) = d_d(:,:,:)
     @end if
 
     @if {parallelRegion(outside)}
@@ -175,7 +182,9 @@ program main
   c(:,:,:) = 0.0d0
   d(:,:,:) = 0.0d0
 
+  call initialize
   call run(nx, ny, a, b, c, d)
+  call cleanup
   write(6,*) "calculation complete"
 
   test = .TRUE.

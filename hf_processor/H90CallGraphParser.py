@@ -211,6 +211,7 @@ class H90CallGraphParser(object):
     currentLine = None
     branchAnalyzer = None
     currTemplateName = None
+    stateSwitch = None
 
     def __init__(self):
         self.patterns = H90RegExPatterns()
@@ -222,6 +223,17 @@ class H90CallGraphParser(object):
             r'^\s*end\s+if|^\s*end\s+select',
             pass_in_regex_pattern=True
         )
+        self.stateSwitch = {
+           'none': self.processNoneState,
+           'inside_module': self.processInsideModuleState,
+           'inside_moduleDomainDependantRegion': self.processInsideModuleDomainDependantRegionState,
+           'inside_declarations': self.processInsideDeclarationsState,
+           'inside_parallelRegion': self.processInsideParallelRegionState,
+           'inside_domainDependantRegion': self.processInsideDomainDependantRegionState,
+           'inside_subroutine_body': self.processInsideSubroutineBodyState,
+           'inside_branch': self.processInsideBranch,
+           'inside_ignore': self.processInsideIgnore
+         }
         super(H90CallGraphParser, self).__init__()
 
     def processCallMatch(self, subProcCallMatch):
@@ -237,6 +249,9 @@ class H90CallGraphParser(object):
         self.currArguments = None
         self.currArgumentParser = None
         self.currCalleeName = None
+
+    def processBranchMatch(self, branchMatch):
+        return
 
     def processProcBeginMatch(self, subProcBeginMatch):
         if self.debugPrint:
@@ -296,7 +311,10 @@ class H90CallGraphParser(object):
         subProcBeginMatch = self.patterns.subprocBeginPattern.match(str(line))
         templateMatch = self.patterns.templatePattern.match(str(line))
         templateEndMatch = self.patterns.templateEndPattern.match(str(line))
-        if templateMatch:
+        branchMatch = self.patterns.branchPattern.match(str(line))
+        if branchMatch:
+            self.processBranchMatch(branchMatch)
+        elif templateMatch:
             self.processTemplateMatch(templateMatch)
         elif templateEndMatch:
             self.processTemplateEndMatch(templateEndMatch)
@@ -325,22 +343,22 @@ class H90CallGraphParser(object):
         domainDependantMatch = self.patterns.domainDependantPattern.match(str(line))
         templateMatch = self.patterns.templatePattern.match(str(line))
         templateEndMatch = self.patterns.templateEndPattern.match(str(line))
+        branchMatch = self.patterns.branchPattern.match(str(line))
 
-        if templateMatch:
+        newState = None
+        if branchMatch:
+            self.processBranchMatch(branchMatch)
+        elif templateMatch:
             self.processTemplateMatch(templateMatch)
-
         elif templateEndMatch:
             self.processTemplateEndMatch(templateEndMatch)
-
         elif domainDependantMatch:
-            self.state = 'inside_moduleDomainDependantRegion'
+            newState = 'inside_moduleDomainDependantRegion'
             self.processDomainDependantMatch(domainDependantMatch)
-
         elif moduleEndMatch:
             self.processModuleEndMatch(moduleEndMatch)
             self.currModuleName = None
-            self.state = 'none'
-
+            newState = 'none'
         elif subProcBeginMatch:
             if (not subProcBeginMatch.group(1) or subProcBeginMatch.group(1) == ''):
                 raise Exception("subprocedure begin without matching subprocedure name")
@@ -349,18 +367,21 @@ class H90CallGraphParser(object):
             self.currArgumentParser.processString(subProcBeginMatch.group(0), self.patterns)
             self.currArguments = self.currArgumentParser.arguments
             self.processProcBeginMatch(subProcBeginMatch)
-            self.state ='inside_declarations'
+            newState ='inside_declarations'
             specificationsBeginHere = True
             self.processSubprocStartPost()
-
         elif (self.patterns.subprocEndPattern.match(str(line))):
             raise Exception("end subprocedure without matching begin subprocedure")
-
         else:
             self.processNoMatch()
-
         if specificationsBeginHere:
             self.processSpecificationBeginning()
+        if newState == None:
+            return
+        if self.state == "inside_branch":
+            self.stateBeforeBranch = newState
+        else:
+            self.state = newState
 
     def processSubprocStartPost(self):
         self.currArgumentParser = None
@@ -373,17 +394,21 @@ class H90CallGraphParser(object):
         subProcEndMatch = self.patterns.subprocEndPattern.match(str(line))
         templateMatch = self.patterns.templatePattern.match(str(line))
         templateEndMatch = self.patterns.templateEndPattern.match(str(line))
+        branchMatch = self.patterns.branchPattern.match(str(line))
 
-        if (domainDependantMatch):
-            self.state = 'inside_domainDependantRegion'
+        newState = None
+        if branchMatch:
+            self.processBranchMatch(branchMatch)
+        elif (domainDependantMatch):
+            newState = 'inside_domainDependantRegion'
             self.processDomainDependantMatch(domainDependantMatch)
         elif subProcCallMatch:
             self.processCallMatch(subProcCallMatch)
-            if self.state != 'inside_subroutine_call':
+            if (self.state == "inside_branch" and self.stateBeforeBranch != 'inside_subroutine_call') or (self.state != "inside_branch" and self.state != 'inside_subroutine_call'):
                 self.processCallPost()
         elif (subProcEndMatch):
             self.processProcEndMatch(subProcEndMatch)
-            self.state = 'inside_module'
+            newState = 'inside_module'
             self.currSubprocName = None
         elif (parallelRegionMatch):
             raise Exception("parallel region without parallel dependants")
@@ -393,7 +418,12 @@ class H90CallGraphParser(object):
             raise Exception("template directives are only allowed outside of subroutines")
         elif templateEndMatch:
             raise Exception("template directives are only allowed outside of subroutines")
-        return
+        if newState == None:
+            return
+        if self.state == "inside_branch":
+            self.stateBeforeBranch = newState
+        else:
+            self.state = newState
 
     def processInsideSubroutineBodyState(self, line):
         #note: Branches (@if statements) are ignored here, we want to keep analyzing their statements for callgraphs.
@@ -404,17 +434,21 @@ class H90CallGraphParser(object):
         subProcEndMatch = self.patterns.subprocEndPattern.match(str(line))
         templateMatch = self.patterns.templatePattern.match(str(line))
         templateEndMatch = self.patterns.templateEndPattern.match(str(line))
+        branchMatch = self.patterns.branchPattern.match(str(line))
 
-        if domainDependantMatch:
-            self.state = 'inside_domainDependantRegion'
+        newState = None
+        if branchMatch:
+            self.processBranchMatch(branchMatch)
+        elif domainDependantMatch:
+            newState = 'inside_domainDependantRegion'
             self.processDomainDependantMatch(domainDependantMatch)
         elif subProcCallMatch:
             self.processCallMatch(subProcCallMatch)
-            if self.state != 'inside_subroutine_call':
+            if (self.state == "inside_branch" and self.stateBeforeBranch != 'inside_subroutine_call') or (self.state != "inside_branch" and self.state != 'inside_subroutine_call'):
                 self.processCallPost()
         elif subProcEndMatch:
             self.processProcEndMatch(subProcEndMatch)
-            self.state = 'inside_module'
+            newState = 'inside_module'
             self.currSubprocName = None
         elif parallelRegionMatch:
             self.processParallelRegionMatch(parallelRegionMatch)
@@ -425,20 +459,30 @@ class H90CallGraphParser(object):
             raise Exception("template directives are only allowed outside of subroutines")
         elif templateEndMatch:
             raise Exception("template directives are only allowed outside of subroutines")
-        return
+        if newState == None:
+            return
+        if self.state == "inside_branch":
+            self.stateBeforeBranch = newState
+        else:
+            self.state = newState
 
     def processInsideParallelRegionState(self, line):
         subProcCallMatch = self.patterns.subprocCallPattern.match(str(line))
         parallelRegionEndMatch = self.patterns.parallelRegionEndPattern.match(str(line))
         templateMatch = self.patterns.templatePattern.match(str(line))
         templateEndMatch = self.patterns.templateEndPattern.match(str(line))
-        if subProcCallMatch:
+        branchMatch = self.patterns.branchPattern.match(str(line))
+
+        newState = None
+        if branchMatch:
+            self.processBranchMatch(branchMatch)
+        elif subProcCallMatch:
             self.processCallMatch(subProcCallMatch)
-            if self.state != 'inside_subroutine_call':
+            if (self.state == "inside_branch" and self.stateBeforeBranch != 'inside_subroutine_call') or (self.state != "inside_branch" and self.state != 'inside_subroutine_call'):
                 self.processCallPost()
         elif (parallelRegionEndMatch):
             self.processParallelRegionEndMatch(parallelRegionEndMatch)
-            self.state = "inside_subroutine_body"
+            newState = "inside_subroutine_body"
         # elif (self.patterns.earlyReturnPattern.match(str(line))):
         #     raise Exception("early return in the same subroutine within parallelRegion not allowed")
         elif (self.patterns.parallelRegionPattern.match(str(line))):
@@ -453,14 +497,25 @@ class H90CallGraphParser(object):
             raise Exception("template directives are only allowed outside of subroutines")
         else:
             self.processNoMatch()
+        if newState == None:
+            return
+        if self.state == "inside_branch":
+            self.stateBeforeBranch = newState
+        else:
+            self.state = newState
 
     def processInsideModuleDomainDependantRegionState(self, line):
         domainDependantEndMatch = self.patterns.domainDependantEndPattern.match(str(line))
         templateMatch = self.patterns.templatePattern.match(str(line))
         templateEndMatch = self.patterns.templateEndPattern.match(str(line))
-        if domainDependantEndMatch:
+        branchMatch = self.patterns.branchPattern.match(str(line))
+
+        newState = None
+        if branchMatch:
+            self.processBranchMatch(branchMatch)
+        elif domainDependantEndMatch:
             self.processDomainDependantEndMatch(domainDependantEndMatch)
-            self.state = "inside_module"
+            newState = "inside_module"
         elif (self.patterns.earlyReturnPattern.match(str(line))):
             raise Exception("early return not allowed here")
         elif self.patterns.subprocCallPattern.match(str(line)):
@@ -475,15 +530,25 @@ class H90CallGraphParser(object):
             raise Exception("template directives not allowed here")
         elif templateEndMatch:
             raise Exception("template directives not allowed here")
-        return
+        if newState == None:
+            return
+        if self.state == "inside_branch":
+            self.stateBeforeBranch = newState
+        else:
+            self.state = newState
 
     def processInsideDomainDependantRegionState(self, line):
         domainDependantEndMatch = self.patterns.domainDependantEndPattern.match(str(line))
         templateMatch = self.patterns.templatePattern.match(str(line))
         templateEndMatch = self.patterns.templateEndPattern.match(str(line))
-        if domainDependantEndMatch:
+        branchMatch = self.patterns.branchPattern.match(str(line))
+
+        newState = None
+        if branchMatch:
+            self.processBranchMatch(branchMatch)
+        elif domainDependantEndMatch:
             self.processDomainDependantEndMatch(domainDependantEndMatch)
-            self.state = "inside_subroutine_body"
+            newState = "inside_subroutine_body"
         elif (self.patterns.earlyReturnPattern.match(str(line))):
             raise Exception("early return not allowed here")
         elif self.patterns.subprocCallPattern.match(str(line)):
@@ -498,32 +563,24 @@ class H90CallGraphParser(object):
             raise Exception("template directives not allowed here")
         elif templateEndMatch:
             raise Exception("template directives not allowed here")
-        return
+        if newState == None:
+            return
+        if self.state == "inside_branch":
+            self.stateBeforeBranch = newState
+        else:
+            self.state = newState
 
     def processUndefinedState(self, line):
         raise Exception("unexpected undefined parser state: %s" %(self.state))
 
     def processLine(self, line):
-        #define the states and their respective handlers
-        stateSwitch = {
-           'none': self.processNoneState,
-           'inside_module': self.processInsideModuleState,
-           'inside_moduleDomainDependantRegion': self.processInsideModuleDomainDependantRegionState,
-           'inside_declarations': self.processInsideDeclarationsState,
-           'inside_parallelRegion': self.processInsideParallelRegionState,
-           'inside_domainDependantRegion': self.processInsideDomainDependantRegionState,
-           'inside_subroutine_body': self.processInsideSubroutineBodyState,
-           'inside_branch': self.processInsideBranch,
-           'inside_ignore': self.processInsideIgnore
-         }
-
         self.currentLine = line
 
         #here we only load the current line into the branch analyzer for further use, we don't need the result of this method
         self.branchAnalyzer.currLevelAfterString(str(line))
 
         #analyse this line. handle the line according to current parser state.
-        stateSwitch.get(self.state, self.processUndefinedState)(self.currentLine)
+        self.stateSwitch.get(self.state, self.processUndefinedState)(self.currentLine)
 
     def processFile(self, fileName):
         self.lineNo = 1
@@ -579,7 +636,7 @@ class H90XMLCallGraphGenerator(H90CallGraphParser):
         call = self.doc.createElement('call')
         call.setAttribute('caller', self.currSubprocName)
         call.setAttribute('callee', subProcName)
-        if self.state == "inside_parallelRegion":
+        if self.state == "inside_parallelRegion" or (self.state == "inside_branch" and self.stateBeforeBranch == "inside_parallelRegion"):
             call.setAttribute('parallelRegionPosition', 'surround')
         if (not firstDuplicateChild(self.calls, call)):
             self.calls.appendChild(call)
@@ -647,7 +704,7 @@ class H90XMLCallGraphGenerator(H90CallGraphParser):
         super(H90XMLCallGraphGenerator, self).processDomainDependantMatch(domainDependantMatch)
         self.currDomainDependantRelationNode, _ = setTemplateInfos(
             self.doc,
-            self.currModuleNode if self.state == 'inside_moduleDomainDependantRegion' else self.currSubprocNode,
+            self.currModuleNode if self.state == 'inside_moduleDomainDependantRegion' or (self.state == "inside_branch" and self.stateBeforeBranch == "inside_moduleDomainDependantRegion") else self.currSubprocNode,
             domainDependantMatch.group(1),
             "domainDependantTemplates",
             "domainDependantTemplate",
@@ -668,13 +725,13 @@ class H90XMLCallGraphGenerator(H90CallGraphParser):
 
     def processInsideModuleDomainDependantRegionState(self, line):
         super(H90XMLCallGraphGenerator, self).processInsideModuleDomainDependantRegionState(line)
-        if self.state != 'inside_moduleDomainDependantRegion':
+        if (self.state != 'inside_branch' and self.state != 'inside_moduleDomainDependantRegion') or (self.state == "inside_branch" and self.stateBeforeBranch != "inside_moduleDomainDependantRegion"):
             return
         appendSeparatedTextAsNodes(line, ',', self.doc, self.currDomainDependantRelationNode, 'entry')
 
     def processInsideDomainDependantRegionState(self, line):
         super(H90XMLCallGraphGenerator, self).processInsideDomainDependantRegionState(line)
-        if self.state != 'inside_domainDependantRegion':
+        if (self.state != 'inside_branch' and self.state != 'inside_domainDependantRegion') or (self.state == "inside_branch" and self.stateBeforeBranch != "inside_domainDependantRegion"):
             return
         appendSeparatedTextAsNodes(line, ',', self.doc, self.currDomainDependantRelationNode, 'entry')
 
@@ -813,7 +870,7 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
     def processInsideDeclarationsState(self, line):
         '''process everything that happens per h90 declaration line'''
         super(H90CallGraphAndSymbolDeclarationsParser, self).processInsideDeclarationsState(line)
-        if self.state != "inside_declarations":
+        if (self.state != 'inside_branch' and self.state != 'inside_declarations') or (self.state == "inside_branch" and self.stateBeforeBranch != "inside_declarations"):
             return
         branchMatch = self.patterns.branchPattern.match(str(line))
         if branchMatch:
@@ -880,26 +937,12 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
                 %(self.currSubprocName, unmatched, str(self.currSymbolsByName[unmatched[0]].domains))
             )
 
-    def processBranchMatch(self, branchMatch):
-        branchSettingText = branchMatch.group(1).strip()
-        branchSettings = branchSettingText.split(",")
-        if len(branchSettings) != 1:
-            raise Exception("Invalid number of branch settings.")
-        branchSettingMatch = re.match(r'(\w*)\s*\(\s*(\w*)\s*\)', branchSettings[0].strip(), re.IGNORECASE)
-        if not branchSettingMatch:
-            raise Exception("Invalid branch setting definition.")
-        if branchSettingMatch.group(1) != "parallelRegion":
-            raise Exception("Invalid branch setting definition: Currently only parallelRegion setting accepted.")
-        self.stateBeforeBranch = self.state
-        if branchSettingMatch.group(2) != self.routineNodesByProcName[self.currSubprocName].getAttribute('parallelRegionPosition').strip():
-            self.state = 'inside_branch'
-        else:
-            self.state = 'inside_ignore'
-
     def processInsideBranch(self, line):
         if self.patterns.branchEndPattern.match(str(line)):
             self.state = self.stateBeforeBranch
             self.stateBeforeBranch = None
+        else:
+            self.stateSwitch.get(self.stateBeforeBranch, self.processUndefinedState)(line)
 
     def processInsideIgnore(self, line):
         if self.patterns.branchEndPattern.match(str(line)):
@@ -1120,6 +1163,7 @@ This is not allowed for implementations using %s.\
         and not symbol.isModuleSymbol \
         and not symbol.isHostSymbol \
         and self.state != "inside_parallelRegion" \
+        and not (self.state == "inside_branch" and self.stateBeforeBranch == "inside_parallelRegion") \
         and self.routineNodesByProcName[self.currSubprocName].getAttribute("parallelRegionPosition") != "outside" \
         and len(accessors) != 0:
             sys.stderr.write("WARNING: Dependant symbol %s accessed with accessor domains (%s) outside of a parallel region or subroutine call in subroutine %s(%s:%i)\n" \
@@ -1175,6 +1219,7 @@ This is not allowed for implementations using %s.\
         or not accessPatternChangeRequired \
         or ( \
             self.state != "inside_parallelRegion" \
+            and not (self.state == "inside_branch" and self.stateBeforeBranch == "inside_parallelRegion") \
             and not isInsideSubroutineCall \
             and not isPointerAssignment \
             and not symbol.isModuleSymbol \
@@ -1314,7 +1359,7 @@ This is not allowed for implementations using %s.\
         callPostForSymbols = ""
         # if self.currCalleeNode and self.currCalleeNode.getAttribute("parallelRegionPosition") == "within":
         if self.currCalleeNode:
-            if self.state != "inside_subroutine_call":
+            if self.state != "inside_subroutine_call" and not (self.state == "inside_branch" and self.stateBeforeBranch == "inside_subroutine_call"):
                 currSubprocNode = self.routineNodesByProcName.get(self.currSubprocName)
                 callPreparationForSymbols = ""
                 callPostForSymbols = ""
@@ -1353,7 +1398,7 @@ This is not allowed for implementations using %s.\
                     )
                 adjustedLine = self.processCallPostAndGetAdjustedLine(adjustedLine)
 
-        if self.state != "inside_subroutine_call":
+        if self.state != "inside_subroutine_call" and not (self.state == "inside_branch" and self.stateBeforeBranch == "inside_subroutine_call"):
             self.symbolsPassedInCurrentCallByName = {}
             self.currCalleeNode = None
 
@@ -1391,6 +1436,27 @@ This is not allowed for implementations using %s.\
 
     def processBranchMatch(self, branchMatch):
         super(H90toF90Printer, self).processBranchMatch(branchMatch)
+        branchSettingText = branchMatch.group(1).strip()
+        branchSettings = branchSettingText.split(",")
+        if len(branchSettings) != 1:
+            raise Exception("Invalid number of branch settings.")
+        branchSettingMatch = re.match(r'(\w*)\s*\(\s*(\w*)\s*\)', branchSettings[0].strip(), re.IGNORECASE)
+        if not branchSettingMatch:
+            raise Exception("Invalid branch setting definition.")
+        if branchSettingMatch.group(1) not in ["parallelRegion", "architecture"]:
+            raise Exception("Invalid branch setting definition: Currently only parallelRegion and architecture setting accepted.")
+        self.stateBeforeBranch = self.state
+
+        if branchSettingMatch.group(1) == "parallelRegion":
+            if branchSettingMatch.group(2) == self.routineNodesByProcName[self.currSubprocName].getAttribute('parallelRegionPosition').strip():
+                self.state = 'inside_branch'
+            else:
+                self.state = 'inside_ignore'
+        elif branchSettingMatch.group(1) == "architecture":
+            if branchSettingMatch.group(2) == self.implementation.architecture:
+                self.state = 'inside_branch'
+            else:
+                self.state = 'inside_ignore'
         self.prepareLine("","")
 
     def processModuleBeginMatch(self, moduleBeginMatch):
@@ -1542,26 +1608,9 @@ This is not allowed for implementations using %s.\
         '''process everything that happens per h90 declaration line'''
         super(H90toF90Printer, self).processInsideDeclarationsState(line)
         routineNode = self.routineNodesByProcName.get(self.currSubprocName)
-#         if routineNode \
-#         and getRoutineNodeInitStage(routineNode) == RoutineNodeInitStage.DIRECTIVES_WITHOUT_PARALLELREGION_POSITION \
-#         and self.implementation.onDevice:
-#             #during analysis we've found that this routine had a parallel region directive but now
-#             #there is no relation to a parallel region anymore in the callgraph.
-#             #This is a special case where the programmer most probably commented out the call to this subroutine
-#             #=> go into skipped state where the whole subroutine body is printed out commented (don't compile the body)
-#             if self.currSubroutineImplementationNeedsToBeCommented != True:
-#                 sys.stderr.write("WARNING: subroutine body for %s is getting commented out by HF - can't determine the position of its parallel region \
-# relative to the rest of the program. Please ignore this message if you have intentionally commented out a call to the respective subroutine \n" \
-#                     %(self.currSubprocName) \
-#                 )
-#                 self.currSubroutineImplementationNeedsToBeCommented = True
-#             if self.state == "inside_declarations":
-#                 self.prepareLine(line, "")
-#             else:
-#                 self.prepareLine("! " + line, "")
-#             return
 
-        if self.state != "inside_declarations" and self.state != "inside_module" and self.state != "inside_subroutine_call":
+        if self.state != "inside_declarations" and self.state != "inside_module" and self.state != "inside_subroutine_call" \
+        and not (self.state == "inside_branch" and self.stateBeforeBranch in ["inside_declarations", "inside_module", "inside_subroutine_call"]):
             additionalDeclarationsStr = ""
             if len(self.additionalParametersByKernelName.keys()) > 0:
                 additionalDeclarationsStr = "\n" + self.tab_insideSub + \
@@ -1691,7 +1740,7 @@ This is not allowed for implementations using %s.\
 
             self.prepareLine(additionalDeclarationsStr, self.tab_insideSub)
 
-        if self.state != "inside_declarations":
+        if self.state != "inside_declarations" and not (self.state == "inside_branch" and self.stateBeforeBranch == "inside_declarations"):
             return
 
         adjustedLine = line
@@ -1739,14 +1788,17 @@ This is not allowed for implementations using %s.\
         subProcCallMatch = self.patterns.subprocCallPattern.match(str(line))
         if subProcCallMatch:
             self.processCallMatch(subProcCallMatch)
-            if self.state != 'inside_subroutine_call':
+            if self.state != 'inside_subroutine_call' and not (self.state == "inside_branch" and self.stateBeforeBranch == "inside_subroutine_call"):
                 self.processCallPost()
             return
 
         subProcEndMatch = self.patterns.subprocEndPattern.match(str(line))
         if (subProcEndMatch):
             self.processProcEndMatch(subProcEndMatch)
-            self.state = 'inside_module'
+            if self.state == "inside_branch":
+                self.stateBeforeBranch = "inside_module"
+            else:
+                self.state = 'inside_module'
             self.currSubprocName = None
             return
 
@@ -1799,7 +1851,10 @@ This is not allowed for implementations using %s.\
             self.currParallelIterators = self.implementation.getIterators(self.currParallelRegionTemplateNode)
             if len(self.currParallelIterators) > 0:
                 self.processParallelRegionMatch(parallelRegionMatch)
-                self.state = 'inside_parallelRegion'
+                if self.state == "inside_branch":
+                    self.stateBeforeBranch = "inside_parallelRegion"
+                else:
+                    self.state = 'inside_parallelRegion'
             else:
                 self.prepareLine("","")
             return
@@ -1817,7 +1872,10 @@ This is not allowed for implementations using %s.\
         domainDependantMatch = self.patterns.domainDependantPattern.match(str(line))
         if (domainDependantMatch):
             self.processDomainDependantMatch(domainDependantMatch)
-            self.state = 'inside_domainDependantRegion'
+            if self.state == "inside_branch":
+                self.stateBeforeBranch = "inside_domainDependantRegion"
+            else:
+                self.state = 'inside_domainDependantRegion'
             return
 
         if (self.patterns.subprocBeginPattern.match(str(line))):
@@ -1838,7 +1896,7 @@ This is not allowed for implementations using %s.\
                 sys.stderr.write(self.implementation.warningOnUnrecognizedSubroutineCallInParallelRegion( \
                     self.currSubprocName, subProcCallMatch.group(1)))
             self.processCallMatch(subProcCallMatch)
-            if self.state != 'inside_subroutine_call':
+            if self.state != 'inside_subroutine_call' and not (self.state == "inside_branch" and self.stateBeforeBranch == "inside_subroutine_call"):
                 self.processCallPost()
             return
 
@@ -1846,6 +1904,10 @@ This is not allowed for implementations using %s.\
         if (parallelRegionEndMatch):
             self.processParallelRegionEndMatch(parallelRegionEndMatch)
             self.state = "inside_subroutine_body"
+            if self.state == "inside_branch":
+                self.stateBeforeBranch = "inside_subroutine_body"
+            else:
+                self.state = 'inside_subroutine_body'
             return
 
         if (self.patterns.parallelRegionPattern.match(str(line))):
@@ -1904,14 +1966,13 @@ This is not allowed for implementations using %s.\
 
     def processInsideBranch(self, line):
         super(H90toF90Printer, self).processInsideBranch(line)
-        self.prepareLine("", "")
-
-    def processInsideIgnore(self, line):
-        super(H90toF90Printer, self).processInsideIgnore(line)
         if self.state != "inside_ignore":
             self.prepareLine("", "")
             return
-        self.prepareLine(line, "")
+
+    def processInsideIgnore(self, line):
+        super(H90toF90Printer, self).processInsideIgnore(line)
+        self.prepareLine("", "")
 
     def processLine(self, line):
         super(H90toF90Printer, self).processLine(line)

@@ -471,6 +471,7 @@ def getRuntimeDebugPrintStatements(symbolsByName, calleeRoutineNode, parallelReg
     return result
 
 class FortranImplementation(object):
+    architecture = "CPU"
     onDevice = False
     multipleParallelRegionsPerSubroutineAllowed = True
     optionFlags = []
@@ -687,6 +688,7 @@ class OpenMPFortranImplementation(FortranImplementation):
         return FortranImplementation.subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, is_subroutine_end)
 
 class PGIOpenACCFortranImplementation(FortranImplementation):
+    architecture = "GPU"
     onDevice = True
     currRoutineHasDataDeclarations = False
     createDeclaration = "create"
@@ -1033,6 +1035,7 @@ class TraceCheckingOpenACCFortranImplementation(DebugPGIOpenACCFortranImplementa
         return result
 
 class CUDAFortranImplementation(FortranImplementation):
+    architecture = "GPU"
     onDevice = True
     multipleParallelRegionsPerSubroutineAllowed = False
 

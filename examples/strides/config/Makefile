@@ -33,5 +33,5 @@ helper_functions_gpu: helper_functions.o
 # ADD YOUR DEPENDENCIES BELOW THIS LINE
 # -------->
 
-example.o: ${USER_LIB}
+example.o: helper_functions_gpu.o ${USER_LIB}
 

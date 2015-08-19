@@ -872,10 +872,6 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
         super(H90CallGraphAndSymbolDeclarationsParser, self).processInsideDeclarationsState(line)
         if (self.state != 'inside_branch' and self.state != 'inside_declarations') or (self.state == "inside_branch" and self.stateBeforeBranch != "inside_declarations"):
             return
-        branchMatch = self.patterns.branchPattern.match(str(line))
-        if branchMatch:
-            self.processBranchMatch(branchMatch)
-            return
         self.analyseSymbolInformationOnCurrentLine(line)
 
     def processModuleBeginMatch(self, moduleBeginMatch):
@@ -936,18 +932,6 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
                 domains of first unmatched: %s"
                 %(self.currSubprocName, unmatched, str(self.currSymbolsByName[unmatched[0]].domains))
             )
-
-    def processInsideBranch(self, line):
-        if self.patterns.branchEndPattern.match(str(line)):
-            self.state = self.stateBeforeBranch
-            self.stateBeforeBranch = None
-        else:
-            self.stateSwitch.get(self.stateBeforeBranch, self.processUndefinedState)(line)
-
-    def processInsideIgnore(self, line):
-        if self.patterns.branchEndPattern.match(str(line)):
-            self.state = self.stateBeforeBranch
-            self.stateBeforeBranch = None
 
     def processLine(self, line):
         super(H90CallGraphAndSymbolDeclarationsParser, self).processLine(line)
@@ -1058,9 +1042,10 @@ class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
     tab_insideSub = "\t\t"
     tab_outsideSub = "\t"
 
-    def __init__(self, cgDoc, implementationsByTemplateName):
+    def __init__(self, cgDoc, implementationsByTemplateName, debugPrint=False):
         super(H90toF90Printer, self).__init__(cgDoc)
         self.implementationsByTemplateName = implementationsByTemplateName
+        self.debugPrint = debugPrint
         self.currRoutineIsCallingParallelRegion = False
         self.currSubroutineImplementationNeedsToBeCommented = False
         self.symbolsPassedInCurrentCallByName = {}
@@ -1445,6 +1430,8 @@ This is not allowed for implementations using %s.\
             raise Exception("Invalid branch setting definition.")
         if branchSettingMatch.group(1) not in ["parallelRegion", "architecture"]:
             raise Exception("Invalid branch setting definition: Currently only parallelRegion and architecture setting accepted.")
+        if self.state == "inside_branch":
+            raise Exception("Nested @if branches are not allowed in Hybrid Fortran")
         self.stateBeforeBranch = self.state
 
         if branchSettingMatch.group(1) == "parallelRegion":
@@ -1965,13 +1952,19 @@ This is not allowed for implementations using %s.\
         self.prepareLine(adjustedLine + self.implementation.additionalIncludes(), self.tab_insideSub)
 
     def processInsideBranch(self, line):
-        super(H90toF90Printer, self).processInsideBranch(line)
-        if self.state != "inside_ignore":
+        if self.patterns.branchEndPattern.match(str(line)):
+            self.state = self.stateBeforeBranch
+            self.stateBeforeBranch = None
+        else:
+            self.stateSwitch.get(self.stateBeforeBranch, self.processUndefinedState)(line)
+        if self.state != "inside_branch":
             self.prepareLine("", "")
             return
 
     def processInsideIgnore(self, line):
-        super(H90toF90Printer, self).processInsideIgnore(line)
+        if self.patterns.branchEndPattern.match(str(line)):
+            self.state = self.stateBeforeBranch
+            self.stateBeforeBranch = None
         self.prepareLine("", "")
 
     def processLine(self, line):

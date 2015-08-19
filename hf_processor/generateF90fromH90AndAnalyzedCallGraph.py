@@ -97,8 +97,7 @@ try:
 	}
 	#read in callgraph xml
 	cgDoc = parseString(getDataFromFile(options.callgraph))
-	f90printer = H90toF90Printer(cgDoc, implementationsByTemplateName)
-	f90printer.debugPrint = options.debug
+	f90printer = H90toF90Printer(cgDoc, implementationsByTemplateName, options.debug)
 	f90printer.processFile(options.sourceFile)
 except Exception as e:
 	sys.stderr.write('Error when generating F90 from H90 file %s: %s\n%s\n' \

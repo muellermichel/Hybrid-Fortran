@@ -42,6 +42,10 @@ contains
 		integer(4), intent(in) :: original
 		integer(4) INTENT_SLICED_OUT :: sliced
 
+		@domainDependant{}
+		nx, ny, nx_original, ny_original, offset_x, offset_y
+		@end domainDependant
+
 		@domainDependant{attribute(present,autoDom), domName(x,y), domSize(nx_original, ny_original)}
 		original
 		@end domainDependant
@@ -59,6 +63,10 @@ contains
 		integer(4), intent(in) :: nx, ny, nx_original, ny_original, offset_x, offset_y
 		integer(4), intent(in) :: original
 		integer(4) INTENT_SLICED_OUT :: sliced
+
+		@domainDependant{}
+		nx, ny, nx_original, ny_original, offset_x, offset_y
+		@end domainDependant
 
 		@domainDependant{attribute(present,autoDom), domName(x,y), domSize(nx_original, ny_original)}
 		original
@@ -81,6 +89,10 @@ contains
 		real(8), intent(in) :: original
 		real(8) INTENT_SLICED_OUT :: sliced
 
+		@domainDependant{}
+		nx, ny, nx_original, ny_original, offset_x, offset_y
+		@end domainDependant
+
 		@domainDependant{attribute(present,autoDom), domName(x,y), domSize(nx_original, ny_original)}
 		original
 		@end domainDependant
@@ -98,6 +110,10 @@ contains
 		integer(4), intent(in) :: nx, ny, nx_original, ny_original, offset_x, offset_y
 		real(8), intent(in) :: original
 		real(8) INTENT_SLICED_OUT :: sliced
+
+		@domainDependant{}
+		nx, ny, nx_original, ny_original, offset_x, offset_y
+		@end domainDependant
 
 		@domainDependant{attribute(present,autoDom), domName(x,y), domSize(nx_original, ny_original)}
 		original
@@ -120,6 +136,10 @@ contains
 		real(8), intent(in) :: original(nz_original)
 		real(8) INTENT_SLICED_OUT :: sliced(nz)
 
+		@domainDependant{}
+		nx, ny, nz, nx_original, ny_original, nz_original, offset_x, offset_y, offset_z
+		@end domainDependant
+
 		@domainDependant{attribute(present,autoDom), domName(x,y,k), domSize(nx_original, ny_original, nz_original)}
 		original
 		@end domainDependant
@@ -138,6 +158,10 @@ contains
 		real(8), intent(in) :: original(nz_original)
 		real(8) INTENT_SLICED_OUT :: sliced(nz)
 		integer(4) :: z
+
+		@domainDependant{}
+		nx, ny, nz, nx_original, ny_original, nz_original, offset_x, offset_y, offset_z
+		@end domainDependant
 
 		@domainDependant{attribute(present,autoDom), domName(x,y,k), domSize(nx_original, ny_original, nz_original)}
 		original
@@ -162,6 +186,10 @@ contains
 		real(8), intent(out) :: original
 		real(8) INTENT_SLICED_IN :: sliced
 
+		@domainDependant{}
+		nx, ny, nx_original, ny_original, offset_x, offset_y
+		@end domainDependant
+
 		@domainDependant{attribute(present,autoDom), domName(x,y), domSize(nx_original, ny_original)}
 		original
 		@end domainDependant
@@ -179,6 +207,10 @@ contains
 		integer(4), intent(in) :: nx, ny, nx_original, ny_original, offset_x, offset_y
 		real(8), intent(out) :: original
 		real(8) INTENT_SLICED_IN :: sliced
+
+		@domainDependant{}
+		nx, ny, nx_original, ny_original, offset_x, offset_y
+		@end domainDependant
 
 		@domainDependant{attribute(present,autoDom), domName(x,y), domSize(nx_original, ny_original)}
 		original
@@ -201,6 +233,10 @@ contains
 		real(8), intent(out) :: original(nz_original)
 		real(8) INTENT_SLICED_IN :: sliced(nz)
 
+		@domainDependant{}
+		nx, ny, nz, nx_original, ny_original, nz_original, offset_x, offset_y, offset_z
+		@end domainDependant
+
 		@domainDependant{attribute(present,autoDom), domName(x,y,k), domSize(nx_original, ny_original, nz_original)}
 		original
 		@end domainDependant
@@ -218,6 +254,10 @@ contains
 		real(8), intent(out) :: original(nz_original)
 		real(8) INTENT_SLICED_IN :: sliced(nz)
 		integer(4) :: z
+
+		@domainDependant{}
+		nx, ny, nz, nx_original, ny_original, nz_original, offset_x, offset_y, offset_z
+		@end domainDependant
 
 		@domainDependant{attribute(present,autoDom), domName(x,y,k), domSize(nx_original, ny_original, nz_original)}
 		original

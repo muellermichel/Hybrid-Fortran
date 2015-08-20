@@ -20,8 +20,15 @@
 ! program is compiled with DEBUG=1 ?
 #define DEBUG_OUT_x 1
 #define DEBUG_OUT_y 1
-#define DEBUG_OUT_z 4
-#define DEBUG_OUT_nz 4
+#define DEBUG_OUT_z 1
+#define DEBUG_OUT_x_2 1
+#define DEBUG_OUT_i 1
+#define DEBUG_OUT_j 1
+#define DEBUG_OUT_k 1
+#define DEBUG_OUT_1 1
+#define DEBUG_OUT_2 1
+#define DEBUG_OUT_3 1
+#define DEBUG_OUT_4 1
 
 ! ------ CUDA run configuration ------------
 #define CUDA_BLOCKSIZE_X 16

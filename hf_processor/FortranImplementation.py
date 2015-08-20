@@ -851,7 +851,7 @@ end subroutine
         devicePresentSymbols = [symbol for symbol in dependantSymbols if symbol.isOnDevice]
         if len(devicePresentSymbols) > 0:
             for symbol in dependantSymbols:
-                if symbol.declarationType() != DeclarationType.LOCAL_ARRAY:
+                if len(symbol.domains) > 0 and symbol.declarationType() != DeclarationType.LOCAL_ARRAY:
                     result += "hf_symbols_are_device_present = acc_is_present(%s)\n" %(symbol.name)
                     break
             else:

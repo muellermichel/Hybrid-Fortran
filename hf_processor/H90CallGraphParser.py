@@ -384,8 +384,7 @@ class H90CallGraphParser(object):
             self.state = newState
 
     def processSubprocStartPost(self):
-        self.currArgumentParser = None
-        self.currArguments = None
+        return
 
     def processInsideDeclarationsState(self, line):
         subProcCallMatch = self.patterns.subprocCallPattern.match(str(line))
@@ -418,6 +417,9 @@ class H90CallGraphParser(object):
             raise Exception("template directives are only allowed outside of subroutines")
         elif templateEndMatch:
             raise Exception("template directives are only allowed outside of subroutines")
+        if self.state != "inside_declarations" and not (self.state == "inside_branch" and self.stateBeforeBranch == "inside_declarations"):
+            self.currArgumentParser = None
+            self.currArguments = None
         if newState == None:
             return
         if self.state == "inside_branch":
@@ -855,7 +857,11 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
     def processSymbolDeclMatch(self, paramDeclMatch, symbol):
         '''process everything that happens per h90 declaration symbol'''
         symbol.isMatched = True
-        symbol.loadDeclaration(paramDeclMatch, self.patterns)
+        symbol.loadDeclaration(
+            paramDeclMatch,
+            self.patterns,
+            self.currArguments if isinstance(self.currArguments, list) else []
+        )
 
     def processSymbolImportMatch(self, importMatch, symbol):
         symbol.isMatched = True

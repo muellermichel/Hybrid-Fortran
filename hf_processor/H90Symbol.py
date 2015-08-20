@@ -533,7 +533,7 @@ class Symbol(object):
         if self.debugPrint:
             sys.stderr.write("[" + str(self) + ".init " + str(self.initLevel) + "] routine node attributes loaded for symbol %s. Domains at this point: %s\n" %(self.name, str(self.domains)))
 
-    def loadDeclaration(self, paramDeclMatch, patterns):
+    def loadDeclaration(self, paramDeclMatch, patterns, currentRoutineArguments):
         if self.initLevel > Init.ROUTINENODE_ATTRIBUTES_LOADED:
             sys.stderr.write("[" + str(self) + ".init " + str(self.initLevel) + "] WARNING: symbol %s's declaration is loaded when the initialization level has already advanced further.\n" \
                 %(str(self))
@@ -554,6 +554,8 @@ class Symbol(object):
         intentMatch = patterns.intentPattern.match(paramDeclMatch.group(1))
         if intentMatch and (not self.intent or self.intent.strip() == ""):
             self.intent = intentMatch.group(1)
+        elif (not self.intent or self.intent.strip() == "") and self.name in currentRoutineArguments:
+            self.intent = "unspecified" #dummy symbol without specified intent (basically F77 style)
         elif not self.intent or self.intent.strip() == "":
             self.intent = ""
         elif not intentMatch or self.intent != intentMatch.group(1):

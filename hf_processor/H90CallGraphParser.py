@@ -1038,6 +1038,7 @@ class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
     symbolsByModuleName = None
     symbolAnalysisByRoutineName = None
     symbolsByRoutineNameAndSymbolName = None
+    currentLineNeedsPurge = False
 
     tab_insideSub = "\t\t"
     tab_outsideSub = "\t"
@@ -1428,12 +1429,10 @@ This is not allowed for implementations using %s.\
         branchSettingMatch = re.match(r'(\w*)\s*\(\s*(\w*)\s*\)', branchSettings[0].strip(), re.IGNORECASE)
         if not branchSettingMatch:
             raise Exception("Invalid branch setting definition.")
-        if branchSettingMatch.group(1) not in ["parallelRegion", "architecture"]:
-            raise Exception("Invalid branch setting definition: Currently only parallelRegion and architecture setting accepted.")
         if self.state == "inside_branch":
             raise Exception("Nested @if branches are not allowed in Hybrid Fortran")
-        self.stateBeforeBranch = self.state
 
+        self.stateBeforeBranch = self.state
         if branchSettingMatch.group(1) == "parallelRegion":
             if branchSettingMatch.group(2) == self.routineNodesByProcName[self.currSubprocName].getAttribute('parallelRegionPosition').strip():
                 self.state = 'inside_branch'
@@ -1444,7 +1443,10 @@ This is not allowed for implementations using %s.\
                 self.state = 'inside_branch'
             else:
                 self.state = 'inside_ignore'
+        else:
+            raise Exception("Invalid branch setting definition: Currently only parallelRegion and architecture setting accepted.")
         self.prepareLine("","")
+        self.currentLineNeedsPurge = True
 
     def processModuleBeginMatch(self, moduleBeginMatch):
         super(H90toF90Printer, self).processModuleBeginMatch(moduleBeginMatch)
@@ -1538,7 +1540,6 @@ This is not allowed for implementations using %s.\
         super(H90toF90Printer, self).processProcEndMatch(subProcEndMatch)
 
     def processParallelRegionMatch(self, parallelRegionMatch):
-        self.prepareLine("", "")
         super(H90toF90Printer, self).processParallelRegionMatch(parallelRegionMatch)
         if self.debugPrint:
             sys.stderr.write("...parallel region starts on line %i with active symbols %s\n" \
@@ -1547,7 +1548,6 @@ This is not allowed for implementations using %s.\
         self.prepareActiveParallelRegion('parallelRegionBegin')
 
     def processParallelRegionEndMatch(self, parallelRegionEndMatch):
-        self.prepareLine("", "")
         super(H90toF90Printer, self).processParallelRegionEndMatch(parallelRegionEndMatch)
         self.prepareActiveParallelRegion('parallelRegionEnd')
         self.currParallelIterators = []
@@ -1730,7 +1730,12 @@ This is not allowed for implementations using %s.\
         if self.state != "inside_declarations" and not (self.state == "inside_branch" and self.stateBeforeBranch == "inside_declarations"):
             return
 
-        adjustedLine = line
+
+        baseline = line
+        if self.currentLineNeedsPurge:
+            baseline = ""
+        adjustedLine = baseline
+
         for symbol in self.symbolsOnCurrentLine:
             match = symbol.getDeclarationMatch(str(adjustedLine))
             if not match:
@@ -1741,7 +1746,8 @@ This is not allowed for implementations using %s.\
                 self.patterns.dimensionPattern \
             )
 
-        if adjustedLine != line:
+        if adjustedLine != baseline:
+            #$$$ this is scary. isn't there a better state test for this?
             adjustedLine = purgeDimensionAndGetAdjustedLine(adjustedLine, self.patterns)
             adjustedLine = str(adjustedLine).rstrip() + "\n"
 
@@ -1968,6 +1974,7 @@ This is not allowed for implementations using %s.\
         self.prepareLine("", "")
 
     def processLine(self, line):
+        self.currentLineNeedsPurge = False
         super(H90toF90Printer, self).processLine(line)
         sys.stdout.write(self.currentLine)
 

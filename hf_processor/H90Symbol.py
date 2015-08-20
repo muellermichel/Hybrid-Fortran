@@ -552,13 +552,14 @@ class Symbol(object):
 
         #   get and check intent                                      #
         intentMatch = patterns.intentPattern.match(paramDeclMatch.group(1))
-        if intentMatch and (not self.intent or self.intent.strip() == ""):
-            self.intent = intentMatch.group(1)
-        elif (not self.intent or self.intent.strip() == "") and self.name in currentRoutineArguments:
-            self.intent = "unspecified" #dummy symbol without specified intent (basically F77 style)
-        elif not self.intent or self.intent.strip() == "":
-            self.intent = ""
-        elif not intentMatch or self.intent != intentMatch.group(1):
+        newIntent = None
+        if intentMatch and intentMatch.group(1).strip() != "":
+            newIntent = intentMatch.group(1)
+        elif self.name in currentRoutineArguments:
+            newIntent = "unspecified" #dummy symbol without specified intent (basically F77 style)
+        if newIntent and (not self.intent or self.intent.strip() == ""):
+            self.intent = newIntent
+        elif newIntent and newIntent != "unspecified" and newIntent != self.intent:
             raise Exception("Symbol %s's intent was previously defined already and does not match the declaration on this line. Previously loaded intent: %s, new intent: %s" %(
                 str(self),
                 self.intent,

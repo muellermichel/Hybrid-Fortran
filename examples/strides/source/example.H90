@@ -26,13 +26,13 @@ contains
 
   subroutine initialize()
     @if {architecture(GPU)}
-    #pragma acc enter data create(a_stride, b_stride, c_stride, d_stride)
+    !$acc enter data create(a_stride, b_stride, c_stride, d_stride)
     @end if
   end subroutine
 
   subroutine cleanup()
     @if {architecture(GPU)}
-    #pragma acc exit data delete(a_stride, b_stride, c_stride, d_stride)
+    !$acc exit data delete(a_stride, b_stride, c_stride, d_stride)
     @end if
   end subroutine
 

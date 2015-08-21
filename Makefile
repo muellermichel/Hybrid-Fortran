@@ -29,7 +29,7 @@ EXAMPLEDIR_SOURCE=${EXAMPLEDIR}source/
 EXAMPLEDIR_CONFIG=${EXAMPLEDIR}config/
 
 TEST_PROJECTS=examples/simple_stencil examples/stencil_with_local_array examples/stencil_with_passed_in_scalar_from_array examples/array_accessor_functions examples/early_returns examples/mixed_implementations examples/strides examples/simple_openACC examples/branches_with_openACC examples/module_data_with_openACC examples/openACC_hybrid_hostonly examples/poisson2d_fem_iterative examples/midaco_solver examples/diffusion3d examples/particle
-ADDITIONAL_TEST_PROJECTS=pp
+ADDITIONAL_TEST_PROJECTS=pp examples/tracing
 
 TEST_TARGETS=$(addprefix test_,$(TEST_PROJECTS))
 CLEAN_TARGETS=$(addprefix clean_,$(TEST_PROJECTS))

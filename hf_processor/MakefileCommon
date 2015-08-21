@@ -469,8 +469,8 @@ ifdef FRAMEWORK_MAKEFILE
 $(foreach install_dir,$(shell ${HF_DIR}/hf_bin/trim.sh $(call uniq,$(dir ${INSTALLED_EXECUTABLES_CPU}))),$(eval $(call install_rules,_cpu,${DIR_CPU},$(install_dir))))
 $(foreach install_dir,$(shell ${HF_DIR}/hf_bin/trim.sh $(call uniq,$(dir ${INSTALLED_EXECUTABLES_GPU}))),$(eval $(call install_rules,_gpu,${DIR_GPU},$(install_dir))))
 else
-$(foreach install_dir,$(shell ${HF_DIR}/hf_bin/trim.sh $(call uniq,$(dir ${INSTALLED_EXECUTABLES_CPU}))),$(eval $(call install_rules,_cpu,${DIR_CPU},$(install_dir),.out)))
-$(foreach install_dir,$(shell ${HF_DIR}/hf_bin/trim.sh $(call uniq,$(dir ${INSTALLED_EXECUTABLES_GPU}))),$(eval $(call install_rules,_gpu,${DIR_GPU},$(install_dir),.out)))
+$(foreach install_dir,$(shell ${HF_DIR}/hf_bin/trim.sh "$(call uniq,$(dir ${INSTALLED_EXECUTABLES_CPU}))"),$(eval $(call install_rules,_cpu,${DIR_CPU},$(install_dir),.out)))
+$(foreach install_dir,$(shell ${HF_DIR}/hf_bin/trim.sh "$(call uniq,$(dir ${INSTALLED_EXECUTABLES_GPU}))"),$(eval $(call install_rules,_gpu,${DIR_GPU},$(install_dir),.out)))
 endif
 
 ${CG_DIR}rawCG.xml: ${SRC_H90TGT_HFPP}

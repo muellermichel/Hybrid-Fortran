@@ -254,6 +254,9 @@ def getAttributesDomainsDeclarationPrefixAndMacroNames(moduleTemplate, procedure
     return finalAttributes, domainsFromTemplate, finalDeclarationPrefix, finalAccPP, finalDomPP
 
 def setTemplateInfos(doc, parent, specText, templateParentNodeName, templateNodeName, referenceParentNodeName):
+    if not parent:
+        raise Exception("cannot add template info '%s' to nonexisting parent" %(specText))
+
     templateLibraries = doc.getElementsByTagName(templateParentNodeName)
     templateLibrary = None
     if len(templateLibraries) == 0:

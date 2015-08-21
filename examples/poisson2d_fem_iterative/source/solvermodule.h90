@@ -33,13 +33,13 @@ CONTAINS
     use time_profiling
     use helper_functions
     integer(4), intent(in) :: n1, n2
-#ifdef GPU
-    real(RP), intent(in), dimension(n1, n2), device :: x
-#else
     real(RP), intent(in), dimension(n1, n2) :: x
-#endif
     real(RP), intent(out) :: output
     real(DP) :: time_start
+
+    @domainDependant {attribute(autoDom, present)}
+    x
+    @end domainDependant
 
     call getTime(time_start)
 #ifdef GPU

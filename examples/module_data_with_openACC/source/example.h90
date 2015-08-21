@@ -79,17 +79,21 @@ contains
 
   subroutine assert_values(test_array, expected_value)
     implicit none
-    real, dimension(DOM(NX, NY, NZ)), intent(in) :: test_array
+    real, dimension(NX, NY, NZ), intent(in) :: test_array
     real(8), intent(in) :: expected_value
     integer :: fail_x, fail_y, fail_z
     integer :: x, y, z
     logical test
 
+    @domainDependant{attribute(host), domName(x,y,z), domSize(NX,NY,NZ), domPP(DOM), accPP(AT)}
+    test_array
+    @end domainDependant
+
     test = .TRUE.
     do y=1,NY
     do x=1,NX
     do z=1,NZ
-      if (test .EQ. .TRUE. .AND. test_array(AT(x,y,z)) .NE. expected_value) then
+      if (test .EQ. .TRUE. .AND. test_array(x,y,z) .NE. expected_value) then
         test = .FALSE.
         fail_x = x
         fail_y = y
@@ -102,7 +106,7 @@ contains
       write(0,*) "test ok"
     else
       write(0,*) "test failed"
-      write(0,*) "fails at", fail_x, fail_y, fail_z, "test_array:", test_array(AT(fail_x,fail_y,fail_z))
+      write(0,*) "fails at", fail_x, fail_y, fail_z, "test_array:", test_array(fail_x,fail_y,fail_z)
       stop 2
     end if
   end subroutine

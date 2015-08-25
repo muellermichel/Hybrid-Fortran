@@ -311,17 +311,13 @@ class Symbol(object):
     def activeDomainsMatchSpecification(self):
         if not self.domains:
             return False
-        if not self.template and not self.declaredDimensionSizes:
-            return False
-        if self.declaredDimensionSizes and len(self.domains) == len(self.declaredDimensionSizes):
-            return True
-        if not self.template:
-            return False
-        templateDomains = getDomNameAndSize(self.template)
-        if len(self.domains) == len(templateDomains):
-            return True
-        if len(self.domains) == len(templateDomains) + len(self.parallelInactiveDims):
-            return True
+        if self.template:
+            templateDomains = getDomNameAndSize(self.template)
+            if len(self.domains) == len(templateDomains) + len(self.parallelInactiveDims):
+                return True
+        else:
+            if self.declaredDimensionSizes and len(self.domains) == len(self.declaredDimensionSizes):
+                return True
         return False
 
     def setOptionsFromAttributes(self, attributes):

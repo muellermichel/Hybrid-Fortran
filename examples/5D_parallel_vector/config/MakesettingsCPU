@@ -1,0 +1,97 @@
+# Copyright (C) 2014 Michel Müller, Tokyo Institute of Technology
+
+# This file is part of Hybrid Fortran.
+
+# Hybrid Fortran is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# Hybrid Fortran is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU Lesser General Public License for more details.
+
+# You should have received a copy of the GNU Lesser General Public License
+# along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
+
+#--------------------------------------------------------#
+#-- GNU Make settings for CPU compilation ---------------#
+#-- created:   2012-9-3 ---------------------------------#
+#-- author:    Michel Müller ----------------------------#
+#-- place:     Tokyo Institute of Technology ------------#
+#--------------------------------------------------------#
+
+
+#############################################################################
+# common settings                                                           #
+#############################################################################
+AR=ar
+ARFLAGS=rv
+
+#############################################################################
+# CUDA (in case you have device-only code in cu-sourcefiles)                #
+#############################################################################
+CUDAC = nvcc
+ifdef DEBUG
+CUDAFLAGS = -G -arch compute_30
+else
+CUDAFLAGS = -O3 -arch compute_30
+endif
+
+#############################################################################
+# uncomment these settings to use pgf90                                     #
+#############################################################################
+FC=pgf90
+CC=pgcc
+LD=pgf90
+FFLAGS_PRODUCTION= -Minfo=inline,ipa -Mneginfo -I/usr/local/include -O3
+FFLAGS_DEBUG= -g -Mbounds -Mchkptr -Minfo=accel,inline -Mneginfo -Minform=inform -I/usr/local/include
+LDFLAGS_PRODUCTION= -L/usr/local/lib -l${HYBRID_LIBRARY_FILENAME_POSTFIX}
+LDFLAGS_DEBUG= -L/usr/local/lib -l${HYBRID_LIBRARY_FILENAME_POSTFIX}
+
+#############################################################################
+# uncomment these settings to use pgf90 for host code                       #
+# together with CUDA device code                                            #
+# IMPORTANT: NVDIR environment variable needs to be set to your             #
+# CUDA toolkit location                                                     #
+#############################################################################
+# FC=pgf90
+# CC=pgcc
+# LD=pgf90
+# FFLAGS_PRODUCTION= -Minfo=inline,ipa -Mneginfo -I/usr/local/include -O3
+# FFLAGS_DEBUG= -g -Mbounds -Mchkptr -Minfo=accel,inline -Mneginfo -Minform=inform -I/usr/local/include
+# LDFLAGS_PRODUCTION= -L/usr/local/lib -L${NVDIR}/lib64 -l${HYBRID_LIBRARY_FILENAME_POSTFIX} -lcudart -lstdc++
+# LDFLAGS_DEBUG= -L/usr/local/lib -L${NVDIR}/lib64 -l${HYBRID_LIBRARY_FILENAME_POSTFIX} -lcudart -lstdc++
+
+#############################################################################
+# uncomment these settings to use pgfortran                                 #
+#############################################################################
+# FC=pgfortran
+# LD=pgfortran
+# FFLAGS_PRODUCTION= -Minfo=inline,ipa -Mneginfo -I/usr/local/include -O4
+# FFLAGS_DEBUG= -g -Mbounds -Mchkptr -Minfo=accel,inline -Mneginfo -Minform=inform -I/usr/local/include
+# LDFLAGS_PRODUCTION= -L/usr/local/lib -L${NVDIR}/lib64 -l${HYBRID_LIBRARY_FILENAME_POSTFIX} -lcudart -lstdc++
+# LDFLAGS_DEBUG= -L/usr/local/lib -L${NVDIR}/lib64 -l${HYBRID_LIBRARY_FILENAME_POSTFIX} -lcudart -lstdc++
+
+#############################################################################
+# uncomment these settings to use ifort                                     #
+#############################################################################
+# FC=ifort
+# CC=icc
+# LD=ifort
+# FFLAGS_PRODUCTION= -fast -openmp -I/usr/local/include
+# FFLAGS_DEBUG= -g -I/usr/local/include
+# LDFLAGS_PRODUCTION= -openmp -L/usr/local/lib -L${NVDIR}/lib64 -l${HYBRID_LIBRARY_FILENAME_POSTFIX} -lcudart -lstdc++
+# LDFLAGS_DEBUG= -L/usr/local/lib -L${NVDIR}/lib64 -l${HYBRID_LIBRARY_FILENAME_POSTFIX} -lcudart -lstdc++
+# AR=xiar #use this for support of Intel compiler with OpenMP
+
+ifdef DEBUG
+FFLAGS=${FFLAGS_DEBUG}
+LDFLAGS=${LDFLAGS_DEBUG}
+else
+FFLAGS=${FFLAGS_PRODUCTION}
+LDFLAGS=${LDFLAGS_PRODUCTION}
+endif
+
+CFLAGS=${FFLAGS}

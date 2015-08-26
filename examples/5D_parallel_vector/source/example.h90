@@ -1,0 +1,95 @@
+
+
+module example
+contains
+
+  subroutine data_region(a, b, array_5D, c)
+    implicit none
+    real, dimension(NX, NY, NZ), intent(in) :: a, b
+    real, dimension(NX, NY, NZ, NZ, NZ), intent(in) :: array_5D
+    real, dimension(NX, NY, NZ), intent(out) :: c
+
+    @domainDependant{attribute(autoDom,transferHere)}
+    a, b, c, array_5D
+    @end domainDependant
+
+    call run(a, b, array_5D, c)
+
+  end subroutine
+
+  subroutine run(a, b, array_5D, c)
+    implicit none
+    real, dimension(NX, NY, NZ), intent(in) :: a, b
+    real, dimension(NX, NY, NZ, NZ, NZ), intent(in) :: array_5D
+    real, dimension(NX, NY, NZ), intent(out) :: c
+
+    @domainDependant{attribute(autoDom,present)}
+    a, b, c, array_5D
+    @end domainDependant
+
+    @parallelRegion{appliesTo(CPU), domName(x,y), domSize(NX, NY)}
+    call add(a, b, array_5D, c)
+    @end parallelRegion
+
+  end subroutine
+
+  subroutine add(a, b, array_5D, c)
+    implicit none
+    real, dimension(NZ), intent(in) :: a, b
+    real, dimension(NZ, NZ, NZ), intent(in) :: array_5D
+    real, dimension(NZ), intent(out) :: c
+    integer :: z
+
+    @domainDependant{attribute(autoDom), domName(x,y), domSize(NX,NY)}
+    a, b, c, array_5D
+    @end domainDependant
+
+    @parallelRegion{appliesTo(GPU), domName(x,y), domSize(NX, NY)}
+    do z=1,NZ
+      c(z) = a(z) + b(z) + array_5D(z,z,z)
+    end do
+    @end parallelRegion
+  end subroutine
+
+end module example
+
+program main
+  use example
+  implicit none
+  real, dimension(DOM(NX, NY, NZ)) :: a, b, c
+  real, dimension(DOM5(NX, NY, NZ, NZ, NZ)) :: array_5D
+  integer :: x, y, z
+  integer :: fail_x, fail_y, fail_z
+  logical :: test
+
+  a(:,:,:) = 1.0d0
+  b(:,:,:) = 2.0d0
+  c(:,:,:) = 0.0d0
+  array_5D(:,:,:,:,:) = 1.0d0
+  test = .TRUE.
+
+  call data_region(a, b, array_5D, c)
+  write(6,*) "calculation complete"
+
+  do y=1,NY
+  do x=1,NX
+  do z=1,NZ
+    if (test .EQ. .TRUE. .AND. c(AT(x,y,z)) /= 4.0d0) then
+      test = .FALSE.
+      fail_x = x
+      fail_y = y
+      fail_z = z
+    end if
+  end do
+  end do
+  end do
+  if (test .EQ. .TRUE.) then
+    write(6,*) "test ok"
+  else
+    write(6,*) "test failed"
+    write(6,*) "fails at", fail_x, fail_y, fail_z, "C:", c(AT(fail_x,fail_y,fail_z))
+    stop 2
+  end if
+
+  stop
+end program main

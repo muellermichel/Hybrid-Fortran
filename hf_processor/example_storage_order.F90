@@ -66,12 +66,15 @@
 #if (CURR_ORDER == KIJ_ORDER)
 	#define AT(iParam, jParam, kParam) kParam, iParam, jParam
 	#define AT4(iParam, jParam, kParam, lParam) kParam, lParam, iParam, jParam
+	#define AT5(iParam, jParam, kParam, lParam, mParam) kParam, lParam, mParam, iParam, jParam
 #elif (CURR_ORDER == IKJ_ORDER)
 	#define AT(iParam, jParam, kParam) iParam, kParam, jParam
 	#define AT4(iParam, jParam, kParam, lParam) iParam, kParam, lParam, jParam
+	#define AT5(iParam, jParam, kParam, lParam, mParam) iParam, kParam, lParam, mParam, jParam
 #else
 	#define AT(iParam, jParam, kParam) iParam, jParam, kParam
 	#define AT4(iParam, jParam, kParam, lParam) iParam, jParam, kParam, lParam
+	#define AT5(iParam, jParam, kParam, lParam, mParam) iParam, jParam, kParam, lParam, mParam
 #endif
 
 ! ------ Syntactic sugar -------------------
@@ -80,3 +83,4 @@
 ! (3) Does your data have more dimensions than 4? if so, define DOM5, DOM6, ... accordingly
 #define DOM(iParam, jParam, kParam) AT(iParam, jParam, kParam)
 #define DOM4(iParam, jParam, kParam, lParam) AT4(iParam, jParam, kParam, lParam)
+#define DOM5(iParam, jParam, kParam, lParam, mParam) AT5(iParam, jParam, kParam, lParam, mParam)

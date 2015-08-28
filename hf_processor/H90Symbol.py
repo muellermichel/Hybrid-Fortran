@@ -931,15 +931,13 @@ Please specify the domains and their sizes with domName and domSize attributes i
             name = self.deviceName()
         result = name
         if len(self.domains) == 0:
-            # if self.debugPrint:
-            #     sys.stderr.write("[" + self.name + ".init " + str(self.initLevel) + "] Dom.Repr: 0 domains -> returning name only.\n")
             return result
         try:
             needsAdditionalClosingBracket = False
             domPP, isExplicit = self.domPP()
-            # if self.debugPrint:
-            #     sys.stderr.write("[" + self.name + ".init " + str(self.initLevel) + "] Dom.Repr: PP: %s, is explicit: %s.\n" %(domPP, str(isExplicit)))
-            if use_domain_reordering and domPP != "" and ((isExplicit and self.activeDomainsMatchSpecification) or self.parallelRegionPosition != "outside"):
+            if use_domain_reordering and domPP != "" \
+            and (isExplicit or self.numOfParallelDomains > 0) \
+            and self.activeDomainsMatchSpecification:
                 result = result + "(" + domPP + "("
                 needsAdditionalClosingBracket = True
             else:
@@ -957,11 +955,7 @@ Please specify the domains and their sizes with domName and domSize attributes i
             else:
                 result = result + ")"
         except Exception as e:
-            # if self.debugPrint:
-            #     sys.stderr.write("[" + self.name + ".init " + str(self.initLevel) + "] Dom.Repr: Expected Exception: %s.\n" %(str(e)))
             return "%s{%s}" %(name, str(self.domains))
-        # if self.debugPrint:
-        #     sys.stderr.write("[" + self.name + ".init " + str(self.initLevel) + "] Dom.Repr: Returning %s.\n" %(result))
         return result
 
     def totalArrayLength(self):
@@ -1069,7 +1063,9 @@ Please specify the domains and their sizes with domName and domSize attributes i
 Currently loaded template: %s\n" %(
                 accPP, str(accPPIsExplicit), self.activeDomainsMatchSpecification, self.numOfParallelDomains, self.template.toxml() if self.template != None else "None"
             ))
-        if use_domain_reordering and accPP != "" and self.activeDomainsMatchSpecification:
+        if use_domain_reordering and accPP != "" \
+        and (accPPIsExplicit or self.numOfParallelDomains > 0) \
+        and self.activeDomainsMatchSpecification:
             needsAdditionalClosingBracket = True
             if not accPPIsExplicit and parallelRegionNode:
                 template = getTemplate(parallelRegionNode)

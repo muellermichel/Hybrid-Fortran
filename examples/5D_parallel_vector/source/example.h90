@@ -3,40 +3,43 @@
 module example
 contains
 
-  subroutine data_region(a, b, array_5D, c)
+  subroutine data_region(a, b, array_5D, input_3D, c)
     implicit none
     real, dimension(NX, NY, NZ), intent(in) :: a, b
-    real, dimension(NX, NY, NZ, NZ, NZ), intent(in) :: array_5D
+    real, dimension(NX, NY, NZ, NZ, 1), intent(in) :: array_5D
+    real, dimension(NZ, NZ, 1), intent(in) :: input_3D
     real, dimension(NX, NY, NZ), intent(out) :: c
 
     @domainDependant{attribute(autoDom,transferHere)}
-    a, b, c, array_5D
+    a, b, c, array_5D, input_3D
     @end domainDependant
 
-    call run(a, b, array_5D, c)
+    call run(a, b, array_5D, input_3D, c)
 
   end subroutine
 
-  subroutine run(a, b, array_5D, c)
+  subroutine run(a, b, array_5D, input_3D, c)
     implicit none
     real, dimension(NX, NY, NZ), intent(in) :: a, b
-    real, dimension(NX, NY, NZ, NZ, NZ), intent(in) :: array_5D
+    real, dimension(NX, NY, NZ, NZ, 1), intent(in) :: array_5D
+    real, dimension(NZ, NZ, 1), intent(in) :: input_3D
     real, dimension(NX, NY, NZ), intent(out) :: c
 
     @domainDependant{attribute(autoDom,present)}
-    a, b, c, array_5D
+    a, b, c, array_5D, input_3D
     @end domainDependant
 
     @parallelRegion{appliesTo(CPU), domName(x,y), domSize(NX, NY)}
-    call add(a, b, array_5D, c)
+    call add(a, b, array_5D, input_3D, c)
     @end parallelRegion
 
   end subroutine
 
-  subroutine add(a, b, array_5D, c)
+  subroutine add(a, b, array_5D, input_3D, c)
     implicit none
     real, dimension(NZ), intent(in) :: a, b
-    real, dimension(NZ, NZ, NZ), intent(in) :: array_5D
+    real, dimension(NZ, NZ, 1), intent(in) :: array_5D
+    real, dimension(NZ, NZ, 1), intent(in) :: input_3D
     real, dimension(NZ), intent(out) :: c
     integer :: z
 
@@ -44,9 +47,13 @@ contains
     a, b, c, array_5D
     @end domainDependant
 
+    @domainDependant{attribute(autoDom)}
+    input_3D
+    @end domainDependant
+
     @parallelRegion{appliesTo(GPU), domName(x,y), domSize(NX, NY)}
     do z=1,NZ
-      c(z) = a(z) + b(z) + array_5D(z,z,z)
+      c(z) = a(z) + b(z) + array_5D(z,z,1) + input_3D(z,z,1)
     end do
     @end parallelRegion
   end subroutine
@@ -57,7 +64,8 @@ program main
   use example
   implicit none
   real, dimension(DOM(NX, NY, NZ)) :: a, b, c
-  real, dimension(DOM5(NX, NY, NZ, NZ, NZ)) :: array_5D
+  real, dimension(DOM5(NX, NY, NZ, NZ, 1)) :: array_5D
+  real, dimension(NZ, NZ, 1) :: input_3D
   integer :: x, y, z
   integer :: fail_x, fail_y, fail_z
   logical :: test
@@ -65,16 +73,23 @@ program main
   a(:,:,:) = 1.0d0
   b(:,:,:) = 2.0d0
   c(:,:,:) = 0.0d0
-  array_5D(:,:,:,:,:) = 1.0d0
+  array_5D(:,:,:,:,:) = 0.0d0
+  input_3D(:,:,:) = 0.0d0
+  do z=1,NZ
+    do z=1,NZ
+      array_5D(AT5(:,:,z,z,1)) = 1.0d0
+      input_3D(z,z,1) = 1.0d0
+    end do
+  end do
   test = .TRUE.
 
-  call data_region(a, b, array_5D, c)
+  call data_region(a, b, array_5D, input_3D, c)
   write(6,*) "calculation complete"
 
   do y=1,NY
   do x=1,NX
   do z=1,NZ
-    if (test .EQ. .TRUE. .AND. c(AT(x,y,z)) /= 4.0d0) then
+    if (test .EQ. .TRUE. .AND. c(AT(x,y,z)) /= 5.0d0) then
       test = .FALSE.
       fail_x = x
       fail_y = y

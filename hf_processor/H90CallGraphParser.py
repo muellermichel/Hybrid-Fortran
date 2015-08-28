@@ -1917,8 +1917,9 @@ This is not allowed for implementations using %s.\
             raise Exception("subprocedure within subprocedure not allowed")
 
         adjustedLine = ""
+        whileLoopMatch = self.patterns.whileLoopPattern.match(str(line))
         loopMatch = self.patterns.loopPattern.match(str(line))
-        if loopMatch:
+        if whileLoopMatch == None and loopMatch != None:
             adjustedLine += self.implementation.loopPreparation().strip() + '\n'
         adjustedLine += self.processSymbolsAndGetAdjustedLine(line, isInsideSubroutineCall=False)
         self.prepareLine(adjustedLine, self.tab_insideSub)

@@ -1356,6 +1356,8 @@ This is not allowed for implementations using %s.\
                 callPreparationForSymbols = ""
                 callPostForSymbols = ""
                 for symbol in self.symbolsPassedInCurrentCallByName.values():
+                    if symbol.isHostSymbol:
+                        continue
                     symbolsInCalleeByName = self.symbolsByRoutineNameAndSymbolName.get(self.currCalleeName)
                     if symbolsInCalleeByName == None:
                         raise Exception("No collection of symbols found for callee %s" %(self.currCalleeName))

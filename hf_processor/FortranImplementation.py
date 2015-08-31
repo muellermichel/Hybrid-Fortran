@@ -73,14 +73,8 @@ def getDataDirectiveAndUpdateOnDeviceFlags(currRoutineNode, currParallelRegionTe
             continue
         if symbol.isHostSymbol:
             continue
-        #Rules for symbols that are declared present
-        if symbol.isPresent:
-            symbol.isOnDevice = True
-            continue
-        if not routineIsKernelCaller and currRoutineNode.getAttribute('parallelRegionPosition') != 'within' and not symbol.isToBeTransfered:
-            continue
         if currRoutineNode.getAttribute('parallelRegionPosition') == 'within'\
-        and (symbol.intent in ["in", "inout", "out"] or not symbol.sourceModule in [None,""]):
+        and (symbol.intent in ["in", "inout", "out", "unspecified"] or not symbol.sourceModule in [None,""]):
             symbol.isOnDevice = True
             continue
         if currRoutineNode.getAttribute('parallelRegionPosition') != 'inside'\
@@ -89,35 +83,55 @@ def getDataDirectiveAndUpdateOnDeviceFlags(currRoutineNode, currParallelRegionTe
 
         #Rules for kernel wrapper routines and symbols declared to be transfered
         newDataDeclarations = ""
-        if symbol.intent == "in":
-            if enterOrExit == 'enter':
-                newDataDeclarations += "copyin(%s)" %(symbol.name)
+        if symbol.isPresent:
+            if symbol.intent in ["in", "out", "inout", "unspecified"] or not symbol.sourceModule in [None,""]:
+                #all we can do is marking the symbol correctly - OpenACC enter data doesn't support present check sadly
+                #please note: unspecified intent is a symbol that is a dummy variable with no intent specified.
+                if enterOrExit == 'enter':
+                    symbol.isOnDevice = True
+                else:
+                    symbol.isOnDevice = False
+                continue
+            else:
+                #no intent, no source module specified --> local variable
+                if enterOrExit == 'enter':
+                    newDataDeclarations += "%s(%s)" %(createDeclaration, symbol.name)
+                    symbol.isOnDevice = True
+                else:
+                    newDataDeclarations += "delete(%s)" %(symbol.name)
+                    symbol.isOnDevice = False
+        else:
+            if not routineIsKernelCaller and currRoutineNode.getAttribute('parallelRegionPosition') != 'within' and not symbol.isToBeTransfered:
+                continue
+            if symbol.intent == "in":
+                if enterOrExit == 'enter':
+                    newDataDeclarations += "copyin(%s)" %(symbol.name)
+                    symbol.isOnDevice = True
+                else:
+                    newDataDeclarations += "delete(%s)" %(symbol.name)
+                    symbol.isOnDevice = False
+            elif symbol.intent == "inout" or not symbol.sourceModule in [None,""]:
+                newDataDeclarations += "%s(%s)" %(copyDeclaration, symbol.name)
+                if enterOrExit == 'enter':
+                    symbol.isOnDevice = True
+                else:
+                    symbol.isOnDevice = True
+            elif symbol.intent == "out":
+                #We need to be careful here: Because of branching around kernels it could easily happen that
+                #copyout data is not being written inside the data region, thus overwriting the host data with garbage.
+                newDataDeclarations += "%s(%s)" %(copyDeclaration, symbol.name)
+                if enterOrExit == 'enter':
+                    symbol.isOnDevice = True
+                else:
+                    symbol.isOnDevice = False
+            elif enterOrExit == 'enter':
+                newDataDeclarations += "%s(%s)" %(createDeclaration, symbol.name)
                 symbol.isOnDevice = True
             else:
                 newDataDeclarations += "delete(%s)" %(symbol.name)
                 symbol.isOnDevice = False
-        elif symbol.intent == "inout" or not symbol.sourceModule in [None,""]:
-            newDataDeclarations += "%s(%s)" %(copyDeclaration, symbol.name)
-            if enterOrExit == 'enter':
-                symbol.isOnDevice = True
-            else:
-                symbol.isOnDevice = True
-        elif symbol.intent == "out":
-            #We need to be careful here: Because of branching around kernels it could easily happen that
-            #copyout data is not being written inside the data region, thus overwriting the host data with garbage.
-            newDataDeclarations += "%s(%s)" %(copyDeclaration, symbol.name)
-            if enterOrExit == 'enter':
-                symbol.isOnDevice = True
-            else:
-                symbol.isOnDevice = False
-        elif enterOrExit == 'enter':
-            newDataDeclarations += "%s(%s)" %(createDeclaration, symbol.name)
-            symbol.isOnDevice = True
-        else:
-            newDataDeclarations += "delete(%s)" %(symbol.name)
-            symbol.isOnDevice = False
 
-        #Wrapping up
+        #Wrapping up enter data / exit data
         if commaRequired == True:
             newDataDeclarations = ", " + newDataDeclarations
         dataDeclarations += newDataDeclarations

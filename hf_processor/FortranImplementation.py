@@ -862,6 +862,8 @@ end subroutine
             result += "real(8) :: hf_output_temp\n"
         result += getIteratorDeclaration(currRoutineNode, currParallelRegionTemplates, ["GPU"])
         result += "integer(4) :: hf_symbols_are_device_present\n"
+        if dataDeclarationsRequired == True:
+            result += dataDirective
         devicePresentSymbols = [symbol for symbol in dependantSymbols if symbol.isOnDevice]
         if len(devicePresentSymbols) > 0:
             for symbol in dependantSymbols:
@@ -871,8 +873,6 @@ end subroutine
             else:
                 if currRoutineNode.getAttribute("parallelRegionPosition") in ['inside', 'within']:
                     raise Exception("kernel or kernel wrapper only has temporary data on the device - no input or output possible here.")
-        if dataDeclarationsRequired == True:
-            result += dataDirective
         result += self.declarationEndPrintStatements()
         return result
 

@@ -431,15 +431,21 @@ def getRuntimeDebugPrintStatements(symbolsByName, calleeRoutineNode, parallelReg
             return string
         return accPP + "(" + string + ")"
 
+    result = ""
+    if calleeRoutineNode.getAttribute('parallelRegionPosition') == 'outside':
+        result += "#ifndef GPU\n"
+        result += "if (hf_debug_print_iterator == 0) then\n"
+
     routineName = calleeRoutineNode.getAttribute('name')
     if not routineName:
         raise Exception("Callee routine name undefined.")
-    result = "write(0,*) '*********** kernel %s finished *************** '\n" %(routineName)
-    symbolNames = sorted(symbolsByName.keys())
-    symbolsToPrint = [
-        symbolsByName[symbolName] for symbolName in symbolNames
-        if symbolsByName[symbolName].domains and len(symbolsByName[symbolName].domains) != 0
-    ]
+    result += "write(0,*) '*********** kernel %s finished *************** '\n" %(routineName)
+    symbolsToPrint = symbolsByName.values()
+    # symbolNames = sorted(symbolsByName.keys())
+    # symbolsToPrint = [
+    #     symbolsByName[symbolName] for symbolName in symbolNames
+    #     if symbolsByName[symbolName].domains and len(symbolsByName[symbolName].domains) != 0
+    # ]
     offsetsBySymbolName = {}
     for symbol in symbolsToPrint:
         offsets = []
@@ -447,16 +453,17 @@ def getRuntimeDebugPrintStatements(symbolsByName, calleeRoutineNode, parallelReg
             offsets.append(getDebugOffsetString(domain, offsets))
         offsetsBySymbolName[symbol.name] = offsets
     symbolClauses = [
-        symbol.name + "(" + wrap_in_acc_pp(
-            ",".join([
-                "%s:%s" %(offset, offset)
-                for offset in offsetsBySymbolName[symbol.name]
-            ]),
-            symbol
-        ) + ")"
+        symbol.accessRepresentation(
+            [],
+            ["%s:%s" %(offset, offset) for offset in offsetsBySymbolName[symbol.name]],
+            parallelRegionNode
+        )
         for symbol in symbolsToPrint
+        if len(symbol.domains) > 0
     ]
+    result += "#ifdef GPU\n"
     result += "!$acc update if(hf_symbols_are_device_present) host(%s)\n" %(", ".join(symbolClauses)) if len(symbolsToPrint) > 0 else ""
+    result += "#endif\n"
     for symbol in symbolsToPrint:
         result = result + "hf_output_temp = %s\n" %(symbol.accessRepresentation([], offsetsBySymbolName[symbol.name], parallelRegionNode))
         #michel 2013-4-18: the Fortran-style memcopy as used right now in the above line creates a runtime error immediately
@@ -469,19 +476,26 @@ def getRuntimeDebugPrintStatements(symbolsByName, calleeRoutineNode, parallelReg
         #         "stop 1\n" \
         #     "end if\n" %(symbol.name)
         joinedDomains = offsetsBySymbolName[symbol.name]
-        domainsStr = "(',"
-        formStr = "'(A,"
-        for i in range(len(joinedDomains)):
-            if i != 0:
-                domainsStr = domainsStr + ",', ',"
-                formStr = formStr + ",A,"
-            domainsStr = domainsStr + str(joinedDomains[i])
-            formStr = formStr + "I3"
-        formStr = formStr + ",A,E13.5)'"
-        domainsStr = domainsStr + ",'):"
+        if len(joinedDomains) > 0:
+            domainsStr = "(',"
+            formStr = "'(A,"
+            for i in range(len(joinedDomains)):
+                if i != 0:
+                    domainsStr = domainsStr + ",', ',"
+                    formStr = formStr + ",A,"
+                domainsStr = domainsStr + str(joinedDomains[i])
+                formStr = formStr + "I3"
+            formStr = formStr + ",A,E13.5)'"
+            domainsStr = domainsStr + ",'):"
+        else:
+            formStr = "'(A,E13.5)'"
+            domainsStr = "scalar"
         result = result + "write(0,%s) '%s@%s', hf_output_temp\n" %(formStr, symbol.name, domainsStr)
     result = result + "write(0,*) '**********************************************'\n"
     result = result + "write(0,*) ''\n"
+    if calleeRoutineNode.getAttribute('parallelRegionPosition') == 'outside':
+        result += "end if\n"
+        result += "#endif\n"
     return result
 
 class FortranImplementation(object):
@@ -491,6 +505,8 @@ class FortranImplementation(object):
     optionFlags = []
     currDependantSymbols = None
     currParallelRegionTemplateNode = None
+    debugPrintIteratorDeclared = False
+    currRoutineNode = None
 
     def __init__(self, optionFlags):
         self.currDependantSymbols = None
@@ -518,7 +534,7 @@ class FortranImplementation(object):
         return ""
 
     def kernelCallPost(self, symbolsByName, calleeRoutineNode):
-        if calleeRoutineNode.getAttribute('parallelRegionPosition') != 'within':
+        if calleeRoutineNode.getAttribute('parallelRegionPosition') not in ['within', 'outside']:
             return ""
         result = ""
         if 'DEBUG_PRINT' in self.optionFlags:
@@ -595,13 +611,28 @@ class FortranImplementation(object):
         return regionStr
 
     def declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates):
+        self.currRoutineNode = currRoutineNode
         result = ""
         if 'DEBUG_PRINT' in self.optionFlags:
             result += "real(8) :: hf_output_temp\n"
+            result += "#ifndef GPU\n"
+            result += "integer(4), save :: hf_debug_print_iterator = 0\n"
+            result += "#endif\n"
+            self.debugPrintIteratorDeclared = True
+            if currRoutineNode.getAttribute('parallelRegionPosition') != 'inside':
+                result += "#endif\n"
         return result + getIteratorDeclaration(currRoutineNode, currParallelRegionTemplates, ["CPU", ""])
 
     def subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, is_subroutine_end):
-        return ''
+        result = ""
+        if 'DEBUG_PRINT' in self.optionFlags and self.debugPrintIteratorDeclared:
+            result += "#ifndef GPU\n"
+            result += "hf_debug_print_iterator = hf_debug_print_iterator + 1\n"
+            result += "#endif\n"
+        if is_subroutine_end:
+            self.currRoutineNode = None
+            self.debugPrintIteratorDeclared = False
+        return result
 
 def getWriteTraceFunc(begin_or_end):
     def writeTrace(currRoutineNode, currModuleName, symbol):
@@ -1187,7 +1218,7 @@ end if\n" %(calleeNode.getAttribute('name'))
                 deviceInitStatements += originalStr + " = " + deviceStr + "\n"
                 if symbol.isPointer:
                     deviceInitStatements += "deallocate(%s)\n" %(symbol.deviceName())
-        return deviceInitStatements
+        return deviceInitStatements + FortranImplementation.subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, is_subroutine_end)
 
     def adjustImportForDevice(self, line, parallelRegionPosition):
         if parallelRegionPosition in ["within", "outside"]:

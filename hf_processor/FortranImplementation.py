@@ -619,8 +619,8 @@ class FortranImplementation(object):
             result += "integer(4), save :: hf_debug_print_iterator = 0\n"
             result += "#endif\n"
             self.debugPrintIteratorDeclared = True
-            if currRoutineNode.getAttribute('parallelRegionPosition') != 'inside':
-                result += "#endif\n"
+            # if currRoutineNode.getAttribute('parallelRegionPosition') != 'inside':
+            #     result += "#endif\n"
         return result + getIteratorDeclaration(currRoutineNode, currParallelRegionTemplates, ["CPU", ""])
 
     def subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, is_subroutine_end):

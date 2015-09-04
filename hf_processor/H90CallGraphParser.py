@@ -737,7 +737,7 @@ class H90XMLCallGraphGenerator(H90CallGraphParser):
             return
         appendSeparatedTextAsNodes(line, ',', self.doc, self.currDomainDependantRelationNode, 'entry')
 
-def getSymbolsByName(cgDoc, parentNode, parallelRegionTemplates, isModuleSymbols=False, debugPrint=False):
+def getSymbolsByName(cgDoc, parentNode, parallelRegionTemplates, patterns, isModuleSymbols=False, debugPrint=False):
     templatesAndEntries = getDomainDependantTemplatesAndEntries(cgDoc, parentNode)
     dependantNames = []
     symbolsByName = {}
@@ -748,7 +748,7 @@ def getSymbolsByName(cgDoc, parentNode, parallelRegionTemplates, isModuleSymbols
         dependantNames.append(dependantName)
         symbol = symbolsByName.get(dependantName)
         if symbol == None:
-            symbol = Symbol(dependantName, template, debugPrint=debugPrint)
+            symbol = Symbol(dependantName, template, patterns, debugPrint=debugPrint)
             symbol.isModuleSymbol = isModuleSymbols
         else:
             current_attributes = symbol.attributes
@@ -822,6 +822,7 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
             self.cgDoc,
             parentNode,
             parallelRegionTemplates,
+            self.patterns,
             isModuleSymbols=isModuleSymbols,
             debugPrint=self.debugPrint
         ))
@@ -1082,6 +1083,7 @@ class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
                     self.cgDoc,
                     moduleNode,
                     None,
+                    self.patterns,
                     isModuleSymbols=True
                 )
                 for symbolName in self.symbolsByModuleNameAndSymbolName[moduleName]:
@@ -1095,6 +1097,7 @@ class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
                     self.cgDoc,
                     routine,
                     self.parallelRegionTemplatesByProcName.get(procName,[]),
+                    self.patterns,
                     isModuleSymbols=False,
                     debugPrint=self.debugPrint
                 )

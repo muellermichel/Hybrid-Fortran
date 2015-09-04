@@ -30,6 +30,7 @@ import re, sys, copy
 import pdb
 from DomHelper import *
 from GeneralHelper import enum, BracketAnalyzer
+from H90RegExPatterns import H90RegExPatterns
 
 Init = enum("NOTHING_LOADED",
     "DEPENDANT_ENTRYNODE_ATTRIBUTES_LOADED",
@@ -209,8 +210,9 @@ class Symbol(object):
     declaredDimensionSizes = None
     domPPName = None
     accPPName = None
+    patterns = None
 
-    def __init__(self, name, template, isAutomatic=False, debugPrint=False):
+    def __init__(self, name, template, patterns=None, isAutomatic=False, debugPrint=False):
         if not name or name == "":
             raise Exception("Unexpected error: name required for initializing symbol")
         if template == None:
@@ -218,20 +220,20 @@ class Symbol(object):
 
         self.name = name
         self.template = template
+        if patterns != None:
+            self.patterns = patterns
+        else:
+            self.patterns = H90RegExPatterns() #warning! very slow, avoid this code path.
         self.isAutomatic = isAutomatic
         self.isPointer = False
         self.debugPrint = debugPrint
         self.domains = []
         self.isMatched = False
-        self.declPattern = re.compile(r'(\s*(?:double\s+precision|real|integer|logical).*?[\s,:]+)' + re.escape(name) + r'((?:\s|\,|\(|$)+.*)', \
-            re.IGNORECASE)
-        self.namePattern = re.compile(r'((?:[^\"\']|(?:\".*\")|(?:\'.*\'))*?(?:\W|^))(' + re.escape(name) + r'(?:_d)?)((?:\W.*)|\Z)', \
-            re.IGNORECASE)
-        self.symbolImportPattern = re.compile(r'^\s*use\s*(\w*)[,\s]*only\s*\:.*?\W' + re.escape(name) + r'\W.*', \
-            re.IGNORECASE)
-        self.symbolImportMapPattern = re.compile(r'.*?\W' + re.escape(name) + r'\s*\=\>\s*(\w*).*', \
-            re.IGNORECASE)
-        self.pointerDeclarationPattern = re.compile(r'\s*(?:double\s+precision|real|integer|logical).*?pointer.*?[\s,:]+' + re.escape(name), re.IGNORECASE)
+        self.declPattern = self.patterns.get(r'(\s*(?:double\s+precision|real|integer|logical).*?[\s,:]+)' + re.escape(name) + r'((?:\s|\,|\(|$)+.*)')
+        self.namePattern = self.patterns.get(r'((?:[^\"\']|(?:\".*\")|(?:\'.*\'))*?(?:\W|^))(' + re.escape(name) + r'(?:_d)?)((?:\W.*)|\Z)')
+        self.symbolImportPattern = self.patterns.get(r'^\s*use\s*(\w*)[,\s]*only\s*\:.*?\W' + re.escape(name) + r'\W.*')
+        self.symbolImportMapPattern = self.patterns.get(r'.*?\W' + re.escape(name) + r'\s*\=\>\s*(\w*).*')
+        self.pointerDeclarationPattern = self.patterns.get(r'\s*(?:double\s+precision|real|integer|logical).*?pointer.*?[\s,:]+' + re.escape(name))
         self.parallelRegionPosition = None
         self.isUsingDevicePostfix = False
         self.isOnDevice = False

@@ -53,6 +53,8 @@ class H90RegExPatterns:
     symbolAccessPattern = None
     argumentPattern = None
 
+    dynamicPatternsByRegex = None
+
     def __init__(self):
         self.blankPattern = re.compile(r'\s', re.IGNORECASE)
         self.quotedStringPattern = re.compile(r'''(["'])''', re.IGNORECASE)
@@ -80,4 +82,11 @@ class H90RegExPatterns:
         self.templateEndPattern = re.compile(r'\s*@end\s*scheme.*', re.IGNORECASE)
         self.symbolAccessPattern = re.compile(r'\s*\((.*)', re.IGNORECASE)
         self.argumentPattern = re.compile(r'\s*(?:subroutine|call)?\s*(?:\w*)\s*\((.*)', re.IGNORECASE)
+        self.dynamicPatternsByRegex = {}
 
+    def get(self, regex):
+        pattern = self.dynamicPatternsByRegex.get(regex)
+        if pattern == None:
+            pattern = re.compile(regex, re.IGNORECASE)
+            self.dynamicPatternsByRegex[regex] = pattern
+        return pattern

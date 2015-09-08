@@ -424,7 +424,7 @@ def getDebugOffsetString(domainTuple, previousOffsets):
         offset += "_2"
     return offset
 
-def getRuntimeDebugPrintStatements(symbolsByName, calleeRoutineNode, parallelRegionNode):
+def getRuntimeDebugPrintStatements(symbolsByName, calleeRoutineNode, parallelRegionNode, useOpenACC=True):
     def wrap_in_acc_pp(string, symbol):
         accPP = symbol.accPP()[0]
         if accPP == "":
@@ -461,9 +461,10 @@ def getRuntimeDebugPrintStatements(symbolsByName, calleeRoutineNode, parallelReg
         for symbol in symbolsToPrint
         if len(symbol.domains) > 0
     ]
-    result += "#ifdef GPU\n"
-    result += "!$acc update if(hf_symbols_are_device_present) host(%s)\n" %(", ".join(symbolClauses)) if len(symbolsToPrint) > 0 else ""
-    result += "#endif\n"
+    if useOpenACC:
+        result += "#ifdef GPU\n"
+        result += "!$acc update if(hf_symbols_are_device_present) host(%s)\n" %(", ".join(symbolClauses)) if len(symbolsToPrint) > 0 else ""
+        result += "#endif\n"
     for symbol in symbolsToPrint:
         result = result + "hf_output_temp = %s\n" %(symbol.accessRepresentation([], offsetsBySymbolName[symbol.name], parallelRegionNode))
         #michel 2013-4-18: the Fortran-style memcopy as used right now in the above line creates a runtime error immediately

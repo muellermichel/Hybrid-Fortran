@@ -475,7 +475,6 @@ endif
 
 ${CG_DIR}rawCG.xml: ${SRC_H90TGT_HFPP}
 	@echo "...........hybrid files have been modified => building and testing hybrid callgraph"
-	@echo ..calling python ${TOOLSDIR}/annotatedCallGraphFromH90SourceDir.py -i ${SRC_DIR_HFPP} ${H90_PREPROCESSOR_ARGS} >${DEBUG_OUTPUT}
 	mkdir -p ${CG_DIR} && python ${PYTHON_ARGS_GENERAL} ${PYTHON_ARGS_RAW_CG} ${TOOLSDIR}/annotatedCallGraphFromH90SourceDir.py -i ${SRC_DIR_HFPP} ${H90_PREPROCESSOR_ARGS} > $@
 
 ${DIR_CPU}implementationNamesByTemplate: ${CG_DIR}rawCG.xml
@@ -490,8 +489,7 @@ ${CG_DIR}CG_CPU.xml: ${CG_DIR}rawCG.xml
 		if [ -e $@ ]; then \
 			mv $@ $@.ref ; \
 		fi )
-	@echo ..calling python ${PYTHON_ARGS_GENERAL} ${PYTHON_ARGS_CPU_CG} ${TOOLSDIR}/loopAnalysisWithAnnotatedCallGraph.py -i $< ${H90_PREPROCESSOR_ARGS} -a CPU >${DEBUG_OUTPUT}
-	@mkdir -p ${CG_DIR} && python ${TOOLSDIR}/loopAnalysisWithAnnotatedCallGraph.py -i $< ${H90_PREPROCESSOR_ARGS} -a CPU > $@
+	mkdir -p ${CG_DIR} && python ${TOOLSDIR}/loopAnalysisWithAnnotatedCallGraph.py -i $< ${H90_PREPROCESSOR_ARGS} -a CPU > $@
 	@(set -e && \
 		mkdir -p ${SRC_DIR_CPU} && \
 		SOURCES_TO_REGENERATE=`python ${PYTHON_ARGS_GENERAL} ${PYTHON_ARGS_CPU_CG} ${TOOLSDIR}/getSourcesToBeProcessed.py -i $@ -r $@.ref ${H90_PREPROCESSOR_ARGS}` && \
@@ -508,8 +506,7 @@ ${CG_DIR}CG_GPU.xml: ${CG_DIR}rawCG.xml
 		if [ -e $@ ]; then \
 			mv $@ $@.ref ; \
 		fi )
-	@echo ..calling python ${TOOLSDIR}/loopAnalysisWithAnnotatedCallGraph.py -i $< ${H90_PREPROCESSOR_ARGS} -a GPU >${DEBUG_OUTPUT}
-	@mkdir -p ${CG_DIR} && python ${TOOLSDIR}/loopAnalysisWithAnnotatedCallGraph.py -i $< ${H90_PREPROCESSOR_ARGS} -a GPU > $@
+	mkdir -p ${CG_DIR} && python ${TOOLSDIR}/loopAnalysisWithAnnotatedCallGraph.py -i $< ${H90_PREPROCESSOR_ARGS} -a GPU > $@
 	@(set -e && \
 		mkdir -p ${SRC_DIR_GPU} && \
 		SOURCES_TO_REGENERATE=`python ${TOOLSDIR}/getSourcesToBeProcessed.py -i $@ -r $@.ref ${H90_PREPROCESSOR_ARGS}` && \

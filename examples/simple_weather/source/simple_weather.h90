@@ -35,6 +35,10 @@ module simple_weather
       real(c_double) :: runtime_total_s, runtime_boundary_s
       integer(c_int),value :: nx, ny, nz
       real(c_double), dimension(0:nx+1,0:ny+1,nz) :: thermal_energy_updated, thermal_energy
+
+      @domainDependant {attribute(autoDom, host)}
+      thermal_energy_updated, thermal_energy
+      @end domainDependant
     end subroutine diffuse_c
   end interface
 
@@ -80,7 +84,7 @@ module simple_weather
   subroutine simulate(thermal_energy_current, start_time, end_time, timestep, output_timestep, use_c)
     use commons
     use dynamical_processes, only: diffuse
-!     use physical_processes, only: run_physics
+    use physical_processes, only: run_physics
     use time_profiling
     use helper_functions, only: getTime
     real(8), intent(inout), dimension(0:nx+1,0:ny+1,nz), pointer :: thermal_energy_current
@@ -104,7 +108,7 @@ module simple_weather
       if (modulo(time + 0.001d0, output_timestep) < 0.01d0) then
         call write_data(thermal_energy_current, "thermal_energy", time)
       end if
-!       call run_physics(thermal_energy_current, surface_thermal_energy, planetary_thermal_energy)
+      call run_physics(thermal_energy_current, surface_thermal_energy, planetary_thermal_energy)
       if (use_c) then
 #ifdef GPU
         !$acc data present(thermal_energy_current,thermal_energy_updated)
@@ -155,7 +159,7 @@ module simple_weather
             num_of_errors = num_of_errors + 1
           end if
           if (num_of_errors .gt. 4) then
-            stop
+            stop 2
           end if
         end do
       end do
@@ -260,8 +264,11 @@ program main
   thermal_energy_updated(:,:,:) = 0.0d0
   write(6,*) "================== CUDA C Version =================="
   call simulate(thermal_energy_c, 0.0d0, end_time, timestep, output_timestep, .true.)
+  !check the c version only with GPU order (ordering is wrong with the CPU version)
+  #ifdef GPU
   call check(thermal_energy_c, thermal_energy)
   write(6,*) "cuda version checks out"
+  #endif
   call cleanup
   write(6,*) "stopping..."
   stop

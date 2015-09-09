@@ -361,10 +361,6 @@ class Symbol(object):
             )
 
     def loadDomainDependantEntryNodeAttributes(self, domainDependantEntryNode, warnOnOverwrite=True):
-        if warnOnOverwrite and self.initLevel > Init.NOTHING_LOADED:
-            sys.stderr.write("[" + str(self) + ".init " + str(self.initLevel) + "] WARNING: symbol %s's entry node attributes are loaded when the initialization level has already advanced further\n" \
-                %(str(self))
-            )
         if self.debugPrint:
             sys.stderr.write("[" + str(self) + ".init " + str(self.initLevel) + "] +++++++++ LOADING DOMAIN DEPENDANT NODE ++++++++++ \n")
 

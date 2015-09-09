@@ -737,7 +737,7 @@ class H90XMLCallGraphGenerator(H90CallGraphParser):
             return
         appendSeparatedTextAsNodes(line, ',', self.doc, self.currDomainDependantRelationNode, 'entry')
 
-def getSymbolsByName(cgDoc, parentNode, parallelRegionTemplates, patterns, isModuleSymbols=False, debugPrint=False):
+def getSymbolsByName(cgDoc, parentNode, parallelRegionTemplates, patterns, currentSymbolsByName={}, isModuleSymbols=False, debugPrint=False):
     templatesAndEntries = getDomainDependantTemplatesAndEntries(cgDoc, parentNode)
     dependantNames = []
     symbolsByName = {}
@@ -747,6 +747,8 @@ def getSymbolsByName(cgDoc, parentNode, parallelRegionTemplates, patterns, isMod
             raise Exception("Symbol %s has multiple @domainDependant definitions. Please remove all but one." %(dependantName))
         dependantNames.append(dependantName)
         symbol = symbolsByName.get(dependantName)
+        if symbol == None:
+            symbol = currentSymbolsByName.get(dependantName)
         if symbol == None:
             symbol = Symbol(dependantName, template, patterns, debugPrint=debugPrint)
             symbol.isModuleSymbol = isModuleSymbols
@@ -823,6 +825,7 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
             parentNode,
             parallelRegionTemplates,
             self.patterns,
+            currentSymbolsByName=self.currSymbolsByName,
             isModuleSymbols=isModuleSymbols,
             debugPrint=self.debugPrint
         ))

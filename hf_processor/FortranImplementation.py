@@ -58,15 +58,18 @@ def getDataDirectiveAndUpdateOnDeviceFlags(currRoutineNode, currParallelRegionTe
     dataDeclarationsRequired = False
     commaRequired = False
     for index, symbol in enumerate(dependantSymbols):
-        # if debugPrint:
-        #     sys.stderr.write("analyzing symbol %s for data directive. Domains: %s, IsHostSymbol: %s, IsPresent: %s, IsToBeTransfered: %s, SourceModule: %s\n" %(
-        #         symbol.name,
-        #         str(symbol.domains),
-        #         symbol.isHostSymbol,
-        #         symbol.isPresent,
-        #         symbol.isToBeTransfered,
-        #         str(symbol.sourceModule)
-        #     ))
+        if debugPrint:
+            sys.stderr.write(
+                "analyzing symbol %s for data directive. Domains: %s, IsHostSymbol: %s, IsPresent: %s, IsToBeTransfered: %s, SourceModule: %s, Intent: %s\n" %(
+                    symbol.name,
+                    str(symbol.domains),
+                    symbol.isHostSymbol,
+                    symbol.isPresent,
+                    symbol.isToBeTransfered,
+                    str(symbol.sourceModule),
+                    str(symbol.intent)
+                )
+            )
         #Rules that lead to a symbol not being touched by directives
         symbol.isOnDevice = False
         if not symbol.domains or len(symbol.domains) == 0:
@@ -1384,12 +1387,6 @@ Symbols vs transferHere attributes:\n%s" %(str([(symbol.name, symbol.transferHer
         return "use cudafor\n"
 
 class DebugCUDAFortranImplementation(CUDAFortranImplementation):
-
-    def declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates):
-        result = "real(8) :: hf_output_temp\n"
-        result = result + CUDAFortranImplementation.declarationEnd(self, dependantSymbols, routineIsKernelCaller, \
-            currRoutineNode, currParallelRegionTemplates)
-        return result
 
     def kernelCallPreparation(self, parallelRegionTemplate, calleeNode=None):
         result = CUDAFortranImplementation.kernelCallPreparation(self, parallelRegionTemplate, calleeNode)

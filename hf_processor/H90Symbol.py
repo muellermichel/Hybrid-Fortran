@@ -808,10 +808,11 @@ Current Domains: %s\n" %(
             if dimensionMatch:
                 dimensionStr = dimensionMatch.group(1)
                 postfix = dimensionMatch.group(2)
-        dimensionCheckForbiddenCharacters = re.match(r'^(?!.*[()]).*', dimensionStr, re.IGNORECASE)
-        if not dimensionCheckForbiddenCharacters:
-            raise Exception("Forbidden characters found in declaration of symbol %s: %s. Note: Preprocessor functions in domain dependant declarations are not allowed, only simple definitions." \
-                %(self.name, dimensionStr))
+        # MMU 2015-9-13: This check is not compatible with CUDA Fortran version of helper_functions_gpu
+        # dimensionCheckForbiddenCharacters = re.match(r'^(?!.*[()]).*', dimensionStr, re.IGNORECASE)
+        # if not dimensionCheckForbiddenCharacters:
+        #     raise Exception("Forbidden characters found in declaration of symbol %s: %s. Note: Preprocessor functions in domain dependant declarations are not allowed, only simple definitions." \
+        #         %(self.name, dimensionStr))
         return dimensionStr, postfix
 
     def getAdjustedDeclarationLine(self, paramDeclMatch, parallelRegionTemplates, dimensionPattern):

@@ -27,22 +27,32 @@ public :: storeSlice2D
 public :: storeSlice3D
 
 contains
+
+#ifdef GPU
+#define INTENT_SLICED_OUT , intent(out)
+#define INTENT_SLICED_IN , intent(in)
+#else
+#define INTENT_SLICED_OUT
+#define INTENT_SLICED_IN
+#endif
+
 	@scheme{name(CUDA_FORTRAN)}
 	subroutine getSlice2D_int_cf(sliced, original, nx, ny, nx_original, ny_original, offset_x, offset_y)
 		implicit none
 		integer(4), intent(in) :: nx, ny, nx_original, ny_original, offset_x, offset_y
-
-		#ifdef GPU
-		integer(4), intent(in), device :: original(nx_original, ny_original)
-		integer(4), intent(out), device :: sliced(nx, ny)
-		#else
 		integer(4), intent(in) :: original
-		integer(4) :: sliced !don't use intent here for CPU since we don't assign anything (would generate ifort warning)
-		#endif
+		integer(4) INTENT_SLICED_OUT :: sliced
 
-		!Note: This hack is needed such that the hf parser gets into the body state. A hybridized subroutine without_cf
-		!any domain dependant definitions is a case the hf processor currently doesn't handle.
 		@domainDependant{}
+		nx, ny, nx_original, ny_original, offset_x, offset_y
+		@end domainDependant
+
+		@domainDependant{attribute(present,autoDom), domName(x,y), domSize(nx_original, ny_original)}
+		original
+		@end domainDependant
+
+		@domainDependant{attribute(present,autoDom), domName(x,y), domSize(nx, ny)}
+		sliced
 		@end domainDependant
 
 		call getSlice2D_kernel_int(sliced, original, nx, ny, nx_original, ny_original, offset_x, offset_y)
@@ -52,17 +62,19 @@ contains
 	subroutine getSlice2D_kernel_int_cf(sliced, original, nx, ny, nx_original, ny_original, offset_x, offset_y)
 		implicit none
 		integer(4), intent(in) :: nx, ny, nx_original, ny_original, offset_x, offset_y
-
-		#ifdef GPU
-		integer(4), intent(in), device :: original(nx_original, ny_original)
-		integer(4), intent(out), device :: sliced(nx, ny)
-		#else
 		integer(4), intent(in) :: original
-		integer(4) :: sliced !don't use intent here for CPU since we don't assign anything (would generate ifort warning)
-		#endif
+		integer(4) INTENT_SLICED_OUT :: sliced
 
 		@domainDependant{}
 		nx, ny, nx_original, ny_original, offset_x, offset_y
+		@end domainDependant
+
+		@domainDependant{attribute(present,autoDom), domName(x,y), domSize(nx_original, ny_original)}
+		original
+		@end domainDependant
+
+		@domainDependant{attribute(present,autoDom), domName(x,y), domSize(nx, ny)}
+		sliced
 		@end domainDependant
 
 		@parallelRegion{appliesTo(GPU), domName(x,y), domSize(nx, ny)}
@@ -75,18 +87,19 @@ contains
 	subroutine getSlice2D_cf(sliced, original, nx, ny, nx_original, ny_original, offset_x, offset_y)
 		implicit none
 		integer(4), intent(in) :: nx, ny, nx_original, ny_original, offset_x, offset_y
-
-		#ifdef GPU
-		real(8), intent(in), device :: original(nx_original, ny_original)
-		real(8), intent(out), device :: sliced(nx, ny)
-		#else
 		real(8), intent(in) :: original
-		real(8) :: sliced !don't use intent here for CPU since we don't assign anything (would generate ifort warning)
-		#endif
+		real(8) INTENT_SLICED_OUT :: sliced
 
-		!Note: This hack is needed such that the hf parser gets into the body state. A hybridized subroutine without_cf
-		!any domain dependant definitions is a case the hf processor currently doesn't handle.
 		@domainDependant{}
+		nx, ny, nx_original, ny_original, offset_x, offset_y
+		@end domainDependant
+
+		@domainDependant{attribute(present,autoDom), domName(x,y), domSize(nx_original, ny_original)}
+		original
+		@end domainDependant
+
+		@domainDependant{attribute(present,autoDom), domName(x,y), domSize(nx, ny)}
+		sliced
 		@end domainDependant
 
 		call getSlice2D_kernel(sliced, original, nx, ny, nx_original, ny_original, offset_x, offset_y)
@@ -96,17 +109,19 @@ contains
 	subroutine getSlice2D_kernel_cf(sliced, original, nx, ny, nx_original, ny_original, offset_x, offset_y)
 		implicit none
 		integer(4), intent(in) :: nx, ny, nx_original, ny_original, offset_x, offset_y
-
-		#ifdef GPU
-		real(8), intent(in), device :: original(nx_original, ny_original)
-		real(8), intent(out), device :: sliced(nx, ny)
-		#else
 		real(8), intent(in) :: original
-		real(8) :: sliced !don't use intent here for CPU since we don't assign anything (would generate ifort warning)
-		#endif
+		real(8) INTENT_SLICED_OUT :: sliced
 
 		@domainDependant{}
 		nx, ny, nx_original, ny_original, offset_x, offset_y
+		@end domainDependant
+
+		@domainDependant{attribute(present,autoDom), domName(x,y), domSize(nx_original, ny_original)}
+		original
+		@end domainDependant
+
+		@domainDependant{attribute(present,autoDom), domName(x,y), domSize(nx, ny)}
+		sliced
 		@end domainDependant
 
 		@parallelRegion{appliesTo(GPU), domName(x,y), domSize(nx, ny)}
@@ -119,18 +134,19 @@ contains
 	subroutine getSlice3D_cf(sliced, original, nx, ny, nz, nx_original, ny_original, nz_original, offset_x, offset_y, offset_z)
 		implicit none
 		integer(4), intent(in) :: nx, ny, nz, nx_original, ny_original, nz_original, offset_x, offset_y, offset_z
-
-		#ifdef GPU
-		real(8), intent(in), device :: original(DOM(nx_original, ny_original, nz_original))
-		real(8), intent(out), device :: sliced(DOM(nx, ny, nz))
-		#else
 		real(8), intent(in) :: original(nz_original)
-		real(8) :: sliced(nz) !don't use intent here for CPU since we don't assign anything (would generate ifort warning)
-		#endif
+		real(8) INTENT_SLICED_OUT :: sliced(nz)
 
-		!Note: This hack is needed such that the hf parser gets into the body state. A hybridized subroutine without_cf
-		!any domain dependant definitions is a case the hf processor currently doesn't handle.
 		@domainDependant{}
+		nx, ny, nz, nx_original, ny_original, nz_original, offset_x, offset_y, offset_z
+		@end domainDependant
+
+		@domainDependant{attribute(present,autoDom), domName(x,y,k), domSize(nx_original, ny_original, nz_original)}
+		original
+		@end domainDependant
+
+		@domainDependant{attribute(present,autoDom), domName(x,y,k), domSize(nx, ny, nz)}
+		sliced
 		@end domainDependant
 
 		call getSlice3D_kernel(sliced, original, nx, ny, nz, nx_original, ny_original, nz_original, offset_x, offset_y, offset_z)
@@ -140,24 +156,26 @@ contains
 	subroutine getSlice3D_kernel_cf(sliced, original, nx, ny, nz, nx_original, ny_original, nz_original, offset_x, offset_y, offset_z)
 		implicit none
 		integer(4), intent(in) :: nx, ny, nz, nx_original, ny_original, nz_original, offset_x, offset_y, offset_z
-		integer(4) :: z
-
-		#ifdef GPU
-		real(8), intent(in), device :: original(DOM(nx_original, ny_original, nz_original))
-		real(8), intent(out), device :: sliced(DOM(nx, ny, nz))
-		#else
 		real(8), intent(in) :: original(nz_original)
-		real(8) :: sliced(nz) !don't use intent here for CPU since we don't assign anything (would generate ifort warning)
-		#endif
+		real(8) INTENT_SLICED_OUT :: sliced(nz)
+		integer(4) :: z
 
 		@domainDependant{}
 		nx, ny, nz, nx_original, ny_original, nz_original, offset_x, offset_y, offset_z
 		@end domainDependant
 
+		@domainDependant{attribute(present,autoDom), domName(x,y,k), domSize(nx_original, ny_original, nz_original)}
+		original
+		@end domainDependant
+
+		@domainDependant{attribute(present,autoDom), domName(x,y,k), domSize(nx, ny, nz)}
+		sliced
+		@end domainDependant
+
 		@parallelRegion{appliesTo(GPU), domName(x,y), domSize(nx, ny)}
 		@if {parallelRegion(within)}
 		do z = 1, nz
-			sliced(AT(x,y,z)) = original(AT(x + offset_x, y + offset_y, z + offset_z))
+			sliced(x,y,z) = original(x + offset_x, y + offset_y, z + offset_z)
 		end do
 		@end if
 		@end parallelRegion
@@ -165,19 +183,20 @@ contains
 
 	subroutine storeSlice2D_cf(original, sliced, nx_original, ny_original, nx, ny, offset_x, offset_y)
 		implicit none
-		integer(4), intent(in) :: nx_original, ny_original, nx, ny, offset_x, offset_y
+		integer(4), intent(in) :: nx, ny, nx_original, ny_original, offset_x, offset_y
+		real(8), intent(out) :: original
+		real(8) INTENT_SLICED_IN :: sliced
 
-		#ifdef GPU
-		real(8), intent(in), device :: sliced(nx, ny)
-		real(8), intent(out), device :: original(nx_original, ny_original)
-		#else
-		real(8), intent(in) :: sliced
-		real(8) :: original !don't use intent here for CPU since we don't assign anything (would generate ifort warning)
-		#endif
-
-		!Note: This hack is needed such that the hf parser gets into the body state. A hybridized subroutine without_cf
-		!any domain dependant definitions is a case the hf processor currently doesn't handle.
 		@domainDependant{}
+		nx, ny, nx_original, ny_original, offset_x, offset_y
+		@end domainDependant
+
+		@domainDependant{attribute(present,autoDom), domName(x,y), domSize(nx_original, ny_original)}
+		original
+		@end domainDependant
+
+		@domainDependant{attribute(present,autoDom), domName(x,y), domSize(nx, ny)}
+		sliced
 		@end domainDependant
 
 		call storeSlice2D_kernel(original, sliced, nx_original, ny_original, nx, ny, offset_x, offset_y)
@@ -186,18 +205,20 @@ contains
 
 	subroutine storeSlice2D_kernel_cf(original, sliced, nx_original, ny_original, nx, ny, offset_x, offset_y)
 		implicit none
-		integer(4), intent(in) :: nx_original, ny_original, nx, ny, offset_x, offset_y
-
-		#ifdef GPU
-		real(8), intent(in), device :: sliced(nx, ny)
-		real(8), intent(out), device :: original(nx_original, ny_original)
-		#else
-		real(8), intent(in) :: sliced
-		real(8) :: original !don't use intent here for CPU since we don't assign anything (would generate ifort warning)
-		#endif
+		integer(4), intent(in) :: nx, ny, nx_original, ny_original, offset_x, offset_y
+		real(8), intent(out) :: original
+		real(8) INTENT_SLICED_IN :: sliced
 
 		@domainDependant{}
-		nx_original, ny_original, nx, ny, offset_x, offset_y
+		nx, ny, nx_original, ny_original, offset_x, offset_y
+		@end domainDependant
+
+		@domainDependant{attribute(present,autoDom), domName(x,y), domSize(nx_original, ny_original)}
+		original
+		@end domainDependant
+
+		@domainDependant{attribute(present,autoDom), domName(x,y), domSize(nx, ny)}
+		sliced
 		@end domainDependant
 
 		@parallelRegion{appliesTo(GPU), domName(x,y), domSize(nx, ny)}
@@ -210,18 +231,19 @@ contains
 	subroutine storeSlice3D_cf(original, sliced, nx_original, ny_original, nz_original, nx, ny, nz, offset_x, offset_y, offset_z)
 		implicit none
 		integer(4), intent(in) :: nx_original, ny_original, nz_original, nx, ny, nz, offset_x, offset_y, offset_z
+		real(8), intent(out) :: original(nz_original)
+		real(8) INTENT_SLICED_IN :: sliced(nz)
 
-		#ifdef GPU
-		real(8), intent(in), device :: sliced(DOM(nx, ny, nz))
-		real(8), intent(out), device :: original(DOM(nx_original, ny_original, nz_original))
-		#else
-		real(8), intent(in) :: sliced(nz)
-		real(8) :: original(nz_original) !don't use intent here for CPU since we don't assign anything (would generate ifort warning)
-		#endif
-
-		!Note: This hack is needed such that the hf parser gets into the body state. A hybridized subroutine without_cf
-		!any domain dependant definitions is a case the hf processor currently doesn't handle.
 		@domainDependant{}
+		nx, ny, nz, nx_original, ny_original, nz_original, offset_x, offset_y, offset_z
+		@end domainDependant
+
+		@domainDependant{attribute(present,autoDom), domName(x,y,k), domSize(nx_original, ny_original, nz_original)}
+		original
+		@end domainDependant
+
+		@domainDependant{attribute(present,autoDom), domName(x,y,k), domSize(nx, ny, nz)}
+		sliced
 		@end domainDependant
 
 		call storeSlice3D_kernel(original, sliced, nx_original, ny_original, nz_original, nx, ny, nz, offset_x, offset_y, offset_z)
@@ -230,24 +252,26 @@ contains
 	subroutine storeSlice3D_kernel_cf(original, sliced, nx_original, ny_original, nz_original, nx, ny, nz, offset_x, offset_y, offset_z)
 		implicit none
 		integer(4), intent(in) :: nx_original, ny_original, nz_original, nx, ny, nz, offset_x, offset_y, offset_z
+		real(8), intent(out) :: original(nz_original)
+		real(8) INTENT_SLICED_IN :: sliced(nz)
 		integer(4) :: z
 
-		#ifdef GPU
-		real(8), intent(in), device :: sliced(DOM(nx, ny, nz))
-		real(8), intent(out), device :: original(DOM(nx_original, ny_original, nz_original))
-		#else
-		real(8), intent(in) :: sliced(nz)
-		real(8) :: original(nz_original) !don't use intent here for CPU since we don't assign anything (would generate ifort warning)
-		#endif
-
 		@domainDependant{}
-		nx_original, ny_original, nz_original, nx, ny, nz, offset_x, offset_y, offset_z
+		nx, ny, nz, nx_original, ny_original, nz_original, offset_x, offset_y, offset_z
+		@end domainDependant
+
+		@domainDependant{attribute(present,autoDom), domName(x,y,k), domSize(nx_original, ny_original, nz_original)}
+		original
+		@end domainDependant
+
+		@domainDependant{attribute(present,autoDom), domName(x,y,k), domSize(nx, ny, nz)}
+		sliced
 		@end domainDependant
 
 		@parallelRegion{appliesTo(GPU), domName(x,y), domSize(nx, ny)}
 		@if {parallelRegion(within)}
 		do z = 1, nz
-			original(AT(x + offset_x, y + offset_y, z + offset_z)) = sliced(AT(x,y,z))
+			original(x + offset_x, y + offset_y, z + offset_z) = sliced(x,y,z)
 		end do
 		@end if
 		@end parallelRegion

@@ -767,7 +767,9 @@ Parallel region position: %s"
             moduleTemplate = template
             break
         else:
-            raise Exception("Symbol %s not found in module information available to Hybrid Fortran. Please use an appropriate @domainDependant specification." %(self.name))
+            return
+            #MMU 2015-9-14: This check fails with older CUDA Fortran based implementations where module data wasn't yet supported
+            # raise Exception("Symbol %s not found in module information available to Hybrid Fortran. Please use an appropriate @domainDependant specification." %(self.name))
         informationLoadedFromModule = True
         if self.debugPrint:
             sys.stderr.write(

@@ -99,7 +99,8 @@ DeclarationType = enum("UNDEFINED",
     "FOREIGN_MODULE_SCALAR",
     "FRAMEWORK_ARRAY",
     "OTHER_ARRAY",
-    "OTHER_SCALAR"
+    "OTHER_SCALAR",
+    "LOCAL_SCALAR"
 )
 
 def purgeFromDeclarationSettings(line, dependantSymbols, patterns, purgeList=['intent'], withAndWithoutIntent=True):
@@ -532,7 +533,7 @@ class Symbol(object):
         if self.debugPrint:
             sys.stderr.write("[" + str(self) + ".init " + str(self.initLevel) + "] routine node attributes loaded for symbol %s. Domains at this point: %s\n" %(self.name, str(self.domains)))
 
-    def loadDeclaration(self, paramDeclMatch, patterns, currentRoutineArguments):
+    def loadDeclaration(self, paramDeclMatch, patterns, currentRoutineArguments, isRoutineSpecification=True):
         if self.initLevel > Init.ROUTINENODE_ATTRIBUTES_LOADED:
             sys.stderr.write("[" + str(self) + ".init " + str(self.initLevel) + "] WARNING: symbol %s's declaration is loaded when the initialization level has already advanced further.\n" \
                 %(str(self))
@@ -556,9 +557,11 @@ class Symbol(object):
             newIntent = intentMatch.group(1)
         elif self.name in currentRoutineArguments:
             newIntent = "unspecified" #dummy symbol without specified intent (basically F77 style)
-        if newIntent and (not self.intent or self.intent.strip() == ""):
+        elif isRoutineSpecification:
+            newIntent = "local"
+        if newIntent and (not self.intent or self.intent.strip() == "" or self.intent == "unspecified"):
             self.intent = newIntent
-        elif newIntent and newIntent != "unspecified" and newIntent != self.intent:
+        elif newIntent and newIntent != self.intent:
             raise Exception("Symbol %s's intent was previously defined already and does not match the declaration on this line. Previously loaded intent: %s, new intent: %s" %(
                 str(self),
                 self.intent,
@@ -1037,10 +1040,9 @@ Please specify the domains and their sizes with domName and domSize attributes i
             raise Exception("Unexpected number of offsets and iterators specified for symbol %s; Offsets: %s, Iterators: %s, Expected domains: %s" \
                 %(self.name, offsets, parallelIterators, self.domains))
 
-        if len(offsets) == len(self.domains) and not all([offset == ':' for offset in offsets]):
-            result = self.name
-        elif self.isAutomatic:
-            result = self.automaticName()
+        hostName = self.automaticName() if self.isAutomatic else self.name
+        if (len(offsets) == len(self.domains) and not all([offset == ':' for offset in offsets])) or self.isAutomatic:
+            result = hostName
         elif self.isUsingDevicePostfix and len(offsets) > 0 and any([offset == ':' for offset in offsets]) and not all([offset == ':' for offset in offsets]):
             raise Exception("Cannot reshape the array %s at this point, it needs to be accessed either at a single value or for the entire array; offsets: %s" %(self, offsets))
         else:
@@ -1088,10 +1090,12 @@ Currently loaded template: %s\n" %(
                 return DeclarationType.MODULE_ARRAY
             if self.initLevel < Init.ROUTINENODE_ATTRIBUTES_LOADED:
                 return DeclarationType.UNDEFINED
-            if self.intent == "":
+            if self.intent == "local":
                 return DeclarationType.LOCAL_ARRAY
             return DeclarationType.OTHER_ARRAY
 
+        if self.intent == "local":
+            return DeclarationType.LOCAL_SCALAR
         if self.sourceModule == "HF90_LOCAL_MODULE":
             return DeclarationType.LOCAL_MODULE_SCALAR
         if self.sourceModule not in [None, ""]:

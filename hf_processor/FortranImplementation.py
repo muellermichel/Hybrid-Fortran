@@ -511,6 +511,7 @@ class FortranImplementation(object):
     currParallelRegionTemplateNode = None
     debugPrintIteratorDeclared = False
     currRoutineNode = None
+    useOpenACCForDebugPrintStatements = True
 
     def __init__(self, optionFlags):
         self.currDependantSymbols = None
@@ -542,7 +543,12 @@ class FortranImplementation(object):
             return ""
         result = ""
         if 'DEBUG_PRINT' in self.optionFlags:
-            result += getRuntimeDebugPrintStatements(symbolsByName, calleeRoutineNode, self.currParallelRegionTemplateNode)
+            result += getRuntimeDebugPrintStatements(
+                symbolsByName,
+                calleeRoutineNode,
+                self.currParallelRegionTemplateNode,
+                useOpenACC=self.useOpenACCForDebugPrintStatements
+            )
         self.currParallelRegionTemplateNode = None
         return result
 
@@ -1087,6 +1093,7 @@ class CUDAFortranImplementation(FortranImplementation):
     architecture = "GPU"
     onDevice = True
     multipleParallelRegionsPerSubroutineAllowed = False
+    useOpenACCForDebugPrintStatements = False
 
     def __init__(self, optionFlags):
         self.currRoutineNode = None
@@ -1162,13 +1169,11 @@ end if\n" %(calleeNode.getAttribute('name'))
                 symbol.isAutomatic = True
                 additionalImports.append(symbol)
             #check for temporary arrays in kernel subroutines
-            elif not symbol.intent or symbol.intent == "":
+            elif not symbol.intent or symbol.intent in ["", None] or symbol.intent == "local" and len(symbol.domains) > 0:
                 symbol.loadRoutineNodeAttributes(routineNode, parallelRegionTemplates)
-                if len(symbol.domains) == 0:
-                    continue
-                #at this point we know that the symbol is a temporary array -> need to store it
-                symbol.isAutomatic = True
                 additionalDeclarations.append(symbol)
+                if len(symbol.domains) > 0: #if this is false, it is probably scalar from the current module
+                    symbol.isAutomatic = True
 
         return sorted(additionalImports), sorted(additionalDeclarations)
 
@@ -1180,8 +1185,8 @@ end if\n" %(calleeNode.getAttribute('name'))
             symbol = currSymbolsByName[symbolName]
             if symbol.sourceModule and symbol.sourceModule != "":
                 result.append(symbol)
-            if (not symbol.intent or symbol.intent == "") and len(symbol.domains) > 0:
-                #we got temporary arrays in a kernel -> need to be handled by framework
+            elif not symbol.intent or symbol.intent in ["", None] or symbol.intent == "local" and len(symbol.domains) > 0:
+                #we got temporary arrays in a kernel or local module scalars -> need to be handled by framework
                 result.append(symbol)
         return sorted(result)
 
@@ -1296,7 +1301,7 @@ Symbols vs transferHere attributes:\n%s" %(str([(symbol.name, symbol.transferHer
         #passed in scalars in kernels and inside kernels
         elif parallelRegionPosition in ["within", "outside"] \
         and len(dependantSymbols[0].domains) == 0 \
-        and intent != "out":
+        and intent not in ["out", "inout"]:
             #handle scalars (passed by value)
             adjustedLine = declarationDirectives + " ,value ::" + symbolDeclarationStr
             for dependantSymbol in dependantSymbols:

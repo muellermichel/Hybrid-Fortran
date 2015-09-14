@@ -835,7 +835,7 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
                 str([self.currSymbolsByName[symbolName].isModuleSymbol for symbolName in self.currSymbolsByName.keys()])
             ))
 
-    def analyseSymbolInformationOnCurrentLine(self, line, analyseImports=True):
+    def analyseSymbolInformationOnCurrentLine(self, line, analyseImports=True, isRoutineSpecification=True):
         symbolNames = self.currSymbolsByName.keys()
         for symbolName in symbolNames:
             symbol = self.currSymbolsByName[symbolName]
@@ -845,7 +845,7 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
                 importMatch = symbol.symbolImportPattern.match(str(line))
             if declMatch:
                 self.symbolsOnCurrentLine.append(symbol)
-                self.processSymbolDeclMatch(declMatch, symbol)
+                self.processSymbolDeclMatch(declMatch, symbol, isRoutineSpecification=isRoutineSpecification)
             elif importMatch:
                 self.importsOnCurrentLine.append(symbol)
                 self.processSymbolImportMatch(importMatch, symbol)
@@ -858,13 +858,14 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
                 raise Exception("Symbols with different declaration types have been matched on the same line. This is invalid in Hybrid Fortran.\n" + \
                     "Example: Local arrays cannot be mixed with local scalars on the same declaration line. Please move apart these declarations.")
 
-    def processSymbolDeclMatch(self, paramDeclMatch, symbol):
+    def processSymbolDeclMatch(self, paramDeclMatch, symbol, isRoutineSpecification):
         '''process everything that happens per h90 declaration symbol'''
         symbol.isMatched = True
         symbol.loadDeclaration(
             paramDeclMatch,
             self.patterns,
-            self.currArguments if isinstance(self.currArguments, list) else []
+            self.currArguments if isinstance(self.currArguments, list) else [],
+            isRoutineSpecification=isRoutineSpecification
         )
 
     def processSymbolImportMatch(self, importMatch, symbol):
@@ -1344,7 +1345,8 @@ This is not allowed for implementations using %s.\
         symbolNum = 0
         bridgeStr = ", & !additional parameter inserted by framework\n" + self.tab_insideSub + "& "
         for symbol in additionalSymbols:
-            adjustedLine = adjustedLine + symbol.automaticName()
+            hostName = symbol.automaticName() if symbol.isAutomatic else symbol.name
+            adjustedLine = adjustedLine + hostName
             if symbolNum < len(additionalSymbols) - 1 or paramListMatch:
                 adjustedLine = adjustedLine + bridgeStr
             symbolNum = symbolNum + 1
@@ -1681,9 +1683,11 @@ This is not allowed for implementations using %s.\
             #########################################################################
             ourSymbolsToAdd = sorted(
                 [symbol for symbol in self.currAdditionalSubroutineParameters
-                    if symbol.declarationType() in [DeclarationType.FOREIGN_MODULE_SCALAR,
+                    if symbol.declarationType() in [
+                        DeclarationType.FOREIGN_MODULE_SCALAR,
                         DeclarationType.LOCAL_MODULE_SCALAR,
-                        DeclarationType.FRAMEWORK_ARRAY
+                        DeclarationType.FRAMEWORK_ARRAY,
+                        DeclarationType.OTHER_SCALAR
                     ]
                 ] + self.currAdditionalCompactedSubroutineParameters
             )
@@ -1958,17 +1962,11 @@ This is not allowed for implementations using %s.\
             or (symbol.declarationType() == DeclarationType.MODULE_ARRAY and symbol.sourceModule == self.currModuleName) \
             or (symbol.declarationType() == DeclarationType.MODULE_ARRAY and type(symbol.sourceModule) in [str, unicode] and "HF90_" in symbol.sourceModule):
                 continue
-            if type(symbol.sourceModule) in [str, unicode] and "HF90_" in symbol.sourceModule:
-                adjustedLine = adjustedLine + "use %s, only : %s => %s\n" %(
-                    symbol.sourceModule,
-                    symbol.automaticName(),
-                    symbol.sourceSymbol
-                )
-            else:
-                adjustedLine = adjustedLine + "use %s, only : %s\n" %(
-                    symbol.sourceModule,
-                    symbol.name
-                )
+            adjustedLine = adjustedLine + "use %s, only : %s => %s\n" %(
+                symbol.sourceModule,
+                symbol.automaticName(),
+                symbol.sourceSymbol
+            )
 
         self.prepareLine(adjustedLine + self.implementation.additionalIncludes(), self.tab_insideSub)
 

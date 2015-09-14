@@ -20,11 +20,11 @@ implicit none
 
 private
 
-public :: getSlice2D_int
-public :: getSlice2D
-public :: getSlice3D
-public :: storeSlice2D
-public :: storeSlice3D
+public :: getSlice2D_int_cf
+public :: getSlice2D_cf
+public :: getSlice3D_cf
+public :: storeSlice2D_cf
+public :: storeSlice3D_cf
 
 contains
 
@@ -55,7 +55,7 @@ contains
 		sliced
 		@end domainDependant
 
-		call getSlice2D_kernel_int(sliced, original, nx, ny, nx_original, ny_original, offset_x, offset_y)
+		call getSlice2D_kernel_int_cf(sliced, original, nx, ny, nx_original, ny_original, offset_x, offset_y)
 
 	end subroutine
 
@@ -102,7 +102,7 @@ contains
 		sliced
 		@end domainDependant
 
-		call getSlice2D_kernel(sliced, original, nx, ny, nx_original, ny_original, offset_x, offset_y)
+		call getSlice2D_kernel_cf(sliced, original, nx, ny, nx_original, ny_original, offset_x, offset_y)
 
 	end subroutine
 
@@ -149,7 +149,7 @@ contains
 		sliced
 		@end domainDependant
 
-		call getSlice3D_kernel(sliced, original, nx, ny, nz, nx_original, ny_original, nz_original, offset_x, offset_y, offset_z)
+		call getSlice3D_kernel_cf(sliced, original, nx, ny, nz, nx_original, ny_original, nz_original, offset_x, offset_y, offset_z)
 
 	end subroutine
 
@@ -184,7 +184,7 @@ contains
 	subroutine storeSlice2D_cf(original, sliced, nx_original, ny_original, nx, ny, offset_x, offset_y)
 		implicit none
 		integer(4), intent(in) :: nx, ny, nx_original, ny_original, offset_x, offset_y
-		real(8), intent(out) :: original
+		real(8) INTENT_SLICED_OUT :: original
 		real(8) INTENT_SLICED_IN :: sliced
 
 		@domainDependant{}
@@ -199,14 +199,14 @@ contains
 		sliced
 		@end domainDependant
 
-		call storeSlice2D_kernel(original, sliced, nx_original, ny_original, nx, ny, offset_x, offset_y)
+		call storeSlice2D_kernel_cf(original, sliced, nx_original, ny_original, nx, ny, offset_x, offset_y)
 
 	end subroutine
 
 	subroutine storeSlice2D_kernel_cf(original, sliced, nx_original, ny_original, nx, ny, offset_x, offset_y)
 		implicit none
 		integer(4), intent(in) :: nx, ny, nx_original, ny_original, offset_x, offset_y
-		real(8), intent(out) :: original
+		real(8) INTENT_SLICED_OUT :: original
 		real(8) INTENT_SLICED_IN :: sliced
 
 		@domainDependant{}
@@ -231,7 +231,7 @@ contains
 	subroutine storeSlice3D_cf(original, sliced, nx_original, ny_original, nz_original, nx, ny, nz, offset_x, offset_y, offset_z)
 		implicit none
 		integer(4), intent(in) :: nx_original, ny_original, nz_original, nx, ny, nz, offset_x, offset_y, offset_z
-		real(8), intent(out) :: original(nz_original)
+		real(8) INTENT_SLICED_OUT :: original(nz_original)
 		real(8) INTENT_SLICED_IN :: sliced(nz)
 
 		@domainDependant{}
@@ -246,13 +246,13 @@ contains
 		sliced
 		@end domainDependant
 
-		call storeSlice3D_kernel(original, sliced, nx_original, ny_original, nz_original, nx, ny, nz, offset_x, offset_y, offset_z)
+		call storeSlice3D_kernel_cf(original, sliced, nx_original, ny_original, nz_original, nx, ny, nz, offset_x, offset_y, offset_z)
 	end subroutine
 
 	subroutine storeSlice3D_kernel_cf(original, sliced, nx_original, ny_original, nz_original, nx, ny, nz, offset_x, offset_y, offset_z)
 		implicit none
 		integer(4), intent(in) :: nx_original, ny_original, nz_original, nx, ny, nz, offset_x, offset_y, offset_z
-		real(8), intent(out) :: original(nz_original)
+		real(8) INTENT_SLICED_OUT :: original(nz_original)
 		real(8) INTENT_SLICED_IN :: sliced(nz)
 		integer(4) :: z
 

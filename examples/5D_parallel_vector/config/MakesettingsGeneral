@@ -215,8 +215,8 @@ TEST_WITH_EVERY_BUILD=false
 #############################################################################
 # implementation settings                                                   #
 #############################################################################
-CPU_IMPLEMENTATION_DEBUG=TraceGeneratingFortranImplementation
+CPU_IMPLEMENTATION_DEBUG=FortranImplementation
 CPU_IMPLEMENTATION_PRODUCTION=OpenMPFortranImplementation
-GPU_IMPLEMENTATION_EMULATION=TraceCheckingOpenACCFortranImplementation
-GPU_IMPLEMENTATION_DEBUG=TraceCheckingOpenACCFortranImplementation
+GPU_IMPLEMENTATION_EMULATION=PGIOpenACCFortranImplementation
+GPU_IMPLEMENTATION_DEBUG=PGIOpenACCFortranImplementation
 GPU_IMPLEMENTATION_PRODUCTION=PGIOpenACCFortranImplementation

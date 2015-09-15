@@ -22,25 +22,25 @@ PROGRAM fempoi2d
   integer           :: n_ktest =  100              ! number of loops in kernel timing tests
   integer           :: n_maxit = 1000              ! maximum number of solver iterations
   integer           :: i_sol   =    1              ! solver flag (1=jacobi, 2=sor/gauss-seidel)
-  real(RP)          :: tol     = 1.0e-6         ! solver convergence criteria (reduction in defect)
-  real(RP)          :: omega   = 1.0d0            ! solver relaxation parameter
+  real(8)          :: tol     = 1.0e-6         ! solver convergence criteria (reduction in defect)
+  real(8)          :: omega   = 1.0d0            ! solver relaxation parameter
   integer           :: n_dacc  =    5              ! number of digits accuracy in ref sol.
   integer           :: i_print =  100              ! print terminal output (>0 print in # iteration)
   integer           :: i_post  =    1              ! postprocessing flag (!=0=output solution)
   character(len=40) :: cfile   = 'solution'        ! filename to output solution
 
-  real(RP), pointer, dimension(:,:) :: u_p         ! solution vector
-  real(RP), allocatable, dimension(:,:) :: u_ref   ! reference solution vector
-  real(RP), allocatable, dimension(:,:) :: f       ! right hand side/load vector
-  real(RP), pointer, dimension(:,:) :: h_p         ! help vector (old solution)
-  real(RP), dimension(3,3)              :: s       ! matrix stencil
+  real(8), pointer, dimension(:,:) :: u_p         ! solution vector
+  real(8), allocatable, dimension(:,:) :: u_ref   ! reference solution vector
+  real(8), allocatable, dimension(:,:) :: f       ! right hand side/load vector
+  real(8), pointer, dimension(:,:) :: h_p         ! help vector (old solution)
+  real(8), dimension(3,3)              :: s       ! matrix stencil
 
 
   ! local variables
   integer           :: mdata, it, n, n_maxthreads
   integer(8)        :: n_flops, n_memw
-  real(DP)          :: h_grid, dtmp
-  real(RP)          :: dnorm, dnorm0, duchg
+  real(8)          :: h_grid, dtmp
+  real(8)          :: dnorm, dnorm0, duchg
   character(len=40) :: cdata
   logical           :: b_file
   real(8)           :: time_start
@@ -48,7 +48,7 @@ PROGRAM fempoi2d
   interface
      subroutine poisqsol(u,n)
        use system
-       real(RP), dimension(:,:) :: u
+       real(8), dimension(:,:) :: u
        integer                  :: n
      end subroutine poisqsol
   end interface
@@ -243,13 +243,13 @@ END PROGRAM
     use system
     implicit none
 
-    real(RP), dimension(:,:) :: u       ! output vector
+    real(8), dimension(:,:) :: u       ! output vector
     integer                  :: n_dacc  ! number of digits accuracy in reference sol.
 
     ! Local variables
     integer                               :: n_max, n, n1, n2, i, j, ii, jj
-    real(RP)                              :: pi, c, dx, dy, x, y, sinii, sinjj, udiff
-    real(RP), dimension(:,:), allocatable :: u0
+    real(8)                              :: pi, c, dx, dy, x, y, sinii, sinjj, udiff
+    real(8), dimension(:,:), allocatable :: u0
     !------------------------------------------------------------------------------
 
     pi    = 4.0d0*atan(1.0d0)

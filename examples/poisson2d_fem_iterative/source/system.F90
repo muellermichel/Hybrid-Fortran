@@ -3,13 +3,11 @@
 !# <name> system </name>
 !# ****************************************************************************
 !#
-!# <purpose>
+!# <pu8ose>
 !# This module contains system routines like time measurement,
 !# string/value conversions and auxiliary routines.
-!# </purpose>
+!# </pu8ose>
 !##############################################################################
-#include "storage_order.F90"
-
 MODULE system
 
   implicit none
@@ -24,7 +22,7 @@ MODULE system
 
   ! minimal difference to unity for real values
 !  real(SP), parameter, public :: epsd0 = epsilon(1.0d0)
-!  real(DP), parameter, public :: epsd0 = epsilon(1.0d0)
+!  real(8), parameter, public :: epsd0 = epsilon(1.0d0)
 !  real(QP), parameter, public :: epsd0 = epsilon(1.0d0)
 
   ! number of bytes per word
@@ -37,7 +35,7 @@ CONTAINS
 
     use omp_lib
 
-    real(DP) :: t
+    real(8) :: t
 
     !$    t = omp_get_wtime()
     !$    return
@@ -53,11 +51,11 @@ CONTAINS
   integer FUNCTION realsize()
 
     !     .. local scalars ..
-    real(RP) :: result, test
+    real(8) :: result, test
     integer  :: j, ndigits
 
     !     .. local arrays ..
-    real(RP) ::  ref(60)
+    real(8) ::  ref(60)
 
     !     .. external subroutines ..
 !    external confuse
@@ -85,7 +83,7 @@ CONTAINS
 40  continue
 !    write(0,fmt='(a)') &
 !       ' ---------------------------------------'
-    write(0,fmt='(1x,a,i2,a)') 'RP appears to have ', &
+    write(0,fmt='(1x,a,i2,a)') '8 appears to have ', &
        ndigits,' digits of accu-'
     if (ndigits.le.8) then
        realsize = 4
@@ -95,7 +93,7 @@ CONTAINS
        realsize = 16
     end if
     write(0,fmt='(1x,a,i2,a)') 'racy assuming ',realsize, &
-       ' bytes per RP word'
+       ' bytes per 8 word'
 !    write(0,fmt='(a)') &
 !      ' ---------------------------------------'
     return
@@ -120,7 +118,7 @@ CONTAINS
 
   SUBROUTINE confuse(q,r)
     !     .. scalar arguments ..
-    real(RP) :: q, r
+    real(8) :: q, r
 
     !     .. intrinsic functions ..
     intrinsic cos

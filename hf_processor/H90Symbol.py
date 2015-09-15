@@ -19,9 +19,8 @@
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
 #**********************************************************************#
-#  Procedure        FortranImplementation.py                           #
-#  Comment          Put together valid fortran strings according to    #
-#                   xml data and parser data                           #
+#  Procedure        H90Symbol.py                                       #
+#  Comment          Provide functionality for HF symbols               #
 #  Date             2012/08/02                                         #
 #  Author           Michel Müller (AOKI Laboratory)                    #
 #**********************************************************************#
@@ -190,6 +189,7 @@ class Symbol(object):
     isPointer = False
     isAutoDom = False
     _isToBeTransfered = False
+    _isHostSymbol = False
     isCompacted = False
     isModuleSymbol = False
     declPattern = None
@@ -561,6 +561,8 @@ class Symbol(object):
             newIntent = "local"
         if newIntent and (not self.intent or self.intent.strip() == "" or self.intent == "unspecified"):
             self.intent = newIntent
+        elif newIntent in ["", None] and self.intent == "local":
+            pass #'local' is not explicitely declared.
         elif newIntent and newIntent != self.intent:
             raise Exception("Symbol %s's intent was previously defined already and does not match the declaration on this line. Previously loaded intent: %s, new intent: %s" %(
                 str(self),
@@ -1041,7 +1043,7 @@ Please specify the domains and their sizes with domName and domSize attributes i
                 %(self.name, offsets, parallelIterators, self.domains))
 
         hostName = self.automaticName() if self.isAutomatic else self.name
-        if (len(offsets) == len(self.domains) and not all([offset == ':' for offset in offsets])) or self.isAutomatic:
+        if (not self.isUsingDevicePostfix and len(offsets) == len(self.domains) and not all([offset == ':' for offset in offsets])) or self.isAutomatic:
             result = hostName
         elif self.isUsingDevicePostfix and len(offsets) > 0 and any([offset == ':' for offset in offsets]) and not all([offset == ':' for offset in offsets]):
             raise Exception("Cannot reshape the array %s at this point, it needs to be accessed either at a single value or for the entire array; offsets: %s" %(self, offsets))

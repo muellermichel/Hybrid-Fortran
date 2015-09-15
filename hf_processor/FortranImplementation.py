@@ -1145,8 +1145,6 @@ end if\n" %(calleeNode.getAttribute('name'))
         if calleeRoutineNode.getAttribute('parallelRegionPosition') != 'within':
             return result
         result += getCUDAErrorHandling(calleeRoutineNode)
-        #TODO: remove
-        #result = result + getTempDeallocationsAfterKernelCall(symbolsByName)
         return result
 
     def getAdditionalKernelParameters(self, cgDoc, routineNode, parallelRegionTemplates):
@@ -1169,10 +1167,12 @@ end if\n" %(calleeNode.getAttribute('name'))
                 symbol.isAutomatic = True
                 additionalImports.append(symbol)
             #check for temporary arrays in kernel subroutines
-            elif not symbol.intent or symbol.intent in ["", None] or symbol.intent == "local" and len(symbol.domains) > 0:
+            elif not symbol.intent or symbol.intent in ["", None, "local"]:
                 symbol.loadRoutineNodeAttributes(routineNode, parallelRegionTemplates)
+                if symbol.intent == "local" and len(symbol.domains) == 0:
+                    continue
                 additionalDeclarations.append(symbol)
-                if len(symbol.domains) > 0: #if this is false, it is probably scalar from the current module
+                if symbol.intent == "local":
                     symbol.isAutomatic = True
 
         return sorted(additionalImports), sorted(additionalDeclarations)
@@ -1258,7 +1258,8 @@ end if\n" %(calleeNode.getAttribute('name'))
                 alreadyOnDevice = "yes"
             elif not symbol.isPresent and alreadyOnDevice == "undefined":
                 alreadyOnDevice = "no"
-            elif (symbol.isPresent and alreadyOnDevice == "no") or (not symbol.isPresent and alreadyOnDevice == "yes"):
+            elif (symbol.isPresent and alreadyOnDevice == "no") \
+            or (not symbol.isPresent and alreadyOnDevice == "yes"):
                 raise Exception("Declaration line contains a mix of device present, non-device-present arrays. \
 Symbols vs present attributes:\n%s" %(str([(symbol.name, symbol.isPresent) for symbol in dependantSymbols])) \
                 )
@@ -1274,9 +1275,24 @@ Symbols vs present attributes:\n%s" %(str([(symbol.name, symbol.isPresent) for s
                 raise Exception("Declaration line contains a mix of transferHere / non transferHere arrays. \
 Symbols vs transferHere attributes:\n%s" %(str([(symbol.name, symbol.transferHere) for symbol in dependantSymbols])) \
                 )
+        isOnHost = "undefined"
+        for symbol in dependantSymbols:
+            if not symbol.domains or len(symbol.domains) == 0:
+                continue
+            elif symbol.isHostSymbol and isOnHost == "undefined":
+                isOnHost = "yes"
+            elif not symbol.isHostSymbol and isOnHost == "undefined":
+                isOnHost = "no"
+            elif (symbol.isHostSymbol and symbol.isHostSymbol == "no") or (not symbol.isHostSymbol and symbol.isHostSymbol == "yes"):
+                raise Exception("Declaration line contains a mix of host / non host arrays. \
+Symbols vs host attributes:\n%s" %(str([(symbol.name, symbol.isHostSymbol) for symbol in dependantSymbols])) \
+                )
         if copyHere == "yes" and alreadyOnDevice == "yes":
             raise Exception("Symbols with 'present' attribute cannot appear on the same specification line as symbols with 'transferHere' attribute.")
-
+        if copyHere == "yes" and isOnHost == "yes":
+            raise Exception("Symbols with 'transferHere' attribute cannot appear on the same specification line as symbols with 'host' attribute.")
+        if alreadyOnDevice == "yes" and isOnHost == "yes":
+            raise Exception("Symbols with 'present' attribute cannot appear on the same specification line as symbols with 'host' attribute.")
 
         #analyse the intent of the symbols. Since one line can only have one intent declaration, we can simply assume the intent of the
         #first symbol
@@ -1301,7 +1317,7 @@ Symbols vs transferHere attributes:\n%s" %(str([(symbol.name, symbol.transferHer
         #passed in scalars in kernels and inside kernels
         elif parallelRegionPosition in ["within", "outside"] \
         and len(dependantSymbols[0].domains) == 0 \
-        and intent not in ["out", "inout"]:
+        and intent not in ["out", "inout", "local"]:
             #handle scalars (passed by value)
             adjustedLine = declarationDirectives + " ,value ::" + symbolDeclarationStr
             for dependantSymbol in dependantSymbols:
@@ -1309,7 +1325,10 @@ Symbols vs transferHere attributes:\n%s" %(str([(symbol.name, symbol.transferHer
 
         #arrays outside of kernels
         elif len(dependantSymbols[0].domains) > 0:
-            if alreadyOnDevice == "yes" or not intent:
+            if isOnHost == "yes":
+                for dependantSymbol in dependantSymbols:
+                    dependantSymbol.isOnDevice = False
+            elif alreadyOnDevice == "yes" or intent in [None, "", "local"]:
                 # we don't need copies of the dependants on cpu
                 adjustedLine = declarationDirectives + " ,device ::" + symbolDeclarationStr
                 for dependantSymbol in dependantSymbols:
@@ -1411,8 +1430,7 @@ class DebugCUDAFortranImplementation(CUDAFortranImplementation):
         result = CUDAFortranImplementation.kernelCallPost(self, symbolsByName, calleeRoutineNode)
         if calleeRoutineNode.getAttribute('parallelRegionPosition') != 'within':
             return result
-        result += getCUDAErrorHandling(calleeRoutineNode, errorVariable="cuerror", stopImmediately=False)
-        result += result + "if(cuerror .NE. cudaSuccess) then\n"\
+        result += "if(cuerror .NE. cudaSuccess) then\n"\
                 "\tstop 1\n" \
             "end if\n"
         return result

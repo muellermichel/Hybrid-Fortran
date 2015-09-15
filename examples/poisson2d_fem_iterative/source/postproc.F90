@@ -1,5 +1,3 @@
-#include "storage_order.F90"
-
 MODULE postproc
 
 use system
@@ -11,7 +9,7 @@ CONTAINS
 
   SUBROUTINE output_array(u,n,cfile)
 
-    real(RP)          :: u(*)
+    real(8)          :: u(*)
     integer           :: n, munit, i
     character(len=40) :: cfile
 
@@ -31,10 +29,10 @@ CONTAINS
 
   SUBROUTINE output_gmv(u,cfile)
 
-    real(RP), dimension(:,:) :: u
+    real(8), dimension(:,:) :: u
     character(len=40)        :: cfile
 
-    real(DP) :: x, y, dx, dy
+    real(8) :: x, y, dx, dy
     integer  :: munit, n_vt, n_vtx, n_vty, n_c, n_cx, n_cy, i, j, i_c
 
     munit = 67

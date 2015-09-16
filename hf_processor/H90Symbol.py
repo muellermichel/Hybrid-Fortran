@@ -561,7 +561,7 @@ class Symbol(object):
             newIntent = "local"
         if newIntent and (not self.intent or self.intent.strip() == "" or self.intent == "unspecified"):
             self.intent = newIntent
-        elif newIntent in ["", None] and self.intent == "local":
+        elif newIntent in ["", None, "unspecified"] and self.intent == "local":
             pass #'local' is not explicitely declared.
         elif newIntent and newIntent != self.intent:
             raise Exception("Symbol %s's intent was previously defined already and does not match the declaration on this line. Previously loaded intent: %s, new intent: %s" %(

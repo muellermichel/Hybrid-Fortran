@@ -489,7 +489,7 @@ def getRuntimeDebugPrintStatements(symbolsByName, calleeRoutineNode, parallelReg
                     formStr = formStr + ",A,"
                 domainsStr = domainsStr + str(joinedDomains[i])
                 formStr = formStr + "I3"
-            formStr = formStr + ",A,E16.8)'"
+            formStr = formStr + ",A,E19.11)'"
             domainsStr = domainsStr + ",'):"
         else:
             formStr = "'(A,E16.8)'"

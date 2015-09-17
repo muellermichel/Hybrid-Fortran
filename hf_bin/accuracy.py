@@ -106,7 +106,7 @@ def unpackNextRecord(file, readEndianFormat, numOfBytesPerValue, typeSpecifier, 
 		sys.stderr.write("This record seems to be a float with value %s\n" %(str(content)))
 	return [content]
 
-def rootMeanSquareDeviation(tup, tupRef, eps):
+def rootMeanSquareDeviation(tup, tupRef, epsSingle):
 	err = 0.0
 	newErr = 0.0
 	newErrSquare = 0.0
@@ -114,6 +114,7 @@ def rootMeanSquareDeviation(tup, tupRef, eps):
 	firstErr = -1
 	firstErrVal = 0.0
 	firstErrExpected = 0.0
+	surrounding = []
 
 	for val in tup:
 		expectedVal = tupRef[i]
@@ -132,14 +133,16 @@ def rootMeanSquareDeviation(tup, tupRef, eps):
 			newErrSquare = 0.0
 			firstErrVal = val
 			firstErrExpected = expectedVal
-		elif (abs(val) > 1E-7 and (abs(newErr) / abs(val)) > 1E-7 and firstErr == -1) \
-		or (abs(val) <= 1E-7 and abs(newErr) > 1E-7 and firstErr == -1):
+		elif (abs(val) > epsSingle and (abs(newErr) / abs(val)) > epsSingle and firstErr == -1) \
+		or (abs(val) <= epsSingle and abs(newErr) > epsSingle and firstErr == -1):
 			firstErr = i
 			firstErrVal = val
 			firstErrExpected = expectedVal
 		err = err + newErrSquare
+	if firstErr != -1:
+		surrounding = tup[max(firstErr - 3, 0):min(firstErr + 4, len(tup))]
 	mean_or_one = sum(tup) / len(tup) if len(tup) > 0 else 1.0
-	return math.sqrt(err) / abs(mean_or_one), firstErr, firstErrVal, firstErrExpected
+	return math.sqrt(err) / abs(mean_or_one), firstErr, firstErrVal, firstErrExpected, surrounding
 
 def checkIntegrity(tup):
 	for index, val in enumerate(tup):
@@ -149,7 +152,7 @@ def checkIntegrity(tup):
 			return index, val
 	return -1, -1
 
-def run_accuracy_test_for_datfile(options, eps):
+def run_accuracy_test_for_datfile(options, eps, epsSingle):
 	numOfBytesPerValue = int(options.bytes)
 	if (numOfBytesPerValue != 4 and numOfBytesPerValue != 8):
 		sys.stderr.write("Unsupported number of bytes per value specified.\n")
@@ -221,11 +224,18 @@ def run_accuracy_test_for_datfile(options, eps):
 					firstErr = firstInvalidIndex
 					err = -1
 				else:
-					[err, firstErr, firstErrVal, expectedVal] = rootMeanSquareDeviation(unpacked, unpackedRef, eps)
+					err, firstErr, firstErrVal, expectedVal, surrounding = rootMeanSquareDeviation(unpacked, unpackedRef, epsSingle)
 					if firstErr != -1 or err > eps:
 						errorState=True
 						passedStr = "first error value: %s; expected: %s; FAIL <-------" %(firstErrVal, expectedVal)
-				sys.stderr.write("%s, record %i: Mean square error: %e; First Error at: %i; %s\n" %(options.inFile, i, err, firstErr, passedStr))
+				sys.stderr.write("%s, record %i: Mean square error: %e; First Error at: %i; Surrounding val: %s; %s\n" %(
+					options.inFile,
+					i,
+					err,
+					firstErr,
+					str(surrounding),
+					passedStr
+				))
 	except(Exception), e:
 		sys.stderr.write("Error: %s\n" %(e))
 		sys.exit(1)
@@ -355,9 +365,10 @@ parser.add_option("-v", action="store_true", dest="verbose")
 parser.add_option("-e", "--epsilon", metavar="EPS", dest="epsilon", help="Throw an error if at any point the error becomes higher than EPS. Defaults to 1E-9.")
 (options, args) = parser.parse_args()
 eps = 1E-6
+epsSingle = 1E-8
 if (options.epsilon):
 	eps = float(options.epsilon)
 if options.netcdf:
 	run_accuracy_test_for_netcdf(options, eps)
 else:
-	run_accuracy_test_for_datfile(options, eps)
+	run_accuracy_test_for_datfile(options, eps, epsSingle)

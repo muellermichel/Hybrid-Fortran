@@ -114,7 +114,7 @@ def rootMeanSquareDeviation(tup, tupRef, eps):
 	firstErr = -1
 	firstErrVal = 0.0
 	firstErrExpected = 0.0
-	value_range = max(tup) - min(tup) if len(tup) > 0 else 0
+
 	for val in tup:
 		expectedVal = tupRef[i]
 		newErr = val - expectedVal
@@ -132,13 +132,14 @@ def rootMeanSquareDeviation(tup, tupRef, eps):
 			newErrSquare = 0.0
 			firstErrVal = val
 			firstErrExpected = expectedVal
-		elif (value_range > eps and (abs(newErr) / value_range) > eps and firstErr == -1) or \
-		(value_range <= eps and abs(newErr) > eps and firstErr == -1):
+		elif (abs(val) > 1E-7 and (abs(newErr) / abs(val)) > 1E-7 and firstErr == -1) \
+		or (abs(val) <= 1E-7 and abs(newErr) > 1E-7 and firstErr == -1):
 			firstErr = i
 			firstErrVal = val
 			firstErrExpected = expectedVal
 		err = err + newErrSquare
-	return math.sqrt(err) / value_range if value_range > eps else math.sqrt(err), firstErr, firstErrVal, firstErrExpected
+	mean_or_one = sum(tup) / len(tup) if len(tup) > 0 else 1.0
+	return math.sqrt(err) / abs(mean_or_one), firstErr, firstErrVal, firstErrExpected
 
 def checkIntegrity(tup):
 	for index, val in enumerate(tup):
@@ -295,14 +296,16 @@ def run_accuracy_test_for_netcdf(options, eps):
 				continue
 			in_array = get_array_from_netcdf_variable(in_variable)
 			ref_array = get_array_from_netcdf_variable(ref_variable)
+			mean_or_one = numpy.mean(in_array)
+			if abs(mean_or_one) < eps:
+				mean_or_one = 1.0
 			absolute_difference = numpy.abs(in_array - ref_array)
-			greater_than_epsilon = absolute_difference > eps
+			greater_than_epsilon = (absolute_difference / mean_or_one) > eps
 			passed_string = "pass"
 			if numpy.count_nonzero(ref_array) == 0:
 				passed_string += "(WARNING:Reference is Zero Matrix!)"
-			value_range = numpy.max(in_array) - numpy.min(in_array)
 			root_mean_square_deviation = numpy.sqrt(numpy.mean((in_array - ref_array)**2))
-			root_mean_square_deviation = root_mean_square_deviation / value_range if value_range > eps else root_mean_square_deviation
+			root_mean_square_deviation = root_mean_square_deviation / abs(mean_or_one)
 			if math.isnan(root_mean_square_deviation):
 				passed_string = "FAIL <-------"
 				error_found = True
@@ -351,7 +354,7 @@ parser.add_option("--netcdf", action="store_true", dest="netcdf")
 parser.add_option("-v", action="store_true", dest="verbose")
 parser.add_option("-e", "--epsilon", metavar="EPS", dest="epsilon", help="Throw an error if at any point the error becomes higher than EPS. Defaults to 1E-9.")
 (options, args) = parser.parse_args()
-eps = 1E-9
+eps = 1E-6
 if (options.epsilon):
 	eps = float(options.epsilon)
 if options.netcdf:

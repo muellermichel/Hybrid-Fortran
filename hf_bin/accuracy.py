@@ -114,11 +114,13 @@ def rootMeanSquareDeviation(tup, tupRef, eps):
 	firstErr = -1
 	firstErrVal = 0.0
 	firstErrExpected = 0.0
+	absoluteErrors = []
 
 	for val in tup:
 		expectedVal = tupRef[i]
 		newErr = val - expectedVal
 		i = i + 1
+		absoluteErrors.append(abs(newErr))
 		try:
 			newErrSquare = newErr**2
 		except(OverflowError), e:
@@ -138,8 +140,9 @@ def rootMeanSquareDeviation(tup, tupRef, eps):
 			firstErrVal = val
 			firstErrExpected = expectedVal
 		err = err + newErrSquare
+	maxErrorIndex = max(enumerate(absoluteErrors), key=lambda x:x[1])[0]
 	mean_or_one = sum(tup) / len(tup) if len(tup) > 0 else 1.0
-	return math.sqrt(err) / abs(mean_or_one), firstErr, firstErrVal, firstErrExpected
+	return math.sqrt(err) / abs(mean_or_one), firstErr, firstErrVal, firstErrExpected, maxErrorIndex, tup[maxErrorIndex], tupRef[maxErrorIndex]
 
 def checkIntegrity(tup):
 	for index, val in enumerate(tup):

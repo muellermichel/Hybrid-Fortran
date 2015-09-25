@@ -115,7 +115,6 @@ def rootMeanSquareDeviation(tup, tupRef, epsSingle):
 	firstErrVal = 0.0
 	firstErrExpected = 0.0
 	absoluteErrors = []
-	surrounding = []
 
 	for val in tup:
 		expectedVal = tupRef[i]
@@ -141,9 +140,7 @@ def rootMeanSquareDeviation(tup, tupRef, epsSingle):
 			firstErrVal = val
 			firstErrExpected = expectedVal
 		err = err + newErrSquare
-	maxErrorIndex = 1 + max(enumerate(absoluteErrors), key=lambda x:x[1])[0]
-	# if firstErr != -1:
-	# 	surrounding = tup[max(firstErr - 3, 0):min(firstErr + 4, len(tup))]
+	maxErrorIndex = 1 + max(enumerate(absoluteErrors), key=lambda x:x[1])[0] if len(absoluteErrors) > 0 else -1
 	mean_or_one = sum(tup) / len(tup) if len(tup) > 0 else 1.0
 	return (
 		math.sqrt(err) / abs(mean_or_one) if mean_or_one > epsSingle else math.sqrt(err),
@@ -152,8 +149,7 @@ def rootMeanSquareDeviation(tup, tupRef, epsSingle):
 		firstErrExpected,
 		maxErrorIndex,
 		tup[maxErrorIndex] if maxErrorIndex < len(tup) else 0.0,
-		tupRef[maxErrorIndex] if maxErrorIndex < len(tupRef) else 0.0,
-		surrounding
+		tupRef[maxErrorIndex] if maxErrorIndex < len(tupRef) else 0.0
 	)
 
 def checkIntegrity(tup):
@@ -236,16 +232,15 @@ def run_accuracy_test_for_datfile(options, eps, epsSingle):
 					firstErr = firstInvalidIndex
 					err = -1
 				else:
-					err, firstErr, firstErrVal, expectedVal, maxErr, maxErrVal, maxErrExpectedVal, surrounding = rootMeanSquareDeviation(unpacked, unpackedRef, epsSingle)
+					err, firstErr, firstErrVal, expectedVal, maxErr, maxErrVal, maxErrExpectedVal = rootMeanSquareDeviation(unpacked, unpackedRef, epsSingle)
 					if firstErr != -1 or err > eps:
 						errorState=True
 						passedStr = "first error value: %s; expected: %s; max error value: %s; expected: %s; FAIL <-------" %(firstErrVal, expectedVal, maxErrVal, maxErrExpectedVal)
-				sys.stderr.write("%s, record %i: Mean square error: %e; First Error at: %i; Surrounding val: %s; Max Error at: %i; %s\n" %(
+				sys.stderr.write("%s, record %i: Mean square error: %e; First Error at: %i; Max Error at: %i; %s\n" %(
 					options.inFile,
 					i,
 					err,
 					firstErr,
-					str(surrounding),
 					maxErr,
 					passedStr
 				))

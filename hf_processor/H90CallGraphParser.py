@@ -1531,7 +1531,7 @@ This is not allowed for implementations using %s.\
                 additionalImportsByName = {}
                 for symbol in additionalImports:
                     additionalImportsByName[symbol.name] = symbol
-                self.additionalWrapperImportsByKernelName[calleeName] = additionalImportsByName.values()
+                self.additionalWrapperImportsByKernelName[calleeName] = additionalWrapperImportsByKernelName.values()
             self.additionalParametersByKernelName[calleeName] = additionalSymbolsForCallee
             if callee.getAttribute("parallelRegionPosition") != "within":
                 continue

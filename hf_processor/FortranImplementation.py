@@ -912,8 +912,9 @@ end subroutine
                     result += "hf_symbols_are_device_present = acc_is_present(%s)\n" %(symbol.name)
                     break
             else:
-                if currRoutineNode.getAttribute("parallelRegionPosition") in ['inside', 'within']:
-                    raise Exception("kernel or kernel wrapper only has temporary data on the device - no input or output possible here.")
+                pass
+                # if currRoutineNode.getAttribute("parallelRegionPosition") in ['inside', 'within']:
+                #     raise Exception("kernel or kernel wrapper only has temporary data on the device - no input or output possible here.")
         result += self.declarationEndPrintStatements()
         return result
 

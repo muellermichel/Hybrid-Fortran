@@ -120,6 +120,7 @@ def rootMeanSquareDeviation(tup, tupRef, epsSingle):
 	for val in tup:
 		expectedVal = tupRef[i]
 		newErr = val - expectedVal
+		normErr = abs(newErr) / abs(val) if abs(val) > epsSingle else abs(newErr)
 		i = i + 1
 		absoluteErrors.append(abs(newErr))
 		try:
@@ -135,24 +136,23 @@ def rootMeanSquareDeviation(tup, tupRef, epsSingle):
 			newErrSquare = 0.0
 			firstErrVal = val
 			firstErrExpected = expectedVal
-		elif (abs(val) > epsSingle and (abs(newErr) / abs(val)) > epsSingle and firstErr == -1) \
-		or (abs(val) <= epsSingle and abs(newErr) > epsSingle and firstErr == -1):
+		elif normErr > epsSingle and firstErr == -1:
 			firstErr = i
 			firstErrVal = val
 			firstErrExpected = expectedVal
 		err = err + newErrSquare
-	maxErrorIndex = max(enumerate(absoluteErrors), key=lambda x:x[1])[0]
-	if firstErr != -1:
-		surrounding = tup[max(firstErr - 3, 0):min(firstErr + 4, len(tup))]
+	maxErrorIndex = 1 + max(enumerate(absoluteErrors), key=lambda x:x[1])[0]
+	# if firstErr != -1:
+	# 	surrounding = tup[max(firstErr - 3, 0):min(firstErr + 4, len(tup))]
 	mean_or_one = sum(tup) / len(tup) if len(tup) > 0 else 1.0
 	return (
-		math.sqrt(err) / abs(mean_or_one),
+		math.sqrt(err) / abs(mean_or_one) if mean_or_one > epsSingle else math.sqrt(err),
 		firstErr,
 		firstErrVal,
 		firstErrExpected,
 		maxErrorIndex,
-		tup[maxErrorIndex],
-		tupRef[maxErrorIndex],
+		tup[maxErrorIndex] if maxErrorIndex < len(tup) else 0.0,
+		tupRef[maxErrorIndex] if maxErrorIndex < len(tupRef) else 0.0,
 		surrounding
 	)
 

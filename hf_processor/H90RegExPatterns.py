@@ -28,61 +28,40 @@
 import re
 
 class H90RegExPatterns:
-    commentedPattern = None
-    trailingCommentPattern = None
-    subprocBeginPattern = None
-    subprocParameterListPattern = None
-    subprocEndPattern = None
-    subprocCallPattern = None
-    parallelRegionPattern = None
-    domainDependantPattern = None
-    parallelRegionEndPattern = None
-    domainDependantEndPattern = None
-    intentPattern = None
-    dimensionPattern = None
-    symbolDeclTestPattern = None
-    symbolDeclPattern = None
-    pointerAssignmentPattern = None
-    loopPattern = None
-    whileLoopPattern = None
-    moduleBeginPattern = None
-    moduleEndPattern = None
-    earlyReturnPattern = None
-    templatePattern = None
-    templateEndPattern = None
-    symbolAccessPattern = None
-    argumentPattern = None
-
     dynamicPatternsByRegex = None
+    staticRegexByPatternName = {
+        'blankPattern': r'\s',
+        'quotedStringPattern': r'''(["'])''',
+        'subprocBeginPattern': r'\s*\w*\s*subroutine\s*(\w*).*',
+        'subprocFirstLineParameterListPattern': r'(.*?\()(.*)',
+        'subprocEndPattern': r'\s*end\s*subroutine.*',
+        'subprocCallPattern': r'\s*call\s*(\w*)(.*)',
+        'parallelRegionPattern': r'\s*@parallelRegion\s*{(.*)}.*',
+        'domainDependantPattern': r'\s*@domainDependant\s*{(.*)}.*',
+        'branchPattern': r'\s*@if\s*{(.*)}.*',
+        'parallelRegionEndPattern': r'\s*@end\s*parallelRegion.*',
+        'domainDependantEndPattern': r'\s*@end\s*domainDependant.*',
+        'branchEndPattern': r'\s*@end\s*if.*',
+        'intentPattern': r'.*?intent\s*\(\s*(in|out|inout)\s*\).*',
+        'dimensionPattern': r'(.*?),?\s*dimension\s*\(\s*(.*?)\s*\)(.*)',
+        'symbolDeclTestPattern': r'.*?::.*',
+        'symbolDeclPattern': r"(\s*(?:double\s+precision|real|integer|character|logical)(?:.*?))\s*::(.*)",
+        'pointerAssignmentPattern': r"^\s*\w+\s*\=\>\s*\w+.*",
+        'whileLoopPattern': r"\s*do\s*while\W.*",
+        'loopPattern': r"\s*do\W.*",
+        'moduleBeginPattern': r'\s*module\s*(\w*).*',
+        'moduleEndPattern': r'\s*end\s*module.*',
+        'earlyReturnPattern': r'^\s*return(?:\s.*|$)',
+        'templatePattern': r'\s*@scheme\s*{(.*)}.*',
+        'templateEndPattern': r'\s*@end\s*scheme.*',
+        'symbolAccessPattern': r'\s*\((.*)',
+        'argumentPattern': r'\s*(?:subroutine|call)?\s*(?:\w*)\s*\((.*)'
+    }
 
     def __init__(self):
-        self.blankPattern = re.compile(r'\s', re.IGNORECASE)
-        self.quotedStringPattern = re.compile(r'''(["'])''', re.IGNORECASE)
-        self.subprocBeginPattern = re.compile(r'\s*\w*\s*subroutine\s*(\w*).*', re.IGNORECASE)
-        self.subprocFirstLineParameterListPattern = re.compile(r'(.*?\()(.*)')
-        self.subprocEndPattern = re.compile(r'\s*end\s*subroutine.*', re.IGNORECASE)
-        self.subprocCallPattern = re.compile(r'\s*call\s*(\w*)(.*)', re.IGNORECASE)
-        self.parallelRegionPattern = re.compile(r'\s*@parallelRegion\s*{(.*)}.*', re.IGNORECASE)
-        self.domainDependantPattern = re.compile(r'\s*@domainDependant\s*{(.*)}.*', re.IGNORECASE)
-        self.branchPattern = re.compile(r'\s*@if\s*{(.*)}.*', re.IGNORECASE)
-        self.parallelRegionEndPattern = re.compile(r'\s*@end\s*parallelRegion.*', re.IGNORECASE)
-        self.domainDependantEndPattern = re.compile(r'\s*@end\s*domainDependant.*', re.IGNORECASE)
-        self.branchEndPattern = re.compile(r'\s*@end\s*if.*', re.IGNORECASE)
-        self.intentPattern = re.compile(r'.*?intent\s*\(\s*(in|out|inout)\s*\).*', re.IGNORECASE)
-        self.dimensionPattern = re.compile(r'(.*?),?\s*dimension\s*\(\s*(.*?)\s*\)(.*)', re.IGNORECASE)
-        self.symbolDeclTestPattern = re.compile(r'.*?::.*', re.IGNORECASE)
-        self.symbolDeclPattern = re.compile(r"(\s*(?:double\s+precision|real|integer|character|logical)(?:.*?))\s*::(.*)", re.IGNORECASE)
-        self.pointerAssignmentPattern = re.compile(r"^\s*\w+\s*\=\>\s*\w+.*", re.IGNORECASE)
-        self.whileLoopPattern = re.compile(r"\s*do\s*while\W.*", re.IGNORECASE)
-        self.loopPattern = re.compile(r"\s*do\W.*", re.IGNORECASE)
-        self.moduleBeginPattern = re.compile(r'\s*module\s*(\w*).*', re.IGNORECASE)
-        self.moduleEndPattern = re.compile(r'\s*end\s*module.*', re.IGNORECASE)
-        self.earlyReturnPattern = re.compile(r'^\s*return(?:\s.*|$)', re.IGNORECASE)
-        self.templatePattern = re.compile(r'\s*@scheme\s*{(.*)}.*', re.IGNORECASE)
-        self.templateEndPattern = re.compile(r'\s*@end\s*scheme.*', re.IGNORECASE)
-        self.symbolAccessPattern = re.compile(r'\s*\((.*)', re.IGNORECASE)
-        self.argumentPattern = re.compile(r'\s*(?:subroutine|call)?\s*(?:\w*)\s*\((.*)', re.IGNORECASE)
         self.dynamicPatternsByRegex = {}
+        for patternName in self.staticRegexByPatternName:
+            setattr(self, patternName, re.compile(self.staticRegexByPatternName[patternName], re.IGNORECASE))
 
     def get(self, regex):
         pattern = self.dynamicPatternsByRegex.get(regex)

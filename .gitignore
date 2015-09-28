@@ -1,5 +1,6 @@
 *.pyc
 pp/*
+pp_old/*
 example/*
 doc/Slides_JMA2013-4_Final.pdf
 cosmo_phys/*
@@ -26,3 +27,4 @@ Thesis.*
 csthesis.*
 doc/src/declarationOfOriginality.pdf
 doc/src/HFDocumentation.pdf
+examples/poisson2d_fem_iterative/input.dat

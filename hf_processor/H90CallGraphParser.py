@@ -214,7 +214,7 @@ class H90CallGraphParser(object):
     stateSwitch = None
 
     def __init__(self):
-        self.patterns = H90RegExPatterns()
+        self.patterns = H90RegExPatterns.Instance()
         self.state = "none"
         self.currCalleeName = None
         self.currArguments = None

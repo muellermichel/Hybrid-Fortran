@@ -224,7 +224,7 @@ class Symbol(object):
         if patterns != None:
             self.patterns = patterns
         else:
-            self.patterns = H90RegExPatterns() #warning! very slow, avoid this code path.
+            self.patterns = H90RegExPatterns.Instance() #warning! very slow, avoid this code path.
         self.isAutomatic = isAutomatic
         self.isPointer = False
         self.debugPrint = debugPrint

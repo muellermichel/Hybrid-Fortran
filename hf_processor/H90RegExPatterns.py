@@ -108,20 +108,12 @@ class H90RegExPatterns(object):
     }
 
     def __init__(self):
-        global resultConnection
-        global resultListener
-        global regexClient
-        regexClient = Client(workAddress)
-        resultListener = Listener(resultAddress)
-        resultConnection = resultListener.accept()
+        self.knownPatternsByRegex = {}
+        self.knownMatchgroupsByRegexAndText = {}
         for patternName in self.staticRegexByPatternName:
-            setattr(self, patternName, PatternEmulator(self.staticRegexByPatternName[patternName]))
-
-    def __del__(self):
-        global resultConnection
-        global regexClient
-        regexClient.close()
-        resultConnection.close()
+            setattr(self, patternName, PatternEmulator(
+                self.staticRegexByPatternName[patternName]
+            ))
 
     def get(self, regex):
         return PatternEmulator(regex)

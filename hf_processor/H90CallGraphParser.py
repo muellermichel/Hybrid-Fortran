@@ -1054,10 +1054,11 @@ class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
     tab_insideSub = "\t\t"
     tab_outsideSub = "\t"
 
-    def __init__(self, cgDoc, implementationsByTemplateName, debugPrint=False):
+    def __init__(self, cgDoc, implementationsByTemplateName, debugPrint=False, outputStream=sys.stdout):
         super(H90toF90Printer, self).__init__(cgDoc)
         self.implementationsByTemplateName = implementationsByTemplateName
         self.debugPrint = debugPrint
+        self.outputStream = outputStream
         self.currRoutineIsCallingParallelRegion = False
         self.currSubroutineImplementationNeedsToBeCommented = False
         self.symbolsPassedInCurrentCallByName = {}
@@ -1989,10 +1990,10 @@ This is not allowed for implementations using %s.\
     def processLine(self, line):
         self.currentLineNeedsPurge = False
         super(H90toF90Printer, self).processLine(line)
-        sys.stdout.write(self.currentLine)
+        self.outputStream.write(self.currentLine)
 
     def processFile(self, fileName):
-        sys.stdout.write(self.implementation.filePreparation(fileName))
+        self.outputStream.write(self.implementation.filePreparation(fileName))
         super(H90toF90Printer, self).processFile(fileName)
 
     #TODO: remove tab argument everywhere

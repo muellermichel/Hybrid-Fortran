@@ -45,6 +45,12 @@ def openFile(file_name, mode):
     else:
         return the_file
 
+def getDataFromFile(path):
+    currFile = openFile(str(path),'rw')
+    data = currFile.read()
+    currFile.close()
+    return data
+
 def prettyprint(obj):
     def convert_to_json(obj):
         from xml.dom.minidom import Document, Node

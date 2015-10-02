@@ -30,6 +30,8 @@ import pdb
 from DomHelper import *
 from GeneralHelper import enum, BracketAnalyzer
 from H90RegExPatterns import H90RegExPatterns
+from GeneralHelper import Singleton
+from H90SymbolDependencyGraphAnalyzer import SymbolDependencyAnalyzer
 
 Init = enum("NOTHING_LOADED",
     "DEPENDANT_ENTRYNODE_ATTRIBUTES_LOADED",

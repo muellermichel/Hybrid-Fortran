@@ -26,58 +26,11 @@
 #  Author           Michel Müller (RIKEN)                              #
 #**********************************************************************#
 import re
-from multiprocessing.connection import Client
-from multiprocessing.connection import Listener
 from GeneralHelper import Singleton
 
-workAddress = ('localhost', 6000)
-resultAddress = ('localhost', 6001)
-resultConnection = None
-resultListener = None
-regexClient = None
-
-class MatchEmulator(object):
-    def __init__(self, text, matchgroups):
-        self.groups = matchgroups
-        self.text = text
-
-    def group(self, groupNumber):
-        if groupNumber == 0:
-            return self.text
-        if groupNumber > len(self.groups):
-            raise Exception("cannot get group %i, pattern only seems to have %i groups" %(groupNumber, len(self.groups)))
-        return self.groups[groupNumber - 1]
-
-class PatternEmulator(object):
-    def __init__(self, regex):
-        global regexClient
-        self.regex = regex
-        regexClient.send({
-            "regex": regex
-        })
-        self.__getResult()
-
-    def __getResult(self):
-        global resultConnection
-        return resultConnection.recv()
-
-    def match(self, text, flag=None):
-        if flag not in [None, re.IGNORECASE]:
-            raise Exception("flags other than IGNORECASE not implemented in match emulation")
-
-        global regexClient
-        regexClient.send({
-            "regex": self.regex,
-            "text": text
-        })
-        result = self.__getResult()
-        matchgroups = result.get("matchgroups")
-        if matchgroups == None:
-            return None
-        return MatchEmulator(text, matchgroups)
-
 @Singleton
-class H90RegExPatterns(object):
+class H90RegExPatterns:
+    dynamicPatternsByRegex = None
     staticRegexByPatternName = {
         'blankPattern': r'\s',
         'quotedStringPattern': r'''(["'])''',
@@ -108,12 +61,13 @@ class H90RegExPatterns(object):
     }
 
     def __init__(self):
-        self.knownPatternsByRegex = {}
-        self.knownMatchgroupsByRegexAndText = {}
+        self.dynamicPatternsByRegex = {}
         for patternName in self.staticRegexByPatternName:
-            setattr(self, patternName, PatternEmulator(
-                self.staticRegexByPatternName[patternName]
-            ))
+            setattr(self, patternName, re.compile(self.staticRegexByPatternName[patternName], re.IGNORECASE))
 
     def get(self, regex):
-        return PatternEmulator(regex)
+        pattern = self.dynamicPatternsByRegex.get(regex)
+        if pattern == None:
+            pattern = re.compile(regex, re.IGNORECASE)
+            self.dynamicPatternsByRegex[regex] = pattern
+        return pattern

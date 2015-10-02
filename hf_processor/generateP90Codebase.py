@@ -32,6 +32,7 @@ from optparse import OptionParser
 from H90CallGraphParser import H90toF90Printer
 from GeneralHelper import openFile, getDataFromFile
 from RecursiveDirEntries import dirEntries
+from H90SymbolDependencyGraphAnalyzer import SymbolDependencyAnalyzer
 from io import FileIO
 import os
 import errno
@@ -97,6 +98,8 @@ implementationsByTemplateName={
 	for templateName in implementationNamesByTemplateName.keys()
 }
 cgDoc = parseString(getDataFromFile(options.callgraph))
+symbolAnalyzer = SymbolDependencyAnalyzer(cgDoc)
+symbolAnalysisByRoutineNameAndSymbolName = symbolAnalyzer.getSymbolAnalysisByRoutine()
 try:
 	os.mkdir(options.outputDir)
 except OSError as e:
@@ -105,18 +108,24 @@ except OSError as e:
 	pass
 filesInDir = dirEntries(str(options.sourceDir), True, 'h90')
 for fileInDir in filesInDir:
-	outputPath = os.path.join(os.path.normpath(options.outputDir), os.path.splitext(os.path.basename(fileInDir))[0] + ".P90")
+	outputPath = os.path.join(os.path.normpath(options.outputDir), os.path.splitext(os.path.basename(fileInDir))[0] + ".P90.temp")
 	sys.stderr.write('Converting %s to %s\n' %(
 		os.path.basename(fileInDir),
 		outputPath
 	))
 	outputStream = FileIO(outputPath, mode="wb")
 	try:
-		f90printer = H90toF90Printer(cgDoc, implementationsByTemplateName, options.debug, outputStream=outputStream)
+		f90printer = H90toF90Printer(
+			cgDoc,
+			implementationsByTemplateName,
+			options.debug,
+			outputStream=outputStream,
+			symbolAnalysisByRoutineNameAndSymbolName=symbolAnalysisByRoutineNameAndSymbolName
+		)
 		f90printer.processFile(fileInDir)
 	except Exception as e:
-		sys.stderr.write('Error when generating F90 from H90 file %s: %s\n%s\n' \
-			%(str(options.sourceFile), str(e), traceback.format_exc())
+		sys.stderr.write('Error when generating P90.temp from h90 file %s: %s\n%s\n' \
+			%(str(fileInDir), str(e), traceback.format_exc())
 		)
 		os.unlink(outputPath)
 		sys.exit(1)

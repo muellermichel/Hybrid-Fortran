@@ -254,7 +254,10 @@ class Symbol(object):
         self.declaredDimensionSizes = None
 
         self._isPresent = False
-        self.isAutoDom = False
+        self.isAutoDom = False #MMU 2015-11-6: At this point we can still not make autoDom the default. It would generate the following error in ASUCA:
+                               #               Error when parsing file /work1/t2g-kaken-S/mueller/asuca/hybrid/asuca-kij/./build/hf_preprocessed/physics.h90 on line 475: There are multiple known dimension sizes for domain i. Cannot insert domain for autoDom symbol densrjd. Please use explicit declaration; Debug Print: None; Print of line:
+                               #               real(rp):: densrjd(nz)
+
         self._isToBeTransfered = False
         self._isHostSymbol = False
         self.isCompacted = False

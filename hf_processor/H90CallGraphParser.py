@@ -1193,7 +1193,7 @@ This is not allowed for implementations using %s.\
             offsets = []
             if len(accessors) != numOfIndependentDomains and len(accessors) != len(symbol.domains) and len(accessors) != 0:
                 raise Exception("Unexpected array access for symbol %s (%s): Please use either %i (number of parallel independant dimensions) \
-    or %i (number of declared dimensions for this array) or zero accessors. Symbol Domains: %s; Symbol Init Level: %i; Parallel Region Position: %s; Parallel Active: %s; Symbol template:\n%s\n" %(
+    or %i (dimensions of loaded domain for this array) or zero accessors. Symbol Domains: %s; Symbol Init Level: %i; Parallel Region Position: %s; Parallel Active: %s; Symbol template:\n%s\n" %(
                     symbol.name,
                     str(accessors),
                     numOfIndependentDomains,

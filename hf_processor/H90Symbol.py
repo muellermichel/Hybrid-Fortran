@@ -138,7 +138,7 @@ def purgeFromDeclarationSettings(line, dependantSymbols, patterns, purgeList=['i
 
     return purgedDeclarationDirectives, declarationDirectives, symbolDeclarationStr
 
-def getReorderedDomainsAccordingToDeclaration(domains, dimensionSizesInDeclaration):
+def getReorderedDomainsAccordingToDeclaration(domains, dimensionSizesInDeclaration, purgeUndeclared=False):
     def getNextUnusedIndexForDimensionSize(domainSize, dimensionSizesInDeclaration, usedIndices):
         index_candidate = None
         startAt = 0
@@ -155,8 +155,16 @@ def getReorderedDomainsAccordingToDeclaration(domains, dimensionSizesInDeclarati
                 break;
         return index_candidate
 
-    if len(domains) != len(dimensionSizesInDeclaration) or len(domains) == 0:
+    if len(domains) == 0:
         return domains
+    if len(domains) != len(dimensionSizesInDeclaration) and not purgeUndeclared:
+        return domains
+    # if purgeUndeclared:
+    #     newDomains = []
+    #     for (domainName, domainSize) in domains:
+    #         if domainSize in dimensionSizesInDeclaration:
+    #             newDomains.append((domainName, domainSize))
+    #     domains = newDomains
     reorderedDomains = [0] * len(domains)
     usedIndices = []
     fallBackToCurrentOrder = False
@@ -422,7 +430,7 @@ class Symbol(object):
                 ("%s_%i" %(value[0],index),value[1])
                 for index,value
                 in enumerate(self.domains)
-            ) #in case we have generic domain names, need to include the index here.
+            ) #in case we have generic domain names, need to include the index here so the order doesn't get messed up.
         else:
             dependantDomSizeByName = dict(
                 (dependantDomName,dependantDomSize)
@@ -455,9 +463,10 @@ class Symbol(object):
                 self.aggregatedRegionDomNames.append(regionDomName)
 
         for (dependantDomName, dependantDomSize) in dependantDomNameAndSize:
+            #build up parallel inactive dimensions again
             if dependantDomName not in self.parallelActiveDims:
                 self.parallelInactiveDims.append(dependantDomName)
-            #$$$ the following needs to be commented
+            #use the declared domain size (potentially overriding automatic sizes)
             if dependantDomName in self.aggregatedRegionDomSizesByName:
                 self.aggregatedRegionDomSizesByName[dependantDomName][0] = dependantDomSize
 
@@ -472,7 +481,7 @@ class Symbol(object):
         for (dependantDomName, dependantDomSize) in dependantDomNameAndSize:
             if dependantDomName not in self.parallelActiveDims and \
             dependantDomName not in self.parallelInactiveDims:
-                raise Exception("Automatic symbol %s's dependant domain size %s is not declared as one of its dimensions." \
+                raise Exception("Symbol %s's dependant domain size %s is not declared as one of its dimensions." \
                     %(self.name, dependantDomSize))
             self.domains.append((dependantDomName, dependantDomSize))
             if self.debugPrint:
@@ -641,7 +650,7 @@ template for symbol %s - automatically inserting it for domain name %s\n"
         # has not yet been analyzed.
         if not self.parallelRegionPosition:
             if not self.isPointer:
-                self.domains = getReorderedDomainsAccordingToDeclaration(self.domains, dimensionSizes)
+                self.domains = getReorderedDomainsAccordingToDeclaration(self.domains, dimensionSizes, purgeUndeclared=True)
             self.checkIntegrityOfDomains()
             return
 

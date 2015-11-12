@@ -273,17 +273,16 @@ def run_accuracy_test_for_datfile(options, eps, epsSingle):
 				firstErr = firstInvalidIndex
 				err = -1
 			elif unpackedRef != None:
-				err, firstErr, firstErrVal, expectedVal, maxErr, maxErrVal, maxErrExpectedVal, surrounding = rootMeanSquareDeviation(unpacked, unpackedRef, epsSingle)
+				err, firstErr, firstErrVal, expectedVal, maxErr, maxErrVal, maxErrExpectedVal = rootMeanSquareDeviation(unpacked, unpackedRef, epsSingle)
 				if firstErr != -1 or err > eps:
 					errorState=True
 					passedStr = "first error value: %s; expected: %s; max error value: %s; expected: %s; FAIL <-------" %(firstErrVal, expectedVal, maxErrVal, maxErrExpectedVal)
-			sys.stderr.write("%s, record %i: Length: %i; Mean square error: %e; First Error at: %i; Surrounding val: %s; Max Error at: %i; %s\n" %(
+			sys.stderr.write("%s, record %i: Length: %i; Mean square error: %e; First Error at: %i; Max Error at: %i; %s\n" %(
 				options.inFile,
 				i,
 				len(unpacked),
 				err,
 				firstErr,
-				str(surrounding),
 				maxErr,
 				passedStr
 			))

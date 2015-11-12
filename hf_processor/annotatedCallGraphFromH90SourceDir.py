@@ -64,8 +64,8 @@ for fileInDir in filesInDir:
     parser = H90XMLCallGraphGenerator(doc)
     parser.debugPrint = options.debug
     parser.processFile(fileInDir)
-    if options.debug:
-      sys.stderr.write("first pass for " + fileInDir + " finished\n")
+    # if options.debug:
+    sys.stderr.write("Callgraph generated for " + fileInDir + "\n")
 
 #second pass: loop again through all h90 files and parse the @domainDependant symbol declarations flags
 #   -> update the callgraph document with this information.
@@ -76,8 +76,8 @@ for fileInDir in filesInDir:
     parser = H90XMLSymbolDeclarationExtractor(doc)
     parser.debugPrint = options.debug
     parser.processFile(fileInDir)
-    if options.debug:
-      sys.stderr.write("second pass for " + fileInDir + " finished\n")
+    # if options.debug:
+    sys.stderr.write("Symbol declarations extracted for " + fileInDir + "\n")
 
 if (options.pretty):
 	sys.stdout.write(doc.toprettyxml())

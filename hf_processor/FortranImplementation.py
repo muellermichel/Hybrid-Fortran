@@ -661,7 +661,7 @@ class TraceGeneratingFortranImplementation(FortranImplementation):
     earlyReturnCounter = 0
 
     def __init__(self, optionFlags):
-        self.patterns = H90RegExPatterns()
+        self.patterns = H90RegExPatterns.Instance()
         self.currentTracedSymbols = []
         self.earlyReturnCounter = 0
 
@@ -1014,7 +1014,7 @@ class TraceCheckingOpenACCFortranImplementation(DebugPGIOpenACCFortranImplementa
 
     def __init__(self, optionFlags):
         DebugPGIOpenACCFortranImplementation.__init__(self, optionFlags)
-        self.patterns = H90RegExPatterns()
+        self.patterns = H90RegExPatterns.Instance()
         self.currentTracedSymbols = []
 
     def additionalIncludes(self):

@@ -23,8 +23,8 @@ import sys, pdb
 import math
 import traceback
 
-def unpackNextArray(file, readEndianFormat, numOfBytesPerValue, typeSpecifier):
-	recordByteLength = unpackNextInteger(file, readEndianFormat)
+def unpackNextArray(f, readEndianFormat, numOfBytesPerValue, typeSpecifier):
+	recordByteLength = unpackNextInteger(f, readEndianFormat)
 	if recordByteLength == None:
 		return None
 	if (recordByteLength % numOfBytesPerValue != 0):
@@ -32,12 +32,12 @@ def unpackNextArray(file, readEndianFormat, numOfBytesPerValue, typeSpecifier):
 		return None
 	recordLength = recordByteLength / numOfBytesPerValue
 
-	data = file.read(recordByteLength)
+	data = f.read(recordByteLength)
 	if (len(data) != recordByteLength):
 		raise Exception, "Could not read %i bytes as expected. Only %i bytes read." %(recordByteLength, len(data))
 		return None
 
-	redundantRecordLength = unpackNextInteger(file, readEndianFormat)
+	redundantRecordLength = unpackNextInteger(f, readEndianFormat)
 	if redundantRecordLength == None:
 		raise Exception, "Could not read trailer."
 	if (recordByteLength != redundantRecordLength):
@@ -45,66 +45,108 @@ def unpackNextArray(file, readEndianFormat, numOfBytesPerValue, typeSpecifier):
 		return None
 
 	dataFormat = '%s%i%s' %(readEndianFormat, recordLength, typeSpecifier)
-	return struct.unpack(dataFormat, data)
+	try:
+		unpacked = struct.unpack(dataFormat, data)
+	except Exception as e:
+		raise Exception("Error when trying to unpack array using %s format: %s" %(dataFormat, str(e)))
+	return unpacked
 
-def unpackNextInteger(file, readEndianFormat):
-	data = file.read(4)
+def unpackNextInteger(f, readEndianFormat):
+	data = f.read(4)
 	if (len(data) != 4):
 		#we have reached the end of the file
 		return None
 
 	format = '%si' %(readEndianFormat)
-	unpacked = struct.unpack(format, data)
+	try:
+		unpacked = struct.unpack(format, data)
+	except Exception as e:
+		raise Exception("Error when trying to unpack integer using %s format: %s" %(format, str(e)))
 	return unpacked[0]
 
-def unpackNextFloat(file, readEndianFormat, numOfBytesPerValue, typeSpecifier):
-	data = file.read(numOfBytesPerValue)
+def unpackNextFloat(f, readEndianFormat, numOfBytesPerValue, typeSpecifier):
+	data = f.read(numOfBytesPerValue)
 	if (len(data) != numOfBytesPerValue):
 		#we have reached the end of the file
 		return None
 
 	format = '%s%s' %(readEndianFormat, typeSpecifier)
-	unpacked = struct.unpack(format, data)
+	try:
+		unpacked = struct.unpack(format, data)
+	except Exception as e:
+		raise Exception("Error when trying to unpack float using %s format: %s" %(format, str(e)))
 	return unpacked[0]
 
-def unpackNextRecord(file, readEndianFormat, numOfBytesPerValue, typeSpecifier, verbose=False):
-	currentPosition = file.tell()
-	content = None
-	eof = False
-	try:
-		content = unpackNextArray(file, readEndianFormat, numOfBytesPerValue, typeSpecifier)
-		eof = content == None
-	except Exception as e:
-		if verbose:
-			sys.stderr.write("Could not unpack record as array (%s) - trying integer\n" %(str(e)))
-	if eof:
-		return None
-	if content != None:
-		if verbose:
-			sys.stderr.write("This record seems to be an array of length %i\n" %(len(content)))
-		return content
+def unpackNextRecord(f, readEndianFormat, numOfBytesPerValue, verbose=False):
+	def tentativeUnpack(f, readEndianFormat, numOfBytesPerValue, typeSpecifier, verbose=False):
+		currentPosition = f.tell()
+		content = None
+		eof = False
+		try:
+			content = unpackNextArray(f, readEndianFormat, numOfBytesPerValue, typeSpecifier)
+			eof = content == None
+		except Exception as e:
+			if verbose:
+				sys.stderr.write("Could not unpack record as array (%s) - trying integer\n" %(str(e)))
+		if eof:
+			return None
+		if content != None:
+			if verbose:
+				sys.stderr.write("This record seems to be an array of length %i\n" %(len(content)))
+			return content
 
-	try:
-		file.seek(currentPosition)
-		content = unpackNextInteger(file, readEndianFormat)
-		eof = content == None
-	except Exception as e:
+		try:
+			f.seek(currentPosition)
+			content = unpackNextInteger(f, readEndianFormat)
+			eof = content == None
+		except Exception as e:
+			if verbose:
+				sys.stderr.write("Could not unpack record as integer (%s) - trying float as last option\n" %(str(e)))
+		if eof:
+			return None
+		if content != None:
+			if verbose:
+				sys.stderr.write("This record seems to be an integer with value %i\n" %(content))
+			return [content]
+
+		f.seek(currentPosition)
+		content = unpackNextFloat(f, readEndianFormat, numOfBytesPerValue, typeSpecifier)
+		if content == None:
+			return None
 		if verbose:
-			sys.stderr.write("Could not unpack record as integer (%s) - trying float as last option\n" %(str(e)))
-	if eof:
-		return None
-	if content != None:
-		if verbose:
-			sys.stderr.write("This record seems to be an integer with value %i\n" %(content))
+			sys.stderr.write("This record seems to be a float with value %s\n" %(str(content)))
 		return [content]
 
-	file.seek(currentPosition)
-	content = unpackNextFloat(file, readEndianFormat, numOfBytesPerValue, typeSpecifier)
-	if content == None:
+	if numOfBytesPerValue != None:
+		return tentativeUnpack(
+			f,
+			readEndianFormat,
+			numOfBytesPerValue,
+			'd' if numOfBytesPerValue == 8 else 'f',
+			verbose
+		)
+
+	# at this point we need to guess number of bytes.
+	# Let's find out whether the number of records is 0 or 1 with 8 bytes (usually that indicates that it is unlikely to be 8 bytes)
+	currentPosition = f.tell()
+	unpacked8 = tentativeUnpack(f, readEndianFormat, 8, 'd', verbose)
+	if unpacked8 != None and len(unpacked8) > 1:
+		return unpacked8
+	f.seek(currentPosition)
+	unpacked4 = tentativeUnpack(f, readEndianFormat, 4, 'f', verbose)
+	if unpacked8 == None and unpacked4 == None:
 		return None
-	if verbose:
-		sys.stderr.write("This record seems to be a float with value %s\n" %(str(content)))
-	return [content]
+	if unpacked4 != None and len(unpacked4) > 1:
+		return unpacked4
+	if unpacked4 == None and unpacked8 != None:
+		return unpacked8
+	if unpacked8 == None and unpacked4 != None:
+		return unpacked4
+	if len(unpacked4) == len(unpacked8):
+		return unpacked4 #at this point an 4 byte integer is most likely
+	if len(unpacked4) == 1:
+		return unpacked4
+	return unpacked8
 
 def rootMeanSquareDeviation(tup, tupRef, epsSingle):
 	err = 0.0
@@ -148,8 +190,8 @@ def rootMeanSquareDeviation(tup, tupRef, epsSingle):
 		firstErrVal,
 		firstErrExpected,
 		maxErrorIndex,
-		tup[maxErrorIndex] if maxErrorIndex < len(tup) else 0.0,
-		tupRef[maxErrorIndex] if maxErrorIndex < len(tupRef) else 0.0
+		tup[maxErrorIndex] if maxErrorIndex >= 0 and maxErrorIndex < len(tup) else 0.0,
+		tupRef[maxErrorIndex] if maxErrorIndex >= 0 and maxErrorIndex < len(tupRef) else 0.0
 	)
 
 def checkIntegrity(tup):
@@ -161,17 +203,17 @@ def checkIntegrity(tup):
 	return -1, -1
 
 def run_accuracy_test_for_datfile(options, eps, epsSingle):
-	numOfBytesPerValue = int(options.bytes)
-	if (numOfBytesPerValue != 4 and numOfBytesPerValue != 8):
+	numOfBytesPerValue = int(options.bytes) if options.bytes != None else None
+	if numOfBytesPerValue != None and numOfBytesPerValue != 4 and numOfBytesPerValue != 8:
 		sys.stderr.write("Unsupported number of bytes per value specified.\n")
 		sys.exit(2)
-	typeSpecifier = 'f'
-	if (numOfBytesPerValue == 8):
-		typeSpecifier = 'd'
 	readEndianFormat = '>'
 	if (options.readEndian == "little"):
 		readEndianFormat = '<'
-	sys.stderr.write("performing accuracy test with .DAT file, %i bytes per value, %s endian, float\n" %(numOfBytesPerValue, readEndianFormat))
+	sys.stderr.write("performing accuracy test with .DAT file, %s bytes per value, %s endian, float\n" %(
+		str(numOfBytesPerValue) if numOfBytesPerValue != None else "automatic",
+		readEndianFormat
+	))
 	inFile = None
 	refFile = None
 	try:
@@ -188,16 +230,14 @@ def run_accuracy_test_for_datfile(options, eps, epsSingle):
 			i = i + 1
 			unpackedRef = None
 			if refFile != None:
-				try:
-					unpackedRef = unpackNextRecord(refFile, readEndianFormat, numOfBytesPerValue, typeSpecifier, options.verbose)
-				except(Exception), e:
-					sys.stderr.write("Error reading record %i from %s: %s\n" %(i, str(options.refFile), e))
-					sys.exit(1)
+				unpackedRef = unpackNextRecord(refFile, readEndianFormat, numOfBytesPerValue, options.verbose)
 				if unpackedRef == None:
-					break;
+					break
+				if len(unpackedRef) == 0:
+					continue
 			unpacked = None
 			try:
-				unpacked = unpackNextRecord(inFile, readEndianFormat, numOfBytesPerValue, typeSpecifier, options.verbose)
+				unpacked = unpackNextRecord(inFile, readEndianFormat, numOfBytesPerValue, options.verbose)
 			except(Exception), e:
 				sys.stderr.write("Error reading record %i from %s: %s\n" %(i, str(options.inFile), e))
 				sys.exit(1)
@@ -205,45 +245,48 @@ def run_accuracy_test_for_datfile(options, eps, epsSingle):
 			if options.verbose and unpacked != None and unpackedRef != None:
 				sys.stderr.write("Processing record %i: %i values unpacked for record, %i values unpacked for reference.\n" %(i, len(unpacked), len(unpackedRef)))
 
-			if unpacked == None and unpackedRef != None:
-				sys.stderr.write("Error in %s: Record expected, could not load record it\n" %(str(options.inFile)))
+			if unpackedRef != None and (unpacked == None or len(unpacked) == 0):
+				sys.stderr.write("Error in %s: Record with length %i expected, %s found\n" %(str(options.inFile), len(unpackedRef), str(unpacked)))
+				if len(unpackedRef) < 100:
+					sys.stderr.write("Expected record: %s\n" %(str(unpackedRef)))
 				sys.exit(1)
-			elif unpacked == None:
-				break
 
 			if int(options.printNum) > 0:
 				print unpacked[0:int(options.printNum)]
 			if options.verbose:
 				sys.stderr.write("Record %i unpacked, contains %i elements.\n" %(i, len(unpacked)))
+
+			if unpackedRef != None and len(unpacked) != len(unpackedRef):
+				sys.stderr.write("Error in %s: Record %i does not have same length as reference. Length: %i, expected: %i\n" \
+					%(str(options.inFile), i, len(unpacked), len(unpackedRef)))
+				sys.exit(1)
+			#analyse unpacked data
 			if unpackedRef != None:
-				if len(unpacked) != len(unpackedRef):
-					sys.stderr.write("Error in %s: Record %i does not have same length as reference. Length: %i, expected: %i\n" \
-						%(str(options.inFile), i, len(unpacked), len(unpackedRef)))
-					sys.exit(1)
-				#analyse unpacked data
 				firstInvalidIndex, firstInvalidValue = checkIntegrity(unpackedRef)
 				if firstInvalidIndex != -1:
-					sys.stderr.write("%s, record %i: Invalid Value %s in Reference at %i - cannot analyze\n" %(options.inFile, i, str(firstInvalidValue), firstInvalidIndex))
+					sys.stderr.write("%s, record %i: WARNING: Invalid Value %s in Reference at %i - cannot analyze\n" %(options.inFile, i, str(firstInvalidValue), firstInvalidIndex))
 					continue
-				firstInvalidIndex, firstInvalidValue = checkIntegrity(unpacked)
-				if firstInvalidIndex != -1:
+			firstInvalidIndex, firstInvalidValue = checkIntegrity(unpacked)
+			if firstInvalidIndex != -1:
+				errorState=True
+				passedStr = "invalid value found: %s; FAIL <-------" %(str(firstInvalidValue))
+				firstErr = firstInvalidIndex
+				err = -1
+			elif unpackedRef != None:
+				err, firstErr, firstErrVal, expectedVal, maxErr, maxErrVal, maxErrExpectedVal, surrounding = rootMeanSquareDeviation(unpacked, unpackedRef, epsSingle)
+				if firstErr != -1 or err > eps:
 					errorState=True
-					passedStr = "invalid value found: %s; FAIL <-------" %(str(firstInvalidValue))
-					firstErr = firstInvalidIndex
-					err = -1
-				else:
-					err, firstErr, firstErrVal, expectedVal, maxErr, maxErrVal, maxErrExpectedVal = rootMeanSquareDeviation(unpacked, unpackedRef, epsSingle)
-					if firstErr != -1 or err > eps:
-						errorState=True
-						passedStr = "first error value: %s; expected: %s; max error value: %s; expected: %s; FAIL <-------" %(firstErrVal, expectedVal, maxErrVal, maxErrExpectedVal)
-				sys.stderr.write("%s, record %i: Mean square error: %e; First Error at: %i; Max Error at: %i; %s\n" %(
-					options.inFile,
-					i,
-					err,
-					firstErr,
-					maxErr,
-					passedStr
-				))
+					passedStr = "first error value: %s; expected: %s; max error value: %s; expected: %s; FAIL <-------" %(firstErrVal, expectedVal, maxErrVal, maxErrExpectedVal)
+			sys.stderr.write("%s, record %i: Length: %i; Mean square error: %e; First Error at: %i; Surrounding val: %s; Max Error at: %i; %s\n" %(
+				options.inFile,
+				i,
+				len(unpacked),
+				err,
+				firstErr,
+				str(surrounding),
+				maxErr,
+				passedStr
+			))
 	except(Exception), e:
 		sys.stderr.write("Error: %s\n" %(e))
 		sys.exit(1)
@@ -365,7 +408,7 @@ parser.add_option("-f", "--file", dest="inFile",
                   help="read from FILE", metavar="FILE", default="in.dat")
 parser.add_option("--reference", dest="refFile",
                   help="reference FILE", metavar="FILE", default=None)
-parser.add_option("-b", "--bytesPerValue", dest="bytes", default="8")
+parser.add_option("-b", "--bytesPerValue", dest="bytes")
 parser.add_option("-p", "--printFirstValues", dest="printNum", default="0")
 parser.add_option("-r", "--readEndian", dest="readEndian", default="little")
 parser.add_option("--netcdf", action="store_true", dest="netcdf")

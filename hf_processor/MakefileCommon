@@ -141,8 +141,10 @@ SRC_H90TGT_HFPP_PRE=$(addprefix $(SRC_DIR_HFPP),$(notdir $(SRC_H90_ALL)))
 SRC_H90TGT_HFPP=$(SRC_H90TGT_HFPP_PRE:.H90=.h90)
 SRC_H90TGT_CPU_PRE=$(addprefix $(SRC_DIR_CPU),$(notdir $(SRC_H90TGT_HFPP)))
 SRC_H90TGT_CPU=$(SRC_H90TGT_CPU_PRE:.h90=.P90)
+SRC_H90TGT_CPU_TEMP=$(addsuffix .temp,$(SRC_H90TGT_CPU))
 SRC_H90TGT_GPU_PRE=$(addprefix $(SRC_DIR_GPU),$(notdir $(SRC_H90TGT_HFPP)))
 SRC_H90TGT_GPU=$(SRC_H90TGT_GPU_PRE:.h90=.P90)
+SRC_H90TGT_GPU_TEMP=$(addsuffix .temp,$(SRC_H90TGT_GPU))
 
 FRAMEWORK_DIRS_CPU=$(addprefix $(SRC_DIR_CPU),$(FRAMEWORK_DIRS))
 FRAMEWORK_DIRS_GPU=$(addprefix $(SRC_DIR_GPU),$(FRAMEWORK_DIRS))
@@ -320,9 +322,9 @@ install_gpu: ${INSTALL_TARGETS_GPU}
 
 source: source_cpu source_gpu
 
-source_cpu: ${CG_DIR}CG_CPU.xml configfiles_cpu ${SRC_ALL_CPU}
+source_cpu: ${CG_DIR}CG_CPU.xml ${SRC_ALL_CPU}
 
-source_gpu: ${CG_DIR}CG_GPU.xml configfiles_gpu ${SRC_ALL_GPU}
+source_gpu: ${CG_DIR}CG_GPU.xml ${SRC_ALL_GPU}
 
 graphs: ${CG_DIR}CG_CPU.png ${CG_DIR}CG_GPU.png
 
@@ -586,17 +588,17 @@ ${SRC_DIR_HFPP}%.h90: %.h90
 	@mkdir -p ${SRC_DIR_HFPP} && python ${TOOLSDIR}/strip_fortran_line_continuations.py $< > $@
 
 define generate_p90_rules
-$(1)%.P90.temp: ${SRC_DIR_HFPP}%.h90 $(2)implementationNamesByTemplate ${CG_DIR}$(3)
-	@$$(call yellowecho,"...........converting $$(notdir $$<)")
-	python ${python_flags} ${HF_DIR}/hf_processor/generateF90fromH90AndAnalyzedCallGraph.py -i $$< -c ${CG_DIR}$(3) ${H90_PREPROCESSOR_ARGS} --implementation=$(2)implementationNamesByTemplate --optionFlags=${OPTION_FLAGS},${preprocessor_args} > $$@
+$(4): ${SRC_H90TGT_HFPP} $(2)implementationNamesByTemplate ${CG_DIR}$(3)
+	@$$(call yellowecho,"...........converting all h90 files")
+	python ${python_flags} ${HF_DIR}/hf_processor/generateP90Codebase.py -i ${SRC_DIR_HFPP} -o $(1) -c ${CG_DIR}$(3) ${H90_PREPROCESSOR_ARGS} --implementation=$(2)implementationNamesByTemplate --optionFlags=${OPTION_FLAGS},${preprocessor_args} > $$@
 
 $(1)%.P90: $(1)%.P90.temp
 	@$$(call yellowecho,"...........copy $$(notdir $$<) if new or changed")
 	@${HF_DIR}/hf_bin/copy_if_new_or_changed.sh $$< $$@
 endef
 
-$(eval $(call generate_p90_rules,${SRC_DIR_CPU},${DIR_CPU},${CPU_CALLGRAPH_FILE}))
-$(eval $(call generate_p90_rules,${SRC_DIR_GPU},${DIR_GPU},${GPU_CALLGRAPH_FILE}))
+$(eval $(call generate_p90_rules,${SRC_DIR_CPU},${DIR_CPU},${CPU_CALLGRAPH_FILE},${SRC_H90TGT_CPU_TEMP}))
+$(eval $(call generate_p90_rules,${SRC_DIR_GPU},${DIR_GPU},${GPU_CALLGRAPH_FILE},${SRC_H90TGT_GPU_TEMP}))
 
 ${SRC_DIR_HFPP}%.h90: %.H90
 	@echo ...........preprocessing and preparing file for HF parsing: $<

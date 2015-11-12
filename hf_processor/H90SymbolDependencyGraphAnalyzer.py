@@ -86,6 +86,7 @@ class SymbolAnalysis:
             SymbolType.DOMAIN_DEPENDANT
         ]
 
+
     def updateWith(self, analysis, routineName):
         for routineName in analysis.aliasNamesByRoutineName:
             self.aliasNamesByRoutineName[routineName] = analysis.aliasNamesByRoutineName[routineName]
@@ -95,8 +96,8 @@ class SymbolAnalysis:
             self.symbolType = analysis.symbolType
         elif self.isDomainDependant \
         and not analysis.isDomainDependant:
-            raise Exception(
-                "Symbol %s is declared as domain dependant upstream (type %s), but doesn't have any domain dependant information later in the callgraph stream (%s, type %s)." %(
+            sys.stderr.write(
+                "WARNING: Symbol %s is declared as domain dependant upstream (type %s), but doesn't have any domain dependant information later in the callgraph stream (%s, type %s).\n" %(
                     self.name,
                     str(self.symbolType),
                     routineName,
@@ -105,16 +106,16 @@ class SymbolAnalysis:
             )
         if (not type(self.sourceModule) in [unicode, str] or self.sourceModule == "") \
         and (type(analysis.sourceModule) in [unicode, str] and analysis.sourceModule != ""):
-            raise Exception(
-                "Symbol %s is imported from a module downstream in a callgraph (%s) while not being a module symbol earlier in the stream. SourceModule found where not expected." %(
+            sys.stderr.write(
+                "WARNING: Symbol %s is imported from a module downstream in a callgraph (%s) while not being a module symbol earlier in the stream. SourceModule found where not expected.\n" %(
                     self.name,
                     routineName
                 )
             )
         if (not type(self.sourceSymbol) in [unicode, str] or self.sourceSymbol == "") \
         and (type(analysis.sourceSymbol) in [unicode, str] and analysis.sourceSymbol != ""):
-            raise Exception(
-                "Symbol %s is imported from a module downstream in a callgraph (%s) while not being a module symbol earlier in the stream. SourceSymbol found where not expected." %(
+            sys.stderr.write(
+                "WARNING: Symbol %s is imported from a module downstream in a callgraph (%s) while not being a module symbol earlier in the stream. SourceSymbol found where not expected.\n" %(
                     self.name,
                     routineName
                 )

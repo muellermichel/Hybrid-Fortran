@@ -32,6 +32,7 @@
 from xml.dom.minidom import Document
 from DomHelper import *
 from GeneralHelper import BracketAnalyzer, findRightMostOccurrenceNotInsideQuotes, stripWhitespace, enum
+from H90SymbolDependencyGraphAnalyzer import SymbolDependencyAnalyzer
 from H90Symbol import *
 from H90RegExPatterns import H90RegExPatterns
 import os
@@ -214,7 +215,7 @@ class H90CallGraphParser(object):
     stateSwitch = None
 
     def __init__(self):
-        self.patterns = H90RegExPatterns()
+        self.patterns = H90RegExPatterns.Instance()
         self.state = "none"
         self.currCalleeName = None
         self.currArguments = None
@@ -1054,10 +1055,11 @@ class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
     tab_insideSub = "\t\t"
     tab_outsideSub = "\t"
 
-    def __init__(self, cgDoc, implementationsByTemplateName, debugPrint=False):
+    def __init__(self, cgDoc, implementationsByTemplateName, debugPrint=False, outputStream=sys.stdout, symbolAnalysisByRoutineNameAndSymbolName=None):
         super(H90toF90Printer, self).__init__(cgDoc)
         self.implementationsByTemplateName = implementationsByTemplateName
         self.debugPrint = debugPrint
+        self.outputStream = outputStream
         self.currRoutineIsCallingParallelRegion = False
         self.currSubroutineImplementationNeedsToBeCommented = False
         self.symbolsPassedInCurrentCallByName = {}
@@ -1073,11 +1075,11 @@ class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
         self.currParallelRegionTemplateNode = None
         self.symbolsByRoutineNameAndSymbolName = {}
         try:
-            symbolAnalysisNodes = cgDoc.getElementsByTagName("symbolAnalysis")
-            if len(symbolAnalysisNodes) > 1:
-                raise Exception("more than one symbol analysis present")
-            import pickle
-            self.symbolAnalysisByRoutineNameAndSymbolName = pickle.loads(symbolAnalysisNodes[0].firstChild.wholeText)
+            if symbolAnalysisByRoutineNameAndSymbolName == None:
+                symbolAnalyzer = SymbolDependencyAnalyzer(self.cgDoc)
+                self.symbolAnalysisByRoutineNameAndSymbolName = symbolAnalyzer.getSymbolAnalysisByRoutine()
+            else:
+                self.symbolAnalysisByRoutineNameAndSymbolName = symbolAnalysisByRoutineNameAndSymbolName
             self.symbolsByModuleNameAndSymbolName = {}
             for moduleName in self.moduleNodesByName.keys():
                 moduleNode = self.moduleNodesByName.get(moduleName)
@@ -1191,7 +1193,7 @@ This is not allowed for implementations using %s.\
             offsets = []
             if len(accessors) != numOfIndependentDomains and len(accessors) != len(symbol.domains) and len(accessors) != 0:
                 raise Exception("Unexpected array access for symbol %s (%s): Please use either %i (number of parallel independant dimensions) \
-    or %i (number of declared dimensions for this array) or zero accessors. Symbol Domains: %s; Symbol Init Level: %i; Parallel Region Position: %s; Parallel Active: %s; Symbol template:\n%s\n" %(
+    or %i (dimensions of loaded domain for this array) or zero accessors. Symbol Domains: %s; Symbol Init Level: %i; Parallel Region Position: %s; Parallel Active: %s; Symbol template:\n%s\n" %(
                     symbol.name,
                     str(accessors),
                     numOfIndependentDomains,
@@ -1531,7 +1533,7 @@ This is not allowed for implementations using %s.\
                 additionalImportsByName = {}
                 for symbol in additionalImports:
                     additionalImportsByName[symbol.name] = symbol
-                self.additionalWrapperImportsByKernelName[calleeName] = additionalWrapperImportsByKernelName.values()
+                self.additionalWrapperImportsByKernelName[calleeName] = additionalImportsByName.values()
             self.additionalParametersByKernelName[calleeName] = additionalSymbolsForCallee
             if callee.getAttribute("parallelRegionPosition") != "within":
                 continue
@@ -1953,10 +1955,11 @@ This is not allowed for implementations using %s.\
             [self.additionalWrapperImportsByKernelName[kernelName] for kernelName in self.additionalWrapperImportsByKernelName.keys()],
             []
         )
-        sys.stderr.write("curr Module: %s; additional imports: %s\n" %(
-            self.currModuleName,
-            ["%s: %s from %s" %(symbol.name, symbol.declarationType(), symbol.sourceModule) for symbol in additionalImports]
-        ))
+        if self.debugPrint:
+            sys.stderr.write("curr Module: %s; additional imports: %s\n" %(
+                self.currModuleName,
+                ["%s: %s from %s" %(symbol.name, symbol.declarationType(), symbol.sourceModule) for symbol in additionalImports]
+            ))
         for symbol in additionalImports:
             if symbol.declarationType() not in [DeclarationType.FOREIGN_MODULE_SCALAR, DeclarationType.LOCAL_ARRAY, DeclarationType.MODULE_ARRAY] \
             or (symbol.declarationType() == DeclarationType.MODULE_ARRAY and symbol.sourceModule == self.currModuleName) \
@@ -1989,10 +1992,10 @@ This is not allowed for implementations using %s.\
     def processLine(self, line):
         self.currentLineNeedsPurge = False
         super(H90toF90Printer, self).processLine(line)
-        sys.stdout.write(self.currentLine)
+        self.outputStream.write(self.currentLine)
 
     def processFile(self, fileName):
-        sys.stdout.write(self.implementation.filePreparation(fileName))
+        self.outputStream.write(self.implementation.filePreparation(fileName))
         super(H90toF90Printer, self).processFile(fileName)
 
     #TODO: remove tab argument everywhere

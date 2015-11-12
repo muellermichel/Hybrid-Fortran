@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: UTF-8 -*-
 
-# Copyright (C) 2014 Michel Müller, Tokyo Institute of Technology
+# Copyright (C) 2015 Michel Müller, Tokyo Institute of Technology
 
 # This file is part of Hybrid Fortran.
 
@@ -26,7 +26,9 @@
 #  Author           Michel Müller (RIKEN)                              #
 #**********************************************************************#
 import re
+from GeneralHelper import Singleton
 
+@Singleton
 class H90RegExPatterns:
     dynamicPatternsByRegex = None
     staticRegexByPatternName = {

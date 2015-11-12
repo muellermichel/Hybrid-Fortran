@@ -45,6 +45,12 @@ def openFile(file_name, mode):
     else:
         return the_file
 
+def getDataFromFile(path):
+    currFile = openFile(str(path),'rw')
+    data = currFile.read()
+    currFile.close()
+    return data
+
 def prettyprint(obj):
     def convert_to_json(obj):
         from xml.dom.minidom import Document, Node
@@ -159,6 +165,42 @@ def findLeftMostOccurrenceNotInsideQuotes(stringToMatch, stringToSearch, leftSta
         if numOfTrys >= 100:
             raise Exception("Could not find the string even after 100 tries.")
     return matchIndex
+
+class Singleton:
+    """
+    A non-thread-safe helper class to ease implementing singletons.
+    This should be used as a decorator -- not a metaclass -- to the
+    class that should be a singleton.
+
+    The decorated class can define one `__init__` function that
+    takes only the `self` argument. Other than that, there are
+    no restrictions that apply to the decorated class.
+
+    To get the singleton instance, use the `Instance` method. Trying
+    to use `__call__` will result in a `TypeError` being raised.
+
+    Limitations: The decorated class cannot be inherited from.
+    Source: http://stackoverflow.com/questions/31875/is-there-a-simple-elegant-way-to-define-singletons-in-python
+    """
+
+    def __init__(self, decorated):
+        self._decorated = decorated
+
+    def Instance(self):
+        """
+        Returns the singleton instance. Upon its first call, it creates a
+        new instance of the decorated class and calls its `__init__` method.
+        On all subsequent calls, the already created instance is returned.
+
+        """
+        try:
+            return self._instance
+        except AttributeError:
+            self._instance = self._decorated()
+            return self._instance
+
+    def __call__(self):
+        raise TypeError('Singletons must be accessed through `Instance()`.')
 
 class BracketAnalyzer(object):
     currLevel = 0

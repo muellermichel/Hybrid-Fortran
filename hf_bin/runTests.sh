@@ -55,4 +55,3 @@ for executable in $executables; do
 	fi
 done
 echo "All your tests have passed!"
-printf '\a' #make the terminal bounce for OSX users

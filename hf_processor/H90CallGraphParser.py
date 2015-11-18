@@ -1027,6 +1027,7 @@ def getModuleArraysForCallee(calleeName, symbolAnalysisByRoutineNameAndSymbolNam
             if symbol == None:
                 #this happens for scalars for example
                 continue
+            symbol.analysis = symbolAnalysis
             moduleSymbols.append(symbol)
     return moduleSymbols
 
@@ -1289,6 +1290,13 @@ This is not allowed for implementations using %s.\
         allSymbolsPassedByName = self.symbolsPassedInCurrentCallByName.copy()
         additionalImportsAndDeclarations = self.additionalParametersByKernelName.get(self.currCalleeName, ([],[]))
         additionalModuleSymbols = getModuleArraysForCallee(self.currCalleeName, self.symbolAnalysisByRoutineNameAndSymbolName, self.symbolsByModuleNameAndSymbolName)
+        for symbol in additionalModuleSymbols:
+            symbol.requiresAutomaticNamespace = True
+            symbol.nameOfScope = self.currSubprocName
+            if symbol.analysis.argumentIndexByRoutineName.get(self.currSubprocName, -1) > -1:
+                symbol.isArgument = True
+            if not symbol.nameIsGuaranteedUniqueInScope:
+                symbol.requiresAutomaticNamespace = True
         for symbol in additionalImportsAndDeclarations[1] + additionalModuleSymbols:
             allSymbolsPassedByName[symbol.name] = symbol
         adjustedLine = line + "\n" + self.implementation.kernelCallPost(allSymbolsPassedByName, self.currCalleeNode)
@@ -1347,7 +1355,7 @@ This is not allowed for implementations using %s.\
         symbolNum = 0
         bridgeStr = ", & !additional parameter inserted by framework\n" + self.tab_insideSub + "& "
         for symbol in additionalSymbols:
-            hostName = symbol.automaticName() if symbol.isAutomatic else symbol.name
+            hostName = symbol.automaticName() if symbol.requiresAutomaticNamespace else symbol.name
             adjustedLine = adjustedLine + hostName
             if symbolNum < len(additionalSymbols) - 1 or paramListMatch:
                 adjustedLine = adjustedLine + bridgeStr
@@ -1534,6 +1542,8 @@ This is not allowed for implementations using %s.\
                 for symbol in additionalImports:
                     additionalImportsByName[symbol.name] = symbol
                 self.additionalWrapperImportsByKernelName[calleeName] = additionalImportsByName.values()
+            for symbol in additionalSymbolsForCallee[0]:
+                symbol.requiresAutomaticNamespace = True
             self.additionalParametersByKernelName[calleeName] = additionalSymbolsForCallee
             if callee.getAttribute("parallelRegionPosition") != "within":
                 continue
@@ -1961,14 +1971,17 @@ This is not allowed for implementations using %s.\
                 ["%s: %s from %s" %(symbol.name, symbol.declarationType(), symbol.sourceModule) for symbol in additionalImports]
             ))
         for symbol in additionalImports:
-            if symbol.declarationType() not in [DeclarationType.FOREIGN_MODULE_SCALAR, DeclarationType.LOCAL_ARRAY, DeclarationType.MODULE_ARRAY] \
-            or (symbol.declarationType() == DeclarationType.MODULE_ARRAY and symbol.sourceModule == self.currModuleName) \
-            or (symbol.declarationType() == DeclarationType.MODULE_ARRAY and type(symbol.sourceModule) in [str, unicode] and "HF90_" in symbol.sourceModule):
+            #MMU 2015-11: This can now be done more elegantly using the analysis passed in to symbol
+            # if symbol.declarationType() not in [DeclarationType.FOREIGN_MODULE_SCALAR, DeclarationType.LOCAL_ARRAY, DeclarationType.MODULE_ARRAY] \
+            # or (symbol.declarationType() == DeclarationType.MODULE_ARRAY and symbol.sourceModule == self.currModuleName) \
+            # or (symbol.declarationType() == DeclarationType.MODULE_ARRAY and type(symbol.sourceModule) in [str, unicode] and "HF90_" in symbol.sourceModule):
+            #     continue
+            if symbol.declarationType() not in [DeclarationType.FOREIGN_MODULE_SCALAR, DeclarationType.LOCAL_ARRAY, DeclarationType.MODULE_ARRAY]:
                 continue
             adjustedLine = adjustedLine + "use %s, only : %s => %s\n" %(
                 symbol.sourceModule,
                 symbol.automaticName(),
-                symbol.sourceSymbol
+                symbol.sourceSymbol if symbol.sourceSymbol not in [None, ""] else symbol.name
             )
 
         self.prepareLine(adjustedLine + self.implementation.additionalIncludes(), self.tab_insideSub)

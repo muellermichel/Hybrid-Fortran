@@ -1061,7 +1061,6 @@ end if\n" %(calleeNode.getAttribute('name'))
             #check for external module imports in kernel subroutines
             if symbol.sourceModule and symbol.sourceModule != "":
                 symbol.loadRoutineNodeAttributes(routineNode, parallelRegionTemplates)
-                symbol.requiresAutomaticNamespace = True
                 additionalImports.append(symbol)
             #check for temporary arrays in kernel subroutines
             elif not symbol.intent or symbol.intent in ["", None, "local"]:
@@ -1069,8 +1068,6 @@ end if\n" %(calleeNode.getAttribute('name'))
                 if symbol.intent == "local" and len(symbol.domains) == 0:
                     continue
                 additionalDeclarations.append(symbol)
-                if symbol.intent == "local":
-                    symbol.requiresAutomaticNamespace = True
 
         return sorted(additionalImports), sorted(additionalDeclarations)
 

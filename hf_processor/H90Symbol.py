@@ -197,7 +197,6 @@ class Symbol(object):
 	isOnDevice = False
 	isUsingDevicePostfix = False
 	_isPresent = False
-	_automaticNamespaceOverride = None
 	isPointer = False
 	isAutoDom = False
 	_isToBeTransfered = False
@@ -228,7 +227,7 @@ class Symbol(object):
 	_isArgumentOverride = False
 	_nameOfScopeOverride = None
 
-	def __init__(self, name, template, patterns=None, requiresAutomaticNamespace=None, debugPrint=False):
+	def __init__(self, name, template, patterns=None, debugPrint=False):
 		if not name or name == "":
 			raise Exception("Unexpected error: name required for initializing symbol")
 		if template == None:
@@ -240,7 +239,6 @@ class Symbol(object):
 			self.patterns = patterns
 		else:
 			self.patterns = H90RegExPatterns.Instance() #warning! very slow, avoid this code path.
-		self._automaticNamespaceOverride = requiresAutomaticNamespace
 		self.isPointer = False
 		self.debugPrint = debugPrint
 		self.domains = []
@@ -312,17 +310,6 @@ class Symbol(object):
 		if other == None:
 			return False
 		return self.automaticName() >= other.automaticName()
-
-	@property
-	def requiresAutomaticNamespace(self):
-		if self._automaticNamespaceOverride != None:
-			return self._automaticNamespaceOverride
-		return False
-
-	# "requiresAutomaticNamespace" is used to indicate that this symbol is added by the HF preprocessor instead of coming from the programmer. This is used to enforce representations that should not collide with any namespace used by the programmer.
-	@requiresAutomaticNamespace.setter
-	def requiresAutomaticNamespace(self, _automaticNamespaceOverride):
-		self._automaticNamespaceOverride = _automaticNamespaceOverride
 
 	@property
 	def nameIsGuaranteedUniqueInScope(self):
@@ -996,9 +983,7 @@ Please specify the domains and their sizes with domName and domSize attributes i
 		return result
 
 	def domainRepresentation(self, use_domain_reordering=True):
-		name = self.name
-		if self.requiresAutomaticNamespace:
-			name = self.automaticName()
+		name = self.automaticName()
 		elif len(self.domains) > 0:
 			name = self.deviceName()
 		result = name
@@ -1109,10 +1094,9 @@ Please specify the domains and their sizes with domName and domSize attributes i
 				%(self.name, offsets, parallelIterators, self.domains))
 
 		result = ""
-		hostName = self.automaticName() if self.requiresAutomaticNamespace else self.name
+		hostName = self.automaticName()
 		if (not self.isUsingDevicePostfix and len(offsets) == len(self.domains) and not all([offset == ':' for offset in offsets]))\
-		or (self.intent == "in" and len(offsets) == len(self.domains) and not any([offset == ':' for offset in offsets]))\
-		or self.requiresAutomaticNamespace:
+		or (self.intent == "in" and len(offsets) == len(self.domains) and not any([offset == ':' for offset in offsets])):
 			result += hostName  #not on device or scalar accesses to symbol that can't change or automatic symbol
 		elif self.isUsingDevicePostfix and len(offsets) > 0 and any([offset == ':' for offset in offsets]) and not all([offset == ':' for offset in offsets]):
 			raise Exception("Cannot reshape the array %s at this point, it needs to be accessed either at a single value or for the entire array; offsets: %s" %(self, offsets))
@@ -1265,7 +1249,6 @@ class FrameworkArray(Symbol):
 		self.name = name
 		self.domains = domains
 		self.isMatched = True
-		self._automaticNamespaceOverride = True
 		self.isOnDevice = isOnDevice
 		self.declarationPrefix = declarationPrefix
 		self.initLevel = Init.NOTHING_LOADED

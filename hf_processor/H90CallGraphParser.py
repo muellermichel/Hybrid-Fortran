@@ -1291,12 +1291,9 @@ This is not allowed for implementations using %s.\
         additionalImportsAndDeclarations = self.additionalParametersByKernelName.get(self.currCalleeName, ([],[]))
         additionalModuleSymbols = getModuleArraysForCallee(self.currCalleeName, self.symbolAnalysisByRoutineNameAndSymbolName, self.symbolsByModuleNameAndSymbolName)
         for symbol in additionalModuleSymbols:
-            symbol.requiresAutomaticNamespace = True
             symbol.nameOfScope = self.currSubprocName
             if symbol.analysis.argumentIndexByRoutineName.get(self.currSubprocName, -1) > -1:
                 symbol.isArgument = True
-            if not symbol.nameIsGuaranteedUniqueInScope:
-                symbol.requiresAutomaticNamespace = True
         for symbol in additionalImportsAndDeclarations[1] + additionalModuleSymbols:
             allSymbolsPassedByName[symbol.name] = symbol
         adjustedLine = line + "\n" + self.implementation.kernelCallPost(allSymbolsPassedByName, self.currCalleeNode)
@@ -1355,7 +1352,7 @@ This is not allowed for implementations using %s.\
         symbolNum = 0
         bridgeStr = ", & !additional parameter inserted by framework\n" + self.tab_insideSub + "& "
         for symbol in additionalSymbols:
-            hostName = symbol.automaticName() if symbol.requiresAutomaticNamespace else symbol.name
+            hostName = symbol.automaticName()
             adjustedLine = adjustedLine + hostName
             if symbolNum < len(additionalSymbols) - 1 or paramListMatch:
                 adjustedLine = adjustedLine + bridgeStr
@@ -1542,8 +1539,6 @@ This is not allowed for implementations using %s.\
                 for symbol in additionalImports:
                     additionalImportsByName[symbol.name] = symbol
                 self.additionalWrapperImportsByKernelName[calleeName] = additionalImportsByName.values()
-            for symbol in additionalSymbolsForCallee[0]:
-                symbol.requiresAutomaticNamespace = True
             self.additionalParametersByKernelName[calleeName] = additionalSymbolsForCallee
             if callee.getAttribute("parallelRegionPosition") != "within":
                 continue

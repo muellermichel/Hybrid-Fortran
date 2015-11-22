@@ -1174,10 +1174,10 @@ This is not allowed for implementations using %s.\
 
         #$$$ why are we checking for a present statement?
         accessPatternChangeRequired = False
-        presentPattern = r"(.*?present\s*\(\s*)" + re.escape(symbol.deviceName()) + postfixEscaped + r"\s*"
+        presentPattern = r"(.*?present\s*\(\s*)" + re.escape(symbol.nameInScope()) + postfixEscaped + r"\s*"
         currMatch = re.match(presentPattern, line, re.IGNORECASE)
         if not currMatch:
-            pattern1 = r"(.*?(?:\W|^))" + re.escape(symbol.deviceName()) + postfixEscaped + r"\s*"
+            pattern1 = r"(.*?(?:\W|^))" + re.escape(symbol.nameInScope()) + postfixEscaped + r"\s*"
             currMatch = re.match(pattern1, line, re.IGNORECASE)
             accessPatternChangeRequired = True
             if not currMatch:
@@ -1228,7 +1228,7 @@ This is not allowed for implementations using %s.\
             and not symbol.isHostSymbol \
             and len(accessors) == 0 \
         ):
-            symbol_access = symbol.deviceName()
+            symbol_access = symbol.nameInScope()
         else:
             symbol_access = symbol.accessRepresentation(
                 iterators,
@@ -1289,11 +1289,7 @@ This is not allowed for implementations using %s.\
     def processCallPostAndGetAdjustedLine(self, line):
         allSymbolsPassedByName = self.symbolsPassedInCurrentCallByName.copy()
         additionalImportsAndDeclarations = self.additionalParametersByKernelName.get(self.currCalleeName, ([],[]))
-        additionalModuleSymbols = getModuleArraysForCallee(self.currCalleeName, self.symbolAnalysisByRoutineNameAndSymbolName, self.symbolsByModuleNameAndSymbolName)
-        for symbol in additionalModuleSymbols:
-            symbol.nameOfScope = self.currSubprocName
-            if symbol.analysis.argumentIndexByRoutineName.get(self.currSubprocName, -1) > -1:
-                symbol.isArgument = True
+        additionalModuleSymbols = self.additionalWrapperImportsByKernelName.get(self.currCalleeName, [])
         for symbol in additionalImportsAndDeclarations[1] + additionalModuleSymbols:
             allSymbolsPassedByName[symbol.name] = symbol
         adjustedLine = line + "\n" + self.implementation.kernelCallPost(allSymbolsPassedByName, self.currCalleeNode)
@@ -1352,7 +1348,7 @@ This is not allowed for implementations using %s.\
         symbolNum = 0
         bridgeStr = ", & !additional parameter inserted by framework\n" + self.tab_insideSub + "& "
         for symbol in additionalSymbols:
-            hostName = symbol.automaticName()
+            hostName = symbol.nameInScope()
             adjustedLine = adjustedLine + hostName
             if symbolNum < len(additionalSymbols) - 1 or paramListMatch:
                 adjustedLine = adjustedLine + bridgeStr
@@ -1428,7 +1424,7 @@ This is not allowed for implementations using %s.\
         #adjusted line now contains only prefix, including the opening bracket
         symbolNum = 0
         for symbol in self.currAdditionalSubroutineParameters:
-            adjustedLine = adjustedLine + symbol.deviceName()
+            adjustedLine = adjustedLine + symbol.nameInScope()
             if symbolNum != len(self.currAdditionalSubroutineParameters) - 1 or len(paramListStr) > 1:
                 adjustedLine = adjustedLine + ","
             adjustedLine = adjustedLine + " & !additional symbol inserted by framework \n" + self.tab_outsideSub + "& "
@@ -1520,11 +1516,15 @@ This is not allowed for implementations using %s.\
             callee = self.routineNodesByProcName.get(calleeName)
             if not callee:
                 continue
-            additionalSymbolsForCallee = self.implementation.getAdditionalKernelParameters( \
+            additionalImportsForDeviceCompatibility, additionalDeclarationsForDeviceCompatibility = self.implementation.getAdditionalKernelParameters( \
                 self.cgDoc, \
                 callee, \
+                self.moduleNodesByName[self.currModuleName], \
                 self.parallelRegionTemplatesByProcName.get(calleeName) \
             )
+            for symbol in additionalImportsForDeviceCompatibility + additionalDeclarationsForDeviceCompatibility:
+                symbol.resetScope()
+                symbol.nameOfScope = self.currSubprocName
             if 'DEBUG_PRINT' in self.implementation.optionFlags:
                 tentativeAdditionalImports = getModuleArraysForCallee(
                     calleeName,
@@ -1533,13 +1533,16 @@ This is not allowed for implementations using %s.\
                 )
                 additionalImports = [
                     symbol for symbol in tentativeAdditionalImports
-                    if symbol.name not in self.symbolsByRoutineNameAndSymbolName.get(self.currSubprocName, {})
+                    if symbol.name not in self.symbolsByRoutineNameAndSymbolName.get(self.currSubprocName, {}) and \
+                    symbol.analysis.argumentIndexByRoutineName.get(subprocName, -1) == -1
                 ]
                 additionalImportsByName = {}
                 for symbol in additionalImports:
                     additionalImportsByName[symbol.name] = symbol
+                    symbol.resetScope()
+                    symbol.nameOfScope = self.currSubprocName
                 self.additionalWrapperImportsByKernelName[calleeName] = additionalImportsByName.values()
-            self.additionalParametersByKernelName[calleeName] = additionalSymbolsForCallee
+            self.additionalParametersByKernelName[calleeName] = (additionalImportsForDeviceCompatibility, additionalDeclarationsForDeviceCompatibility)
             if callee.getAttribute("parallelRegionPosition") != "within":
                 continue
             self.currRoutineIsCallingParallelRegion = True
@@ -1649,7 +1652,7 @@ This is not allowed for implementations using %s.\
                         if domSizeSymbol is None:
                             adjustedDomains.append((domName, domSize))
                             continue
-                        adjustedDomains.append((domName, domSizeSymbol.automaticName()))
+                        adjustedDomains.append((domName, domSizeSymbol.nameInScope()))
                     symbol.domains = adjustedDomains
 
                     additionalDeclarationsStr = additionalDeclarationsStr + \
@@ -1741,14 +1744,14 @@ This is not allowed for implementations using %s.\
             calleesWithPackedReals = packedRealSymbolsByCalleeName.keys()
             for calleeName in calleesWithPackedReals:
                 for idx, symbol in enumerate(sorted(packedRealSymbolsByCalleeName[calleeName])):
-                    additionalDeclarationsStr = additionalDeclarationsStr + "hfimp_%s(%i) = %s\n" %(calleeName, idx+1, symbol.automaticName())
+                    additionalDeclarationsStr = additionalDeclarationsStr + "hfimp_%s(%i) = %s\n" %(calleeName, idx+1, symbol.nameInScope())
 
             #########################################################################
             # additional symbols to be unpacked                                     #
             #########################################################################
             #TODO: move this into implementation classes
             for idx, symbol in enumerate(self.currAdditionalCompactedSubroutineParameters):
-                additionalDeclarationsStr = additionalDeclarationsStr + "%s = hfimp_%s(%i)\n" %(symbol.deviceName(), self.currSubprocName, idx+1)
+                additionalDeclarationsStr = additionalDeclarationsStr + "%s = hfimp_%s(%i)\n" %(symbol.nameInScope(), self.currSubprocName, idx+1)
 
             self.prepareLine(additionalDeclarationsStr, self.tab_insideSub)
 
@@ -1975,7 +1978,7 @@ This is not allowed for implementations using %s.\
                 continue
             adjustedLine = adjustedLine + "use %s, only : %s => %s\n" %(
                 symbol.sourceModule,
-                symbol.automaticName(),
+                symbol.nameInScope(),
                 symbol.sourceSymbol if symbol.sourceSymbol not in [None, ""] else symbol.name
             )
 

@@ -556,7 +556,7 @@ class FortranImplementation(object):
     def additionalIncludes(self):
         return ""
 
-    def getAdditionalKernelParameters(self, cgDoc, routineNode, parallelRegionTemplates):
+    def getAdditionalKernelParameters(self, cgDoc, routineNode, moduleNode, parallelRegionTemplates):
         return [], []
 
     def extractListOfAdditionalSubroutineSymbols(self, routineNode, currSymbolsByName):
@@ -719,7 +719,7 @@ class OpenMPFortranImplementation(FortranImplementation):
         if self.currDependantSymbols == None:
             raise Exception("parallel region without any dependant arrays")
         openMPLines = "!$OMP PARALLEL DO DEFAULT(firstprivate) %s " %(getReductionClause(parallelRegionTemplate).upper())
-        openMPLines += "SHARED(%s)\n" %(', '.join([symbol.deviceName() for symbol in self.currDependantSymbols]))
+        openMPLines += "SHARED(%s)\n" %(', '.join([symbol.nameInScope() for symbol in self.currDependantSymbols]))
         return openMPLines + FortranImplementation.parallelRegionBegin(self, parallelRegionTemplate)
 
     def parallelRegionEnd(self, parallelRegionTemplate, outerBranchLevel=0):
@@ -1044,32 +1044,36 @@ end if\n" %(calleeNode.getAttribute('name'))
         result += getCUDAErrorHandling(calleeRoutineNode)
         return result
 
-    def getAdditionalKernelParameters(self, cgDoc, routineNode, parallelRegionTemplates):
-        additionalImports = []
-        additionalDeclarations = []
-        if not parallelRegionTemplates:
+    def getAdditionalKernelParameters(self, cgDoc, routineNode, moduleNode, parallelRegionTemplates):
+        def getAdditionalImportsAndDeclarationsForParentScope(parentNode):
+            additionalImports = []
+            additionalDeclarations = []
+            if not parallelRegionTemplates:
+                return additionalImports, additionalDeclarations
+            if not parentNode.getAttribute("parallelRegionPosition") == "within":
+                return additionalImports, additionalDeclarations
+
+            dependantTemplatesAndEntries = getDomainDependantTemplatesAndEntries(cgDoc, parentNode)
+            for template, entry in dependantTemplatesAndEntries:
+                dependantName = entry.firstChild.nodeValue
+                symbol = Symbol(dependantName, template)
+                symbol.loadDomainDependantEntryNodeAttributes(entry)
+
+                #check for external module imports in kernel subroutines
+                if symbol.sourceModule and symbol.sourceModule != "":
+                    symbol.loadRoutineNodeAttributes(parentNode, parallelRegionTemplates)
+                    additionalImports.append(symbol)
+                #check for temporary arrays in kernel subroutines
+                elif not symbol.intent or symbol.intent in ["", None, "local"]:
+                    symbol.loadRoutineNodeAttributes(parentNode, parallelRegionTemplates)
+                    if symbol.intent == "local" and len(symbol.domains) == 0:
+                        continue
+                    additionalDeclarations.append(symbol)
             return additionalImports, additionalDeclarations
-        if not routineNode.getAttribute("parallelRegionPosition") == "within":
-            return additionalImports, additionalDeclarations
 
-        dependantTemplatesAndEntries = getDomainDependantTemplatesAndEntries(cgDoc, routineNode)
-        for template, entry in dependantTemplatesAndEntries:
-            dependantName = entry.firstChild.nodeValue
-            symbol = Symbol(dependantName, template)
-            symbol.loadDomainDependantEntryNodeAttributes(entry)
-
-            #check for external module imports in kernel subroutines
-            if symbol.sourceModule and symbol.sourceModule != "":
-                symbol.loadRoutineNodeAttributes(routineNode, parallelRegionTemplates)
-                additionalImports.append(symbol)
-            #check for temporary arrays in kernel subroutines
-            elif not symbol.intent or symbol.intent in ["", None, "local"]:
-                symbol.loadRoutineNodeAttributes(routineNode, parallelRegionTemplates)
-                if symbol.intent == "local" and len(symbol.domains) == 0:
-                    continue
-                additionalDeclarations.append(symbol)
-
-        return sorted(additionalImports), sorted(additionalDeclarations)
+        routineImports, routineDeclarations = getAdditionalImportsAndDeclarationsForParentScope(routineNode)
+        moduleImports, moduleDeclarations = getAdditionalImportsAndDeclarationsForParentScope(moduleNode)
+        return sorted(routineImports + moduleImports), sorted(routineDeclarations + moduleDeclarations)
 
     def extractListOfAdditionalSubroutineSymbols(self, routineNode, currSymbolsByName):
         result = []
@@ -1120,7 +1124,7 @@ end if\n" %(calleeNode.getAttribute('name'))
                 deviceStr = symbol.selectAllRepresentation()
                 deviceInitStatements += originalStr + " = " + deviceStr + "\n"
                 if symbol.isPointer:
-                    deviceInitStatements += "deallocate(%s)\n" %(symbol.deviceName())
+                    deviceInitStatements += "deallocate(%s)\n" %(symbol.nameInScope())
         return deviceInitStatements + FortranImplementation.subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, is_subroutine_end)
 
     def adjustImportForDevice(self, line, parallelRegionPosition):

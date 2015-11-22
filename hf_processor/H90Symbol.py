@@ -195,7 +195,7 @@ class Symbol(object):
 	template = None
 	isMatched = False
 	isOnDevice = False
-	isUsingDevicePostfix = False
+	_isUsingDevicePostfix = False
 	_isPresent = False
 	isPointer = False
 	isAutoDom = False
@@ -226,6 +226,7 @@ class Symbol(object):
 	analysis = None
 	_isArgumentOverride = False
 	_nameOfScopeOverride = None
+	_nameInScope = None
 
 	def __init__(self, name, template, patterns=None, debugPrint=False):
 		if not name or name == "":
@@ -249,7 +250,7 @@ class Symbol(object):
 		self.symbolImportMapPattern = self.patterns.get(r'.*?\W' + re.escape(name) + r'\s*\=\>\s*(\w*).*')
 		self.pointerDeclarationPattern = self.patterns.get(r'\s*(?:double\s+precision|real|integer|logical).*?pointer.*?[\s,:]+' + re.escape(name))
 		self.parallelRegionPosition = None
-		self.isUsingDevicePostfix = False
+		self._isUsingDevicePostfix = False
 		self.isOnDevice = False
 		self.parallelActiveDims = []
 		self.parallelInactiveDims = []
@@ -279,6 +280,7 @@ class Symbol(object):
 		self.analysis = None
 		self._isArgumentOverride = False
 		self._nameOfScopeOverride = None
+		self._nameInScope = None
 
 		if self.debugPrint:
 			sys.stderr.write("[" + str(self) + ".init " + str(self.initLevel) + "] initialized\n")
@@ -289,27 +291,47 @@ class Symbol(object):
 	def __eq__(self, other):
 		if other == None:
 			return False
-		return self.automaticName() == other.automaticName()
+		return self.nameInScope() == other.nameInScope()
 	def __ne__(self, other):
 		if other == None:
 			return True
-		return self.automaticName() != other.automaticName()
+		return self.nameInScope() != other.nameInScope()
 	def __lt__(self, other):
 		if other == None:
 			return False
-		return self.automaticName() < other.automaticName()
+		return self.nameInScope() < other.nameInScope()
 	def __le__(self, other):
 		if other == None:
 			return False
-		return self.automaticName() <= other.automaticName()
+		return self.nameInScope() <= other.nameInScope()
 	def __gt__(self, other):
 		if other == None:
 			return True
-		return self.automaticName() > other.automaticName()
+		return self.nameInScope() > other.nameInScope()
 	def __ge__(self, other):
 		if other == None:
 			return False
-		return self.automaticName() >= other.automaticName()
+		return self.nameInScope() >= other.nameInScope()
+
+	def nameInScope(self, useDeviceVersionIfAvailable=True):
+		#Give a symbol representation that is guaranteed to *not* collide with any local namespace (as long as programmer doesn't use any 'hfXXX' pre- or postfixes)
+		def automaticName(symbol):
+			if symbol.analysis and symbol.routineNode:
+				aliasName = symbol.analysis.aliasNamesByRoutineName.get(symbol.nameOfScope)
+				if aliasName not in [None, '']:
+					return aliasName
+			if symbol.nameIsGuaranteedUniqueInScope:
+				return symbol.name
+			referencingName = symbol.name + "_hfauto_" + symbol.nameOfScope
+			referencingName = referencingName.strip()
+			return referencingName[:min(len(referencingName), 31)] #cut after 31 chars because of Fortran 90 limitation
+
+		if self._nameInScope == None:
+			self._nameInScope = automaticName(self)
+		if useDeviceVersionIfAvailable and self.isUsingDevicePostfix:
+			return self._nameInScope + "_d"
+		return self._nameInScope
+
 
 	@property
 	def nameIsGuaranteedUniqueInScope(self):
@@ -327,6 +349,14 @@ class Symbol(object):
 	@isArgument.setter
 	def isArgument(self, _isArgumentOverride):
 		self._isArgumentOverride = _isArgumentOverride
+
+	@property
+	def isUsingDevicePostfix(self):
+		return self._isUsingDevicePostfix
+
+	@isUsingDevicePostfix.setter
+	def isUsingDevicePostfix(self, _isUsingDevicePostfix):
+		self._isUsingDevicePostfix = _isUsingDevicePostfix
 
 	@property
 	def nameOfScope(self):
@@ -376,6 +406,11 @@ class Symbol(object):
 			return True
 		return False
 
+	# to be called when a previously loaded symbol is used in a new scope
+	def resetScope(self):
+		self._nameOfScopeOverride = None
+		self._nameInScope = None
+
 	def setOptionsFromAttributes(self, attributes):
 		if "present" in attributes:
 			self._isPresent = True
@@ -412,6 +447,9 @@ class Symbol(object):
 	def loadDomainDependantEntryNodeAttributes(self, domainDependantEntryNode, warnOnOverwrite=True):
 		if self.debugPrint:
 			sys.stderr.write("[" + str(self) + ".init " + str(self.initLevel) + "] +++++++++ LOADING DOMAIN DEPENDANT NODE ++++++++++ \n")
+
+		#   This symbol has an explicit domain dependant entry - make sure to score this as the name used in the scope
+		self._nameInScope = self.name
 
 		self.intent = domainDependantEntryNode.getAttribute("intent") if self.intent in [None, ''] else self.intent
 		self.declarationPrefix = domainDependantEntryNode.getAttribute("declarationPrefix") if self.declarationPrefix in [None, ''] else self.declarationPrefix
@@ -589,6 +627,9 @@ class Symbol(object):
 
 		if self.debugPrint:
 			sys.stderr.write("[" + str(self) + ".init " + str(self.initLevel) + "] +++++++++ LOADING DECLARATION ++++++++++ \n")
+
+		#   The name used in the declaration pattern is just self.name - so store this as the scoped name for now
+		self._nameInScope = self.name
 
 		declarationDirectives, symbolDeclarationStr = purgeFromDeclarationSettings( \
 			paramDeclMatch.group(0), \
@@ -794,6 +835,9 @@ Parallel region position: %s"
 		if type(self.sourceModule) != str or self.sourceModule == "":
 			raise Exception("Invalid module in use statement for symbol %s" %(symbol.name))
 
+		#   The name used in the import pattern is just self.name - so store this as the scoped name for now
+		self._nameInScope = self.name
+
 		mapMatch = self.symbolImportMapPattern.match(importMatch.group(0))
 		sourceSymbolName = ""
 		if mapMatch:
@@ -875,9 +919,6 @@ Current Domains: %s\n" %(
 		prefix = paramDeclMatch.group(1)
 		postfix = paramDeclMatch.group(2)
 
-		# if not parallelRegionTemplates or len(parallelRegionTemplates) == 0:
-		#     return prefix + self.deviceName() + postfix
-
 		dimensionStr, postfix = self.getDimensionStringAndRemainderFromDeclMatch(paramDeclMatch, dimensionPattern)
 		return prefix + str(self) + postfix
 
@@ -900,7 +941,7 @@ specify the type like in a Fortran 90 declaration line using a @domainDependant 
 EXAMPLE:\n\
 @domainDependant {declarationPrefix(real(8))}\n\
 %s\n\
-@end domainDependant" %(self.automaticName(), routineHelperText, self.name)
+@end domainDependant" %(self.nameInScope(), routineHelperText, self.name)
 			)
 
 		if len(purgeList) > 0 and patterns == None:
@@ -922,29 +963,11 @@ EXAMPLE:\n\
 
 		return declarationPrefix + " " + name_prefix + self.domainRepresentation(use_domain_reordering)
 
-	#Give a symbol representation that is guaranteed to *not* collide with any local namespace (as long as programmer doesn't use any 'hfXXX' pre- or postfixes)
-	def automaticName(self):
-		if self.analysis and self.routineNode:
-			aliasName = self.analysis.aliasNamesByRoutineName.get(self.nameOfScope)
-			if aliasName not in [None, '']:
-				return aliasName
-		if self.nameIsGuaranteedUniqueInScope:
-			return self.name
-
-		referencingName = self.name + "_hfauto_" + self.nameOfScope
-		referencingName = referencingName.strip()
-		return referencingName[:min(len(referencingName), 31)] #cut after 31 chars because of Fortran 90 limitation
-
-	def deviceName(self):
-		if self.isUsingDevicePostfix:
-			return self.name + "_d"
-		return self.name
-
 	def selectAllRepresentation(self):
 		if self.initLevel < Init.ROUTINENODE_ATTRIBUTES_LOADED:
 			raise Exception("Symbol %s's selection representation is accessed without loading the routine node attributes first" %(str(self)))
 
-		result = self.deviceName()
+		result = self.nameInScope()
 		if len(self.domains) == 0:
 			return result
 		result = result + "("
@@ -959,7 +982,7 @@ EXAMPLE:\n\
 		if self.initLevel < Init.ROUTINENODE_ATTRIBUTES_LOADED:
 			raise Exception("Symbol %s's allocation representation is accessed without loading the routine node attributes first" %(str(self)))
 
-		result = self.deviceName()
+		result = self.nameInScope()
 		if len(self.domains) == 0:
 			return result
 		needsAdditionalClosingBracket = False
@@ -983,9 +1006,9 @@ Please specify the domains and their sizes with domName and domSize attributes i
 		return result
 
 	def domainRepresentation(self, use_domain_reordering=True):
-		name = self.automaticName()
-		elif len(self.domains) > 0:
-			name = self.deviceName()
+		name = self.nameInScope(
+			useDeviceVersionIfAvailable=len(self.domains) > 0
+		)
 		result = name
 		if len(self.domains) == 0:
 			return result
@@ -1094,14 +1117,15 @@ Please specify the domains and their sizes with domName and domSize attributes i
 				%(self.name, offsets, parallelIterators, self.domains))
 
 		result = ""
-		hostName = self.automaticName()
+		symbolNameUsedInAccessor = None
 		if (not self.isUsingDevicePostfix and len(offsets) == len(self.domains) and not all([offset == ':' for offset in offsets]))\
 		or (self.intent == "in" and len(offsets) == len(self.domains) and not any([offset == ':' for offset in offsets])):
-			result += hostName  #not on device or scalar accesses to symbol that can't change or automatic symbol
+			symbolNameUsedInAccessor = self.nameInScope(useDeviceVersionIfAvailable=False) #not on device or scalar accesses to symbol that can't change
 		elif self.isUsingDevicePostfix and len(offsets) > 0 and any([offset == ':' for offset in offsets]) and not all([offset == ':' for offset in offsets]):
 			raise Exception("Cannot reshape the array %s at this point, it needs to be accessed either at a single value or for the entire array; offsets: %s" %(self, offsets))
 		else:
-			result += self.deviceName()
+			symbolNameUsedInAccessor = self.nameInScope()
+		result += symbolNameUsedInAccessor
 
 		if len(self.domains) == 0:
 			if self.debugPrint:

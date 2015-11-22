@@ -27,7 +27,8 @@
 #**********************************************************************#
 
 
-from xml.dom.minidom import Document, parseString
+from xml.dom.minidom import Document
+from DomHelper import parseString
 from optparse import OptionParser
 from H90CallGraphParser import H90toF90Printer
 from GeneralHelper import openFile, getDataFromFile

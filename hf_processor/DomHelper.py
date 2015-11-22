@@ -25,9 +25,8 @@
 #**********************************************************************#
 
 
-from xml.dom.minidom import Document
+from xml.dom.minidom import Document, parseString as parseStringUsingMinidom
 from GeneralHelper import BracketAnalyzer, enum
-# from ordereddict import OrderedDict
 import uuid
 import re
 
@@ -39,6 +38,21 @@ class ParallelRegionDomain(object):
         self.size = size
         self.startsAt = startsAt
         self.endsAt = endsAt
+
+#this saves a lot of preprocessing time by caching the results instead of using minidom's native implementation
+def parseString(data):
+    def cachedGetElementsByTagName(self, tagName):
+        result = self.cachedElementsByTagName.get(tagName)
+        if result != None:
+            return result
+        result = self.uncachedGetElementsByTagName(tagName)
+        self.cachedElementsByTagName[tagName] = result
+        return result
+    doc = parseStringUsingMinidom(data)
+    doc.cachedElementsByTagName = {}
+    doc.uncachedGetElementsByTagName = doc.getElementsByTagName
+    Document.getElementsByTagName = cachedGetElementsByTagName
+    return doc
 
 def addCallers(callGraphDict, routineDict, calls, routineName):
     for call in calls:

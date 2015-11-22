@@ -27,7 +27,8 @@
 #**********************************************************************#
 
 
-from xml.dom.minidom import Document, parseString
+from xml.dom.minidom import Document
+from DomHelper import parseString
 from xml.dom import NotFoundErr
 from H90SymbolDependencyGraphAnalyzer import SymbolDependencyAnalyzer
 from DomHelper import firstDuplicateChild, getNodeValue, getCalleesByCallerName, getCallersByCalleeName

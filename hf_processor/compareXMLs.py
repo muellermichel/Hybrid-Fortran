@@ -27,7 +27,8 @@
 #**********************************************************************#
 
 
-from xml.dom.minidom import Document, parseString
+from xml.dom.minidom import Document
+from DomHelper import parseString
 from optparse import OptionParser
 import sys, traceback
 

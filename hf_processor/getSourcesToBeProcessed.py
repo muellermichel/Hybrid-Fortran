@@ -1,8 +1,8 @@
 import re
 import sys
 from optparse import OptionParser
-from xml.dom.minidom import Document, parseString
-from DomHelper import getDomainDependantTemplatesAndEntries
+from xml.dom.minidom import Document
+from DomHelper import getDomainDependantTemplatesAndEntries, parseString
 
 def isEqualElement(a, b, ignoreAttributes):
   if a.tagName!=b.tagName:

@@ -18,7 +18,8 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
-from xml.dom.minidom import Document, parseString
+from xml.dom.minidom import Document
+from DomHelper import parseString
 from optparse import OptionParser
 from GeneralHelper import openFile
 import os

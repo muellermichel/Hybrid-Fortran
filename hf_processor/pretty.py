@@ -24,7 +24,8 @@
 #  Author           Michel Müller (AOKI Laboratory)                    #
 #**********************************************************************#
 
-from xml.dom.minidom import Document, parseString
+from xml.dom.minidom import Document
+from DomHelper import parseString
 from GeneralHelper import openFile
 from optparse import OptionParser
 import os

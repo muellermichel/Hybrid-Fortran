@@ -28,7 +28,8 @@
 from GeneralHelper import openFile, prettyprint
 from DomHelper import addCallers, addCallees, getRegionPosition
 from H90SymbolDependencyGraphAnalyzer import SymbolDependencyAnalyzer, SymbolType, SymbolAnalysis
-from xml.dom.minidom import Document, parseString
+from xml.dom.minidom import Document
+from DomHelper import parseString
 from optparse import OptionParser
 import pydot
 import os

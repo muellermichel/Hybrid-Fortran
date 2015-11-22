@@ -27,9 +27,10 @@
 #**********************************************************************#
 
 
-from xml.dom.minidom import Document, parseString
+from xml.dom.minidom import Document
+from DomHelper import parseString
 from optparse import OptionParser
-from H90CallGraphParser import H90toF90Printer
+from H90CallGraphParser import H90toF90Printer, getSymbolsByName, getModuleNodesByName, getParallelRegionData, getSymbolsByRoutineNameAndSymbolName, getSymbolsByModuleNameAndSymbolName
 from GeneralHelper import openFile, getDataFromFile
 from RecursiveDirEntries import dirEntries
 from H90SymbolDependencyGraphAnalyzer import SymbolDependencyAnalyzer
@@ -98,8 +99,6 @@ implementationsByTemplateName={
 	for templateName in implementationNamesByTemplateName.keys()
 }
 cgDoc = parseString(getDataFromFile(options.callgraph))
-symbolAnalyzer = SymbolDependencyAnalyzer(cgDoc)
-symbolAnalysisByRoutineNameAndSymbolName = symbolAnalyzer.getSymbolAnalysisByRoutine()
 try:
 	os.mkdir(options.outputDir)
 except OSError as e:
@@ -107,6 +106,19 @@ except OSError as e:
 		raise e
 	pass
 filesInDir = dirEntries(str(options.sourceDir), True, 'h90')
+
+try:
+	sys.stderr.write('Processing informations about the whole codebase\n')
+	moduleNodesByName = getModuleNodesByName(cgDoc)
+	parallelRegionData = getParallelRegionData(cgDoc)
+	symbolAnalyzer = SymbolDependencyAnalyzer(cgDoc)
+	symbolAnalysisByRoutineNameAndSymbolName = symbolAnalyzer.getSymbolAnalysisByRoutine()
+	symbolsByModuleNameAndSymbolName = getSymbolsByModuleNameAndSymbolName(cgDoc, moduleNodesByName)
+	symbolsByRoutineNameAndSymbolName = getSymbolsByRoutineNameAndSymbolName(cgDoc, parallelRegionData[2], parallelRegionData[1], debugPrint=options.debug)
+except Exception as e:
+	sys.stderr.write('Error when processing meta information about the codebase: %s\n' %(str(e)))
+	sys.exit(1)
+
 for fileInDir in filesInDir:
 	outputPath = os.path.join(os.path.normpath(options.outputDir), os.path.splitext(os.path.basename(fileInDir))[0] + ".P90.temp")
 	sys.stderr.write('Converting %s to %s\n' %(
@@ -119,8 +131,12 @@ for fileInDir in filesInDir:
 			cgDoc,
 			implementationsByTemplateName,
 			options.debug,
-			outputStream=outputStream,
-			symbolAnalysisByRoutineNameAndSymbolName=symbolAnalysisByRoutineNameAndSymbolName
+			outputStream,
+			moduleNodesByName,
+        	parallelRegionData,
+        	symbolAnalysisByRoutineNameAndSymbolName,
+        	symbolsByModuleNameAndSymbolName,
+        	symbolsByRoutineNameAndSymbolName,
 		)
 		f90printer.processFile(fileInDir)
 	except Exception as e:

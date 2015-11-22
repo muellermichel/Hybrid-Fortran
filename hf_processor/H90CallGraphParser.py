@@ -765,6 +765,82 @@ def getSymbolsByName(cgDoc, parentNode, parallelRegionTemplates, patterns, curre
         symbolsByName[dependantName] = symbol
     return symbolsByName
 
+def getModuleNodesByName(cgDoc):
+    #build up dictionary of modules
+    moduleNodesByName = {}
+    modules = cgDoc.getElementsByTagName('module')
+    for module in modules:
+        moduleName = module.getAttribute('name')
+        if not moduleName or moduleName == '':
+            raise Exception("Module without name.")
+        moduleNodesByName[moduleName] = module
+    return moduleNodesByName
+
+def getParallelRegionData(cgDoc):
+    #build up dictionary of parallel regions by procedure name
+    parallelRegionTemplateRelationsByProcName = {}
+    parallelRegionTemplatesByProcName = {}
+    routineNodesByProcName = {}
+    regionsByID = regionTemplatesByID(cgDoc, 'parallelRegionTemplate')
+    routines = cgDoc.getElementsByTagName('routine')
+    for routine in routines:
+        procName = routine.getAttribute('name')
+        if not procName or procName == '':
+            raise Exception("Procedure without name.")
+        routineNodesByProcName[procName] = routine
+        regionTemplates = []
+        parallelRegionsParents = routine.getElementsByTagName('activeParallelRegions')
+        if parallelRegionsParents and len(parallelRegionsParents) > 0:
+            templateRelations = parallelRegionsParents[0].getElementsByTagName('templateRelation')
+            for templateRelation in templateRelations:
+                idStr = templateRelation.getAttribute('id')
+                if not idStr or idStr == '':
+                    raise Exception("Template relation without id attribute.")
+                regionTemplate = regionsByID.get(idStr, None)
+                if not regionTemplate:
+                    raise Exception("Template relation id %s could not be matched in procedure '%s'" %(idStr, procName))
+                regionTemplates.append(regionTemplate)
+            if len(templateRelations) > 0:
+                parallelRegionTemplateRelationsByProcName[procName] = templateRelations
+            if len(regionTemplates) > 0:
+                parallelRegionTemplatesByProcName[procName] = regionTemplates
+    return parallelRegionTemplateRelationsByProcName, parallelRegionTemplatesByProcName, routineNodesByProcName
+
+def getSymbolsByModuleNameAndSymbolName(cgDoc, moduleNodesByName):
+    patterns = H90RegExPatterns.Instance()
+    symbolsByModuleNameAndSymbolName = {}
+    for moduleName in moduleNodesByName.keys():
+        moduleNode = moduleNodesByName.get(moduleName)
+        if not moduleNode:
+            continue
+        symbolsByModuleNameAndSymbolName[moduleName] = getSymbolsByName(
+            cgDoc,
+            moduleNode,
+            None,
+            patterns,
+            isModuleSymbols=True
+        )
+        for symbolName in symbolsByModuleNameAndSymbolName[moduleName]:
+            symbol = symbolsByModuleNameAndSymbolName[moduleName][symbolName]
+            symbol.sourceModule = moduleName
+    return symbolsByModuleNameAndSymbolName
+
+def getSymbolsByRoutineNameAndSymbolName(cgDoc, routineNodesByProcName, parallelRegionTemplatesByProcName, debugPrint=False):
+    patterns = H90RegExPatterns.Instance()
+    symbolsByRoutineNameAndSymbolName = {}
+    for procName in routineNodesByProcName:
+        routine = routineNodesByProcName[procName]
+        procName = routine.getAttribute('name')
+        symbolsByRoutineNameAndSymbolName[procName] = getSymbolsByName(
+            cgDoc,
+            routine,
+            parallelRegionTemplatesByProcName.get(procName,[]),
+            patterns,
+            isModuleSymbols=False,
+            debugPrint=debugPrint
+        )
+    return symbolsByRoutineNameAndSymbolName
+
 class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
     cgDoc = None
     currSymbolsByName = None
@@ -775,48 +851,22 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
     parallelRegionTemplatesByProcName = None
     parallelRegionTemplateRelationsByProcName = None
 
-    def __init__(self, cgDoc):
+    def __init__(self, cgDoc, moduleNodesByName=None, parallelRegionData=None):
         self.cgDoc = cgDoc
         self.currSymbolsByName = {}
-        self.parallelRegionTemplatesByProcName = {}
-        self.parallelRegionTemplateRelationsByProcName = {}
         self.symbolsOnCurrentLine = []
         self.importsOnCurrentLine = []
-        self.routineNodesByProcName = {}
-        self.moduleNodesByName = {}
 
-        #build up dictionary of parallel regions by procedure name
-        regionsByID = regionTemplatesByID(cgDoc, 'parallelRegionTemplate')
-        routines = cgDoc.getElementsByTagName('routine')
-        for routine in routines:
-            procName = routine.getAttribute('name')
-            if not procName or procName == '':
-                raise Exception("Procedure without name.")
-            self.routineNodesByProcName[procName] = routine
-            regionTemplates = []
-            parallelRegionsParents = routine.getElementsByTagName('activeParallelRegions')
-            if parallelRegionsParents and len(parallelRegionsParents) > 0:
-                templateRelations = parallelRegionsParents[0].getElementsByTagName('templateRelation')
-                for templateRelation in templateRelations:
-                    idStr = templateRelation.getAttribute('id')
-                    if not idStr or idStr == '':
-                        raise Exception("Template relation without id attribute.")
-                    regionTemplate = regionsByID.get(idStr, None)
-                    if not regionTemplate:
-                        raise Exception("Template relation id %s could not be matched in procedure '%s'" %(idStr, procName))
-                    regionTemplates.append(regionTemplate)
-                if len(templateRelations) > 0:
-                    self.parallelRegionTemplateRelationsByProcName[procName] = templateRelations
-                if len(regionTemplates) > 0:
-                    self.parallelRegionTemplatesByProcName[procName] = regionTemplates
+        if moduleNodesByName != None:
+            self.moduleNodesByName = moduleNodesByName
+        else:
+            self.moduleNodesByName = getModuleNodesByName(cgDoc)
 
-        #build up dictionary of modules
-        modules = cgDoc.getElementsByTagName('module')
-        for module in modules:
-            moduleName = module.getAttribute('name')
-            if not moduleName or moduleName == '':
-                raise Exception("Module without name.")
-            self.moduleNodesByName[moduleName] = module
+        if parallelRegionData == None:
+            parallelRegionData = getParallelRegionData(cgDoc)
+        self.parallelRegionTemplatesByProcName = parallelRegionData[1]
+        self.parallelRegionTemplateRelationsByProcName = parallelRegionData[0]
+        self.routineNodesByProcName = parallelRegionData[2]
 
         super(H90CallGraphAndSymbolDeclarationsParser, self).__init__()
 
@@ -1056,8 +1106,19 @@ class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
     tab_insideSub = "\t\t"
     tab_outsideSub = "\t"
 
-    def __init__(self, cgDoc, implementationsByTemplateName, debugPrint=False, outputStream=sys.stdout, symbolAnalysisByRoutineNameAndSymbolName=None):
-        super(H90toF90Printer, self).__init__(cgDoc)
+    def __init__(
+        self,
+        cgDoc,
+        implementationsByTemplateName,
+        debugPrint=False,
+        outputStream=sys.stdout,
+        moduleNodesByName=None,
+        parallelRegionData=None,
+        symbolAnalysisByRoutineNameAndSymbolName=None,
+        symbolsByModuleNameAndSymbolName=None,
+        symbolsByRoutineNameAndSymbolName=None
+    ):
+        super(H90toF90Printer, self).__init__(cgDoc, moduleNodesByName=moduleNodesByName, parallelRegionData=parallelRegionData)
         self.implementationsByTemplateName = implementationsByTemplateName
         self.debugPrint = debugPrint
         self.outputStream = outputStream
@@ -1074,38 +1135,24 @@ class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
         self.codeSanitizer = FortranCodeSanitizer()
         self.currParallelRegionRelationNode = None
         self.currParallelRegionTemplateNode = None
-        self.symbolsByRoutineNameAndSymbolName = {}
         try:
-            if symbolAnalysisByRoutineNameAndSymbolName == None:
+            if symbolAnalysisByRoutineNameAndSymbolName != None:
+                self.symbolAnalysisByRoutineNameAndSymbolName = symbolAnalysisByRoutineNameAndSymbolName
+            else:
                 symbolAnalyzer = SymbolDependencyAnalyzer(self.cgDoc)
                 self.symbolAnalysisByRoutineNameAndSymbolName = symbolAnalyzer.getSymbolAnalysisByRoutine()
+            if symbolsByModuleNameAndSymbolName != None:
+                self.symbolsByModuleNameAndSymbolName = symbolsByModuleNameAndSymbolName
             else:
-                self.symbolAnalysisByRoutineNameAndSymbolName = symbolAnalysisByRoutineNameAndSymbolName
-            self.symbolsByModuleNameAndSymbolName = {}
-            for moduleName in self.moduleNodesByName.keys():
-                moduleNode = self.moduleNodesByName.get(moduleName)
-                if not moduleNode:
-                    continue
-                self.symbolsByModuleNameAndSymbolName[moduleName] = getSymbolsByName(
-                    self.cgDoc,
-                    moduleNode,
-                    None,
-                    self.patterns,
-                    isModuleSymbols=True
-                )
-                for symbolName in self.symbolsByModuleNameAndSymbolName[moduleName]:
-                    symbol = self.symbolsByModuleNameAndSymbolName[moduleName][symbolName]
-                    symbol.sourceModule = moduleName
+                self.symbolsByModuleNameAndSymbolName = getSymbolsByModuleNameAndSymbolName(self.cgDoc, self.moduleNodesByName)
 
-            for procName in self.routineNodesByProcName:
-                routine = self.routineNodesByProcName[procName]
-                procName = routine.getAttribute('name')
-                self.symbolsByRoutineNameAndSymbolName[procName] = getSymbolsByName(
+            if symbolsByRoutineNameAndSymbolName != None:
+                self.symbolsByRoutineNameAndSymbolName = symbolsByRoutineNameAndSymbolName
+            else:
+                self.symbolsByRoutineNameAndSymbolName = getSymbolsByRoutineNameAndSymbolName(
                     self.cgDoc,
-                    routine,
-                    self.parallelRegionTemplatesByProcName.get(procName,[]),
-                    self.patterns,
-                    isModuleSymbols=False,
+                    self.routineNodesByProcName,
+                    self.parallelRegionTemplatesByProcName,
                     debugPrint=self.debugPrint
                 )
         except Exception, e:
@@ -1175,14 +1222,14 @@ This is not allowed for implementations using %s.\
         #$$$ why are we checking for a present statement?
         accessPatternChangeRequired = False
         presentPattern = r"(.*?present\s*\(\s*)" + re.escape(symbol.nameInScope()) + postfixEscaped + r"\s*"
-        currMatch = re.match(presentPattern, line, re.IGNORECASE)
+        currMatch = self.patterns.get(presentPattern).match(line)
         if not currMatch:
             pattern1 = r"(.*?(?:\W|^))" + re.escape(symbol.nameInScope()) + postfixEscaped + r"\s*"
-            currMatch = re.match(pattern1, line, re.IGNORECASE)
+            currMatch = self.patterns.get(pattern1).match(line)
             accessPatternChangeRequired = True
             if not currMatch:
                 pattern2 = r"(.*?(?:\W|^))" + re.escape(symbol.name) + postfixEscaped + r"\s*"
-                currMatch = re.match(pattern2, line, re.IGNORECASE)
+                currMatch = self.patterns.get(pattern2).match(line)
                 if not currMatch:
                     raise Exception(\
                         "Symbol %s is accessed in an unexpected way. Note: '_d' postfix is reserved for internal use. Cannot match one of the following patterns: \npattern1: '%s'\npattern2: '%s'" \
@@ -1558,7 +1605,7 @@ This is not allowed for implementations using %s.\
     def processProcEndMatch(self, subProcEndMatch):
         self.processProcExitPoint(subProcEndMatch.group(0), is_subroutine_end=True)
         self.currRoutineIsCallingParallelRegion = False
-        self.additionalParametersByKernelName = {}
+        # self.additionalParametersByKernelName = {}
         self.additionalWrapperImportsByKernelName = {}
         self.currAdditionalSubroutineParameters = []
         self.currAdditionalCompactedSubroutineParameters = []
@@ -1641,7 +1688,11 @@ This is not allowed for implementations using %s.\
 
                 for symbol in additionalDeclarations:
                     declType = symbol.declarationType()
-                    if declType != DeclarationType.FOREIGN_MODULE_SCALAR and declType != DeclarationType.LOCAL_ARRAY:
+                    if declType not in [
+                        DeclarationType.FOREIGN_MODULE_SCALAR,
+                        DeclarationType.LOCAL_ARRAY,
+                        DeclarationType.OTHER_SCALAR
+                    ]:
                         continue
 
                     #in case the array uses domain sizes in the declaration that are additional symbols themselves

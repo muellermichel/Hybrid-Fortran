@@ -227,6 +227,7 @@ class Symbol(object):
 	_isArgumentOverride = False
 	_nameOfScopeOverride = None
 	_nameInScope = None
+	_declarationTypeOverride = None
 
 	def __init__(self, name, template, patterns=None, debugPrint=False):
 		if not name or name == "":
@@ -281,6 +282,7 @@ class Symbol(object):
 		self._isArgumentOverride = False
 		self._nameOfScopeOverride = None
 		self._nameInScope = None
+		self._declarationTypeOverride = None
 
 		if self.debugPrint:
 			sys.stderr.write("[" + str(self) + ".init " + str(self.initLevel) + "] initialized\n")
@@ -336,7 +338,7 @@ class Symbol(object):
 	@property
 	def nameIsGuaranteedUniqueInScope(self):
 		#symbols without a routineNode are module scope symbols
-		if not self.routineNode or self.isArgument or self.declarationType() in [
+		if not self.routineNode or self.isArgument or self.declarationType in [
 			DeclarationType.LOCAL_MODULE_SCALAR
 		]:
 			return True
@@ -405,6 +407,47 @@ class Symbol(object):
 		if self.declaredDimensionSizes and len(self.domains) == len(self.declaredDimensionSizes):
 			return True
 		return False
+
+	@property
+	def declarationType(self):
+		def hasSourceModule(symbol, onlyLocal=False):
+			if symbol.sourceModule == "HF90_LOCAL_MODULE":
+				return True
+			if onlyLocal:
+				return False
+			if symbol.sourceModule not in [None, ""]:
+				return True
+			return False
+
+		if self._declarationTypeOverride != None:
+			return self._declarationTypeOverride
+		if len(self.domains) > 0:
+			if hasSourceModule(self):
+				if self.isArgument:
+					return DeclarationType.MODULE_ARRAY_PASSED_IN_AS_ARGUMENT
+				return DeclarationType.MODULE_ARRAY
+			if self.isArgument:
+				return DeclarationType.OTHER_ARGUMENT
+			if self.initLevel < Init.ROUTINENODE_ATTRIBUTES_LOADED:
+				return DeclarationType.UNDEFINED
+			if self.intent == "local":
+				return DeclarationType.LOCAL_ARRAY
+			return DeclarationType.OTHER_ARRAY
+		if self.isArgument:
+			return DeclarationType.OTHER_ARGUMENT
+		if self.intent == "local":
+			return DeclarationType.LOCAL_SCALAR
+		if hasSourceModule(self, onlyLocal=True):
+			return DeclarationType.LOCAL_MODULE_SCALAR
+		if hasSourceModule(self):
+			return DeclarationType.FOREIGN_MODULE_SCALAR
+		if self.initLevel < Init.ROUTINENODE_ATTRIBUTES_LOADED:
+			return DeclarationType.UNDEFINED
+		return DeclarationType.OTHER_SCALAR
+
+	@declarationType.declarationType
+	def declarationType(self, _declarationTypeOverride):
+		self._declarationTypeOverride = _declarationTypeOverride
 
 	# to be called when a previously loaded symbol is used in a new scope
 	def resetScope(self):
@@ -1160,41 +1203,6 @@ Currently loaded template: %s\n" %(
 			result = result + ")"
 		result = result + ")"
 		return result
-
-	def declarationType(self):
-		def hasSourceModule(symbol, onlyLocal=False):
-			if symbol.sourceModule == "HF90_LOCAL_MODULE":
-				return True
-			if onlyLocal:
-				return False
-			if symbol.sourceModule not in [None, ""]:
-				return True
-			return False
-
-		if len(self.domains) > 0:
-			if hasSourceModule(self):
-				if self.isArgument:
-					return DeclarationType.MODULE_ARRAY_PASSED_IN_AS_ARGUMENT
-				return DeclarationType.MODULE_ARRAY
-			if self.isArgument:
-				return DeclarationType.OTHER_ARGUMENT
-			if self.initLevel < Init.ROUTINENODE_ATTRIBUTES_LOADED:
-				return DeclarationType.UNDEFINED
-			if self.intent == "local":
-				return DeclarationType.LOCAL_ARRAY
-			return DeclarationType.OTHER_ARRAY
-		if self.isArgument:
-			return DeclarationType.OTHER_ARGUMENT
-		if self.intent == "local":
-			return DeclarationType.LOCAL_SCALAR
-		if hasSourceModule(self, onlyLocal=True):
-			return DeclarationType.LOCAL_MODULE_SCALAR
-		if hasSourceModule(self):
-			return DeclarationType.FOREIGN_MODULE_SCALAR
-		if self.initLevel < Init.ROUTINENODE_ATTRIBUTES_LOADED:
-			return DeclarationType.UNDEFINED
-		return DeclarationType.OTHER_SCALAR
-
 
 	def getTemplateEntryNodeValues(self, parentName):
 		if not self.template:

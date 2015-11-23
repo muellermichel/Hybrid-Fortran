@@ -904,8 +904,8 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
         lineDeclarationType = DeclarationType.UNDEFINED
         for symbol in self.symbolsOnCurrentLine:
             if lineDeclarationType == DeclarationType.UNDEFINED:
-                lineDeclarationType = symbol.declarationType()
-            elif lineDeclarationType != symbol.declarationType():
+                lineDeclarationType = symbol.declarationType
+            elif lineDeclarationType != symbol.declarationType:
                 raise Exception("Symbols with different declaration types have been matched on the same line. This is invalid in Hybrid Fortran.\n" + \
                     "Example: Local arrays cannot be mixed with local scalars on the same declaration line. Please move apart these declarations.")
 
@@ -1644,7 +1644,7 @@ This is not allowed for implementations using %s.\
         otherImports = []
         declarationPrefix = None
         for symbol in additionalImports:
-            declType = symbol.declarationType()
+            declType = symbol.declarationType
 
             # compact the imports of real type. Background: Experience has shown that too many
             # symbols passed to kernels, such that parameter list > 256Byte, can cause strange behavior. (corruption
@@ -1687,11 +1687,10 @@ This is not allowed for implementations using %s.\
                     additionalImportSymbolsByName[symbol.name] = symbol
 
                 for symbol in additionalDeclarations:
-                    declType = symbol.declarationType()
-                    if declType not in [
+                    if symbol.declarationType not in [
                         DeclarationType.FOREIGN_MODULE_SCALAR,
                         DeclarationType.LOCAL_ARRAY,
-                        DeclarationType.OTHER_SCALAR
+                        DeclarationType.LOCAL_MODULE_SCALAR
                     ]:
                         continue
 
@@ -1706,14 +1705,13 @@ This is not allowed for implementations using %s.\
                         adjustedDomains.append((domName, domSizeSymbol.nameInScope()))
                     symbol.domains = adjustedDomains
 
-                    additionalDeclarationsStr = additionalDeclarationsStr + \
-                        self.implementation.adjustDeclarationForDevice( \
-                            symbol.getDeclarationLineForAutomaticSymbol().strip(), \
-                            self.patterns, \
-                            [symbol], \
-                            self.currRoutineIsCallingParallelRegion, \
-                            self.routineNodesByProcName[self.currSubprocName].getAttribute('parallelRegionPosition') \
-                        ).rstrip() + "\n"
+                    additionalDeclarationsStr += self.implementation.adjustDeclarationForDevice(
+                        symbol.getDeclarationLineForAutomaticSymbol().strip(),
+                        self.patterns,
+                        [symbol],
+                        self.currRoutineIsCallingParallelRegion,
+                        self.routineNodesByProcName[self.currSubprocName].getAttribute('parallelRegionPosition')
+                    ).rstrip() + "\n"
                     if self.debugPrint:
                         sys.stderr.write("...In subroutine %s: Symbol %s additionally declared and passed to %s\n" \
                             %(self.currSubprocName, symbol, calleeName) \
@@ -1725,14 +1723,13 @@ This is not allowed for implementations using %s.\
                     compactedArrayName = "hfimp_%s" %(calleeName)
                     compactedArray = FrameworkArray(compactedArrayName, declarationPrefix, domains=[("hfauto", str(len(toBeCompacted)))], isOnDevice=True)
                     packedRealSymbolsByCalleeName[calleeName] = toBeCompacted
-                    additionalDeclarationsStr = additionalDeclarationsStr + \
-                        self.implementation.adjustDeclarationForDevice( \
-                            compactedArray.getDeclarationLineForAutomaticSymbol().strip(), \
-                            self.patterns, \
-                            [compactedArray], \
-                            self.currRoutineIsCallingParallelRegion, \
-                            self.routineNodesByProcName[self.currSubprocName].getAttribute('parallelRegionPosition') \
-                        ).rstrip() + "\n"
+                    additionalDeclarationsStr += self.implementation.adjustDeclarationForDevice(
+                        compactedArray.getDeclarationLineForAutomaticSymbol().strip(),
+                        self.patterns,
+                        [compactedArray],
+                        self.currRoutineIsCallingParallelRegion,
+                        self.routineNodesByProcName[self.currSubprocName].getAttribute('parallelRegionPosition')
+                    ).rstrip() + "\n"
                     if self.debugPrint:
                         sys.stderr.write("...In subroutine %s: Symbols %s packed into array %s\n" \
                             %(self.currSubprocName, toBeCompacted, compactedArrayName) \
@@ -1744,7 +1741,7 @@ This is not allowed for implementations using %s.\
             #########################################################################
             ourSymbolsToAdd = sorted(
                 [symbol for symbol in self.currAdditionalSubroutineParameters
-                    if symbol.declarationType() in [
+                    if symbol.declarationType in [
                         DeclarationType.FOREIGN_MODULE_SCALAR,
                         DeclarationType.LOCAL_MODULE_SCALAR,
                         DeclarationType.FRAMEWORK_ARRAY,
@@ -1756,15 +1753,14 @@ This is not allowed for implementations using %s.\
                 purgeList=[]
                 if symbol.isCompacted:
                     purgeList=['intent']
-                additionalDeclarationsStr = additionalDeclarationsStr + \
-                    self.tab_insideSub + self.implementation.adjustDeclarationForDevice( \
-                        self.tab_insideSub + \
-                            symbol.getDeclarationLineForAutomaticSymbol(purgeList, self.patterns).strip(), \
-                        self.patterns, \
-                        [symbol], \
-                        self.currRoutineIsCallingParallelRegion, \
-                        self.routineNodesByProcName[self.currSubprocName].getAttribute('parallelRegionPosition') \
-                    ).rstrip() + "\n"
+                additionalDeclarationsStr += self.tab_insideSub + self.implementation.adjustDeclarationForDevice(
+                    self.tab_insideSub +
+                        symbol.getDeclarationLineForAutomaticSymbol(purgeList, self.patterns).strip(),
+                    self.patterns,
+                    [symbol],
+                    self.currRoutineIsCallingParallelRegion,
+                    self.routineNodesByProcName[self.currSubprocName].getAttribute('parallelRegionPosition')
+                ).rstrip() + "\n"
                 if self.debugPrint:
                     sys.stderr.write("...In subroutine %s: Symbol %s additionally declared\n" \
                         %(self.currSubprocName, symbol) \
@@ -2017,15 +2013,15 @@ This is not allowed for implementations using %s.\
         if self.debugPrint:
             sys.stderr.write("curr Module: %s; additional imports: %s\n" %(
                 self.currModuleName,
-                ["%s: %s from %s" %(symbol.name, symbol.declarationType(), symbol.sourceModule) for symbol in additionalImports]
+                ["%s: %s from %s" %(symbol.name, symbol.declarationType, symbol.sourceModule) for symbol in additionalImports]
             ))
         for symbol in additionalImports:
             #MMU 2015-11: This can now be done more elegantly using the analysis passed in to symbol
-            # if symbol.declarationType() not in [DeclarationType.FOREIGN_MODULE_SCALAR, DeclarationType.LOCAL_ARRAY, DeclarationType.MODULE_ARRAY] \
-            # or (symbol.declarationType() == DeclarationType.MODULE_ARRAY and symbol.sourceModule == self.currModuleName) \
-            # or (symbol.declarationType() == DeclarationType.MODULE_ARRAY and type(symbol.sourceModule) in [str, unicode] and "HF90_" in symbol.sourceModule):
+            # if symbol.declarationType not in [DeclarationType.FOREIGN_MODULE_SCALAR, DeclarationType.LOCAL_ARRAY, DeclarationType.MODULE_ARRAY] \
+            # or (symbol.declarationType == DeclarationType.MODULE_ARRAY and symbol.sourceModule == self.currModuleName) \
+            # or (symbol.declarationType == DeclarationType.MODULE_ARRAY and type(symbol.sourceModule) in [str, unicode] and "HF90_" in symbol.sourceModule):
             #     continue
-            if symbol.declarationType() not in [DeclarationType.FOREIGN_MODULE_SCALAR, DeclarationType.LOCAL_ARRAY, DeclarationType.MODULE_ARRAY]:
+            if symbol.declarationType not in [DeclarationType.FOREIGN_MODULE_SCALAR, DeclarationType.LOCAL_ARRAY, DeclarationType.MODULE_ARRAY]:
                 continue
             adjustedLine = adjustedLine + "use %s, only : %s => %s\n" %(
                 symbol.sourceModule,

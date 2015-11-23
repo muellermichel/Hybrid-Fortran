@@ -763,7 +763,7 @@ end subroutine
             return ""
         if currRoutineNode.getAttribute("parallelRegionPosition") != 'inside':
             return ""
-        if symbolInCaller.declarationType() != DeclarationType.LOCAL_ARRAY:
+        if symbolInCaller.declarationType != DeclarationType.LOCAL_ARRAY:
             return ""
         return "!$acc update device(%s) if(hf_symbols_are_device_present)\n" %(symbolInCaller.name)
 
@@ -772,7 +772,7 @@ end subroutine
             return ""
         if currRoutineNode.getAttribute("parallelRegionPosition") != 'inside':
             return ""
-        if symbolInCaller.declarationType() != DeclarationType.LOCAL_ARRAY:
+        if symbolInCaller.declarationType != DeclarationType.LOCAL_ARRAY:
             return ""
         return "!$acc update host(%s) if(hf_symbols_are_device_present)\n" %(symbolInCaller.name)
 
@@ -804,7 +804,7 @@ end subroutine
         devicePresentSymbols = [symbol for symbol in dependantSymbols if symbol.isOnDevice]
         if len(devicePresentSymbols) > 0:
             for symbol in dependantSymbols:
-                if len(symbol.domains) > 0 and symbol.declarationType() != DeclarationType.LOCAL_ARRAY:
+                if len(symbol.domains) > 0 and symbol.declarationType != DeclarationType.LOCAL_ARRAY:
                     result += "hf_symbols_are_device_present = acc_is_present(%s)\n" %(symbol.name)
                     break
             else:
@@ -825,7 +825,7 @@ end subroutine
     def parallelRegionBegin(self, parallelRegionTemplate, outerBranchLevel=0):
         regionStr = ""
         for symbol in self.currDependantSymbols:
-            if symbol.declarationType() == DeclarationType.LOCAL_ARRAY:
+            if symbol.declarationType == DeclarationType.LOCAL_ARRAY:
                 regionStr += "!$acc update device(%s) if(hf_symbols_are_device_present)\n" %(symbol.name)
         vectorSizePPNames = getVectorSizePPNames(parallelRegionTemplate)
         regionStr += "!$acc kernels if(hf_symbols_are_device_present) "
@@ -853,7 +853,7 @@ end subroutine
     def parallelRegionEnd(self, parallelRegionTemplate, outerBranchLevel=0):
         additionalStatements = "\n!$acc end kernels\n"
         for symbol in self.currDependantSymbols:
-            if symbol.declarationType() == DeclarationType.LOCAL_ARRAY:
+            if symbol.declarationType == DeclarationType.LOCAL_ARRAY:
                 additionalStatements += "!$acc update host(%s) if(hf_symbols_are_device_present)\n" %(symbol.name)
         return FortranImplementation.parallelRegionEnd(self, parallelRegionTemplate) + additionalStatements
 
@@ -1064,7 +1064,7 @@ end if\n" %(calleeNode.getAttribute('name'))
                     symbol.loadRoutineNodeAttributes(parentNode, parallelRegionTemplates)
                     additionalImports.append(symbol)
                 #check for temporary arrays in kernel subroutines
-                elif not symbol.intent or symbol.intent in ["", None, "local"]:
+                elif symbol.intent in ["", None, "local"]:
                     symbol.loadRoutineNodeAttributes(parentNode, parallelRegionTemplates)
                     if symbol.intent == "local" and len(symbol.domains) == 0:
                         continue
@@ -1073,6 +1073,8 @@ end if\n" %(calleeNode.getAttribute('name'))
 
         routineImports, routineDeclarations = getAdditionalImportsAndDeclarationsForParentScope(routineNode)
         moduleImports, moduleDeclarations = getAdditionalImportsAndDeclarationsForParentScope(moduleNode)
+        for symbol in moduleImports:
+
         return sorted(routineImports + moduleImports), sorted(routineDeclarations + moduleDeclarations)
 
     def extractListOfAdditionalSubroutineSymbols(self, routineNode, currSymbolsByName):
@@ -1197,7 +1199,7 @@ Symbols vs host attributes:\n%s" %(str([(symbol.name, symbol.isHostSymbol) for s
         intent = dependantSymbols[0].intent
         #note: intent == None or "" -> is local array
 
-        declarationType = dependantSymbols[0].declarationType()
+        declarationType = dependantSymbols[0].declarationType
         #packed symbols -> leave them alone
         if dependantSymbols[0].isCompacted:
             return adjustedLine + "\n"

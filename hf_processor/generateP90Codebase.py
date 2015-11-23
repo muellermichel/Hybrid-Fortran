@@ -28,7 +28,7 @@
 
 
 from xml.dom.minidom import Document
-from DomHelper import parseString
+from DomHelper import parseString, ImmutableDOMDocument
 from optparse import OptionParser
 from H90CallGraphParser import H90toF90Printer, getSymbolsByName, getModuleNodesByName, getParallelRegionData, getSymbolsByRoutineNameAndSymbolName, getSymbolsByModuleNameAndSymbolName
 from GeneralHelper import openFile, getDataFromFile
@@ -98,7 +98,7 @@ implementationsByTemplateName={
 	templateName:getattr(FortranImplementation, implementationNamesByTemplateName[templateName])(optionFlags)
 	for templateName in implementationNamesByTemplateName.keys()
 }
-cgDoc = parseString(getDataFromFile(options.callgraph))
+cgDoc = parseString(getDataFromFile(options.callgraph), immutable=False)
 try:
 	os.mkdir(options.outputDir)
 except OSError as e:
@@ -112,11 +112,19 @@ try:
 	moduleNodesByName = getModuleNodesByName(cgDoc)
 	parallelRegionData = getParallelRegionData(cgDoc)
 	symbolAnalyzer = SymbolDependencyAnalyzer(cgDoc)
+	#next line writes some information to cgDoc as a sideeffect. $$$ clean this up, ideally make cgDoc immutable everywhere for better performance
 	symbolAnalysisByRoutineNameAndSymbolName = symbolAnalyzer.getSymbolAnalysisByRoutine()
-	symbolsByModuleNameAndSymbolName = getSymbolsByModuleNameAndSymbolName(cgDoc, moduleNodesByName)
-	symbolsByRoutineNameAndSymbolName = getSymbolsByRoutineNameAndSymbolName(cgDoc, parallelRegionData[2], parallelRegionData[1], debugPrint=options.debug)
+	symbolsByModuleNameAndSymbolName = getSymbolsByModuleNameAndSymbolName(ImmutableDOMDocument(cgDoc), moduleNodesByName)
+	symbolsByRoutineNameAndSymbolName = getSymbolsByRoutineNameAndSymbolName(
+		ImmutableDOMDocument(cgDoc),
+		parallelRegionData[2],
+		parallelRegionData[1],
+		debugPrint=options.debug
+	)
 except Exception as e:
 	sys.stderr.write('Error when processing meta information about the codebase: %s\n' %(str(e)))
+	if options.debug:
+		sys.stderr.write(traceback.format_exc())
 	sys.exit(1)
 
 for fileInDir in filesInDir:
@@ -128,7 +136,7 @@ for fileInDir in filesInDir:
 	outputStream = FileIO(outputPath, mode="wb")
 	try:
 		f90printer = H90toF90Printer(
-			cgDoc,
+			ImmutableDOMDocument(cgDoc), #using our immutable version we can speed up ALL THE THINGS through caching
 			implementationsByTemplateName,
 			options.debug,
 			outputStream,
@@ -143,6 +151,7 @@ for fileInDir in filesInDir:
 		sys.stderr.write('Error when generating P90.temp from h90 file %s: %s\n%s\n' \
 			%(str(fileInDir), str(e), traceback.format_exc())
 		)
+		sys.stderr.write(traceback.format_exc())
 		os.unlink(outputPath)
 		sys.exit(1)
 	finally:

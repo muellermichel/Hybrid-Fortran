@@ -25,7 +25,7 @@
 #**********************************************************************#
 
 
-from xml.dom.minidom import Document, parseString as parseStringUsingMinidom
+from xml.dom.minidom import Document, Node, parseString as parseStringUsingMinidom
 from GeneralHelper import BracketAnalyzer, enum
 import uuid
 import re
@@ -39,19 +39,89 @@ class ParallelRegionDomain(object):
         self.startsAt = startsAt
         self.endsAt = endsAt
 
-#this saves a lot of preprocessing time by caching the results instead of using minidom's native implementation
-def parseString(data):
-    def cachedGetElementsByTagName(self, tagName):
-        result = self.cachedElementsByTagName.get(tagName)
+class DOMNode(Node):
+    pass
+
+class DOMDocument(Document):
+    pass
+
+class ImmutableDOMNode(object):
+    def __init__(self, node):
+        self.node = node
+        self.cachedElementsByTagName = {}
+
+    @property
+    def nodeType(self):
+        return self.node.nodeType
+
+    @property
+    def nodeName(self):
+        return self.node.nodeName
+
+    @property
+    def nodeValue(self):
+        return self.node.nodeValue
+
+    @property
+    def attributes(self):
+        return self.node.attributes
+
+    @property
+    def parentNode(self):
+        return ImmutableDOMNode(self.node.parentNode)
+
+    @property
+    def firstChild(self):
+        return ImmutableDOMNode(self.node.firstChild)
+
+    @property
+    def childNodes(self):
+        return [ImmutableDOMNode(node) for node in self.node.childNodes]
+
+    def getElementsByTagName(self, name):
+        result = self.cachedElementsByTagName.get(name)
         if result != None:
             return result
-        result = self.uncachedGetElementsByTagName(tagName)
-        self.cachedElementsByTagName[tagName] = result
-        return result
+        uncachedResult = self.node.getElementsByTagName(name)
+        cachedResult = [ImmutableDOMNode(node) for node in uncachedResult]
+        self.cachedElementsByTagName[name] = cachedResult
+        return cachedResult
+
+    def getAttribute(self, qName):
+        return self.node.getAttribute(qName)
+
+    def toxml(self, encoding=None):
+        return self.node.toxml(encoding)
+
+    def toprettyxml(self, indent="", newl="", encoding=""):
+        return self.node.toprettyxml(indent, newl, encoding)
+
+    def appendChild(self, node):
+        raise Exception("cannot append child to immutable node")
+
+    def removeChild(self, node):
+        raise Exception("cannot remove child from immutable node")
+
+    def cloneNode(self, deep):
+        raise Exception("clone node not implemented")
+
+    def createElement(self, tagName):
+        raise Exception("cannot create element for immutable node")
+
+    def createTextNode(self, tagName):
+        raise Exception("cannot create text node for immutable node")
+
+    def createAttribute(self, qName):
+        raise Exception("cannot create attribute for immutable node")
+
+class ImmutableDOMDocument(ImmutableDOMNode):
+    pass
+
+def parseString(data, immutable=False):
     doc = parseStringUsingMinidom(data)
-    doc.cachedElementsByTagName = {}
-    doc.uncachedGetElementsByTagName = doc.getElementsByTagName
-    Document.getElementsByTagName = cachedGetElementsByTagName
+    if immutable:
+        #this saves a lot of preprocessing time by caching the results instead of using minidom's native implementation
+        return ImmutableDOMDocument(doc)
     return doc
 
 def addCallers(callGraphDict, routineDict, calls, routineName):

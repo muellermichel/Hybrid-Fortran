@@ -1605,7 +1605,7 @@ This is not allowed for implementations using %s.\
     def processProcEndMatch(self, subProcEndMatch):
         self.processProcExitPoint(subProcEndMatch.group(0), is_subroutine_end=True)
         self.currRoutineIsCallingParallelRegion = False
-        # self.additionalParametersByKernelName = {}
+        self.additionalParametersByKernelName = {}
         self.additionalWrapperImportsByKernelName = {}
         self.currAdditionalSubroutineParameters = []
         self.currAdditionalCompactedSubroutineParameters = []
@@ -1672,14 +1672,77 @@ This is not allowed for implementations using %s.\
         if self.state != "inside_declarations" and self.state != "inside_module" and self.state != "inside_subroutine_call" \
         and not (self.state == "inside_branch" and self.stateBeforeBranch in ["inside_declarations", "inside_module", "inside_subroutine_call"]):
             additionalDeclarationsStr = ""
-            if len(self.additionalParametersByKernelName.keys()) > 0:
+
+            #TODO $$$: most of the following code should probably be handled within implementation classes
+
+            #########################################################################
+            # gather additional symbols for ourselves                               #
+            #########################################################################
+            ourSymbolsToAdd = sorted(
+                [symbol for symbol in self.currAdditionalSubroutineParameters
+                    if symbol.declarationType in [
+                        DeclarationType.FOREIGN_MODULE_SCALAR,
+                        DeclarationType.LOCAL_MODULE_SCALAR,
+                        DeclarationType.FRAMEWORK_ARRAY,
+                        DeclarationType.OTHER_SCALAR
+                    ]
+                ] + self.currAdditionalCompactedSubroutineParameters
+            )
+            additionalImports = []
+            if 'DEBUG_PRINT' in self.implementation.optionFlags:
+                callsLibraries = self.cgDoc.getElementsByTagName("calls")
+                calls = callsLibraries[0].getElementsByTagName("call")
+                for call in calls:
+                    if call.getAttribute("caller") != self.currSubprocName:
+                        continue
+                    calleeName = call.getAttribute("callee")
+                    additionalImports += self.additionalWrapperImportsByKernelName.get(calleeName, [])
+
+            #########################################################################
+            # gather symbols to be packed for called kernels                        #
+            #########################################################################
+            packedRealSymbolsByCalleeName = {}
+            compactionDeclarationPrefixByCalleeName = {}
+            for calleeName in self.additionalParametersByKernelName.keys():
+                additionalImports, _ = self.additionalParametersByKernelName[calleeName]
+                toBeCompacted, declarationPrefix, _ = self.listCompactedSymbolsAndDeclarationPrefixAndOtherImports(additionalImports)
+                if len(toBeCompacted) > 0:
+                    compactionDeclarationPrefixByCalleeName[calleeName] = declarationPrefix
+                    packedRealSymbolsByCalleeName[calleeName] = toBeCompacted
+
+            #########################################################################
+            # mark in code, include additional symbols for kernel calls             #
+            #########################################################################
+            numberOfAdditionalDeclarations = len(self.additionalParametersByKernelName.keys()) \
+                + len(ourSymbolsToAdd) \
+                + len(additionalImports) \
+                + len(packedRealSymbolsByCalleeName.keys())
+            if numberOfAdditionalDeclarations > 0:
                 additionalDeclarationsStr = "\n" + self.tab_insideSub + \
                  "! ****** additional symbols inserted by framework to emulate device support of language features\n"
 
             #########################################################################
-            # additional symbols for called kernel                                  #
+            # create declaration lines for symbols for ourself                      #
             #########################################################################
-            packedRealSymbolsByCalleeName = {}
+            for symbol in ourSymbolsToAdd:
+                purgeList=['public']
+                if symbol.isCompacted:
+                    purgeList=['intent', 'public']
+                additionalDeclarationsStr += self.tab_insideSub + self.implementation.adjustDeclarationForDevice(
+                    self.tab_insideSub +
+                        symbol.getDeclarationLineForAutomaticSymbol(purgeList).strip(),
+                    [symbol],
+                    self.currRoutineIsCallingParallelRegion,
+                    self.routineNodesByProcName[self.currSubprocName].getAttribute('parallelRegionPosition')
+                ).rstrip() + "\n"
+                if self.debugPrint:
+                    sys.stderr.write("...In subroutine %s: Symbol %s additionally declared\n" \
+                        %(self.currSubprocName, symbol) \
+                    )
+
+            #########################################################################
+            # create declaration lines for called kernels                           #
+            #########################################################################
             for calleeName in self.additionalParametersByKernelName.keys():
                 additionalImports, additionalDeclarations = self.additionalParametersByKernelName[calleeName]
                 additionalImportSymbolsByName = {}
@@ -1706,8 +1769,7 @@ This is not allowed for implementations using %s.\
                     symbol.domains = adjustedDomains
 
                     additionalDeclarationsStr += self.implementation.adjustDeclarationForDevice(
-                        symbol.getDeclarationLineForAutomaticSymbol().strip(),
-                        self.patterns,
+                        symbol.getDeclarationLineForAutomaticSymbol(purgeList=['intent', 'public']).strip(),
                         [symbol],
                         self.currRoutineIsCallingParallelRegion,
                         self.routineNodesByProcName[self.currSubprocName].getAttribute('parallelRegionPosition')
@@ -1716,16 +1778,19 @@ This is not allowed for implementations using %s.\
                         sys.stderr.write("...In subroutine %s: Symbol %s additionally declared and passed to %s\n" \
                             %(self.currSubprocName, symbol, calleeName) \
                         )
-
-                toBeCompacted, declarationPrefix, _ = self.listCompactedSymbolsAndDeclarationPrefixAndOtherImports(additionalImports)
+                #TODO: move this into implementation classes
+                toBeCompacted =  packedRealSymbolsByCalleeName.get(calleeName, [])
                 if len(toBeCompacted) > 0:
                     #TODO: generalize for cases where we don't want this to be on the device (e.g. put this into Implementation class)
                     compactedArrayName = "hfimp_%s" %(calleeName)
-                    compactedArray = FrameworkArray(compactedArrayName, declarationPrefix, domains=[("hfauto", str(len(toBeCompacted)))], isOnDevice=True)
-                    packedRealSymbolsByCalleeName[calleeName] = toBeCompacted
+                    compactedArray = FrameworkArray(
+                        compactedArrayName,
+                        compactionDeclarationPrefixByCalleeName[calleeName],
+                        domains=[("hfauto", str(len(toBeCompacted)))],
+                        isOnDevice=True
+                    )
                     additionalDeclarationsStr += self.implementation.adjustDeclarationForDevice(
                         compactedArray.getDeclarationLineForAutomaticSymbol().strip(),
-                        self.patterns,
                         [compactedArray],
                         self.currRoutineIsCallingParallelRegion,
                         self.routineNodesByProcName[self.currSubprocName].getAttribute('parallelRegionPosition')
@@ -1735,48 +1800,6 @@ This is not allowed for implementations using %s.\
                             %(self.currSubprocName, toBeCompacted, compactedArrayName) \
                         )
 
-
-            #########################################################################
-            # additional symbols for ourselves                                      #
-            #########################################################################
-            ourSymbolsToAdd = sorted(
-                [symbol for symbol in self.currAdditionalSubroutineParameters
-                    if symbol.declarationType in [
-                        DeclarationType.FOREIGN_MODULE_SCALAR,
-                        DeclarationType.LOCAL_MODULE_SCALAR,
-                        DeclarationType.FRAMEWORK_ARRAY,
-                        DeclarationType.OTHER_SCALAR
-                    ]
-                ] + self.currAdditionalCompactedSubroutineParameters
-            )
-            for symbol in ourSymbolsToAdd:
-                purgeList=[]
-                if symbol.isCompacted:
-                    purgeList=['intent']
-                additionalDeclarationsStr += self.tab_insideSub + self.implementation.adjustDeclarationForDevice(
-                    self.tab_insideSub +
-                        symbol.getDeclarationLineForAutomaticSymbol(purgeList, self.patterns).strip(),
-                    self.patterns,
-                    [symbol],
-                    self.currRoutineIsCallingParallelRegion,
-                    self.routineNodesByProcName[self.currSubprocName].getAttribute('parallelRegionPosition')
-                ).rstrip() + "\n"
-                if self.debugPrint:
-                    sys.stderr.write("...In subroutine %s: Symbol %s additionally declared\n" \
-                        %(self.currSubprocName, symbol) \
-                    )
-
-            if len(self.additionalParametersByKernelName.keys()) > 0:
-                additionalDeclarationsStr = additionalDeclarationsStr + "! ****** end additional symbols\n\n"
-            additionalImports = []
-            if 'DEBUG_PRINT' in self.implementation.optionFlags:
-                callsLibraries = self.cgDoc.getElementsByTagName("calls")
-                calls = callsLibraries[0].getElementsByTagName("call")
-                for call in calls:
-                    if call.getAttribute("caller") != self.currSubprocName:
-                        continue
-                    calleeName = call.getAttribute("callee")
-                    additionalImports += self.additionalWrapperImportsByKernelName.get(calleeName, [])
             additionalDeclarationsStr += self.implementation.declarationEnd( \
                 self.currSymbolsByName.values() + additionalImports, \
                 self.currRoutineIsCallingParallelRegion, \
@@ -1784,21 +1807,29 @@ This is not allowed for implementations using %s.\
                 self.parallelRegionTemplatesByProcName.get(self.currSubprocName)
             )
 
+
             #########################################################################
-            # additional symbols to be packed into arrays                           #
+            # additional symbols for kernels to be packed                           #
             #########################################################################
-            #TODO: move this into implementation classes
             calleesWithPackedReals = packedRealSymbolsByCalleeName.keys()
             for calleeName in calleesWithPackedReals:
                 for idx, symbol in enumerate(sorted(packedRealSymbolsByCalleeName[calleeName])):
-                    additionalDeclarationsStr = additionalDeclarationsStr + "hfimp_%s(%i) = %s\n" %(calleeName, idx+1, symbol.nameInScope())
+                    #$$$ clean this up, the hf_imp prefix should be decided within the symbol class
+                    additionalDeclarationsStr += "hfimp_%s(%i) = %s\n" %(calleeName, idx+1, symbol.nameInScope())
 
             #########################################################################
-            # additional symbols to be unpacked                                     #
+            # additional symbols for ourselves to be unpacked                       #
             #########################################################################
             #TODO: move this into implementation classes
             for idx, symbol in enumerate(self.currAdditionalCompactedSubroutineParameters):
-                additionalDeclarationsStr = additionalDeclarationsStr + "%s = hfimp_%s(%i)\n" %(symbol.nameInScope(), self.currSubprocName, idx+1)
+                #$$$ clean this up, the hf_imp prefix should be decided within the symbol class
+                additionalDeclarationsStr += "%s = hfimp_%s(%i)\n" %(symbol.nameInScope(), self.currSubprocName, idx+1)
+
+            #########################################################################
+            # mark the end of additional includes in code                           #
+            #########################################################################
+            if numberOfAdditionalDeclarations > 0:
+                additionalDeclarationsStr += "! ****** end additional symbols\n\n"
 
             self.prepareLine(additionalDeclarationsStr, self.tab_insideSub)
 
@@ -1828,7 +1859,6 @@ This is not allowed for implementations using %s.\
 
         if len(self.symbolsOnCurrentLine) > 0:
             adjustedLine = self.implementation.adjustDeclarationForDevice(adjustedLine, \
-                self.patterns, \
                 self.symbolsOnCurrentLine, \
                 self.currRoutineIsCallingParallelRegion, \
                 self.routineNodesByProcName[self.currSubprocName].getAttribute('parallelRegionPosition') \

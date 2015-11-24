@@ -93,7 +93,7 @@ class ImmutableDOMNode(object):
     def toxml(self, encoding=None):
         return self.node.toxml(encoding)
 
-    def toprettyxml(self, indent="", newl="", encoding=""):
+    def toprettyxml(self, indent="", newl="", encoding=None):
         return self.node.toprettyxml(indent, newl, encoding)
 
     def appendChild(self, node):

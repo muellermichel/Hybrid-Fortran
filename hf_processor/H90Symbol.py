@@ -435,17 +435,17 @@ class Symbol(object):
 			return DeclarationType.OTHER_ARRAY
 		if self.isArgument:
 			return DeclarationType.OTHER_ARGUMENT
-		if self.intent == "local":
-			return DeclarationType.LOCAL_SCALAR
 		if hasSourceModule(self, onlyLocal=True):
 			return DeclarationType.LOCAL_MODULE_SCALAR
+		if self.intent == "local":
+			return DeclarationType.LOCAL_SCALAR
 		if hasSourceModule(self):
 			return DeclarationType.FOREIGN_MODULE_SCALAR
 		if self.initLevel < Init.ROUTINENODE_ATTRIBUTES_LOADED:
 			return DeclarationType.UNDEFINED
 		return DeclarationType.OTHER_SCALAR
 
-	@declarationType.declarationType
+	@declarationType.setter
 	def declarationType(self, _declarationTypeOverride):
 		self._declarationTypeOverride = _declarationTypeOverride
 
@@ -965,7 +965,7 @@ Current Domains: %s\n" %(
 		dimensionStr, postfix = self.getDimensionStringAndRemainderFromDeclMatch(paramDeclMatch, dimensionPattern)
 		return prefix + str(self) + postfix
 
-	def getDeclarationLineForAutomaticSymbol(self, purgeList=[], patterns=None, name_prefix="", use_domain_reordering=True, skip_on_missing_declaration=False):
+	def getDeclarationLineForAutomaticSymbol(self, purgeList=[], patterns=H90RegExPatterns.Instance(), name_prefix="", use_domain_reordering=True, skip_on_missing_declaration=False):
 		if self.debugPrint:
 			sys.stderr.write("[" + self.name + ".init " + str(self.initLevel) + "] Decl.Line.Gen: Purge List: %s, Name Prefix: %s, Domain Reordering: %s, Skip on Missing: %s.\n" %(
 				str(purgeList),
@@ -986,9 +986,6 @@ EXAMPLE:\n\
 %s\n\
 @end domainDependant" %(self.nameInScope(), routineHelperText, self.name)
 			)
-
-		if len(purgeList) > 0 and patterns == None:
-			raise Exception("Unexpected error: patterns argument required with non empty purgeList argument in getDeclarationLineForAutomaticSymbol.")
 
 		declarationPrefix = self.declarationPrefix
 		if "::" not in declarationPrefix:

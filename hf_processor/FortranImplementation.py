@@ -181,7 +181,6 @@ def getTracingDeclarationStatements(currRoutineNode, dependantSymbols, patterns,
         for prefix in useReorderingByAdditionalSymbolPrefixes.keys():
             current_declaration_line = symbol.getDeclarationLineForAutomaticSymbol(
                 purgeList=['intent', 'public', 'allocatable', 'target'],
-                patterns=patterns,
                 name_prefix=prefix,
                 use_domain_reordering=useReorderingByAdditionalSymbolPrefixes[prefix],
                 skip_on_missing_declaration=True
@@ -501,8 +500,10 @@ class FortranImplementation(object):
     debugPrintIteratorDeclared = False
     currRoutineNode = None
     useOpenACCForDebugPrintStatements = True
+    patterns = None
 
     def __init__(self, optionFlags):
+        self.patterns = H90RegExPatterns.Instance()
         self.currDependantSymbols = None
         self.currParallelRegionTemplateNode = None
         if type(optionFlags) == list:
@@ -550,7 +551,7 @@ class FortranImplementation(object):
     def adjustImportForDevice(self, line, parallelRegionPosition):
         return line
 
-    def adjustDeclarationForDevice(self, line, patterns, dependantSymbols, routineIsKernelCaller, parallelRegionPosition):
+    def adjustDeclarationForDevice(self, line, dependantSymbols, routineIsKernelCaller, parallelRegionPosition):
         return line
 
     def additionalIncludes(self):
@@ -643,14 +644,12 @@ def getWriteTraceFunc(begin_or_end):
     return writeTrace
 
 class TraceGeneratingFortranImplementation(FortranImplementation):
-    patterns = None
     currRoutineNode = None
     currModuleName = None
     currentTracedSymbols = []
     earlyReturnCounter = 0
 
     def __init__(self, optionFlags):
-        self.patterns = H90RegExPatterns.Instance()
         self.currentTracedSymbols = []
         self.earlyReturnCounter = 0
 
@@ -776,7 +775,7 @@ end subroutine
             return ""
         return "!$acc update host(%s) if(hf_symbols_are_device_present)\n" %(symbolInCaller.name)
 
-    def adjustDeclarationForDevice(self, line, patterns, dependantSymbols, routineIsKernelCaller, parallelRegionPosition):
+    def adjustDeclarationForDevice(self, line, dependantSymbols, routineIsKernelCaller, parallelRegionPosition):
         return line
 
     def declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates):
@@ -902,7 +901,6 @@ class DebugPGIOpenACCFortranImplementation(PGIOpenACCFortranImplementation):
         return result
 
 class TraceCheckingOpenACCFortranImplementation(DebugPGIOpenACCFortranImplementation):
-    patterns = None
     currRoutineNode = None
     currModuleName = None
     currentTracedSymbols = []
@@ -910,7 +908,6 @@ class TraceCheckingOpenACCFortranImplementation(DebugPGIOpenACCFortranImplementa
 
     def __init__(self, optionFlags):
         DebugPGIOpenACCFortranImplementation.__init__(self, optionFlags)
-        self.patterns = H90RegExPatterns.Instance()
         self.currentTracedSymbols = []
 
     def additionalIncludes(self):
@@ -1050,7 +1047,7 @@ end if\n" %(calleeNode.getAttribute('name'))
             additionalDeclarations = []
             if not parallelRegionTemplates:
                 return additionalImports, additionalDeclarations
-            if not parentNode.getAttribute("parallelRegionPosition") == "within":
+            if not parentNode.nodeName == "module" and not parentNode.getAttribute("parallelRegionPosition") == "within":
                 return additionalImports, additionalDeclarations
 
             dependantTemplatesAndEntries = getDomainDependantTemplatesAndEntries(cgDoc, parentNode)
@@ -1060,20 +1057,17 @@ end if\n" %(calleeNode.getAttribute('name'))
                 symbol.loadDomainDependantEntryNodeAttributes(entry)
 
                 #check for external module imports in kernel subroutines
-                if symbol.sourceModule and symbol.sourceModule != "":
+                if symbol.sourceModule not in ["", None, "HF90_LOCAL_MODULE"]:
                     symbol.loadRoutineNodeAttributes(parentNode, parallelRegionTemplates)
                     additionalImports.append(symbol)
-                #check for temporary arrays in kernel subroutines
-                elif symbol.intent in ["", None, "local"]:
+                #check for arrays and scalars in kernel subroutines
+                elif symbol.sourceModule == "HF90_LOCAL_MODULE" or symbol.intent in ["", None, "local"]:
                     symbol.loadRoutineNodeAttributes(parentNode, parallelRegionTemplates)
-                    if symbol.intent == "local" and len(symbol.domains) == 0:
-                        continue
                     additionalDeclarations.append(symbol)
             return additionalImports, additionalDeclarations
 
         routineImports, routineDeclarations = getAdditionalImportsAndDeclarationsForParentScope(routineNode)
         moduleImports, moduleDeclarations = getAdditionalImportsAndDeclarationsForParentScope(moduleNode)
-        for symbol in moduleImports:
 
         return sorted(routineImports + moduleImports), sorted(routineDeclarations + moduleDeclarations)
 
@@ -1135,7 +1129,7 @@ end if\n" %(calleeNode.getAttribute('name'))
         else:
             return line
 
-    def adjustDeclarationForDevice(self, line, patterns, dependantSymbols, routineIsKernelCaller, parallelRegionPosition):
+    def adjustDeclarationForDevice(self, line, dependantSymbols, routineIsKernelCaller, parallelRegionPosition):
         if not dependantSymbols or len(dependantSymbols) == 0:
             raise Exception("no symbols to adjust")
 
@@ -1145,7 +1139,7 @@ end if\n" %(calleeNode.getAttribute('name'))
         declarationDirectivesWithoutIntent, declarationDirectives,  symbolDeclarationStr = purgeFromDeclarationSettings( \
             line, \
             dependantSymbols, \
-            patterns, \
+            self.patterns, \
             withAndWithoutIntent=True \
         )
 

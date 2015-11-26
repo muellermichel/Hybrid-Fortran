@@ -219,6 +219,7 @@ class H90CallGraphParser(object):
         self.state = "none"
         self.currCalleeName = None
         self.currArguments = None
+        self.currModuleName = None
         self.branchAnalyzer = BracketAnalyzer(
             r'^\s*if\s*\(|^\s*select\s+case',
             r'^\s*end\s+if|^\s*end\s+select',
@@ -678,6 +679,7 @@ class H90XMLCallGraphGenerator(H90CallGraphParser):
         routine = self.doc.createElement('routine')
         routine.setAttribute('name', self.currSubprocName)
         routine.setAttribute('source', os.path.basename(self.fileName).split('.')[0])
+        routine.setAttribute('module', self.currModuleName)
         self.routines.appendChild(routine)
         self.currSubprocNode = routine
 
@@ -738,10 +740,14 @@ class H90XMLCallGraphGenerator(H90CallGraphParser):
             return
         appendSeparatedTextAsNodes(line, ',', self.doc, self.currDomainDependantRelationNode, 'entry')
 
-def getSymbolsByName(cgDoc, parentNode, parallelRegionTemplates, patterns, currentSymbolsByName={}, isModuleSymbols=False, debugPrint=False):
+def getSymbolsByName(cgDoc, parentNode, parallelRegionTemplates=[], currentSymbolsByName={}, symbolAnalysisByRoutineNameAndSymbolName={}, isModuleSymbols=False, debugPrint=False):
+    patterns = H90RegExPatterns.Instance()
     templatesAndEntries = getDomainDependantTemplatesAndEntries(cgDoc, parentNode)
     dependantNames = []
     symbolsByName = {}
+    parentName = parentNode.getAttribute('name')
+    if parentName in [None, '']:
+        raise Exception("parent node without identifier")
     for template, entry in templatesAndEntries:
         dependantName = entry.firstChild.nodeValue
         if dependantName in dependantNames:
@@ -757,6 +763,8 @@ def getSymbolsByName(cgDoc, parentNode, parallelRegionTemplates, patterns, curre
             current_attributes = symbol.attributes
             new_attributes = getAttributes(template)
             symbol.setOptionsFromAttributes(current_attributes + new_attributes)
+        analysis = symbolAnalysisByRoutineNameAndSymbolName.get(parentName, {}).get(dependantName)
+        symbol.analysis = analysis
         symbol.loadDomainDependantEntryNodeAttributes(entry)
         if isModuleSymbols:
             symbol.loadModuleNodeAttributes(parentNode)
@@ -766,7 +774,6 @@ def getSymbolsByName(cgDoc, parentNode, parallelRegionTemplates, patterns, curre
     return symbolsByName
 
 def getModuleNodesByName(cgDoc):
-    #build up dictionary of modules
     moduleNodesByName = {}
     modules = cgDoc.getElementsByTagName('module')
     for module in modules:
@@ -777,17 +784,22 @@ def getModuleNodesByName(cgDoc):
     return moduleNodesByName
 
 def getParallelRegionData(cgDoc):
-    #build up dictionary of parallel regions by procedure name
     parallelRegionTemplateRelationsByProcName = {}
     parallelRegionTemplatesByProcName = {}
     routineNodesByProcName = {}
+    routineNodesByModule = {}
     regionsByID = regionTemplatesByID(cgDoc, 'parallelRegionTemplate')
     routines = cgDoc.getElementsByTagName('routine')
     for routine in routines:
         procName = routine.getAttribute('name')
-        if not procName or procName == '':
+        if procName in [None, '']:
             raise Exception("Procedure without name.")
         routineNodesByProcName[procName] = routine
+        moduleName = routine.getAttribute('module')
+        if moduleName not in [None, '']:
+            routinesForModule = routineNodesByModule.get(moduleName, [])
+            routinesForModule.append(routine)
+            routineNodesByModule[moduleName] = routinesForModule
         regionTemplates = []
         parallelRegionsParents = routine.getElementsByTagName('activeParallelRegions')
         if parallelRegionsParents and len(parallelRegionsParents) > 0:
@@ -804,9 +816,9 @@ def getParallelRegionData(cgDoc):
                 parallelRegionTemplateRelationsByProcName[procName] = templateRelations
             if len(regionTemplates) > 0:
                 parallelRegionTemplatesByProcName[procName] = regionTemplates
-    return parallelRegionTemplateRelationsByProcName, parallelRegionTemplatesByProcName, routineNodesByProcName
+    return parallelRegionTemplateRelationsByProcName, parallelRegionTemplatesByProcName, routineNodesByProcName, routineNodesByModule
 
-def getSymbolsByModuleNameAndSymbolName(cgDoc, moduleNodesByName):
+def getSymbolsByModuleNameAndSymbolName(cgDoc, moduleNodesByName, symbolAnalysisByRoutineNameAndSymbolName={}):
     patterns = H90RegExPatterns.Instance()
     symbolsByModuleNameAndSymbolName = {}
     for moduleName in moduleNodesByName.keys():
@@ -816,16 +828,15 @@ def getSymbolsByModuleNameAndSymbolName(cgDoc, moduleNodesByName):
         symbolsByModuleNameAndSymbolName[moduleName] = getSymbolsByName(
             cgDoc,
             moduleNode,
-            None,
-            patterns,
-            isModuleSymbols=True
+            isModuleSymbols=True,
+            symbolAnalysisByRoutineNameAndSymbolName=symbolAnalysisByRoutineNameAndSymbolName
         )
         for symbolName in symbolsByModuleNameAndSymbolName[moduleName]:
             symbol = symbolsByModuleNameAndSymbolName[moduleName][symbolName]
             symbol.sourceModule = moduleName
     return symbolsByModuleNameAndSymbolName
 
-def getSymbolsByRoutineNameAndSymbolName(cgDoc, routineNodesByProcName, parallelRegionTemplatesByProcName, debugPrint=False):
+def getSymbolsByRoutineNameAndSymbolName(cgDoc, routineNodesByProcName, parallelRegionTemplatesByProcName, symbolAnalysisByRoutineNameAndSymbolName={}, debugPrint=False):
     patterns = H90RegExPatterns.Instance()
     symbolsByRoutineNameAndSymbolName = {}
     for procName in routineNodesByProcName:
@@ -835,9 +846,9 @@ def getSymbolsByRoutineNameAndSymbolName(cgDoc, routineNodesByProcName, parallel
             cgDoc,
             routine,
             parallelRegionTemplatesByProcName.get(procName,[]),
-            patterns,
             isModuleSymbols=False,
-            debugPrint=debugPrint
+            debugPrint=debugPrint,
+            symbolAnalysisByRoutineNameAndSymbolName=symbolAnalysisByRoutineNameAndSymbolName
         )
     return symbolsByRoutineNameAndSymbolName
 
@@ -848,14 +859,17 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
     importsOnCurrentLine = None
     routineNodesByProcName = None
     moduleNodesByName = None
+    routineNodesByModule = None
     parallelRegionTemplatesByProcName = None
     parallelRegionTemplateRelationsByProcName = None
+    tentativeModuleSymbolsByName = None
 
     def __init__(self, cgDoc, moduleNodesByName=None, parallelRegionData=None):
         self.cgDoc = cgDoc
         self.currSymbolsByName = {}
         self.symbolsOnCurrentLine = []
         self.importsOnCurrentLine = []
+        self.tentativeModuleSymbolsByName = None
 
         if moduleNodesByName != None:
             self.moduleNodesByName = moduleNodesByName
@@ -867,6 +881,7 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
         self.parallelRegionTemplatesByProcName = parallelRegionData[1]
         self.parallelRegionTemplateRelationsByProcName = parallelRegionData[0]
         self.routineNodesByProcName = parallelRegionData[2]
+        self.routineNodesByModule = parallelRegionData[3]
 
         super(H90CallGraphAndSymbolDeclarationsParser, self).__init__()
 
@@ -875,10 +890,12 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
             self.cgDoc,
             parentNode,
             parallelRegionTemplates,
-            self.patterns,
             currentSymbolsByName=self.currSymbolsByName,
             isModuleSymbols=isModuleSymbols,
-            debugPrint=self.debugPrint
+            debugPrint=self.debugPrint,
+            symbolAnalysisByRoutineNameAndSymbolName=self.symbolAnalysisByRoutineNameAndSymbolName \
+                if hasattr(self, 'self.symbolAnalysisByRoutineNameAndSymbolName') \
+                else {}
         ))
         if self.debugPrint:
             sys.stderr.write("Symbols loaded from template. Symbols currently active in scope: %s. Module Symbol Property: %s\n" %(
@@ -886,7 +903,13 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
                 str([self.currSymbolsByName[symbolName].isModuleSymbol for symbolName in self.currSymbolsByName.keys()])
             ))
 
-    def analyseSymbolInformationOnCurrentLine(self, line, analyseImports=True, isRoutineSpecification=True):
+    def analyseSymbolInformationOnCurrentLine(self, line, analyseImports=True, isModuleSpecification=False):
+        def loadAsAdditionalModuleSymbol(symbol):
+            symbol.isModuleSymbol = True
+            symbol.loadModuleNodeAttributes(self.moduleNodesByName[self.currModuleName])
+            self.symbolsOnCurrentLine.append(symbol)
+            self.currSymbolsByName[symbol.name] = symbol
+
         symbolNames = self.currSymbolsByName.keys()
         for symbolName in symbolNames:
             symbol = self.currSymbolsByName[symbolName]
@@ -896,27 +919,45 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
                 importMatch = symbol.symbolImportPattern.match(str(line))
             if declMatch:
                 self.symbolsOnCurrentLine.append(symbol)
-                self.processSymbolDeclMatch(declMatch, symbol, isRoutineSpecification=isRoutineSpecification)
+                self.processSymbolDeclMatch(declMatch, symbol)
             elif importMatch:
                 self.importsOnCurrentLine.append(symbol)
                 self.processSymbolImportMatch(importMatch, symbol)
+
+        if isModuleSpecification:
+            symbolNames = self.tentativeModuleSymbolsByName.keys() if self.tentativeModuleSymbolsByName else []
+            for symbolName in symbolNames:
+                symbol = self.tentativeModuleSymbolsByName[symbolName]
+                declMatch = symbol.getDeclarationMatch(str(line))
+                importMatch = None
+                if analyseImports:
+                    importMatch = symbol.symbolImportPattern.match(str(line))
+                if declMatch:
+                    self.symbolsOnCurrentLine.append(symbol)
+                    self.processSymbolDeclMatch(declMatch, symbol)
+                    loadAsAdditionalModuleSymbol(symbol)
+                elif importMatch:
+                    self.importsOnCurrentLine.append(symbol)
+                    self.processSymbolImportMatch(importMatch, symbol)
+                    loadAsAdditionalModuleSymbol(symbol)
+
         #validate the symbols on the current declaration line: Do they match the requirements for Hybrid Fortran?
         lineDeclarationType = DeclarationType.UNDEFINED
+        arrayDeclarationLine = None
         for symbol in self.symbolsOnCurrentLine:
-            if lineDeclarationType == DeclarationType.UNDEFINED:
-                lineDeclarationType = symbol.declarationType
-            elif lineDeclarationType != symbol.declarationType:
-                raise Exception("Symbols with different declaration types have been matched on the same line. This is invalid in Hybrid Fortran.\n" + \
-                    "Example: Local arrays cannot be mixed with local scalars on the same declaration line. Please move apart these declarations.")
+            if symbol.isArray and arrayDeclarationLine == False or not symbol.isArray and arrayDeclarationLine == True:
+                raise Exception(
+                    "Array symbols have been mixed with non-array symbols on the same line. This is invalid in Hybrid Fortran. Please move apart these declarations.\n"
+                )
+            arrayDeclarationLine = symbol.isArray
 
-    def processSymbolDeclMatch(self, paramDeclMatch, symbol, isRoutineSpecification):
+    def processSymbolDeclMatch(self, paramDeclMatch, symbol):
         '''process everything that happens per h90 declaration symbol'''
         symbol.isMatched = True
         symbol.loadDeclaration(
             paramDeclMatch,
             self.patterns,
-            self.currArguments if isinstance(self.currArguments, list) else [],
-            isRoutineSpecification=isRoutineSpecification
+            self.currArguments if isinstance(self.currArguments, list) else []
         )
 
     def processSymbolImportMatch(self, importMatch, symbol):
@@ -927,7 +968,7 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
 
     def processInsideModuleState(self, line):
         super(H90CallGraphAndSymbolDeclarationsParser, self).processInsideModuleState(line)
-        self.analyseSymbolInformationOnCurrentLine(line, analyseImports=False)
+        self.analyseSymbolInformationOnCurrentLine(line, analyseImports=False, isModuleSpecification=True)
 
     def processInsideDeclarationsState(self, line):
         '''process everything that happens per h90 declaration line'''
@@ -944,13 +985,28 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
             return
         self.loadSymbolsFromTemplate(moduleNode, None, isModuleSymbols=True)
 
+        #just in case a programmer (like myself when doing the original ASUCA HF physics when HF didn't yet have module capabilities) specified module symbols within routine nodes instead of the module :-S.
+        self.tentativeModuleSymbolsByName = {}
+        for routineNode in self.routineNodesByModule.get(moduleName, []):
+            routineDependantsByName = getSymbolsByName(
+                self.cgDoc,
+                routineNode,
+                currentSymbolsByName=self.currSymbolsByName,
+                debugPrint=self.debugPrint
+            )
+            for dependantName in routineDependantsByName.keys():
+                symbol = routineDependantsByName[dependantName]
+                if symbol.isArgument:
+                    continue
+                self.tentativeModuleSymbolsByName[dependantName] = symbol
+
     def processModuleEndMatch(self, moduleEndMatch):
         super(H90CallGraphAndSymbolDeclarationsParser, self).processProcEndMatch(moduleEndMatch)
         dependants = self.currSymbolsByName.keys()
         unmatched = []
         for dependant in dependants:
             if not self.currSymbolsByName[dependant].isModuleSymbol:
-                raise Exception("Dependant %s has been referenced in a domain dependant region inside a procedure, but has never been matched." %(dependant))
+                raise Exception("Dependant %s has been referenced in a domain dependant region inside a module, but has never been matched." %(dependant))
             if self.currSymbolsByName[dependant].isMatched:
                 continue
             unmatched.append(dependant)
@@ -962,6 +1018,7 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
         if self.debugPrint:
             sys.stderr.write("Clearing current symbol scope since the module definition is finished\n")
         self.currSymbolsByName = {}
+        self.tentativeModuleSymbolsByName = None
 
     def processProcBeginMatch(self, subProcBeginMatch):
         super(H90CallGraphAndSymbolDeclarationsParser, self).processProcBeginMatch(subProcBeginMatch)
@@ -984,6 +1041,7 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
                 continue
             if len(self.currSymbolsByName[dependant].domains) == 0:
                 #scalars that haven't been declared: Assume that they're from the local module
+                #$$$ this code can probably be left away now that we analyze additional module symbols that haven't been declared domain dependant specifically within the module
                 self.currSymbolsByName[dependant].sourceModule = "HF90_LOCAL_MODULE"
                 self.currSymbolsByName[dependant].isModuleSymbol = True
                 del self.currSymbolsByName[dependant]
@@ -1016,15 +1074,11 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
         parentNode = self.routineNodesByProcName[currParentName] if not isModule else self.moduleNodesByName[currParentName]
         domainDependantsParentNodes = parentNode.getElementsByTagName("domainDependants")
         if domainDependantsParentNodes == None or len(domainDependantsParentNodes) == 0:
-            raise Exception("Unexpected error: No domain dependant parent node found for parent %s where it has been identified before. Parent node: %s. Looking for symbols %s" %(
-                currParentName, parentNode.toxml(), str(self.currSymbols)
-            ))
+            return
         domainDependantsParentNode = domainDependantsParentNodes[0]
         domainDependantEntryNodes = domainDependantsParentNode.getElementsByTagName("entry")
         if domainDependantEntryNodes == None or len(domainDependantEntryNodes) == 0:
-            raise Exception("Unexpected error: No domain dependants found for parent %s where they have been identified before. Looking for symbols %s" %(
-                currParentName, parentNode.toxml(), str(self.currSymbols)
-            ))
+            return
         self.entryNodesBySymbolName = {}
         for domainDependantEntryNode in domainDependantEntryNodes:
             self.entryNodesBySymbolName[domainDependantEntryNode.firstChild.nodeValue.strip()] = domainDependantEntryNode
@@ -1034,9 +1088,9 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
         for symbol in self.currSymbols:
             if symbol.isModuleSymbol and isModule == False:
                 continue
-            entryNode = self.entryNodesBySymbolName[symbol.name]
+            entryNode = self.entryNodesBySymbolName.get(symbol.name)
             if not entryNode:
-                raise Exception("Unexpected error: symbol named %s not expected" %(symbol.name))
+                continue
             symbol.storeDomainDependantEntryNodeAttributes(entryNode)
 
     def processModuleEndMatch(self, moduleEndMatch):
@@ -1144,7 +1198,7 @@ class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
             if symbolsByModuleNameAndSymbolName != None:
                 self.symbolsByModuleNameAndSymbolName = symbolsByModuleNameAndSymbolName
             else:
-                self.symbolsByModuleNameAndSymbolName = getSymbolsByModuleNameAndSymbolName(self.cgDoc, self.moduleNodesByName)
+                self.symbolsByModuleNameAndSymbolName = getSymbolsByModuleNameAndSymbolName(self.cgDoc, self.moduleNodesByName, self.symbolAnalysisByRoutineNameAndSymbolName)
 
             if symbolsByRoutineNameAndSymbolName != None:
                 self.symbolsByRoutineNameAndSymbolName = symbolsByRoutineNameAndSymbolName
@@ -1153,6 +1207,7 @@ class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
                     self.cgDoc,
                     self.routineNodesByProcName,
                     self.parallelRegionTemplatesByProcName,
+                    self.symbolAnalysisByRoutineNameAndSymbolName,
                     debugPrint=self.debugPrint
                 )
         except Exception, e:
@@ -1376,18 +1431,24 @@ This is not allowed for implementations using %s.\
         if not paramListMatch and len(arguments.strip()) > 0:
             raise Exception("Subprocedure arguments without enclosing brackets. This is invalid in Hybrid Fortran")
         additionalSymbolsSeparated = self.additionalParametersByKernelName.get(self.currCalleeName)
+        additionalImports, additionalDeclarations = self.additionalParametersByKernelName.get(self.currCalleeName, ([], []))
         toBeCompacted = []
-        if additionalSymbolsSeparated and len(additionalSymbolsSeparated) > 1:
-            toBeCompacted, declarationPrefix, otherImports = self.listCompactedSymbolsAndDeclarationPrefixAndOtherImports(additionalSymbolsSeparated[0])
+        toBeCompacted, declarationPrefix, otherImports = self.listCompactedSymbolsAndDeclarationPrefixAndOtherImports(additionalImports)
         compactedArrayList = []
         if len(toBeCompacted) > 0:
             compactedArrayName = "hfimp_%s" %(self.currCalleeName)
             compactedArray = FrameworkArray(compactedArrayName, declarationPrefix, domains=[("hfauto", str(len(toBeCompacted)))], isOnDevice=True)
             compactedArrayList = [compactedArray]
-        if additionalSymbolsSeparated:
-            additionalSymbols = sorted(additionalSymbolsSeparated[1] + otherImports + compactedArrayList)
-        else:
-            additionalSymbols = []
+        #the following filter is also applied in the arguments list
+        #$$$ shouldn't this filter be applied already when the list of additionalDeclarations gets built?
+        additionalSymbols = sorted(otherImports + compactedArrayList + [
+            symbol for symbol in additionalDeclarations if symbol.declarationType in [
+                DeclarationType.FOREIGN_MODULE_SCALAR,
+                DeclarationType.LOCAL_ARRAY,
+                DeclarationType.LOCAL_MODULE_SCALAR,
+                DeclarationType.OTHER_SCALAR
+            ]
+        ])
         if len(additionalSymbols) > 0:
             adjustedLine = adjustedLine + "( &\n"
         else:
@@ -1734,7 +1795,7 @@ This is not allowed for implementations using %s.\
                     [symbol],
                     self.currRoutineIsCallingParallelRegion,
                     self.routineNodesByProcName[self.currSubprocName].getAttribute('parallelRegionPosition')
-                ).rstrip() + "\n"
+                ).rstrip() + " ! type %i symbol added for this subroutine\n" %(symbol.declarationType)
                 if self.debugPrint:
                     sys.stderr.write("...In subroutine %s: Symbol %s additionally declared\n" \
                         %(self.currSubprocName, symbol) \
@@ -1750,10 +1811,12 @@ This is not allowed for implementations using %s.\
                     additionalImportSymbolsByName[symbol.name] = symbol
 
                 for symbol in additionalDeclarations:
+                    #$$$ shouldn't this filter be applied already when the list of additionalDeclarations gets built?
                     if symbol.declarationType not in [
                         DeclarationType.FOREIGN_MODULE_SCALAR,
                         DeclarationType.LOCAL_ARRAY,
-                        DeclarationType.LOCAL_MODULE_SCALAR
+                        DeclarationType.LOCAL_MODULE_SCALAR,
+                        DeclarationType.OTHER_SCALAR
                     ]:
                         continue
 
@@ -1773,7 +1836,7 @@ This is not allowed for implementations using %s.\
                         [symbol],
                         self.currRoutineIsCallingParallelRegion,
                         self.routineNodesByProcName[self.currSubprocName].getAttribute('parallelRegionPosition')
-                    ).rstrip() + "\n"
+                    ).rstrip() + " ! type %i symbol added for callee %s\n" %(symbol.declarationType, calleeName)
                     if self.debugPrint:
                         sys.stderr.write("...In subroutine %s: Symbol %s additionally declared and passed to %s\n" \
                             %(self.currSubprocName, symbol, calleeName) \
@@ -1794,7 +1857,7 @@ This is not allowed for implementations using %s.\
                         [compactedArray],
                         self.currRoutineIsCallingParallelRegion,
                         self.routineNodesByProcName[self.currSubprocName].getAttribute('parallelRegionPosition')
-                    ).rstrip() + "\n"
+                    ).rstrip() + " ! compaction array added for callee %s\n" %(calleeName)
                     if self.debugPrint:
                         sys.stderr.write("...In subroutine %s: Symbols %s packed into array %s\n" \
                             %(self.currSubprocName, toBeCompacted, compactedArrayName) \
@@ -1815,7 +1878,8 @@ This is not allowed for implementations using %s.\
             for calleeName in calleesWithPackedReals:
                 for idx, symbol in enumerate(sorted(packedRealSymbolsByCalleeName[calleeName])):
                     #$$$ clean this up, the hf_imp prefix should be decided within the symbol class
-                    additionalDeclarationsStr += "hfimp_%s(%i) = %s\n" %(calleeName, idx+1, symbol.nameInScope())
+                    additionalDeclarationsStr += "hfimp_%s(%i) = %s" %(calleeName, idx+1, symbol.nameInScope()) + \
+                         " ! type %i symbol compaction for callee %s\n" %(symbol.declarationType, calleeName)
 
             #########################################################################
             # additional symbols for ourselves to be unpacked                       #
@@ -1823,7 +1887,8 @@ This is not allowed for implementations using %s.\
             #TODO: move this into implementation classes
             for idx, symbol in enumerate(self.currAdditionalCompactedSubroutineParameters):
                 #$$$ clean this up, the hf_imp prefix should be decided within the symbol class
-                additionalDeclarationsStr += "%s = hfimp_%s(%i)\n" %(symbol.nameInScope(), self.currSubprocName, idx+1)
+                additionalDeclarationsStr += "%s = hfimp_%s(%i)" %(symbol.nameInScope(), self.currSubprocName, idx+1) + \
+                         " ! additional type %i symbol compaction\n" %(symbol.declarationType)
 
             #########################################################################
             # mark the end of additional includes in code                           #

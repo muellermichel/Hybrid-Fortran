@@ -381,6 +381,16 @@ class Symbol(object):
 		return self._isPresent
 
 	@property
+	def isArray(self):
+		return self.declarationType in [
+			DeclarationType.LOCAL_ARRAY,
+			DeclarationType.MODULE_ARRAY,
+			DeclarationType.FRAMEWORK_ARRAY,
+			DeclarationType.MODULE_ARRAY_PASSED_IN_AS_ARGUMENT,
+			DeclarationType.OTHER_ARRAY
+		]
+
+	@property
 	def isToBeTransfered(self):
 		return self._isToBeTransfered
 
@@ -411,7 +421,8 @@ class Symbol(object):
 	@property
 	def declarationType(self):
 		def hasSourceModule(symbol, onlyLocal=False):
-			if symbol.sourceModule == "HF90_LOCAL_MODULE":
+			if symbol.sourceModule == "HF90_LOCAL_MODULE" \
+			or (symbol.sourceModule not in [None, ""] and symbol.sourceModule == self.routineNode.getAttribute('module')):
 				return True
 			if onlyLocal:
 				return False
@@ -662,7 +673,7 @@ class Symbol(object):
 		if self.debugPrint:
 			sys.stderr.write("[" + str(self) + ".init " + str(self.initLevel) + "] routine node attributes loaded for symbol %s. Domains at this point: %s\n" %(self.name, str(self.domains)))
 
-	def loadDeclaration(self, paramDeclMatch, patterns, currentRoutineArguments, isRoutineSpecification=True):
+	def loadDeclaration(self, paramDeclMatch, patterns, currentRoutineArguments):
 		if self.initLevel > Init.ROUTINENODE_ATTRIBUTES_LOADED:
 			sys.stderr.write("[" + str(self) + ".init " + str(self.initLevel) + "] WARNING: symbol %s's declaration is loaded when the initialization level has already advanced further.\n" \
 				%(str(self))
@@ -689,18 +700,10 @@ class Symbol(object):
 			newIntent = intentMatch.group(1)
 		elif self.name in currentRoutineArguments:
 			newIntent = "unspecified" #dummy symbol without specified intent (basically F77 style)
-		elif isRoutineSpecification:
+		else:
 			newIntent = "local"
-		if newIntent and (not self.intent or self.intent.strip() == "" or self.intent == "unspecified"):
+		if newIntent not in ["", None, "unspecified"]:
 			self.intent = newIntent
-		elif newIntent in ["", None, "unspecified"] and self.intent == "local":
-			pass #'local' is not explicitely declared.
-		elif newIntent and newIntent != self.intent:
-			raise Exception("Symbol %s's intent was previously defined already and does not match the declaration on this line. Previously loaded intent: %s, new intent: %s" %(
-				str(self),
-				self.intent,
-				intentMatch.group(1) if intentMatch else "None"
-			))
 
 		#   check whether this is a pointer
 		self.isPointer = self.pointerDeclarationPattern.match(paramDeclMatch.group(0)) != None
@@ -978,13 +981,13 @@ Current Domains: %s\n" %(
 				return ""
 			if self.routineNode:
 				routineHelperText = " for subroutine %s," %(self.nameOfScope)
-			raise Exception("Symbol %s needs to be automatically declared%s but there is no information about its type. \
+			raise Exception("Symbol %s (type %i) needs to be automatically declared%s but there is no information about its type. \
 Please either use an @domainDependant specification in the imported module's module scope OR \
 specify the type like in a Fortran 90 declaration line using a @domainDependant {declarationPrefix([TYPE DECLARATION])} directive within the current subroutine.\n\n\
 EXAMPLE:\n\
 @domainDependant {declarationPrefix(real(8))}\n\
 %s\n\
-@end domainDependant" %(self.nameInScope(), routineHelperText, self.name)
+@end domainDependant" %(self.nameInScope(), self.declarationType, routineHelperText, self.name)
 			)
 
 		declarationPrefix = self.declarationPrefix

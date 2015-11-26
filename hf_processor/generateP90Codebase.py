@@ -114,11 +114,16 @@ try:
 	symbolAnalyzer = SymbolDependencyAnalyzer(cgDoc)
 	#next line writes some information to cgDoc as a sideeffect. $$$ clean this up, ideally make cgDoc immutable everywhere for better performance
 	symbolAnalysisByRoutineNameAndSymbolName = symbolAnalyzer.getSymbolAnalysisByRoutine()
-	symbolsByModuleNameAndSymbolName = getSymbolsByModuleNameAndSymbolName(ImmutableDOMDocument(cgDoc), moduleNodesByName)
+	symbolsByModuleNameAndSymbolName = getSymbolsByModuleNameAndSymbolName(
+		ImmutableDOMDocument(cgDoc),
+		moduleNodesByName,
+		symbolAnalysisByRoutineNameAndSymbolName=symbolAnalysisByRoutineNameAndSymbolName
+	)
 	symbolsByRoutineNameAndSymbolName = getSymbolsByRoutineNameAndSymbolName(
 		ImmutableDOMDocument(cgDoc),
 		parallelRegionData[2],
 		parallelRegionData[1],
+		symbolAnalysisByRoutineNameAndSymbolName=symbolAnalysisByRoutineNameAndSymbolName,
 		debugPrint=options.debug
 	)
 except Exception as e:

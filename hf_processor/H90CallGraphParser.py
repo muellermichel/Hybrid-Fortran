@@ -862,14 +862,16 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
     routineNodesByModule = None
     parallelRegionTemplatesByProcName = None
     parallelRegionTemplateRelationsByProcName = None
-    tentativeModuleSymbolsByName = None
+    #$$$ remove this in case we never enable routine domain dependant specifications for module symbols (likely)
+    # tentativeModuleSymbolsByName = None
 
     def __init__(self, cgDoc, moduleNodesByName=None, parallelRegionData=None):
         self.cgDoc = cgDoc
         self.currSymbolsByName = {}
         self.symbolsOnCurrentLine = []
         self.importsOnCurrentLine = []
-        self.tentativeModuleSymbolsByName = None
+        #$$$ remove this in case we never enable routine domain dependant specifications for module symbols (likely)
+        # self.tentativeModuleSymbolsByName = None
 
         if moduleNodesByName != None:
             self.moduleNodesByName = moduleNodesByName
@@ -924,22 +926,23 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
                 self.importsOnCurrentLine.append(symbol)
                 self.processSymbolImportMatch(importMatch, symbol)
 
-        if isModuleSpecification:
-            symbolNames = self.tentativeModuleSymbolsByName.keys() if self.tentativeModuleSymbolsByName else []
-            for symbolName in symbolNames:
-                symbol = self.tentativeModuleSymbolsByName[symbolName]
-                declMatch = symbol.getDeclarationMatch(str(line))
-                importMatch = None
-                if analyseImports:
-                    importMatch = symbol.symbolImportPattern.match(str(line))
-                if declMatch:
-                    self.symbolsOnCurrentLine.append(symbol)
-                    self.processSymbolDeclMatch(declMatch, symbol)
-                    loadAsAdditionalModuleSymbol(symbol)
-                elif importMatch:
-                    self.importsOnCurrentLine.append(symbol)
-                    self.processSymbolImportMatch(importMatch, symbol)
-                    loadAsAdditionalModuleSymbol(symbol)
+        #$$$ remove this in case we never enable routine domain dependant specifications for module symbols (likely)
+        # if isModuleSpecification:
+        #     symbolNames = self.tentativeModuleSymbolsByName.keys() if self.tentativeModuleSymbolsByName else []
+        #     for symbolName in symbolNames:
+        #         symbol = self.tentativeModuleSymbolsByName[symbolName]
+        #         declMatch = symbol.getDeclarationMatch(str(line))
+        #         importMatch = None
+        #         if analyseImports:
+        #             importMatch = symbol.symbolImportPattern.match(str(line))
+        #         if declMatch:
+        #             self.symbolsOnCurrentLine.append(symbol)
+        #             self.processSymbolDeclMatch(declMatch, symbol)
+        #             loadAsAdditionalModuleSymbol(symbol)
+        #         elif importMatch:
+        #             self.importsOnCurrentLine.append(symbol)
+        #             self.processSymbolImportMatch(importMatch, symbol)
+        #             loadAsAdditionalModuleSymbol(symbol)
 
         #validate the symbols on the current declaration line: Do they match the requirements for Hybrid Fortran?
         lineDeclarationType = DeclarationType.UNDEFINED
@@ -985,20 +988,21 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
             return
         self.loadSymbolsFromTemplate(moduleNode, None, isModuleSymbols=True)
 
+        #$$$ remove this in case we never enable routine domain dependant specifications for module symbols (likely)
         #just in case a programmer (like myself when doing the original ASUCA HF physics when HF didn't yet have module capabilities) specified module symbols within routine nodes instead of the module :-S.
-        self.tentativeModuleSymbolsByName = {}
-        for routineNode in self.routineNodesByModule.get(moduleName, []):
-            routineDependantsByName = getSymbolsByName(
-                self.cgDoc,
-                routineNode,
-                currentSymbolsByName=self.currSymbolsByName,
-                debugPrint=self.debugPrint
-            )
-            for dependantName in routineDependantsByName.keys():
-                symbol = routineDependantsByName[dependantName]
-                if symbol.isArgument:
-                    continue
-                self.tentativeModuleSymbolsByName[dependantName] = symbol
+        # self.tentativeModuleSymbolsByName = {}
+        # for routineNode in self.routineNodesByModule.get(moduleName, []):
+        #     routineDependantsByName = getSymbolsByName(
+        #         self.cgDoc,
+        #         routineNode,
+        #         currentSymbolsByName=self.currSymbolsByName,
+        #         debugPrint=self.debugPrint
+        #     )
+        #     for dependantName in routineDependantsByName.keys():
+        #         symbol = routineDependantsByName[dependantName]
+        #         if symbol.isArgument:
+        #             continue
+        #         self.tentativeModuleSymbolsByName[dependantName] = symbol
 
     def processModuleEndMatch(self, moduleEndMatch):
         super(H90CallGraphAndSymbolDeclarationsParser, self).processProcEndMatch(moduleEndMatch)
@@ -1018,7 +1022,8 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
         if self.debugPrint:
             sys.stderr.write("Clearing current symbol scope since the module definition is finished\n")
         self.currSymbolsByName = {}
-        self.tentativeModuleSymbolsByName = None
+        #$$$ remove this in case we never enable routine domain dependant specifications for module symbols (likely)
+        # self.tentativeModuleSymbolsByName = None
 
     def processProcBeginMatch(self, subProcBeginMatch):
         super(H90CallGraphAndSymbolDeclarationsParser, self).processProcBeginMatch(subProcBeginMatch)

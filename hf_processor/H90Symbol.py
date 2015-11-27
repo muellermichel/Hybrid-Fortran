@@ -1284,8 +1284,6 @@ class FrameworkArray(Symbol):
 		self.isOnDevice = isOnDevice
 		self.declarationPrefix = declarationPrefix
 		self.initLevel = Init.NOTHING_LOADED
-
-	def declarationType(self):
-		return DeclarationType.FRAMEWORK_ARRAY
+		self._declarationTypeOverride = DeclarationType.FRAMEWORK_ARRAY
 
 

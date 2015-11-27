@@ -557,11 +557,8 @@ class FortranImplementation(object):
     def additionalIncludes(self):
         return ""
 
-    def getAdditionalKernelParameters(self, cgDoc, routineNode, moduleNode, parallelRegionTemplates):
+    def getAdditionalKernelParameters(self, cgDoc, routineNode, moduleNode, parallelRegionTemplates, currSymbolsByName={}):
         return [], []
-
-    def extractListOfAdditionalSubroutineSymbols(self, routineNode, currSymbolsByName):
-        return []
 
     def getIterators(self, parallelRegionTemplate):
         if not appliesTo(["CPU", ""], parallelRegionTemplate):
@@ -1041,48 +1038,30 @@ end if\n" %(calleeNode.getAttribute('name'))
         result += getCUDAErrorHandling(calleeRoutineNode)
         return result
 
-    def getAdditionalKernelParameters(self, cgDoc, routineNode, moduleNode, parallelRegionTemplates):
+    def getAdditionalKernelParameters(self, cgDoc, routineNode, moduleNode, parallelRegionTemplates, currSymbolsByName={}):
         def getAdditionalImportsAndDeclarationsForParentScope(parentNode):
             additionalImports = []
             additionalDeclarations = []
-            if not parallelRegionTemplates:
-                return additionalImports, additionalDeclarations
-            if not parentNode.nodeName == "module" and not parentNode.getAttribute("parallelRegionPosition") == "within":
-                return additionalImports, additionalDeclarations
-
             dependantTemplatesAndEntries = getDomainDependantTemplatesAndEntries(cgDoc, parentNode)
             for template, entry in dependantTemplatesAndEntries:
                 dependantName = entry.firstChild.nodeValue
-                symbol = Symbol(dependantName, template)
-                symbol.loadDomainDependantEntryNodeAttributes(entry)
+                symbol = currSymbolsByName.get(dependantName)
+                if symbol == None:
+                    symbol = Symbol(dependantName, template)
+                    symbol.loadDomainDependantEntryNodeAttributes(entry)
 
-                #check for external module imports in kernel subroutines
-                if symbol.sourceModule not in ["", None, "HF90_LOCAL_MODULE"]:
-                    symbol.loadRoutineNodeAttributes(parentNode, parallelRegionTemplates)
+                symbol.loadRoutineNodeAttributes(parentNode, parallelRegionTemplates)
+                if symbol.declarationType == DeclarationType.FOREIGN_MODULE_SCALAR :
                     additionalImports.append(symbol)
-                #check for arrays and scalars in kernel subroutines
-                elif symbol.sourceModule == "HF90_LOCAL_MODULE" or symbol.intent in ["", None, "local"]:
-                    symbol.loadRoutineNodeAttributes(parentNode, parallelRegionTemplates)
+                elif symbol.declarationType == DeclarationType.LOCAL_MODULE_SCALAR:
                     additionalDeclarations.append(symbol)
             return additionalImports, additionalDeclarations
 
+        if routineNode.getAttribute("parallelRegionPosition") != "within" or not parallelRegionTemplates:
+            return [], []
         routineImports, routineDeclarations = getAdditionalImportsAndDeclarationsForParentScope(routineNode)
         moduleImports, moduleDeclarations = getAdditionalImportsAndDeclarationsForParentScope(moduleNode)
-
         return sorted(routineImports + moduleImports), sorted(routineDeclarations + moduleDeclarations)
-
-    def extractListOfAdditionalSubroutineSymbols(self, routineNode, currSymbolsByName):
-        result = []
-        if not routineNode.getAttribute("parallelRegionPosition") == "within":
-            return result
-        for symbolName in currSymbolsByName.keys():
-            symbol = currSymbolsByName[symbolName]
-            if symbol.sourceModule and symbol.sourceModule != "":
-                result.append(symbol)
-            elif not symbol.intent or symbol.intent in ["", None] or symbol.intent == "local" and len(symbol.domains) > 0:
-                #we got temporary arrays in a kernel or local module scalars -> need to be handled by framework
-                result.append(symbol)
-        return sorted(result)
 
     def getIterators(self, parallelRegionTemplate):
         if not appliesTo(["GPU"], parallelRegionTemplate):

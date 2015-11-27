@@ -1444,16 +1444,7 @@ This is not allowed for implementations using %s.\
             compactedArrayName = "hfimp_%s" %(self.currCalleeName)
             compactedArray = FrameworkArray(compactedArrayName, declarationPrefix, domains=[("hfauto", str(len(toBeCompacted)))], isOnDevice=True)
             compactedArrayList = [compactedArray]
-        #the following filter is also applied in the arguments list
-        #$$$ shouldn't this filter be applied already when the list of additionalDeclarations gets built?
-        additionalSymbols = sorted(otherImports + compactedArrayList + [
-            symbol for symbol in additionalDeclarations if symbol.declarationType in [
-                DeclarationType.FOREIGN_MODULE_SCALAR,
-                DeclarationType.LOCAL_ARRAY,
-                DeclarationType.LOCAL_MODULE_SCALAR,
-                DeclarationType.OTHER_SCALAR
-            ]
-        ])
+        additionalSymbols = sorted(otherImports + compactedArrayList + additionalDeclarations)
         if len(additionalSymbols) > 0:
             adjustedLine = adjustedLine + "( &\n"
         else:
@@ -1599,8 +1590,15 @@ This is not allowed for implementations using %s.\
         #build list of additional subroutine parameters
         #(parameters that the user didn't specify but that are necessary based on the features of the underlying technology
         # and the symbols declared by the user, such us temporary arrays and imported symbols)
+        additionalImportsForOurSelves, additionalDeclarationsForOurselves = self.implementation.getAdditionalKernelParameters(
+            self.cgDoc,
+            routineNode,
+            self.moduleNodesByName[self.currModuleName],
+            self.parallelRegionTemplatesByProcName.get(subprocName),
+            self.currSymbolsByName
+        )
         toBeCompacted, declarationPrefix, otherImports = self.listCompactedSymbolsAndDeclarationPrefixAndOtherImports(
-            self.implementation.extractListOfAdditionalSubroutineSymbols(routineNode, self.currSymbolsByName)
+            additionalImportsForOurSelves + additionalDeclarationsForOurselves
         )
         compactedArrayList = []
         if len(toBeCompacted) > 0:
@@ -1629,11 +1627,12 @@ This is not allowed for implementations using %s.\
             callee = self.routineNodesByProcName.get(calleeName)
             if not callee:
                 continue
-            additionalImportsForDeviceCompatibility, additionalDeclarationsForDeviceCompatibility = self.implementation.getAdditionalKernelParameters( \
-                self.cgDoc, \
-                callee, \
-                self.moduleNodesByName[self.currModuleName], \
-                self.parallelRegionTemplatesByProcName.get(calleeName) \
+            additionalImportsForDeviceCompatibility, additionalDeclarationsForDeviceCompatibility = self.implementation.getAdditionalKernelParameters(
+                self.cgDoc,
+                callee,
+                self.moduleNodesByName[self.currModuleName],
+                self.parallelRegionTemplatesByProcName.get(calleeName),
+                self.currSymbolsByName
             )
             for symbol in additionalImportsForDeviceCompatibility + additionalDeclarationsForDeviceCompatibility:
                 symbol.resetScope()
@@ -1745,14 +1744,7 @@ This is not allowed for implementations using %s.\
             # gather additional symbols for ourselves                               #
             #########################################################################
             ourSymbolsToAdd = sorted(
-                [symbol for symbol in self.currAdditionalSubroutineParameters
-                    if symbol.declarationType in [
-                        DeclarationType.FOREIGN_MODULE_SCALAR,
-                        DeclarationType.LOCAL_MODULE_SCALAR,
-                        DeclarationType.FRAMEWORK_ARRAY,
-                        DeclarationType.OTHER_SCALAR
-                    ]
-                ] + self.currAdditionalCompactedSubroutineParameters
+                self.currAdditionalSubroutineParameters + self.currAdditionalCompactedSubroutineParameters
             )
             additionalImports = []
             if 'DEBUG_PRINT' in self.implementation.optionFlags:
@@ -1816,15 +1808,6 @@ This is not allowed for implementations using %s.\
                     additionalImportSymbolsByName[symbol.name] = symbol
 
                 for symbol in additionalDeclarations:
-                    #$$$ shouldn't this filter be applied already when the list of additionalDeclarations gets built?
-                    if symbol.declarationType not in [
-                        DeclarationType.FOREIGN_MODULE_SCALAR,
-                        DeclarationType.LOCAL_ARRAY,
-                        DeclarationType.LOCAL_MODULE_SCALAR,
-                        DeclarationType.OTHER_SCALAR
-                    ]:
-                        continue
-
                     #in case the array uses domain sizes in the declaration that are additional symbols themselves
                     #we need to fix them.
                     adjustedDomains = []
@@ -2116,11 +2099,6 @@ This is not allowed for implementations using %s.\
                 ["%s: %s from %s" %(symbol.name, symbol.declarationType, symbol.sourceModule) for symbol in additionalImports]
             ))
         for symbol in additionalImports:
-            #MMU 2015-11: This can now be done more elegantly using the analysis passed in to symbol
-            # if symbol.declarationType not in [DeclarationType.FOREIGN_MODULE_SCALAR, DeclarationType.LOCAL_ARRAY, DeclarationType.MODULE_ARRAY] \
-            # or (symbol.declarationType == DeclarationType.MODULE_ARRAY and symbol.sourceModule == self.currModuleName) \
-            # or (symbol.declarationType == DeclarationType.MODULE_ARRAY and type(symbol.sourceModule) in [str, unicode] and "HF90_" in symbol.sourceModule):
-            #     continue
             if symbol.declarationType not in [DeclarationType.FOREIGN_MODULE_SCALAR, DeclarationType.LOCAL_ARRAY, DeclarationType.MODULE_ARRAY]:
                 continue
             adjustedLine = adjustedLine + "use %s, only : %s => %s\n" %(

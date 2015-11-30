@@ -980,10 +980,10 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
             return
         selectiveImportMatch = self.patterns.selectiveImportPattern.match(str(line))
         if selectiveImportMatch:
-            self.processUnknownImportMatch(selectiveImportMatch)
+            self.processImplicitForeignModuleSymbolMatch(selectiveImportMatch)
         self.analyseSymbolInformationOnCurrentLine(line)
 
-    def processUnknownImportMatch(self, importMatch):
+    def processImplicitForeignModuleSymbolMatch(self, importMatch):
         moduleName = importMatch.group(1)
         if moduleName == "":
             raise Exception("import without module specified")
@@ -999,9 +999,18 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
             else:
                 symbolInScope = stripped
                 sourceSymbol = symbolInScope
-            symbol = UnknownImport(moduleName, symbolInScope, sourceSymbol)
+            relationNode, templateNode = setTemplateInfos(
+                self.cgDoc,
+                self.routineNodesByProcName.get(self.currSubprocName),
+                specText="attribute(autoDom)",
+                templateParentNodeName="domainDependantTemplates",
+                templateNodeName="domainDependantTemplate",
+                referenceParentNodeName="domainDependants"
+            )
+            appendSeparatedTextAsNodes(symbolInScope, ',', self.cgDoc, relationNode, 'entry')
+            symbol = ImplicitForeignModuleSymbol(templateNode, moduleName, symbolInScope, sourceSymbol)
             symbol.isMatched = True
-            currSymbolsByName[symbol.name] = symbol
+            self.currSymbolsByName[symbol.name] = symbol
 
     def processModuleBeginMatch(self, moduleBeginMatch):
         super(H90CallGraphAndSymbolDeclarationsParser, self).processModuleBeginMatch(moduleBeginMatch)
@@ -1104,27 +1113,25 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
             return
         currParentName = self.currSubprocName if not isModule else self.currModuleName
         parentNode = self.routineNodesByProcName[currParentName] if not isModule else self.moduleNodesByName[currParentName]
-        domainDependantsParentNodes = parentNode.getElementsByTagName("domainDependants")
-        if domainDependantsParentNodes == None or len(domainDependantsParentNodes) == 0:
-            #this symbol has not been loaded from a user defined domain dependant specification. Currently this means it's an implicitely loaded
-            #foreign module import. Store default attributes into the extracted metadata --> in the next pass this is treated just like a user
-            #defined symbol.
-            setTemplateInfos(
-                self.cgDoc,
-                parentNode,
-                specText="attribute(autoDom)",
-                templateParentNodeName="domainDependantTemplates",
-                templateNodeName="domainDependantTemplate",
-                referenceParentNodeName="domainDependants"
-            )
-        domainDependantsParentNode = domainDependantsParentNodes[0]
-        domainDependantEntryNodes = domainDependantsParentNode.getElementsByTagName("entry")
+        domainDependantRelationNodes = parentNode.getElementsByTagName("domainDependants")
+        if domainDependantRelationNodes == None or len(domainDependantRelationNodes) == 0:
+            raise Exception("we have active symbols (%s) loaded in %s but no domain dependant relation node can be found" %(
+                self.currSymbols, currParentName
+            ))
+        domainDependantsRelationNode = domainDependantRelationNodes[0]
+        domainDependantEntryNodes = domainDependantsRelationNode.getElementsByTagName("entry")
         if domainDependantEntryNodes == None or len(domainDependantEntryNodes) == 0:
-            domainDependantEntryNodes = [domainDependantsParentNode.createElement("entry")]
-            appendSeparatedTextAsNodes(settingText, ',', doc, settingNode, 'entry')
+            raise Exception("we have active symbols (%s) loaded in %s but no entry node can be found" %(
+                self.currSymbols, currParentName
+            ))
         self.entryNodesBySymbolName = {}
         for domainDependantEntryNode in domainDependantEntryNodes:
             self.entryNodesBySymbolName[domainDependantEntryNode.firstChild.nodeValue.strip()] = domainDependantEntryNode
+        for symbol in self.currSymbols:
+            entryNode = self.entryNodesBySymbolName.get(symbol.name)
+            if entryNode:
+                continue
+            raise Exception("symbol %s is active but no information has been found in the codebase meta information" %(symbol))
 
     def storeCurrentSymbolAttributes(self, isModule=False):
         #store our symbol informations to the xml

@@ -58,8 +58,8 @@ class H90RegExPatterns:
         'templateEndPattern': r'\s*@end\s*scheme.*',
         'symbolAccessPattern': r'\s*\((.*)',
         'argumentPattern': r'\s*(?:subroutine|call)?\s*(?:\w*)\s*\((.*)',
-        'selectiveImportPattern' = r'^\s*use\s*(\w*)[,\s]*only\s*\:\s*([=>,\s\w]*)(?:\s.*|$)',
-        'singleMappedImportPattern' = r'\s*(\w*)\s*=>\s*(\w*)\s*'
+        'selectiveImportPattern': r'^\s*use\s*(\w*)[,\s]*only\s*\:\s*([=>,\s\w]*)(?:\s.*|$)',
+        'singleMappedImportPattern': r'\s*(\w*)\s*=>\s*(\w*)\s*'
     }
 
     def __init__(self):

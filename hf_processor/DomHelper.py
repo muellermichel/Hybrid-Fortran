@@ -203,11 +203,12 @@ def getNodeValue(node):
 
 def appendSeparatedTextAsNodes(text, separator, doc, parent, nodeName):
     if text == None:
-        return
+        raise Exception("cannot append None as entry")
     payload = text.strip()
     if payload == '':
-        return
+        raise Exception("cannot append empty node")
     payloadList = payload.split(separator)
+    appendedNodes = []
     for entry in payloadList:
         stripped = entry.strip()
         if stripped == "":
@@ -216,6 +217,8 @@ def appendSeparatedTextAsNodes(text, separator, doc, parent, nodeName):
         textNode = doc.createTextNode(stripped)
         entryNode.appendChild(textNode)
         parent.appendChild(entryNode)
+        appendedNodes.append(entryNode)
+    return appendedNodes
 
 def firstDuplicateChild(parent, newNode, cgDoc=None):
     '''Get first duplicate for the newNode within parent's childNodes'''
@@ -381,10 +384,10 @@ def setTemplateInfos(doc, parent, specText, templateParentNodeName, templateNode
         parent.appendChild(referenceParentNode)
     else:
         referenceParentNode = referenceParentNodes[0]
-    entry = doc.createElement("templateRelation")
-    entry.setAttribute("id", templateID)
-    referenceParentNode.appendChild(entry)
-    return entry, templateNode
+    relationNode = doc.createElement("templateRelation")
+    relationNode.setAttribute("id", templateID)
+    referenceParentNode.appendChild(relationNode)
+    return relationNode, templateNode
 
 def regionTemplatesByID(cgDoc, templateTypeName):
     regionTemplatesByID = None

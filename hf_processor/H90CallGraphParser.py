@@ -213,6 +213,7 @@ class H90CallGraphParser(object):
     branchAnalyzer = None
     currTemplateName = None
     stateSwitch = None
+    currSymbolsByName = None
 
     def __init__(self):
         self.patterns = H90RegExPatterns.Instance()
@@ -220,6 +221,7 @@ class H90CallGraphParser(object):
         self.currCalleeName = None
         self.currArguments = None
         self.currModuleName = None
+        self.currSymbolsByName = {}
         self.branchAnalyzer = BracketAnalyzer(
             r'^\s*if\s*\(|^\s*select\s+case',
             r'^\s*end\s+if|^\s*end\s+select',
@@ -411,14 +413,14 @@ class H90CallGraphParser(object):
             self.processCallMatch(subProcCallMatch)
             if (self.state == "inside_branch" and self.stateBeforeBranch != 'inside_subroutine_call') or (self.state != "inside_branch" and self.state != 'inside_subroutine_call'):
                 self.processCallPost()
-        elif (subProcEndMatch):
+        elif subProcEndMatch:
             self.processProcEndMatch(subProcEndMatch)
             if self.state == "inside_branch":
                 self.stateBeforeBranch = 'inside_module'
             else:
                 self.state = 'inside_module'
             self.currSubprocName = None
-        elif (parallelRegionMatch):
+        elif parallelRegionMatch:
             raise Exception("parallel region without parallel dependants")
         elif (self.patterns.subprocBeginPattern.match(str(line))):
             raise Exception("subprocedure within subprocedure not allowed")
@@ -854,7 +856,6 @@ def getSymbolsByRoutineNameAndSymbolName(cgDoc, routineNodesByProcName, parallel
 
 class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
     cgDoc = None
-    currSymbolsByName = None
     symbolsOnCurrentLine = None
     importsOnCurrentLine = None
     routineNodesByProcName = None
@@ -867,7 +868,6 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
 
     def __init__(self, cgDoc, moduleNodesByName=None, parallelRegionData=None):
         self.cgDoc = cgDoc
-        self.currSymbolsByName = {}
         self.symbolsOnCurrentLine = []
         self.importsOnCurrentLine = []
         #$$$ remove this in case we never enable routine domain dependant specifications for module symbols (likely)
@@ -978,7 +978,30 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
         super(H90CallGraphAndSymbolDeclarationsParser, self).processInsideDeclarationsState(line)
         if (self.state != 'inside_branch' and self.state != 'inside_declarations') or (self.state == "inside_branch" and self.stateBeforeBranch != "inside_declarations"):
             return
+        selectiveImportMatch = self.patterns.selectiveImportPattern.match(str(line))
+        if selectiveImportMatch:
+            self.processUnknownImportMatch(selectiveImportMatch)
         self.analyseSymbolInformationOnCurrentLine(line)
+
+    def processUnknownImportMatch(self, importMatch):
+        moduleName = importMatch.group(1)
+        if moduleName == "":
+            raise Exception("import without module specified")
+        symbolList = importMatch.group(2).split(',')
+        for entry in symbolList:
+            stripped = entry.strip()
+            mappedImportMatch = self.patterns.singleMappedImportPattern.match(stripped)
+            sourceSymbol = None
+            symbolInScope = None
+            if mappedImportMatch:
+                symbolInScope = mappedImportMatch.group(1)
+                sourceSymbol = mappedImportMatch.group(2)
+            else:
+                symbolInScope = stripped
+                sourceSymbol = symbolInScope
+            symbol = UnknownImport(moduleName, symbolInScope, sourceSymbol)
+            symbol.isMatched = True
+            currSymbolsByName[symbol.name] = symbol
 
     def processModuleBeginMatch(self, moduleBeginMatch):
         super(H90CallGraphAndSymbolDeclarationsParser, self).processModuleBeginMatch(moduleBeginMatch)
@@ -1079,11 +1102,25 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
         parentNode = self.routineNodesByProcName[currParentName] if not isModule else self.moduleNodesByName[currParentName]
         domainDependantsParentNodes = parentNode.getElementsByTagName("domainDependants")
         if domainDependantsParentNodes == None or len(domainDependantsParentNodes) == 0:
-            return
+            print(hereismywork)
+            # setTemplateInfos(
+            #     self.doc,
+            #     self.currModuleNode \
+            #         if self.state == 'inside_moduleDomainDependantRegion' \
+            #         or (self.state == "inside_branch" and self.stateBeforeBranch == "inside_moduleDomainDependantRegion") \
+            #         else self.currSubprocNode,
+            #     domainDependantMatch.group(1),
+            #     "domainDependantTemplates",
+            #     "domainDependantTemplate",
+            #     "domainDependants"
+            # )
+
+            domainDependantsParentNodes = [self.cgDoc.createElement("domainDependants")]
         domainDependantsParentNode = domainDependantsParentNodes[0]
         domainDependantEntryNodes = domainDependantsParentNode.getElementsByTagName("entry")
         if domainDependantEntryNodes == None or len(domainDependantEntryNodes) == 0:
-            return
+            domainDependantEntryNodes = [domainDependantsParentNode.createElement("entry")]
+            appendSeparatedTextAsNodes(settingText, ',', doc, settingNode, 'entry')
         self.entryNodesBySymbolName = {}
         for domainDependantEntryNode in domainDependantEntryNodes:
             self.entryNodesBySymbolName[domainDependantEntryNode.firstChild.nodeValue.strip()] = domainDependantEntryNode
@@ -1920,7 +1957,7 @@ This is not allowed for implementations using %s.\
         for symbol in self.importsOnCurrentLine:
             match = symbol.symbolImportPattern.match(str(adjustedLine))
             if not match:
-                continue
+                continue #$$$ when does this happen?
             adjustedLine = self.processSymbolImportAndGetAdjustedLine(match)
 
         self.prepareLine(adjustedLine, self.tab_insideSub)

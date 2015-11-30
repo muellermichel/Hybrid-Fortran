@@ -1268,6 +1268,13 @@ Currently loaded template: %s\n" %(
 		else:
 			return "", False
 
+class UnknownImport(Symbol):
+	def __init__(self, sourceModule, nameInScope, sourceSymbol):
+		Symbol.__init__(self, nameInScope, None)
+		self._nameInScope = nameInScope
+		self.sourceModule = sourceModule
+		self.sourceSymbol = sourceSymbol
+
 class FrameworkArray(Symbol):
 
 	def __init__(self, name, declarationPrefix, domains, isOnDevice):

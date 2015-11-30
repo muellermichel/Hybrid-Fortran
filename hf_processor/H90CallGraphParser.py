@@ -1095,27 +1095,28 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
         self.currSymbols = []
         if len(currSymbolNames) == 0:
             return
-        self.currSymbols = [self.currSymbolsByName[symbolName] for symbolName in currSymbolNames if self.currSymbolsByName[symbolName].isModuleSymbol == isModule]
+        self.currSymbols = [
+            self.currSymbolsByName[symbolName]
+            for symbolName in currSymbolNames
+            if self.currSymbolsByName[symbolName].isModuleSymbol == isModule
+        ]
         if len(self.currSymbols) == 0:
             return
         currParentName = self.currSubprocName if not isModule else self.currModuleName
         parentNode = self.routineNodesByProcName[currParentName] if not isModule else self.moduleNodesByName[currParentName]
         domainDependantsParentNodes = parentNode.getElementsByTagName("domainDependants")
         if domainDependantsParentNodes == None or len(domainDependantsParentNodes) == 0:
-            print(hereismywork)
-            # setTemplateInfos(
-            #     self.doc,
-            #     self.currModuleNode \
-            #         if self.state == 'inside_moduleDomainDependantRegion' \
-            #         or (self.state == "inside_branch" and self.stateBeforeBranch == "inside_moduleDomainDependantRegion") \
-            #         else self.currSubprocNode,
-            #     domainDependantMatch.group(1),
-            #     "domainDependantTemplates",
-            #     "domainDependantTemplate",
-            #     "domainDependants"
-            # )
-
-            domainDependantsParentNodes = [self.cgDoc.createElement("domainDependants")]
+            #this symbol has not been loaded from a user defined domain dependant specification. Currently this means it's an implicitely loaded
+            #foreign module import. Store default attributes into the extracted metadata --> in the next pass this is treated just like a user
+            #defined symbol.
+            setTemplateInfos(
+                self.cgDoc,
+                parentNode,
+                specText="attribute(autoDom)",
+                templateParentNodeName="domainDependantTemplates",
+                templateNodeName="domainDependantTemplate",
+                referenceParentNodeName="domainDependants"
+            )
         domainDependantsParentNode = domainDependantsParentNodes[0]
         domainDependantEntryNodes = domainDependantsParentNode.getElementsByTagName("entry")
         if domainDependantEntryNodes == None or len(domainDependantEntryNodes) == 0:

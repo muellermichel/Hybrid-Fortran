@@ -81,13 +81,17 @@ contains
       do stride_y = 0, num_strides_y - 1
         stride_x_offset = stride_x * stride_x_size
         stride_y_offset = stride_y * stride_y_size
+        !$acc host_data use_device(a_stride, b_stride, c_stride, d_stride, a, b, c, d)
         GET_SLICE_3D(a_stride, a)
         GET_SLICE_3D(b_stride, b)
         GET_SLICE_3D(c_stride, c)
         GET_SLICE_3D(d_stride, d)
+        !$acc end host_data
         call kernel_wrapper(stride_x_size, stride_y_size, a_stride, b_stride, c_stride, d_stride)
+        !$acc host_data use_device(c_stride, d_stride, c, d)
         STORE_SLICE_3D(c, c_stride)
         STORE_SLICE_3D(d, d_stride)
+        !$acc end host_data
       end do
     end do
     @end if

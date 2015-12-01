@@ -1780,7 +1780,7 @@ This is not allowed for implementations using %s.\
         routineNode = self.routineNodesByProcName.get(self.currSubprocName)
 
         if self.state != "inside_declarations" and self.state != "inside_module" and self.state != "inside_subroutine_call" \
-        and not (self.state == "inside_branch" and self.stateBeforeBranch in ["inside_declarations", "inside_module", "inside_subroutine_call"]):
+        and not (self.state in ["inside_branch", "inside_ignore"] and self.stateBeforeBranch in ["inside_declarations", "inside_module", "inside_subroutine_call"]):
             additionalDeclarationsStr = ""
 
             #TODO $$$: most of the following code should probably be handled within implementation classes

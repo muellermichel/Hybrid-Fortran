@@ -27,20 +27,17 @@ public :: storeSlice2D
 public :: storeSlice3D
 
 contains
-
-#ifdef GPU
-#define INTENT_SLICED_OUT , intent(out)
-#define INTENT_SLICED_IN , intent(in)
-#else
-#define INTENT_SLICED_OUT
-#define INTENT_SLICED_IN
-#endif
-
+	@scheme{name(CUDA_FORTRAN)}
 	subroutine getSlice2D_int(sliced, original, nx, ny, nx_original, ny_original, offset_x, offset_y)
 		implicit none
 		integer(4), intent(in) :: nx, ny, nx_original, ny_original, offset_x, offset_y
 		integer(4), intent(in) :: original
-		integer(4) INTENT_SLICED_OUT :: sliced
+		@if{architecture(CPU)}
+		integer(4) :: sliced
+		@end if
+		@if{architecture(GPU)}
+		integer(4), intent(out) :: sliced
+		@end if
 
 		@domainDependant{}
 		nx, ny, nx_original, ny_original, offset_x, offset_y
@@ -62,7 +59,12 @@ contains
 		implicit none
 		integer(4), intent(in) :: nx, ny, nx_original, ny_original, offset_x, offset_y
 		integer(4), intent(in) :: original
-		integer(4) INTENT_SLICED_OUT :: sliced
+		@if{architecture(CPU)}
+		integer(4) :: sliced
+		@end if
+		@if{architecture(GPU)}
+		integer(4), intent(out) :: sliced
+		@end if
 
 		@domainDependant{}
 		nx, ny, nx_original, ny_original, offset_x, offset_y
@@ -87,7 +89,12 @@ contains
 		implicit none
 		integer(4), intent(in) :: nx, ny, nx_original, ny_original, offset_x, offset_y
 		real(8), intent(in) :: original
-		real(8) INTENT_SLICED_OUT :: sliced
+		@if{architecture(CPU)}
+		real(8) :: sliced
+		@end if
+		@if{architecture(GPU)}
+		real(8), intent(out) :: sliced
+		@end if
 
 		@domainDependant{}
 		nx, ny, nx_original, ny_original, offset_x, offset_y
@@ -109,7 +116,12 @@ contains
 		implicit none
 		integer(4), intent(in) :: nx, ny, nx_original, ny_original, offset_x, offset_y
 		real(8), intent(in) :: original
-		real(8) INTENT_SLICED_OUT :: sliced
+		@if{architecture(CPU)}
+		real(8) :: sliced
+		@end if
+		@if{architecture(GPU)}
+		real(8), intent(out) :: sliced
+		@end if
 
 		@domainDependant{}
 		nx, ny, nx_original, ny_original, offset_x, offset_y
@@ -134,7 +146,12 @@ contains
 		implicit none
 		integer(4), intent(in) :: nx, ny, nz, nx_original, ny_original, nz_original, offset_x, offset_y, offset_z
 		real(8), intent(in) :: original(nz_original)
-		real(8) INTENT_SLICED_OUT :: sliced(nz)
+		@if{architecture(CPU)}
+		real(8) :: sliced(nz)
+		@end if
+		@if{architecture(GPU)}
+		real(8), intent(out) :: sliced(nz)
+		@end if
 
 		@domainDependant{}
 		nx, ny, nz, nx_original, ny_original, nz_original, offset_x, offset_y, offset_z
@@ -156,7 +173,12 @@ contains
 		implicit none
 		integer(4), intent(in) :: nx, ny, nz, nx_original, ny_original, nz_original, offset_x, offset_y, offset_z
 		real(8), intent(in) :: original(nz_original)
-		real(8) INTENT_SLICED_OUT :: sliced(nz)
+		@if{architecture(CPU)}
+		real(8) :: sliced(nz)
+		@end if
+		@if{architecture(GPU)}
+		real(8), intent(out) :: sliced(nz)
+		@end if
 		integer(4) :: z
 
 		@domainDependant{}
@@ -184,7 +206,12 @@ contains
 		implicit none
 		integer(4), intent(in) :: nx, ny, nx_original, ny_original, offset_x, offset_y
 		real(8), intent(out) :: original
-		real(8) INTENT_SLICED_IN :: sliced
+		@if{architecture(CPU)}
+		real(8) :: sliced
+		@end if
+		@if{architecture(GPU)}
+		real(8), intent(in) :: sliced
+		@end if
 
 		@domainDependant{}
 		nx, ny, nx_original, ny_original, offset_x, offset_y
@@ -206,7 +233,12 @@ contains
 		implicit none
 		integer(4), intent(in) :: nx, ny, nx_original, ny_original, offset_x, offset_y
 		real(8), intent(out) :: original
-		real(8) INTENT_SLICED_IN :: sliced
+		@if{architecture(CPU)}
+		real(8) :: sliced
+		@end if
+		@if{architecture(GPU)}
+		real(8), intent(in) :: sliced
+		@end if
 
 		@domainDependant{}
 		nx, ny, nx_original, ny_original, offset_x, offset_y
@@ -231,7 +263,12 @@ contains
 		implicit none
 		integer(4), intent(in) :: nx_original, ny_original, nz_original, nx, ny, nz, offset_x, offset_y, offset_z
 		real(8), intent(out) :: original(nz_original)
-		real(8) INTENT_SLICED_IN :: sliced(nz)
+		@if{architecture(CPU)}
+		real(8) :: sliced(nz)
+		@end if
+		@if{architecture(GPU)}
+		real(8), intent(in) :: sliced(nz)
+		@end if
 
 		@domainDependant{}
 		nx, ny, nz, nx_original, ny_original, nz_original, offset_x, offset_y, offset_z
@@ -252,7 +289,12 @@ contains
 		implicit none
 		integer(4), intent(in) :: nx_original, ny_original, nz_original, nx, ny, nz, offset_x, offset_y, offset_z
 		real(8), intent(out) :: original(nz_original)
-		real(8) INTENT_SLICED_IN :: sliced(nz)
+		@if{architecture(CPU)}
+		real(8) :: sliced(nz)
+		@end if
+		@if{architecture(GPU)}
+		real(8), intent(in) :: sliced(nz)
+		@end if
 		integer(4) :: z
 
 		@domainDependant{}
@@ -275,5 +317,5 @@ contains
 		@end if
 		@end parallelRegion
 	end subroutine
-
+	@end scheme
 end module

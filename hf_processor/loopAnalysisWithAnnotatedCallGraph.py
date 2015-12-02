@@ -32,7 +32,7 @@ from DomHelper import parseString
 from xml.dom import NotFoundErr
 from H90SymbolDependencyGraphAnalyzer import SymbolDependencyAnalyzer
 from DomHelper import firstDuplicateChild, getNodeValue, getCalleesByCallerName, getCallersByCalleeName
-from GeneralHelper import openFile
+from GeneralHelper import openFile, printProgressIndicator, progressIndicatorReset
 from optparse import OptionParser
 import os
 import sys
@@ -182,23 +182,28 @@ def filterParallelRegionNodes(doc, routineNode, appliesTo):
 def analyseParallelRegions(doc, appliesTo):
 	callNodes = doc.getElementsByTagName("call")
 	routineNodes = doc.getElementsByTagName("routine")
-	for routineNode in routineNodes:
+	progressIndicatorReset(sys.stderr)
+	for routineNum, routineNode in enumerate(routineNodes):
 		filterParallelRegionNodes(doc, routineNode, appliesTo)
+		printProgressIndicator(sys.stderr, "", routineNum + 1, len(routineNodes), "Filtering parallel regions for %s" %(appliesTo))
 	callNodesByCallerName = getCalleesByCallerName(callNodes)
 	callNodesByCalleeName = getCallersByCalleeName(callNodes)
 
+	progressIndicatorReset(sys.stderr)
 	parallelRegionNodes = doc.getElementsByTagName("parallelRegions")
 	parallelRegionNodesByRoutineName = {}
-	for parallelRegionNode in parallelRegionNodes:
+	for regionNum, parallelRegionNode in enumerate(parallelRegionNodes):
 		routine = parallelRegionNode.parentNode
 		routineName = routine.getAttribute("name")
 		if appliesTo == "GPU" and parallelRegionNodesByRoutineName.get(routineName) != None:
 			raise Exception("Multiple GPU parallel regions in subroutine %s" %(routineName))
 		parallelRegionNodesByRoutineName[routineName] = parallelRegionNode
+		printProgressIndicator(sys.stderr, routineName, regionNum + 1, len(parallelRegionNodes), "Populating parallel region cache")
 
 	kernelCallerProblemFound = False
 	messagesPresentedFor = []
-	for parallelRegionNode in parallelRegionNodes:
+	progressIndicatorReset(sys.stderr)
+	for regionNum, parallelRegionNode in enumerate(parallelRegionNodes):
 		if not parallelRegionNode.parentNode.tagName == "routine":
 			raise Exception("Parallel region not within routine.")
 		if not parallelRegionNode.parentNode.getAttribute("parallelRegionPosition") in [None, '', 'within']:
@@ -209,6 +214,7 @@ This is not allowed in Hybrid Fortran. Please separate kernel routines from wrap
 		parallelRegionNode.parentNode.setAttribute("parallelRegionPosition", "within")
 		routine = parallelRegionNode.parentNode
 		routineName = routine.getAttribute("name")
+		printProgressIndicator(sys.stderr, routineName, regionNum + 1, len(parallelRegionNodes), "Parallel region analysis")
 		if routineName == None:
 			raise Exception("Unexpected error: Kernel routine without name")
 		addAttributeToAllCallGraphAncestors(routineNodes, callNodesByCalleeName, routine, "parallelRegionPosition", "inside")
@@ -253,6 +259,7 @@ This may cause device attribute mismatch compiler errors. In this case please wr
 				elif kernelCallerName not in messagesPresentedFor:
 					messagesPresentedFor.append(kernelCallerName)
 					sys.stderr.write("...same for %s: calls kernel %s, kernel wrapper %s\n" %(kernelCallerName, routineName, kernelWrapperName))
+	progressIndicatorReset(sys.stderr)
 
 ##################### MAIN ##############################
 #get all program arguments
@@ -277,6 +284,7 @@ if options.appliesTo and options.appliesTo.upper() != "CPU":
 	appliesTo = options.appliesTo
 
 #read in working xml
+sys.stderr.write("reading codebase meta information\n")
 srcFile = openFile(str(options.source),'r')
 data = srcFile.read()
 srcFile.close()

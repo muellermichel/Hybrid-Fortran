@@ -33,12 +33,12 @@ def progressIndicatorReset(stream):
     stream.write("\n")
 
 def printProgressIndicator(stream, currentlyAtText, currentlyAtNum, totalNum, description):
-    stream.write("\033[K") #clear current line
-    stream.write("\r%s: %d%% done. Currently processing: %s" %(
+    stream.write("\r%s: %d%% done.%s" %(
         description,
         round(currentlyAtNum * 100.0/totalNum),
-        currentlyAtText
+        "Currently processing: " + currentlyAtText if currentlyAtText != "" else ""
     )) #\r returns to beginning of current line
+    stream.write("\033[K") #clear rest of current line
     stream.flush()
 
 def stripWhitespace(inputStr):

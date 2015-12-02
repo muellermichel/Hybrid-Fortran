@@ -41,15 +41,15 @@ ifdef DEBUG
 #############################################################################
 # debug settings                                                            #
 #############################################################################
-FFLAGS= -acc -g  -Kieee -Mcuda=6.5,cc3x -ta=nvidia,cc3x,keepgpu,keepbin,time -Minfo=accel,inline,ipa -Mneginfo -Minform=inform -I/usr/local/include
-LDFLAGS= -acc -Mcuda=6.5,cc3x -ta=nvidia,cc3x,time -L/usr/local/lib -Minfo=accel,inline -Mneginfo -lpp
+FFLAGS= -acc -g  -Kieee -Mcuda=6.5,cc3x -ta=nvidia,cc3x,keepgpu,keepbin -Minfo=accel,inline,ipa -Mneginfo -Minform=inform -I/usr/local/include
+LDFLAGS= -acc -Mcuda=6.5,cc3x -ta=nvidia,cc3x -L/usr/local/lib -Minfo=accel,inline -Mneginfo -lpp
 
 else
 #############################################################################
 # production settings                                                       #
 #############################################################################
 FFLAGS= -acc -Mcuda=6.5,cc3x -ta=nvidia,cc3x -fast
-LDFLAGS= -acc -Mcuda=6.5,cc3x -ta=nvidia,cc3x,time -fast -lpp
+LDFLAGS= -acc -Mcuda=6.5,cc3x -ta=nvidia,cc3x -fast -lpp
 
 endif
 endif

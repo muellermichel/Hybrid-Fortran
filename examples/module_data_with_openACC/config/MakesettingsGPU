@@ -53,8 +53,8 @@ ifdef DEBUG
 #############################################################################
 # debug settings                                                            #
 #############################################################################
-FFLAGS= -acc -g -Kieee -O0 -DGPU -Mcuda=6.5,cc3x -ta=nvidia,cc3x,keepgpu,keepbin,time -Minfo=accel,inline,ipa -Mneginfo -Minform=inform
-LDFLAGS= -acc -g -Mcuda=6.5,cc3x -ta=nvidia,cc3x,time -Minfo=accel,inline -Mneginfo -l${HYBRID_LIBRARY_FILENAME_POSTFIX}
+FFLAGS= -acc -g -Kieee -O0 -DGPU -Mcuda=6.5,cc3x -ta=nvidia,cc3x,keepgpu,keepbin -Minfo=accel,inline,ipa -Mneginfo -Minform=inform
+LDFLAGS= -acc -g -Mcuda=6.5,cc3x -ta=nvidia,cc3x -Minfo=accel,inline -Mneginfo -l${HYBRID_LIBRARY_FILENAME_POSTFIX}
 
 else
 #############################################################################

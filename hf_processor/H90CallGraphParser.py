@@ -753,7 +753,9 @@ def getSymbolsByName(cgDoc, parentNode, parallelRegionTemplates=[], currentSymbo
     for template, entry in templatesAndEntries:
         dependantName = entry.firstChild.nodeValue
         if dependantName in dependantNames:
-            raise Exception("Symbol %s has multiple @domainDependant definitions. Please remove all but one." %(dependantName))
+            raise Exception("Symbol %s has multiple @domainDependant definitions in %s. Please remove all but one." %(
+                dependantName, parentName
+            ))
         dependantNames.append(dependantName)
         symbol = symbolsByName.get(dependantName)
         if symbol == None:

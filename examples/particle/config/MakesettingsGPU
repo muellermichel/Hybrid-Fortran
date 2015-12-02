@@ -38,15 +38,15 @@ ifdef DEBUG
 #############################################################################
 # debug settings                                                            #
 #############################################################################
-FFLAGS= -acc -g -DCTIME -Mcuda=5.5,cc3x -ta=nvidia,cc3x,keepgpu,keepbin,time -Minfo=accel,inline,ipa -Mneginfo -Minform=inform -I/usr/local/include
-LDFLAGS= -acc -Mcuda=5.5,cc3x -ta=nvidia,cc3x,time -L/usr/local/lib -Minfo=accel,inline -Mneginfo -lpp
+FFLAGS= -acc -g -DCTIME -Mcuda=5.5,cc3x -ta=nvidia,cc3x,keepgpu,keepbin -Minfo=accel,inline,ipa -Mneginfo -Minform=inform -I/usr/local/include
+LDFLAGS= -acc -Mcuda=5.5,cc3x -ta=nvidia,cc3x -L/usr/local/lib -Minfo=accel,inline -Mneginfo -lpp
 
 else
 #############################################################################
 # production settings                                                       #
 #############################################################################
 FFLAGS= -acc -Minfo=accel,inline,ipa -Mneginfo -DCTIME -Mcuda=5.5,cc3x -ta=nvidia,cc3x -fast
-LDFLAGS= -acc -Minfo=accel,inline,ipa -Mneginfo -Mcuda=5.5,cc3x -ta=nvidia,cc3x,time -fast -lpp
+LDFLAGS= -acc -Minfo=accel,inline,ipa -Mneginfo -Mcuda=5.5,cc3x -ta=nvidia,cc3x -fast -lpp
 
 endif
 endif

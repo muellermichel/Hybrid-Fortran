@@ -41,15 +41,15 @@ ifdef DEBUG
 #############################################################################
 # debug settings                                                            #
 #############################################################################
-FFLAGS= -acc -g -Mcuda=cc2x,cc3x -ta=nvidia,cc2x,cc3x,keepgpu,keepbin,time -Minfo=accel,inline,ipa -Mneginfo -Minform=inform -I/usr/local/include
-LDFLAGS= -acc -Mcuda=cc2x,cc3x -ta=nvidia,cc2x,cc3x,time -L/usr/local/lib -Minfo=accel,inline -Mneginfo -lpp
+FFLAGS= -acc -g -Mcuda=cc2x,cc3x -ta=nvidia,cc2x,cc3x,keepgpu,keepbin -Minfo=accel,inline,ipa -Mneginfo -Minform=inform -I/usr/local/include
+LDFLAGS= -acc -Mcuda=cc2x,cc3x -ta=nvidia,cc2x,cc3x -L/usr/local/lib -Minfo=accel,inline -Mneginfo -lpp
 
 else
 #############################################################################
 # production settings                                                       #
 #############################################################################
 FFLAGS= -acc -Minfo=accel,inline,ipa -Mneginfo -Mcuda=cc2x,cc3x -ta=nvidia,cc2x,cc3x -fast
-LDFLAGS= -acc -Minfo=accel,inline,ipa -Mneginfo -Mcuda=cc2x,cc3x -ta=nvidia,cc2x,cc3x,time -fast -lpp
+LDFLAGS= -acc -Minfo=accel,inline,ipa -Mneginfo -Mcuda=cc2x,cc3x -ta=nvidia,cc2x,cc3x -fast -lpp
 
 endif
 endif

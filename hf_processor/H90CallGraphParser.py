@@ -832,7 +832,6 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
         self.importsOnCurrentLine = []
         #$$$ remove this in case we never enable routine domain dependant specifications for module symbols (likely)
         # self.tentativeModuleSymbolsByName = None
-
         if moduleNodesByName != None:
             self.moduleNodesByName = moduleNodesByName
         else:
@@ -844,7 +843,6 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
         self.parallelRegionTemplateRelationsByProcName = parallelRegionData[0]
         self.routineNodesByProcName = parallelRegionData[2]
         self.routineNodesByModule = parallelRegionData[3]
-
         super(H90CallGraphAndSymbolDeclarationsParser, self).__init__()
 
     def loadSymbolsFromTemplate(self, parentNode, parallelRegionTemplates, isModuleSymbols=False):
@@ -944,33 +942,7 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
         self.analyseSymbolInformationOnCurrentLine(line)
 
     def processImplicitForeignModuleSymbolMatch(self, importMatch):
-        moduleName = importMatch.group(1)
-        if moduleName == "":
-            raise Exception("import without module specified")
-        symbolList = importMatch.group(2).split(',')
-        for entry in symbolList:
-            stripped = entry.strip()
-            mappedImportMatch = self.patterns.singleMappedImportPattern.match(stripped)
-            sourceSymbol = None
-            symbolInScope = None
-            if mappedImportMatch:
-                symbolInScope = mappedImportMatch.group(1)
-                sourceSymbol = mappedImportMatch.group(2)
-            else:
-                symbolInScope = stripped
-                sourceSymbol = symbolInScope
-            relationNode, templateNode = setTemplateInfos(
-                self.cgDoc,
-                self.routineNodesByProcName.get(self.currSubprocName),
-                specText="attribute(autoDom)",
-                templateParentNodeName="domainDependantTemplates",
-                templateNodeName="domainDependantTemplate",
-                referenceParentNodeName="domainDependants"
-            )
-            appendSeparatedTextAsNodes(symbolInScope, ',', self.cgDoc, relationNode, 'entry')
-            symbol = ImplicitForeignModuleSymbol(moduleName, symbolInScope, sourceSymbol, template=templateNode)
-            symbol.isMatched = True
-            self.currSymbolsByName[symbol.name] = symbol
+        pass
 
     def processModuleBeginMatch(self, moduleBeginMatch):
         super(H90CallGraphAndSymbolDeclarationsParser, self).processModuleBeginMatch(moduleBeginMatch)
@@ -1102,6 +1074,36 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
             if not entryNode:
                 continue
             symbol.storeDomainDependantEntryNodeAttributes(entryNode)
+
+    def processImplicitForeignModuleSymbolMatch(self, importMatch):
+        super(H90XMLSymbolDeclarationExtractor, self).processImplicitForeignModuleSymbolMatch(importMatch)
+        moduleName = importMatch.group(1)
+        if moduleName == "":
+            raise Exception("import without module specified")
+        symbolList = importMatch.group(2).split(',')
+        for entry in symbolList:
+            stripped = entry.strip()
+            mappedImportMatch = self.patterns.singleMappedImportPattern.match(stripped)
+            sourceSymbol = None
+            symbolInScope = None
+            if mappedImportMatch:
+                symbolInScope = mappedImportMatch.group(1)
+                sourceSymbol = mappedImportMatch.group(2)
+            else:
+                symbolInScope = stripped
+                sourceSymbol = symbolInScope
+            relationNode, templateNode = setTemplateInfos(
+                self.cgDoc,
+                self.routineNodesByProcName.get(self.currSubprocName),
+                specText="attribute(autoDom)",
+                templateParentNodeName="domainDependantTemplates",
+                templateNodeName="domainDependantTemplate",
+                referenceParentNodeName="domainDependants"
+            )
+            appendSeparatedTextAsNodes(symbolInScope, ',', self.cgDoc, relationNode, 'entry')
+            symbol = ImplicitForeignModuleSymbol(moduleName, symbolInScope, sourceSymbol, template=templateNode)
+            symbol.isMatched = True
+            self.currSymbolsByName[symbol.name] = symbol
 
     def processModuleEndMatch(self, moduleEndMatch):
         #get handles to currently active symbols -> temporarily save the handles

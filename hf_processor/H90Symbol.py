@@ -34,6 +34,7 @@ from GeneralHelper import Singleton
 from H90SymbolDependencyGraphAnalyzer import SymbolDependencyAnalyzer, SymbolType
 
 Init = enum("NOTHING_LOADED",
+	"TEMPLATE_LOADED",
 	"DEPENDANT_ENTRYNODE_ATTRIBUTES_LOADED",
 	"ROUTINENODE_ATTRIBUTES_LOADED",
 	"DECLARATION_LOADED"
@@ -46,6 +47,12 @@ Init = enum("NOTHING_LOADED",
 #                                        +----------------+
 #                                        | NOTHING_LOADED |
 #                                        +------+---------+
+#                                               |
+#                                         loadTemplate
+#                                               |
+#                                        +------v----------+
+#                                        | TEMPLATE_LOADED |
+#                                        +------+----------+
 #                                               |                 X -> (routine entry)
 #                                               |  loadDomainDependantEntryNodeAttributes
 #                                               |                              ^
@@ -188,6 +195,45 @@ def purgeDimensionAndGetAdjustedLine(line, patterns):
 	else:
 		return match.group(1) + match.group(3)
 
+#MMU 2015-11-6: At this point we can still not make autoDom the default. It would generate the following error in ASUCA:
+#               Error when parsing file /work1/t2g-kaken-S/mueller/asuca/hybrid/asuca-kij/./build/hf_preprocessed/physics.h90 on line 475: There are multiple known dimension sizes for domain i. Cannot insert domain for autoDom symbol densrjd. Please use explicit declaration; Debug Print: None; Print of line:
+#               real(rp):: densrjd(nz)
+DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES = {
+	"isPointer": False,
+	"debugPrint": False,
+	"isMatched": False,
+	"parallelRegionPosition": None,
+	"_isUsingDevicePostfix": False,
+	"isOnDevice": False,
+	"routineNode": None,
+	"declarationPrefix": None,
+	"sourceModule": None,
+	"sourceSymbol": None,
+	"isModuleSymbol": False,
+	"parallelRegionTemplates": None,
+	"declaredDimensionSizes": None,
+	"_isPresent": False,
+	"isAutoDom": False,
+	"_isToBeTransfered": False,
+	"_isHostSymbol": False,
+	"isCompacted": False,
+	"domPPName": None,
+	"accPPName": None,
+	"analysis": None,
+	"_isArgumentOverride": False,
+	"_nameOfScopeOverride": None,
+	"_nameInScope": None,
+	"_declarationTypeOverride": None
+}
+
+DEFAULT_SYMBOL_INSTANCE_DOMAIN_ATTRIBUTES = {
+	"domains": [],
+	"parallelActiveDims": [],
+	"parallelInactiveDims": [],
+	"aggregatedRegionDomSizesByName": {},
+	"aggregatedRegionDomNames": []
+}
+
 class Symbol(object):
 	name = None
 	intent = None
@@ -228,62 +274,27 @@ class Symbol(object):
 	_nameOfScopeOverride = None
 	_nameInScope = None
 	_declarationTypeOverride = None
+	attributes = None
 
-	def __init__(self, name, template, patterns=None, debugPrint=False):
+	def __init__(self, name, template=None, patterns=None, debugPrint=False):
 		if not name or name == "":
 			raise Exception("Unexpected error: name required for initializing symbol")
-		if template == None:
-			raise Exception("Unexpected error: template required for initializing symbol")
 
+		self.loadDefaults()
 		self.name = name
-		self.template = template
 		if patterns != None:
 			self.patterns = patterns
 		else:
 			self.patterns = H90RegExPatterns.Instance() #warning! very slow, avoid this code path.
-		self.isPointer = False
 		self.debugPrint = debugPrint
-		self.domains = []
-		self.isMatched = False
 		self.declPattern = self.patterns.get(r'(\s*(?:double\s+precision|real|integer|logical).*?[\s,:]+)' + re.escape(name) + r'((?:\s|\,|\(|$)+.*)')
 		self.namePattern = self.patterns.get(r'((?:[^\"\']|(?:\".*\")|(?:\'.*\'))*?(?:\W|^))(' + re.escape(name) + r'(?:_d)?)((?:\W.*)|\Z)')
 		self.symbolImportPattern = self.patterns.get(r'^\s*use\s*(\w*)[,\s]*only\s*\:.*?\W' + re.escape(name) + r'\W.*')
 		self.symbolImportMapPattern = self.patterns.get(r'.*?\W' + re.escape(name) + r'\s*\=\>\s*(\w*).*')
 		self.pointerDeclarationPattern = self.patterns.get(r'\s*(?:double\s+precision|real|integer|logical).*?pointer.*?[\s,:]+' + re.escape(name))
-		self.parallelRegionPosition = None
-		self._isUsingDevicePostfix = False
-		self.isOnDevice = False
-		self.parallelActiveDims = []
-		self.parallelInactiveDims = []
-		self.aggregatedRegionDomSizesByName = {}
-		self.aggregatedRegionDomNames = []
-		self.routineNode = None
-		self.declarationPrefix = None
-		self.initLevel = Init.NOTHING_LOADED
-		self.sourceModule = None
-		self.sourceSymbol = None
-		self.isModuleSymbol = False
-		self.parallelRegionTemplates = None
-		self.declaredDimensionSizes = None
-
-		self._isPresent = False
-		self.isAutoDom = False #MMU 2015-11-6: At this point we can still not make autoDom the default. It would generate the following error in ASUCA:
-							   #               Error when parsing file /work1/t2g-kaken-S/mueller/asuca/hybrid/asuca-kij/./build/hf_preprocessed/physics.h90 on line 475: There are multiple known dimension sizes for domain i. Cannot insert domain for autoDom symbol densrjd. Please use explicit declaration; Debug Print: None; Print of line:
-							   #               real(rp):: densrjd(nz)
-
-		self._isToBeTransfered = False
-		self._isHostSymbol = False
-		self.isCompacted = False
-		self.attributes = getAttributes(self.template)
-		self.setOptionsFromAttributes(self.attributes)
-		self.domPPName = None
-		self.accPPName = None
-		self.analysis = None
-		self._isArgumentOverride = False
-		self._nameOfScopeOverride = None
-		self._nameInScope = None
-		self._declarationTypeOverride = None
-
+		self.initLevel =  Init.NOTHING_LOADED,
+		if template != None:
+			self.loadTemplate(template)
 		if self.debugPrint:
 			sys.stderr.write("[" + str(self) + ".init " + str(self.initLevel) + "] initialized\n")
 
@@ -460,6 +471,72 @@ class Symbol(object):
 	def declarationType(self, _declarationTypeOverride):
 		self._declarationTypeOverride = _declarationTypeOverride
 
+	def loadDefaults(self):
+		def loadAttributesFromObject(obj):
+			for attribute in obj:
+				setattr(self, attribute, obj[attribute])
+
+		loadAttributesFromObject(DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES)
+		loadAttributesFromObject(DEFAULT_SYMBOL_INSTANCE_DOMAIN_ATTRIBUTES)
+
+	def merge(self, otherSymbol):
+		def mergeSimpleAttribute(attributeName):
+			mine = getattr(self, attributeName)
+			other = getattr(otherSymbol, attributeName)
+			if mine != DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES[attributeName] and other != DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES[attributeName]:
+				raise Exception("Symbol %s: Conflict with attribute %s: %s vs %s. Please solve this inconsitency in the @domainDependant specifications" %(
+					self.name,
+					attributeName,
+					mine,
+					other
+				))
+			if other != DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES[attributeName]
+				setattr(self, attributeName, other)
+
+		def isEmpty(obj):
+			if isinstance(obj, dict):
+				return len(obj.keys()) == 0
+			if obj == None:
+				return True
+			return len(obj) == 0
+
+		def allAttributesEmpty(obj, attributeList):
+			for attribute in attributeList:
+				entry = getattr(obj, attribute)
+				if not isEmpty(entry)
+					break
+			else:
+				return True
+			return False
+
+		if self.name != otherSymbol.name:
+			raise Exception("cannot merge %s with %s - not the same symbol name" %(self.name, otherSymbol.name))
+		if self.initLevel > Init.DEPENDANT_ENTRYNODE_ATTRIBUTES_LOADED or otherSymbol.initLevel > Init.DEPENDANT_ENTRYNODE_ATTRIBUTES_LOADED:
+			raise Exception("cannot merge %s, one of the symbols has been loaded passed the possible merge state")
+		for attribute in DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES:
+			mergeSimpleAttribute(attribute)
+		myDomainsLoaded = allAttributesEmpty(self, DEFAULT_SYMBOL_INSTANCE_DOMAIN_ATTRIBUTES.keys()) == False
+		otherDomainsLoaded = allAttributesEmpty(otherSymbol, DEFAULT_SYMBOL_INSTANCE_DOMAIN_ATTRIBUTES.keys()) == False
+		if myDomainsLoaded and otherDomainsLoaded:
+			raise Exception("Symbol %s: Conflicting domain specifications: %s vs %s" %(self.name, self.domains, otherSymbol.domains))
+		if otherDomainsLoaded:
+			for domainAttributeName in DEFAULT_SYMBOL_INSTANCE_DOMAIN_ATTRIBUTES.keys():
+				setattr(self, domainAttributeName, getattr(otherSymbol, domainAttributeName))
+		self.initLevel = max(self.initLevel, otherSymbol.initLevel)
+
+	def loadTemplate(self, template):
+		if self.initLevel > Init.DEPENDANT_ENTRYNODE_ATTRIBUTES_LOADED:
+			raise Exception(
+				"Cannot load a new template for symbol %s at init level %s" %(
+					str(self),
+					self.initLevel
+				)
+			)
+		self.template = template
+		self.attributes = getAttributes(self.template)
+		self.setOptionsFromAttributes(self.attributes)
+		self.initLevel = max(self.initLevel, Init.TEMPLATE_LOADED)
+
 	# to be called when a previously loaded symbol is used in a new scope
 	def resetScope(self):
 		self._nameOfScopeOverride = None
@@ -502,7 +579,7 @@ class Symbol(object):
 		if self.debugPrint:
 			sys.stderr.write("[" + str(self) + ".init " + str(self.initLevel) + "] +++++++++ LOADING DOMAIN DEPENDANT NODE ++++++++++ \n")
 
-		#   This symbol has an explicit domain dependant entry - make sure to score this as the name used in the scope
+		#   This symbol has an explicit domain dependant entry - make sure to store this as the name used in the scope
 		self._nameInScope = self.name
 
 		self.intent = domainDependantEntryNode.getAttribute("intent") if self.intent in [None, ''] else self.intent
@@ -514,6 +591,7 @@ class Symbol(object):
 		self.isPointer = domainDependantEntryNode.getAttribute("isPointer") == "yes" if not self.isPointer else self.isPointer
 		self.declaredDimensionSizes = domainDependantEntryNode.getAttribute("declaredDimensionSizes").split(",") if self.declaredDimensionSizes == None else self.declaredDimensionSizes
 		if len(self.declaredDimensionSizes) > 0:
+			#$$$ this needs to be commented
 			self.domains = []
 		for dimSize in self.declaredDimensionSizes:
 			if dimSize.strip() != "":
@@ -528,6 +606,13 @@ class Symbol(object):
 				raise Exception("Invalid definition of domain in symbol %s: %s" %(self.name, str(domain)))
 
 	def loadTemplateAttributes(self, parallelRegionTemplates=[]):
+		if self.initLevel < Init.TEMPLATE_LOADED:
+			raise Exception(
+				"Cannot load template attributes for %s at init level %s" %(
+					str(self),
+					self.initLevel
+				)
+			)
 		dependantDomNameAndSize = getDomNameAndSize(self.template)
 		declarationPrefixFromTemplate = getDeclarationPrefix(self.template)
 		self.loadDeclarationPrefixFromString(declarationPrefixFromTemplate)
@@ -674,6 +759,13 @@ class Symbol(object):
 			sys.stderr.write("[" + str(self) + ".init " + str(self.initLevel) + "] routine node attributes loaded for symbol %s. Domains at this point: %s\n" %(self.name, str(self.domains)))
 
 	def loadDeclaration(self, paramDeclMatch, patterns, currentRoutineArguments):
+		if self.initLevel < Init.TEMPLATE_LOADED:
+			raise Exception(
+				"Cannot load declaration for %s at init level %s" %(
+					str(self),
+					self.initLevel
+				)
+			)
 		if self.initLevel > Init.ROUTINENODE_ATTRIBUTES_LOADED:
 			sys.stderr.write("[" + str(self) + ".init " + str(self.initLevel) + "] WARNING: symbol %s's declaration is loaded when the initialization level has already advanced further.\n" \
 				%(str(self))
@@ -870,6 +962,13 @@ Parallel region position: %s"
 			sys.stderr.write("[" + str(self) + ".init " + str(self.initLevel) + "] declaration loaded for symbol %s. Domains at this point: %s\n" %(self.name, str(self.domains)))
 
 	def loadImportInformation(self, importMatch, cgDoc, moduleNode):
+		if self.initLevel < Init.TEMPLATE_LOADED:
+			raise Exception(
+				"Cannot load import information for %s at init level %s" %(
+					str(self),
+					self.initLevel
+				)
+			)
 		if self.initLevel > Init.ROUTINENODE_ATTRIBUTES_LOADED:
 			sys.stderr.write("[" + str(self) + ".init " + str(self.initLevel) + "] WARNING: symbol %s's import information is loaded when the initialization level has already advanced further.\n" \
 				%(str(self))
@@ -1269,7 +1368,7 @@ Currently loaded template: %s\n" %(
 			return "", False
 
 class ImplicitForeignModuleSymbol(Symbol):
-	def __init__(self, template, sourceModule, nameInScope, sourceSymbol):
+	def __init__(self, sourceModule, nameInScope, sourceSymbol, template=None):
 		Symbol.__init__(self, nameInScope, template)
 		self._nameInScope = nameInScope
 		self.sourceModule = sourceModule

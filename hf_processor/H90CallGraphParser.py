@@ -745,19 +745,17 @@ class H90XMLCallGraphGenerator(H90CallGraphParser):
 def getSymbolsByName(cgDoc, parentNode, parallelRegionTemplates=[], currentSymbolsByName={}, symbolAnalysisByRoutineNameAndSymbolName={}, isModuleSymbols=False, debugPrint=False):
     patterns = H90RegExPatterns.Instance()
     templatesAndEntries = getDomainDependantTemplatesAndEntries(cgDoc, parentNode)
-    dependantNames = []
     symbolsByName = {}
     parentName = parentNode.getAttribute('name')
     if parentName in [None, '']:
         raise Exception("parent node without identifier")
     for template, entry in templatesAndEntries:
         dependantName = entry.firstChild.nodeValue
-        if dependantName in dependantNames:
+        existingSymbol = symbolsByName.get(dependantName)
+        if existingSymbol != None:
             raise Exception("Symbol %s has multiple @domainDependant definitions in %s. Please remove all but one." %(
                 dependantName, parentName
             ))
-        dependantNames.append(dependantName)
-        symbol = symbolsByName.get(dependantName)
         if symbol == None:
             symbol = currentSymbolsByName.get(dependantName)
         if symbol == None:
@@ -821,40 +819,6 @@ def getParallelRegionData(cgDoc):
             if len(regionTemplates) > 0:
                 parallelRegionTemplatesByProcName[procName] = regionTemplates
     return parallelRegionTemplateRelationsByProcName, parallelRegionTemplatesByProcName, routineNodesByProcName, routineNodesByModule
-
-def getSymbolsByModuleNameAndSymbolName(cgDoc, moduleNodesByName, symbolAnalysisByRoutineNameAndSymbolName={}):
-    patterns = H90RegExPatterns.Instance()
-    symbolsByModuleNameAndSymbolName = {}
-    for moduleName in moduleNodesByName.keys():
-        moduleNode = moduleNodesByName.get(moduleName)
-        if not moduleNode:
-            continue
-        symbolsByModuleNameAndSymbolName[moduleName] = getSymbolsByName(
-            cgDoc,
-            moduleNode,
-            isModuleSymbols=True,
-            symbolAnalysisByRoutineNameAndSymbolName=symbolAnalysisByRoutineNameAndSymbolName
-        )
-        for symbolName in symbolsByModuleNameAndSymbolName[moduleName]:
-            symbol = symbolsByModuleNameAndSymbolName[moduleName][symbolName]
-            symbol.sourceModule = moduleName
-    return symbolsByModuleNameAndSymbolName
-
-def getSymbolsByRoutineNameAndSymbolName(cgDoc, routineNodesByProcName, parallelRegionTemplatesByProcName, symbolAnalysisByRoutineNameAndSymbolName={}, debugPrint=False):
-    patterns = H90RegExPatterns.Instance()
-    symbolsByRoutineNameAndSymbolName = {}
-    for procName in routineNodesByProcName:
-        routine = routineNodesByProcName[procName]
-        procName = routine.getAttribute('name')
-        symbolsByRoutineNameAndSymbolName[procName] = getSymbolsByName(
-            cgDoc,
-            routine,
-            parallelRegionTemplatesByProcName.get(procName,[]),
-            isModuleSymbols=False,
-            debugPrint=debugPrint,
-            symbolAnalysisByRoutineNameAndSymbolName=symbolAnalysisByRoutineNameAndSymbolName
-        )
-    return symbolsByRoutineNameAndSymbolName
 
 class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
     cgDoc = None
@@ -1010,7 +974,7 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
                 referenceParentNodeName="domainDependants"
             )
             appendSeparatedTextAsNodes(symbolInScope, ',', self.cgDoc, relationNode, 'entry')
-            symbol = ImplicitForeignModuleSymbol(templateNode, moduleName, symbolInScope, sourceSymbol)
+            symbol = ImplicitForeignModuleSymbol(moduleName, symbolInScope, sourceSymbol, template=templateNode)
             symbol.isMatched = True
             self.currSymbolsByName[symbol.name] = symbol
 
@@ -1186,6 +1150,40 @@ def getModuleArraysForCallee(calleeName, symbolAnalysisByRoutineNameAndSymbolNam
             symbol.analysis = symbolAnalysis
             moduleSymbols.append(symbol)
     return moduleSymbols
+
+def getSymbolsByModuleNameAndSymbolName(cgDoc, moduleNodesByName, symbolAnalysisByRoutineNameAndSymbolName={}):
+    patterns = H90RegExPatterns.Instance()
+    symbolsByModuleNameAndSymbolName = {}
+    for moduleName in moduleNodesByName.keys():
+        moduleNode = moduleNodesByName.get(moduleName)
+        if not moduleNode:
+            continue
+        symbolsByModuleNameAndSymbolName[moduleName] = getSymbolsByName(
+            cgDoc,
+            moduleNode,
+            isModuleSymbols=True,
+            symbolAnalysisByRoutineNameAndSymbolName=symbolAnalysisByRoutineNameAndSymbolName
+        )
+        for symbolName in symbolsByModuleNameAndSymbolName[moduleName]:
+            symbol = symbolsByModuleNameAndSymbolName[moduleName][symbolName]
+            symbol.sourceModule = moduleName
+    return symbolsByModuleNameAndSymbolName
+
+def getSymbolsByRoutineNameAndSymbolName(cgDoc, routineNodesByProcName, parallelRegionTemplatesByProcName, symbolAnalysisByRoutineNameAndSymbolName={}, debugPrint=False):
+    patterns = H90RegExPatterns.Instance()
+    symbolsByRoutineNameAndSymbolName = {}
+    for procName in routineNodesByProcName:
+        routine = routineNodesByProcName[procName]
+        procName = routine.getAttribute('name')
+        symbolsByRoutineNameAndSymbolName[procName] = getSymbolsByName(
+            cgDoc,
+            routine,
+            parallelRegionTemplatesByProcName.get(procName,[]),
+            isModuleSymbols=False,
+            debugPrint=debugPrint,
+            symbolAnalysisByRoutineNameAndSymbolName=symbolAnalysisByRoutineNameAndSymbolName
+        )
+    return symbolsByRoutineNameAndSymbolName
 
 class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
     currSubroutineImplementationNeedsToBeCommented = False

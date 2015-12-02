@@ -340,18 +340,26 @@ def getAttributesDomainsDeclarationPrefixAndMacroNames(moduleTemplate, procedure
 
     return finalAttributes, domainsFromTemplate, finalDeclarationPrefix, finalAccPP, finalDomPP
 
+firstLevelElementCache = {}
+def getOrCreateFirstLevelElement(doc, nodeName):
+    element = firstLevelElementCache.get(nodeName)
+    if element:
+        return element
+    elements = doc.getElementsByTagName(nodeName)
+    if len(elements) > 0:
+        element = templateLibraries[0]
+        firstLevelElementCache[nodeName] = element
+        return element
+    element = doc.createElement(nodeName)
+    doc.documentElement.appendChild(element)
+    firstLevelElementCache[nodeName] = element
+    return element
+
 def setTemplateInfos(doc, parent, specText, templateParentNodeName, templateNodeName, referenceParentNodeName):
     if not parent:
         raise Exception("cannot add template info '%s' to nonexisting parent" %(specText))
 
-    templateLibraries = doc.getElementsByTagName(templateParentNodeName)
-    templateLibrary = None
-    if len(templateLibraries) == 0:
-        templateLibrary = doc.createElement(templateParentNodeName)
-        doc.documentElement.appendChild(templateLibrary)
-    else:
-        templateLibrary = templateLibraries[0]
-
+    templateLibrary = getOrCreateFirstLevelElement(doc, templateParentNodeName)
     templateNode = doc.createElement(templateNodeName)
     templateNode.setAttribute("id", str(uuid.uuid4()))
 

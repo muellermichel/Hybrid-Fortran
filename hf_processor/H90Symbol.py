@@ -207,7 +207,6 @@ DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES = {
 	"parallelRegionPosition": None,
 	"_isUsingDevicePostfix": False,
 	"isOnDevice": False,
-	"routineNode": None,
 	"declarationPrefix": None,
 	"sourceModule": None,
 	"sourceSymbol": None,

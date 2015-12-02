@@ -94,16 +94,6 @@ class SymbolAnalysis:
             self.argumentIndexByRoutineName[routineName] = analysis.argumentIndexByRoutineName[routineName]
         if self.symbolType == SymbolType.UNDEFINED:
             self.symbolType = analysis.symbolType
-        elif self.isDomainDependant \
-        and not analysis.isDomainDependant:
-            sys.stderr.write(
-                "WARNING: Symbol %s is declared as domain dependant upstream (type %s), but doesn't have any domain dependant information later in the callgraph stream (%s, type %s).\n" %(
-                    self.name,
-                    str(self.symbolType),
-                    routineName,
-                    str(analysis.symbolType)
-                )
-            )
         if (not type(self.sourceModule) in [unicode, str] or self.sourceModule == "") \
         and (type(analysis.sourceModule) in [unicode, str] and analysis.sourceModule != ""):
             sys.stderr.write(

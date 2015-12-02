@@ -29,6 +29,18 @@ import os
 import sys
 import re
 
+def progressIndicatorReset(stream):
+    stream.write("\n")
+
+def printProgressIndicator(stream, currentlyAtText, currentlyAtNum, totalNum, description):
+    stream.write("\033[K") #clear current line
+    stream.write("\r%s: %d%% done. Currently processing: %s" %(
+        description,
+        round(currentlyAtNum * 100.0/totalNum),
+        currentlyAtText
+    )) #\r returns to beginning of current line
+    stream.flush()
+
 def stripWhitespace(inputStr):
     match = re.match(r'\s*(.*)\s*', inputStr)
     if not match:

@@ -30,6 +30,7 @@
 from xml.dom.minidom import Document
 from optparse import OptionParser
 from RecursiveDirEntries import dirEntries
+from GeneralHelper import printProgressIndicator, progressIndicatorReset
 from H90CallGraphParser import H90XMLCallGraphGenerator, H90XMLSymbolDeclarationExtractor
 import os
 import sys
@@ -60,24 +61,31 @@ filesInDir = dirEntries(str(options.sourceDir), True, 'h90')
 
 #first pass: loop through all h90 files (hybrid fortran 90) in the current directory
 #   and build the basic callgraph based on subprocedures and calls. Also parse @-directives for annotations.
-for fileInDir in filesInDir:
+progressIndicatorReset(sys.stderr)
+for fileNum, fileInDir in enumerate(filesInDir):
     parser = H90XMLCallGraphGenerator(doc)
     parser.debugPrint = options.debug
     parser.processFile(fileInDir)
-    # if options.debug:
-    sys.stderr.write("Callgraph generated for " + fileInDir + "\n")
+    if options.debug:
+        sys.stderr.write("Callgraph generated for " + fileInDir + "\n")
+    else:
+        printProgressIndicator(sys.stderr, fileInDir, fileNum + 1, len(filesInDir), "Callgraph parsing")
 
 #second pass: loop again through all h90 files and parse the @domainDependant symbol declarations flags
 #   -> update the callgraph document with this information.
 #   note: We do this, since for simplicity reasons, the declaration parser relies on the symbol names that
 #   have been declared in @domainDependant direcrives. Since these directives come *after* the declaration,
 #   we need a second pass
-for fileInDir in filesInDir:
+progressIndicatorReset(sys.stderr)
+for fileNum, fileInDir in enumerate(filesInDir):
     parser = H90XMLSymbolDeclarationExtractor(doc)
     parser.debugPrint = options.debug
     parser.processFile(fileInDir)
-    # if options.debug:
-    sys.stderr.write("Symbol declarations extracted for " + fileInDir + "\n")
+    if options.debug:
+        sys.stderr.write("Symbol declarations extracted for " + fileInDir + "\n")
+    else:
+        printProgressIndicator(sys.stderr, fileInDir, fileNum + 1, len(filesInDir), "Symbol parsing")
+progressIndicatorReset(sys.stderr)
 
 if (options.pretty):
 	sys.stdout.write(doc.toprettyxml())

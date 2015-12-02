@@ -751,20 +751,8 @@ def getSymbolsByName(cgDoc, parentNode, parallelRegionTemplates=[], currentSymbo
         raise Exception("parent node without identifier")
     for template, entry in templatesAndEntries:
         dependantName = entry.firstChild.nodeValue
-        existingSymbol = symbolsByName.get(dependantName)
-        if existingSymbol != None:
-            raise Exception("Symbol %s has multiple @domainDependant definitions in %s. Please remove all but one." %(
-                dependantName, parentName
-            ))
-        if symbol == None:
-            symbol = currentSymbolsByName.get(dependantName)
-        if symbol == None:
-            symbol = Symbol(dependantName, template, patterns, debugPrint=debugPrint)
-            symbol.isModuleSymbol = isModuleSymbols
-        else:
-            current_attributes = symbol.attributes
-            new_attributes = getAttributes(template)
-            symbol.setOptionsFromAttributes(current_attributes + new_attributes)
+        symbol = Symbol(dependantName, template, patterns, debugPrint=debugPrint)
+        symbol.isModuleSymbol = isModuleSymbols
         analysis = symbolAnalysisByRoutineNameAndSymbolName.get(parentName, {}).get(dependantName)
         symbol.analysis = analysis
         symbol.loadDomainDependantEntryNodeAttributes(entry)
@@ -772,6 +760,12 @@ def getSymbolsByName(cgDoc, parentNode, parallelRegionTemplates=[], currentSymbo
             symbol.loadModuleNodeAttributes(parentNode)
         else:
             symbol.loadRoutineNodeAttributes(parentNode, parallelRegionTemplates)
+
+        existingSymbol = symbolsByName.get(dependantName)
+        if existingSymbol == None:
+            existingSymbol = currentSymbolsByName.get(dependantName)
+        if existingSymbol != None:
+            symbol.merge(existingSymbol)
         symbolsByName[dependantName] = symbol
     return symbolsByName
 

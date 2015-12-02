@@ -164,6 +164,8 @@ def getReorderedDomainsAccordingToDeclaration(domains, dimensionSizesInDeclarati
 				break;
 		return index_candidate
 
+	if not dimensionSizesInDeclaration:
+		return domains
 	if len(domains) == 0:
 		return domains
 	if len(domains) != len(dimensionSizesInDeclaration) and not purgeUndeclared:
@@ -292,7 +294,7 @@ class Symbol(object):
 		self.symbolImportPattern = self.patterns.get(r'^\s*use\s*(\w*)[,\s]*only\s*\:.*?\W' + re.escape(name) + r'\W.*')
 		self.symbolImportMapPattern = self.patterns.get(r'.*?\W' + re.escape(name) + r'\s*\=\>\s*(\w*).*')
 		self.pointerDeclarationPattern = self.patterns.get(r'\s*(?:double\s+precision|real|integer|logical).*?pointer.*?[\s,:]+' + re.escape(name))
-		self.initLevel =  Init.NOTHING_LOADED,
+		self.initLevel = Init.NOTHING_LOADED
 		if template != None:
 			self.loadTemplate(template)
 		if self.debugPrint:
@@ -480,18 +482,67 @@ class Symbol(object):
 		loadAttributesFromObject(DEFAULT_SYMBOL_INSTANCE_DOMAIN_ATTRIBUTES)
 
 	def merge(self, otherSymbol):
-		def mergeSimpleAttribute(attributeName):
+		def getMergedSimpleAttributeValue(attributeName):
 			mine = getattr(self, attributeName)
 			other = getattr(otherSymbol, attributeName)
-			if mine != DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES[attributeName] and other != DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES[attributeName]:
+			if mine != other \
+			and mine not in ["", DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES[attributeName]] \
+			and other not in ["", DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES[attributeName]]:
 				raise Exception("Symbol %s: Conflict with attribute %s: %s vs %s. Please solve this inconsitency in the @domainDependant specifications" %(
 					self.name,
 					attributeName,
 					mine,
 					other
 				))
-			if other != DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES[attributeName]
-				setattr(self, attributeName, other)
+			if other not in ["", DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES[attributeName]]:
+				return other
+			return mine
+
+		def getMergedCollection(attributeName):
+			mine = getattr(self, attributeName)
+			other = getattr(otherSymbol, attributeName)
+			if type(mine) != type(other):
+				raise Exception("Symbol %s: Type conflict with attribute %s: %s vs %s." %(
+					self.name,
+					attributeName,
+					type(mine),
+					type(other)
+				))
+			if isinstance(mine, dict):
+				if len(mine.keys()) > 0 and len(other.keys()) > 0:
+					if len(mine.keys()) == len(other.keys()):
+						for key in mine.keys():
+							if mine[key] != other[key]:
+								break
+						else:
+							return mine
+					raise Exception("Symbol %s: Conflict with attribute %s: %s vs %s." %(
+						self.name,
+						attributeName,
+						mine,
+						other
+					))
+				if len(other.keys()) > 0:
+					return other
+				return mine
+			if not isinstance(mine, list):
+				raise Exception("unrecognized collection type for attribute %s" %(attributeName))
+			if len(mine) > 0 and len(other) > 0:
+				if len(mine) == len(other):
+					for index, entry in enumerate(mine):
+						if entry != other[index]:
+							break
+					else:
+						return mine
+				raise Exception("Symbol %s: Conflict with attribute %s: %s vs %s." %(
+					self.name,
+					attributeName,
+					mine,
+					other
+				))
+			if len(other) > 0:
+				return other
+			return mine
 
 		def isEmpty(obj):
 			if isinstance(obj, dict):
@@ -503,7 +554,7 @@ class Symbol(object):
 		def allAttributesEmpty(obj, attributeList):
 			for attribute in attributeList:
 				entry = getattr(obj, attribute)
-				if not isEmpty(entry)
+				if not isEmpty(entry):
 					break
 			else:
 				return True
@@ -511,17 +562,16 @@ class Symbol(object):
 
 		if self.name != otherSymbol.name:
 			raise Exception("cannot merge %s with %s - not the same symbol name" %(self.name, otherSymbol.name))
-		if self.initLevel > Init.DEPENDANT_ENTRYNODE_ATTRIBUTES_LOADED or otherSymbol.initLevel > Init.DEPENDANT_ENTRYNODE_ATTRIBUTES_LOADED:
-			raise Exception("cannot merge %s, one of the symbols has been loaded passed the possible merge state")
+		if self.initLevel > Init.ROUTINENODE_ATTRIBUTES_LOADED or otherSymbol.initLevel > Init.ROUTINENODE_ATTRIBUTES_LOADED:
+			raise Exception("cannot merge %s, one of the symbols has been loaded passed the possible merge state: (self: %i), (other: %i)" %(
+				self.name,
+				self.initLevel,
+				otherSymbol.initLevel
+			))
 		for attribute in DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES:
-			mergeSimpleAttribute(attribute)
-		myDomainsLoaded = allAttributesEmpty(self, DEFAULT_SYMBOL_INSTANCE_DOMAIN_ATTRIBUTES.keys()) == False
-		otherDomainsLoaded = allAttributesEmpty(otherSymbol, DEFAULT_SYMBOL_INSTANCE_DOMAIN_ATTRIBUTES.keys()) == False
-		if myDomainsLoaded and otherDomainsLoaded:
-			raise Exception("Symbol %s: Conflicting domain specifications: %s vs %s" %(self.name, self.domains, otherSymbol.domains))
-		if otherDomainsLoaded:
-			for domainAttributeName in DEFAULT_SYMBOL_INSTANCE_DOMAIN_ATTRIBUTES.keys():
-				setattr(self, domainAttributeName, getattr(otherSymbol, domainAttributeName))
+			setattr(self, attribute, getMergedSimpleAttributeValue(attribute))
+		for domainAttributeName in DEFAULT_SYMBOL_INSTANCE_DOMAIN_ATTRIBUTES.keys():
+			setattr(self, domainAttributeName, getMergedCollection(domainAttributeName))
 		self.initLevel = max(self.initLevel, otherSymbol.initLevel)
 
 	def loadTemplate(self, template):
@@ -589,20 +639,28 @@ class Symbol(object):
 		if self.isModuleSymbol:
 			self.sourceModule = "HF90_LOCAL_MODULE" if self.sourceModule in [None, ''] else self.sourceModule
 		self.isPointer = domainDependantEntryNode.getAttribute("isPointer") == "yes" if not self.isPointer else self.isPointer
-		self.declaredDimensionSizes = domainDependantEntryNode.getAttribute("declaredDimensionSizes").split(",") if self.declaredDimensionSizes == None else self.declaredDimensionSizes
-		if len(self.declaredDimensionSizes) > 0:
-			#$$$ this needs to be commented
+		declaredDimensionSizes = domainDependantEntryNode.getAttribute("declaredDimensionSizes")
+		self.declaredDimensionSizes = declaredDimensionSizes.split(",") if declaredDimensionSizes \
+			and declaredDimensionSizes != "" \
+			and self.declaredDimensionSizes == None \
+			else self.declaredDimensionSizes
+		if self.declaredDimensionSizes and len(self.declaredDimensionSizes) > 0:
 			self.domains = []
-		for dimSize in self.declaredDimensionSizes:
-			if dimSize.strip() != "":
-				self.domains.append(('HF_GENERIC_DIM', dimSize))
-		if self.debugPrint:
-			sys.stderr.write("[" + str(self) + ".init " + str(self.initLevel) + "] dimsizes from domain dependant node: %s \n" %(str(self.declaredDimensionSizes)))
+			for dimSize in self.declaredDimensionSizes:
+				if dimSize.strip() != "":
+					self.domains.append(('HF_GENERIC_DIM', dimSize))
+			if self.debugPrint:
+				sys.stderr.write("[" + str(self) + ".init " + str(self.initLevel) + "] dimsizes from domain dependant node: %s \n" %(str(self.declaredDimensionSizes)))
+		self.checkIntegrityOfDomains()
 		self.initLevel = max(self.initLevel, Init.DEPENDANT_ENTRYNODE_ATTRIBUTES_LOADED)
 
 	def checkIntegrityOfDomains(self):
+		if self.declaredDimensionSizes:
+			for dimensionSize in self.declaredDimensionSizes:
+				if not type(dimensionSize) in [str, unicode] or dimensionSize == "":
+					raise Exception("Invalid definition of dimension size in symbol %s: %s" %(self.name, dimensionSize))
 		for domain in self.domains:
-			if not hasattr(domain, '__iter__'):
+			if not isinstance(domain, tuple):
 				raise Exception("Invalid definition of domain in symbol %s: %s" %(self.name, str(domain)))
 
 	def loadTemplateAttributes(self, parallelRegionTemplates=[]):

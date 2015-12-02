@@ -160,7 +160,7 @@ contains
 end module example
 
   !
-  ! (11) Make sure you have PGI Accelerator Version 14.7 installed and running. Type 'make tests' in the example's root directory and you should see 'test ok',
+  ! (11) Make sure you have PGI Accelerator Version 15.7 installed and running. Type 'make tests' in the example's root directory and you should see 'test ok',
   !      once for the CPU and once for the GPU version.
   !
   ! (12) Have a look at the cpu and gpu folders inside the build directory, especially example.f90 - this will show you what Hybrid Fortran does in the backend.

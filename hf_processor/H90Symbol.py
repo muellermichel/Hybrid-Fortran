@@ -488,8 +488,10 @@ class Symbol(object):
 			if mine != other \
 			and mine not in ["", DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES[attributeName]] \
 			and other not in ["", DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES[attributeName]]:
-				raise Exception("Symbol %s: Conflict with attribute %s: %s vs %s. Please solve this inconsitency in the @domainDependant specifications" %(
+				raise Exception("Symbol %s in (%s|%s): Conflict with attribute %s: %s vs %s. Please solve this inconsitency in the @domainDependant specifications" %(
 					self.name,
+					self.nameOfScope,
+					otherSymbol.nameOfScope,
 					attributeName,
 					mine,
 					other
@@ -498,12 +500,58 @@ class Symbol(object):
 				return other
 			return mine
 
+		def getMergedDomains():
+			mine = self.domains
+			other = otherSymbol.domains
+			if len(mine) > 0 and len(other) > 0 and len(mine) != len(other):
+				raise Exception("Symbol %s in (%s|%s): Conflicting domains: %s vs %s." %(
+					self.name,
+					self.nameOfScope,
+					otherSymbol.nameOfScope,
+					mine,
+					other
+				))
+			if len(mine) > 0 and len(other) > 0:
+				for index, entry in enumerate(mine):
+					if entry != other[index]:
+						break
+					else:
+						return mine
+				merged = []
+				for index, entry in enumerate(mine):
+					if entry[1] != other[index][1]:
+						break
+					myDomName = entry[0]
+					otherDomName = other[index][0]
+					if myDomName == otherDomName:
+						merged.append(entry)
+					elif myDomName == 'HF_GENERIC_DIM':
+						merged.append(other[index])
+					elif otherDomName == 'HF_GENERIC_DIM':
+						merged.append(entry)
+					else:
+						break
+				else:
+					return merged
+				raise Exception("Symbol %s in (%s|%s): Conflicting domains: %s vs %s." %(
+					self.name,
+					self.nameOfScope,
+					otherSymbol.nameOfScope,
+					mine,
+					other
+				))
+			if len(other) > 0:
+				return other
+			return mine
+
 		def getMergedCollection(attributeName):
 			mine = getattr(self, attributeName)
 			other = getattr(otherSymbol, attributeName)
 			if type(mine) != type(other):
-				raise Exception("Symbol %s: Type conflict with attribute %s: %s vs %s." %(
+				raise Exception("Symbol %s in (%s|%s): Type conflict with attribute %s: %s vs %s." %(
 					self.name,
+					self.nameOfScope,
+					otherSymbol.nameOfScope,
 					attributeName,
 					type(mine),
 					type(other)
@@ -516,8 +564,10 @@ class Symbol(object):
 								break
 						else:
 							return mine
-					raise Exception("Symbol %s: Conflict with attribute %s: %s vs %s." %(
+					raise Exception("Symbol %s in (%s|%s): Conflict with attribute %s: %s vs %s." %(
 						self.name,
+						self.nameOfScope,
+						otherSymbol.nameOfScope,
 						attributeName,
 						mine,
 						other
@@ -534,8 +584,10 @@ class Symbol(object):
 							break
 					else:
 						return mine
-				raise Exception("Symbol %s: Conflict with attribute %s: %s vs %s." %(
+				raise Exception("Symbol %s in (%s|%s): Conflict with attribute %s: %s vs %s." %(
 					self.name,
+					self.nameOfScope,
+					otherSymbol.nameOfScope,
 					attributeName,
 					mine,
 					other
@@ -571,7 +623,10 @@ class Symbol(object):
 		for attribute in DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES:
 			setattr(self, attribute, getMergedSimpleAttributeValue(attribute))
 		for domainAttributeName in DEFAULT_SYMBOL_INSTANCE_DOMAIN_ATTRIBUTES.keys():
-			setattr(self, domainAttributeName, getMergedCollection(domainAttributeName))
+			if domainAttributeName == "domains":
+				self.domains = getMergedDomains()
+			else:
+				setattr(self, domainAttributeName, getMergedCollection(domainAttributeName))
 		self.initLevel = max(self.initLevel, otherSymbol.initLevel)
 
 	def loadTemplate(self, template):

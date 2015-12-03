@@ -33,7 +33,7 @@ def setupDeferredLogging(filename, logLevel):
     streamhandler.setLevel(logLevel)
     memoryhandler = logging.handlers.MemoryHandler(1024*100, logLevel, streamhandler)
     logger = logging.getLogger()
-    logger.addHandler(memoryhandler)
+    logger.addHandler(memoryhandler) #for some reason this doesn't seem to work yet, the log messages still appear immediately
     def flush():
         memoryhandler.flush()
     atexit.register(flush)

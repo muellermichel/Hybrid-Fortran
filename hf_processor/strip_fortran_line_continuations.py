@@ -1,5 +1,6 @@
 import sys, re, fileinput
-from GeneralHelper import findLeftMostOccurrenceNotInsideQuotes
+import logging
+from GeneralHelper import findLeftMostOccurrenceNotInsideQuotes, setupDeferredLogging
 
 openMPLinePattern = re.compile(r'\s*\!\$OMP.*', re.IGNORECASE)
 openACCLinePattern = re.compile(r'\s*\!\$ACC.*', re.IGNORECASE)
@@ -49,4 +50,5 @@ def pre_sanitize_fortran():
 
 	print output
 
+setupDeferredLogging('preprocessor.log', logging.DEBUG)
 pre_sanitize_fortran()

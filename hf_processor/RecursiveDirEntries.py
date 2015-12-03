@@ -29,6 +29,7 @@
 
 
 import os
+import logging
 
 def dirEntries(dir_name, subdir, *args):
     '''Return a list of file names found in directory 'dir_name'

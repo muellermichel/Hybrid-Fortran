@@ -30,12 +30,13 @@
 from xml.dom.minidom import Document
 from optparse import OptionParser
 from RecursiveDirEntries import dirEntries
-from GeneralHelper import printProgressIndicator, progressIndicatorReset
+from GeneralHelper import printProgressIndicator, progressIndicatorReset, setupDeferredLogging
 from H90CallGraphParser import H90XMLCallGraphGenerator, H90XMLSymbolDeclarationExtractor
 import os
 import sys
 import fileinput
 import pdb
+import logging, atexit
 
 ##################### MAIN ##############################
 #get all program arguments
@@ -48,8 +49,10 @@ parser.add_option("-p", "--pretty", action="store_true", dest="pretty",
                   help="make xml output pretty")
 (options, args) = parser.parse_args()
 
+setupDeferredLogging('preprocessor.log', logging.DEBUG)
+
 if (not options.sourceDir):
-    sys.stderr.write("sourceDirectory option is mandatory. Use '--help' for informations on how to use this module\n")
+    logging.info("sourceDirectory option is mandatory. Use '--help' for informations on how to use this module\n")
     sys.exit(1)
 
 #prepare xml output
@@ -67,7 +70,7 @@ for fileNum, fileInDir in enumerate(filesInDir):
     parser.debugPrint = options.debug
     parser.processFile(fileInDir)
     if options.debug:
-        sys.stderr.write("Callgraph generated for " + fileInDir + "\n")
+        logging.info("Callgraph generated for " + fileInDir + "\n")
     else:
         printProgressIndicator(sys.stderr, fileInDir, fileNum + 1, len(filesInDir), "Callgraph parsing")
 
@@ -82,7 +85,7 @@ for fileNum, fileInDir in enumerate(filesInDir):
     parser.debugPrint = options.debug
     parser.processFile(fileInDir)
     if options.debug:
-        sys.stderr.write("Symbol declarations extracted for " + fileInDir + "\n")
+        logging.info("Symbol declarations extracted for " + fileInDir + "\n")
     else:
         printProgressIndicator(sys.stderr, fileInDir, fileNum + 1, len(filesInDir), "Symbol parsing")
 progressIndicatorReset(sys.stderr)
@@ -91,4 +94,3 @@ if (options.pretty):
 	sys.stdout.write(doc.toprettyxml())
 else:
 	sys.stdout.write(doc.toxml())
-

@@ -20,7 +20,9 @@
 
 import pstats, sys
 from optparse import OptionParser
+from GeneralHelper import setupDeferredLogging
 from RecursiveDirEntries import dirEntries
+import logging
 
 parser = OptionParser()
 parser.add_option("-i", "--inputDirectory", dest="inputDir",
@@ -28,6 +30,8 @@ parser.add_option("-i", "--inputDirectory", dest="inputDir",
 parser.add_option("-o", "--output", dest="output",
                   help="output combined statistics to FILENAME", metavar="FILENAME")
 (options, args) = parser.parse_args()
+
+setupDeferredLogging('preprocessor.log', logging.DEBUG)
 
 if not options.inputDir or not options.output:
 	print "please see --help on how to use this program"
@@ -37,7 +41,3 @@ statFiles = dirEntries(str(options.inputDir), False, 'cprof')
 print "combining %s" %(str(statFiles))
 statistics = pstats.Stats(*statFiles)
 statistics.dump_stats(options.output)
-
-
-
-

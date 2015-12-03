@@ -31,7 +31,7 @@ from xml.dom.minidom import Document
 from DomHelper import parseString, ImmutableDOMDocument
 from optparse import OptionParser
 from H90CallGraphParser import H90toF90Printer, getSymbolsByName, getModuleNodesByName, getParallelRegionData, getSymbolsByRoutineNameAndSymbolName, getSymbolsByModuleNameAndSymbolName
-from GeneralHelper import openFile, getDataFromFile
+from GeneralHelper import openFile, getDataFromFile, setupDeferredLogging
 from RecursiveDirEntries import dirEntries
 from H90SymbolDependencyGraphAnalyzer import SymbolDependencyAnalyzer
 from io import FileIO
@@ -42,6 +42,7 @@ import json
 import traceback
 import StringIO
 import FortranImplementation
+import logging
 
 ##################### MAIN ##############################
 #get all program arguments
@@ -60,40 +61,42 @@ parser.add_option("--optionFlags", dest="optionFlags",
 									help="can be used to switch on or off the following flags (comma separated): DO_NOT_TOUCH_GPU_CACHE_SETTINGS")
 (options, args) = parser.parse_args()
 
+setupDeferredLogging('preprocessor.log', logging.DEBUG)
+
 optionFlags = [flag for flag in options.optionFlags.split(',') if flag not in ['', None]] if options.optionFlags != None else []
-sys.stderr.write('Option Flags: %s\n' %(optionFlags))
+logging.info('Option Flags: %s\n' %(optionFlags))
 if options.debug and 'DEBUG_PRINT' not in optionFlags:
 	optionFlags.append('DEBUG_PRINT')
 
 if (not options.sourceDir):
-		sys.stderr.write("sourceDir option is mandatory. Use '--help' for informations on how to use this module\n")
+		logging.info("sourceDir option is mandatory. Use '--help' for informations on how to use this module\n")
 		sys.exit(1)
 
 if (not options.outputDir):
-		sys.stderr.write("outputDir option is mandatory. Use '--help' for informations on how to use this module\n")
+		logging.info("outputDir option is mandatory. Use '--help' for informations on how to use this module\n")
 		sys.exit(1)
 
 if (not options.callgraph):
-		sys.stderr.write("callgraph option is mandatory. Use '--help' for informations on how to use this module\n")
+		logging.info("callgraph option is mandatory. Use '--help' for informations on how to use this module\n")
 		sys.exit(1)
 
 if (not options.implementation):
-	sys.stderr.write("implementation option is mandatory. Use '--help' for informations on how to use this module\n")
+	logging.info("implementation option is mandatory. Use '--help' for informations on how to use this module\n")
 	sys.exit(1)
 
 implementationNamesByTemplateName=None
 try:
 	implementationNamesByTemplateName=json.loads(getDataFromFile(options.implementation))
 except ValueError as e:
-	sys.stderr.write('Error decoding implementation json (%s): %s\n' \
+	logging.info('Error decoding implementation json (%s): %s\n' \
 		%(str(options.implementation), str(e))
 	)
 	sys.exit(1)
 except Exception as e:
-	sys.stderr.write('Could not interpret implementation parameter as json file to read. Trying to use it as an implementation name directly\n')
+	logging.info('Could not interpret implementation parameter as json file to read. Trying to use it as an implementation name directly\n')
 	implementationNamesByTemplateName={'default':options.implementation}
 if options.debug:
-	sys.stderr.write('Initializing H90toF90Printer with the following implementations: %s\n' %(json.dumps(implementationNamesByTemplateName)))
+	logging.info('Initializing H90toF90Printer with the following implementations: %s\n' %(json.dumps(implementationNamesByTemplateName)))
 implementationsByTemplateName={
 	templateName:getattr(FortranImplementation, implementationNamesByTemplateName[templateName])(optionFlags)
 	for templateName in implementationNamesByTemplateName.keys()
@@ -108,7 +111,7 @@ except OSError as e:
 filesInDir = dirEntries(str(options.sourceDir), True, 'h90')
 
 try:
-	sys.stderr.write('Processing informations about the whole codebase\n')
+	logging.info('Processing informations about the whole codebase\n')
 	moduleNodesByName = getModuleNodesByName(cgDoc)
 	parallelRegionData = getParallelRegionData(cgDoc)
 	symbolAnalyzer = SymbolDependencyAnalyzer(cgDoc)
@@ -127,14 +130,14 @@ try:
 		debugPrint=options.debug
 	)
 except Exception as e:
-	sys.stderr.write('Error when processing meta information about the codebase: %s\n' %(str(e)))
+	logging.info('Error when processing meta information about the codebase: %s\n' %(str(e)))
 	if options.debug:
-		sys.stderr.write(traceback.format_exc())
+		logging.info(traceback.format_exc())
 	sys.exit(1)
 
 for fileInDir in filesInDir:
 	outputPath = os.path.join(os.path.normpath(options.outputDir), os.path.splitext(os.path.basename(fileInDir))[0] + ".P90.temp")
-	sys.stderr.write('Converting %s to %s\n' %(
+	logging.info('Converting %s to %s\n' %(
 		os.path.basename(fileInDir),
 		outputPath
 	))
@@ -153,13 +156,11 @@ for fileInDir in filesInDir:
 		)
 		f90printer.processFile(fileInDir)
 	except Exception as e:
-		sys.stderr.write('Error when generating P90.temp from h90 file %s: %s\n%s\n' \
+		logging.info('Error when generating P90.temp from h90 file %s: %s\n%s\n' \
 			%(str(fileInDir), str(e), traceback.format_exc())
 		)
-		sys.stderr.write(traceback.format_exc())
+		logging.info(traceback.format_exc())
 		os.unlink(outputPath)
 		sys.exit(1)
 	finally:
 		outputStream.close()
-
-

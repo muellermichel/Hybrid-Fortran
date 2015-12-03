@@ -31,11 +31,12 @@ from xml.dom.minidom import Document
 from DomHelper import parseString
 from optparse import OptionParser
 from H90CallGraphParser import H90toF90Printer
-from GeneralHelper import openFile, getDataFromFile
+from GeneralHelper import openFile, getDataFromFile, setupDeferredLogging
 import os
 import sys
 import json
 import traceback
+import logging
 import FortranImplementation
 
 ##################### MAIN ##############################
@@ -53,21 +54,23 @@ parser.add_option("--optionFlags", dest="optionFlags",
 									help="can be used to switch on or off the following flags (comma separated): DO_NOT_TOUCH_GPU_CACHE_SETTINGS")
 (options, args) = parser.parse_args()
 
+setupDeferredLogging('preprocessor.log', logging.DEBUG)
+
 optionFlags = [flag for flag in options.optionFlags.split(',') if flag not in ['', None]] if options.optionFlags != None else []
-sys.stderr.write('Option Flags: %s\n' %(optionFlags))
+logging.info('Option Flags: %s\n' %(optionFlags))
 if options.debug and 'DEBUG_PRINT' not in optionFlags:
 	optionFlags.append('DEBUG_PRINT')
 
 if (not options.sourceFile):
-		sys.stderr.write("sourceH90File option is mandatory. Use '--help' for informations on how to use this module\n")
+		logging.info("sourceH90File option is mandatory. Use '--help' for informations on how to use this module\n")
 		sys.exit(1)
 
 if (not options.callgraph):
-		sys.stderr.write("callgraph option is mandatory. Use '--help' for informations on how to use this module\n")
+		logging.info("callgraph option is mandatory. Use '--help' for informations on how to use this module\n")
 		sys.exit(1)
 
 if (not options.implementation):
-	sys.stderr.write("implementation option is mandatory. Use '--help' for informations on how to use this module\n")
+	logging.info("implementation option is mandatory. Use '--help' for informations on how to use this module\n")
 	sys.exit(1)
 
 try:
@@ -76,15 +79,15 @@ try:
 	try:
 		implementationNamesByTemplateName=json.loads(getDataFromFile(options.implementation))
 	except ValueError as e:
-		sys.stderr.write('Error decoding implementation json (%s): %s\n' \
+		logging.info('Error decoding implementation json (%s): %s\n' \
 			%(str(options.implementation), str(e))
 		)
 		sys.exit(1)
 	except Exception as e:
-		sys.stderr.write('Could not interpret implementation parameter as json file to read. Trying to use it as an implementation name directly\n')
+		logging.info('Could not interpret implementation parameter as json file to read. Trying to use it as an implementation name directly\n')
 		implementationNamesByTemplateName={'default':options.implementation}
 	if options.debug:
-		sys.stderr.write('Initializing H90toF90Printer with the following implementations: %s\n' %(json.dumps(implementationNamesByTemplateName)))
+		logging.info('Initializing H90toF90Printer with the following implementations: %s\n' %(json.dumps(implementationNamesByTemplateName)))
 	implementationsByTemplateName={
 		templateName:getattr(FortranImplementation, implementationNamesByTemplateName[templateName])(optionFlags)
 		for templateName in implementationNamesByTemplateName.keys()
@@ -94,7 +97,7 @@ try:
 	f90printer = H90toF90Printer(cgDoc, implementationsByTemplateName, options.debug)
 	f90printer.processFile(options.sourceFile)
 except Exception as e:
-	sys.stderr.write('Error when generating F90 from H90 file %s: %s\n%s\n' \
+	logging.info('Error when generating F90 from H90 file %s: %s\n%s\n' \
 		%(str(options.sourceFile), str(e), traceback.format_exc())
 	)
 	sys.exit(1)

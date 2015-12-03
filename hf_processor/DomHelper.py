@@ -29,6 +29,7 @@ from xml.dom.minidom import Document, Node, parseString as parseStringUsingMinid
 from GeneralHelper import BracketAnalyzer, enum
 import uuid
 import re
+import logging
 
 domainDependantAttributes = ["autoDom", "present", "transferHere"]
 

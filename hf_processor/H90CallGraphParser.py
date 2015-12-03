@@ -42,6 +42,7 @@ import re
 import uuid
 import pdb
 import traceback
+import logging
 
 class FortranRoutineArgumentParser:
     arguments = None
@@ -143,7 +144,7 @@ class FortranCodeSanitizer:
                 if blankPos < 1 or len(remainder) >= previousLineLength:
                     #blank not found or at beginning of line
                     #-> bail out in order to avoid infinite loop - just keep the line as it was.
-                    sys.stderr.write(
+                    logging.info(
                         "WARNING: The following line could not be broken up for Fortran compatibility - no suitable spaces found: %s (remainder: %s)\n" %(
                             currLine,
                             remainder
@@ -259,12 +260,12 @@ class H90CallGraphParser(object):
 
     def processProcBeginMatch(self, subProcBeginMatch):
         if self.debugPrint:
-            sys.stderr.write('entering %s\n' %(subProcBeginMatch.group(1)))
+            logging.info('entering %s\n' %(subProcBeginMatch.group(1)))
         return
 
     def processProcEndMatch(self, subProcEndMatch):
         if self.debugPrint:
-            sys.stderr.write('exiting subprocedure\n')
+            logging.info('exiting subprocedure\n')
         return
 
     def processParallelRegionMatch(self, parallelRegionMatch):
@@ -597,17 +598,17 @@ class H90CallGraphParser(object):
             except Exception, e:
                 exc_type, exc_obj, exc_tb = sys.exc_info()
                 fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-                sys.stderr.write('Error when parsing file %s on line %i: %s; Debug Print: %s; Print of line:\n%s\n' %(
+                logging.info('Error when parsing file %s on line %i: %s; Debug Print: %s; Print of line:\n%s\n' %(
                         str(fileName), self.lineNo, str(e), self.debugPrint, str(line).strip()
                     )
                 )
                 if self.debugPrint:
-                    sys.stderr.write(traceback.format_exc())
+                    logging.info(traceback.format_exc())
                 sys.exit(1)
             self.lineNo += 1
 
         if (self.state != 'none'):
-            sys.stderr.write(
+            logging.info(
                 'Error when parsing file %s: File ended unexpectedly. Parser state: %s; Current Callee: %s; Current Subprocedure name: %s; Current Linenumber: %i; Current ArgumentParser: %s\n' %(
                     str(fileName), self.state, self.currCalleeName, self.currSubprocName, self.lineNo, str(self.currArgumentParser)
                 )
@@ -858,7 +859,7 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
                 else {}
         ))
         if self.debugPrint:
-            sys.stderr.write("Symbols loaded from template. Symbols currently active in scope: %s. Module Symbol Property: %s\n" %(
+            logging.info("Symbols loaded from template. Symbols currently active in scope: %s. Module Symbol Property: %s\n" %(
                 str(self.currSymbolsByName.values()),
                 str([self.currSymbolsByName[symbolName].isModuleSymbol for symbolName in self.currSymbolsByName.keys()])
             ))
@@ -984,7 +985,7 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
                 %(self.currModuleName, unmatched, str(self.currSymbolsByName[unmatched[0]].domains))
             )
         if self.debugPrint:
-            sys.stderr.write("Clearing current symbol scope since the module definition is finished\n")
+            logging.info("Clearing current symbol scope since the module definition is finished\n")
         self.currSymbolsByName = {}
         #$$$ remove this in case we never enable routine domain dependant specifications for module symbols (likely)
         # self.tentativeModuleSymbolsByName = None
@@ -1109,7 +1110,7 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
         #get handles to currently active symbols -> temporarily save the handles
         self.processSymbolAttributes(isModule=True)
         if self.debugPrint:
-            sys.stderr.write("exiting module %s. Storing informations for symbols %s\n" %(self.currModuleName, str(self.currSymbols)))
+            logging.info("exiting module %s. Storing informations for symbols %s\n" %(self.currModuleName, str(self.currSymbols)))
         #finish parsing -> superclass destroys handles
         super(H90XMLSymbolDeclarationExtractor, self).processModuleEndMatch(moduleEndMatch)
         #store our symbol informations to the xml
@@ -1123,7 +1124,7 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
         #get handles to currently active symbols -> temporarily save the handles
         self.processSymbolAttributes()
         if self.debugPrint:
-            sys.stderr.write("exiting procedure %s. Storing informations for symbols %s\n" %(self.currSubprocName, str(self.currSymbols)))
+            logging.info("exiting procedure %s. Storing informations for symbols %s\n" %(self.currSubprocName, str(self.currSymbols)))
         #finish parsing -> superclass destroys handles
         super(H90XMLSymbolDeclarationExtractor, self).processProcEndMatch(subProcEndMatch)
         #store our symbol informations to the xml
@@ -1259,9 +1260,9 @@ class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
         except Exception, e:
             exc_type, exc_obj, exc_tb = sys.exc_info()
             fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-            sys.stderr.write('Error when initializing h90 conversion: %s\n' %(str(e)))
+            logging.info('Error when initializing h90 conversion: %s\n' %(str(e)))
             if self.debugPrint:
-                sys.stderr.write(traceback.format_exc())
+                logging.info(traceback.format_exc())
             sys.exit(1)
 
     @property
@@ -1316,7 +1317,7 @@ This is not allowed for implementations using %s.\
         and not (self.state == "inside_branch" and self.stateBeforeBranch == "inside_parallelRegion") \
         and self.routineNodesByProcName[self.currSubprocName].getAttribute("parallelRegionPosition") != "outside" \
         and len(accessors) != 0:
-            sys.stderr.write("WARNING: Dependant symbol %s accessed with accessor domains (%s) outside of a parallel region or subroutine call in subroutine %s(%s:%i)\n" \
+            logging.info("WARNING: Dependant symbol %s accessed with accessor domains (%s) outside of a parallel region or subroutine call in subroutine %s(%s:%i)\n" \
                 %(symbol.name, str(accessors), self.currSubprocName, self.fileName, self.lineNo)
             )
 
@@ -1385,7 +1386,7 @@ This is not allowed for implementations using %s.\
                 inside_subroutine_call=isInsideSubroutineCall
             )
         if self.debugPrint:
-            sys.stderr.write("symbol %s on line %i rewritten to %s; change required: %s, accessors: %s, num of independent domains: %i\n" %(
+            logging.info("symbol %s on line %i rewritten to %s; change required: %s, accessors: %s, num of independent domains: %i\n" %(
                 str(symbol),
                 self.lineNo,
                 symbol_access,
@@ -1454,7 +1455,7 @@ This is not allowed for implementations using %s.\
         if self.currCalleeNode:
             parallelRegionPosition = self.currCalleeNode.getAttribute("parallelRegionPosition")
         if self.debugPrint:
-            sys.stderr.write("In subroutine %s: Processing subroutine call to %s, parallel region position: %s\n" \
+            logging.info("In subroutine %s: Processing subroutine call to %s, parallel region position: %s\n" \
                 %(self.currSubprocName, self.currCalleeName, parallelRegionPosition) \
             )
         if self.currCalleeNode and parallelRegionPosition == "within":
@@ -1721,7 +1722,7 @@ This is not allowed for implementations using %s.\
     def processParallelRegionMatch(self, parallelRegionMatch):
         super(H90toF90Printer, self).processParallelRegionMatch(parallelRegionMatch)
         if self.debugPrint:
-            sys.stderr.write("...parallel region starts on line %i with active symbols %s\n" \
+            logging.info("...parallel region starts on line %i with active symbols %s\n" \
                 %(self.lineNo, str(self.currSymbolsByName.values())) \
             )
         self.prepareActiveParallelRegion('parallelRegionBegin')
@@ -1835,7 +1836,7 @@ This is not allowed for implementations using %s.\
                     self.routineNodesByProcName[self.currSubprocName].getAttribute('parallelRegionPosition')
                 ).rstrip() + " ! type %i symbol added for this subroutine\n" %(symbol.declarationType)
                 if self.debugPrint:
-                    sys.stderr.write("...In subroutine %s: Symbol %s additionally declared\n" \
+                    logging.info("...In subroutine %s: Symbol %s additionally declared\n" \
                         %(self.currSubprocName, symbol) \
                     )
 
@@ -1867,7 +1868,7 @@ This is not allowed for implementations using %s.\
                         self.routineNodesByProcName[self.currSubprocName].getAttribute('parallelRegionPosition')
                     ).rstrip() + " ! type %i symbol added for callee %s\n" %(symbol.declarationType, calleeName)
                     if self.debugPrint:
-                        sys.stderr.write("...In subroutine %s: Symbol %s additionally declared and passed to %s\n" \
+                        logging.info("...In subroutine %s: Symbol %s additionally declared and passed to %s\n" \
                             %(self.currSubprocName, symbol, calleeName) \
                         )
                 #TODO: move this into implementation classes
@@ -1888,7 +1889,7 @@ This is not allowed for implementations using %s.\
                         self.routineNodesByProcName[self.currSubprocName].getAttribute('parallelRegionPosition')
                     ).rstrip() + " ! compaction array added for callee %s\n" %(calleeName)
                     if self.debugPrint:
-                        sys.stderr.write("...In subroutine %s: Symbols %s packed into array %s\n" \
+                        logging.info("...In subroutine %s: Symbols %s packed into array %s\n" \
                             %(self.currSubprocName, toBeCompacted, compactedArrayName) \
                         )
 
@@ -2027,7 +2028,7 @@ This is not allowed for implementations using %s.\
             else:
                 raise Exception("Unexpected Error: No parallel region template relation was matched for the current linenumber.")
             if self.debugPrint:
-                sys.stderr.write("parallel region detected on line %i with template relation %s\n" \
+                logging.info("parallel region detected on line %i with template relation %s\n" \
                     %(self.lineNo, self.currParallelRegionRelationNode.toxml()) \
                 )
             templates = self.parallelRegionTemplatesByProcName.get(self.currSubprocName)
@@ -2085,7 +2086,7 @@ This is not allowed for implementations using %s.\
         subProcCallMatch = self.patterns.subprocCallPattern.match(str(line))
         if subProcCallMatch:
             if subProcCallMatch.group(1) not in self.routineNodesByProcName.keys():
-                sys.stderr.write(self.implementation.warningOnUnrecognizedSubroutineCallInParallelRegion( \
+                logging.info(self.implementation.warningOnUnrecognizedSubroutineCallInParallelRegion( \
                     self.currSubprocName, subProcCallMatch.group(1)))
             self.processCallMatch(subProcCallMatch)
             if self.state != 'inside_subroutine_call' and not (self.state == "inside_branch" and self.stateBeforeBranch == "inside_subroutine_call"):
@@ -2135,7 +2136,7 @@ This is not allowed for implementations using %s.\
             []
         )
         if self.debugPrint:
-            sys.stderr.write("curr Module: %s; additional imports: %s\n" %(
+            logging.info("curr Module: %s; additional imports: %s\n" %(
                 self.currModuleName,
                 ["%s: %s from %s" %(symbol.name, symbol.declarationType, symbol.sourceModule) for symbol in additionalImports]
             ))
@@ -2179,6 +2180,6 @@ This is not allowed for implementations using %s.\
     def prepareLine(self, line, tab):
         self.currentLine = self.codeSanitizer.sanitizeLines(line)
         if self.debugPrint:
-            sys.stderr.write("[%s]:%i:%s\n" \
+            logging.info("[%s]:%i:%s\n" \
                 %(self.state,self.lineNo,self.currentLine) \
             )

@@ -34,6 +34,7 @@ from DomHelper import *
 import os
 import sys
 import re
+import logging
 
 number_of_traces = 200
 
@@ -59,7 +60,7 @@ def getDataDirectiveAndUpdateOnDeviceFlags(currRoutineNode, currParallelRegionTe
     commaRequired = False
     for index, symbol in enumerate(dependantSymbols):
         if debugPrint:
-            sys.stderr.write(
+            logging.info(
                 "analyzing symbol %s for data directive. Domains: %s, IsHostSymbol: %s, IsPresent: %s, IsToBeTransfered: %s, SourceModule: %s, Intent: %s\n" %(
                     symbol.name,
                     str(symbol.domains),
@@ -667,7 +668,7 @@ class TraceGeneratingFortranImplementation(FortranImplementation):
         super_result = FortranImplementation.declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates)
         result, tracedSymbols = getTracingDeclarationStatements(currRoutineNode, dependantSymbols, self.patterns)
         self.currentTracedSymbols = tracedSymbols
-        sys.stderr.write("...In subroutine %s: Symbols declared for tracing: %s\n" %(
+        logging.info("...In subroutine %s: Symbols declared for tracing: %s\n" %(
                 currRoutineNode.getAttribute('name'),
                 [symbol.name for symbol in tracedSymbols],
             )
@@ -692,7 +693,7 @@ class TraceGeneratingFortranImplementation(FortranImplementation):
             increment_tracing_counter=len(self.currentTracedSymbols) > 0,
             loop_name_postfix='end' if is_subroutine_end else 'exit%i' %(self.earlyReturnCounter)
         )
-        sys.stderr.write("...In subroutine %s: Symbols %s used for tracing\n" %(
+        logging.info("...In subroutine %s: Symbols %s used for tracing\n" %(
                 self.currRoutineNode.getAttribute('name'),
                 [symbol.name for symbol in self.currentTracedSymbols]
             )

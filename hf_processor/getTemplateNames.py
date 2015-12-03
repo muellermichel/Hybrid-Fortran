@@ -21,10 +21,11 @@
 from xml.dom.minidom import Document
 from DomHelper import parseString
 from optparse import OptionParser
-from GeneralHelper import openFile
+from GeneralHelper import openFile, setupDeferredLogging
 import os
 import sys
 import traceback
+import logging
 
 ##################### MAIN ##############################
 #get all program arguments
@@ -35,8 +36,10 @@ parser.add_option("-d", "--debug", action="store_true", dest="debug",
                   help="show debug print in standard error output")
 (options, args) = parser.parse_args()
 
+setupDeferredLogging('preprocessor.log', logging.DEBUG)
+
 if (not options.callgraph):
-    sys.stderr.write("callgraph option is mandatory. Use '--help' for informations on how to use this module\n")
+    logging.info("callgraph option is mandatory. Use '--help' for informations on how to use this module\n")
     sys.exit(1)
 
 #read in callgraph xml
@@ -50,6 +53,6 @@ try:
   print " ".join(templateNames)
 
 except Exception, e:
-  sys.stderr.write('Error when trying to extract template names: %s\n%s\n' \
+  logging.info('Error when trying to extract template names: %s\n%s\n' \
     %(str(e), traceback.format_exc()))
   sys.exit(1)

@@ -26,6 +26,7 @@
 #  Author           Michel Müller (RIKEN)                              #
 #**********************************************************************#
 import re
+import logging
 from GeneralHelper import Singleton
 
 @Singleton

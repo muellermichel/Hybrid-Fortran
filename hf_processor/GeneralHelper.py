@@ -25,9 +25,18 @@
 #**********************************************************************#
 
 
-import os
-import sys
-import re
+import os, sys, re, logging, logging.handlers, atexit
+
+def setupDeferredLogging(filename, logLevel):
+    logging.basicConfig(filename=filename,level=logLevel)
+    streamhandler = logging.StreamHandler(sys.stderr)
+    streamhandler.setLevel(logLevel)
+    memoryhandler = logging.handlers.MemoryHandler(1024*100, logLevel, streamhandler)
+    logger = logging.getLogger()
+    logger.addHandler(memoryhandler)
+    def flush():
+        memoryhandler.flush()
+    atexit.register(flush)
 
 def progressIndicatorReset(stream):
     stream.write("\n")
@@ -36,7 +45,7 @@ def printProgressIndicator(stream, currentlyAtText, currentlyAtNum, totalNum, de
     stream.write("\r%s: %d%% done.%s" %(
         description,
         round(currentlyAtNum * 100.0/totalNum),
-        "Currently processing: " + currentlyAtText if currentlyAtText != "" else ""
+        " Currently processing: " + currentlyAtText if currentlyAtText != "" else ""
     )) #\r returns to beginning of current line
     stream.write("\033[K") #clear rest of current line
     stream.flush()
@@ -52,7 +61,7 @@ def openFile(file_name, mode):
     try:
         the_file = open(file_name, mode)
     except(IOError), e:
-        sys.stderr.write("Unable to open the file %s. Ending program. Error: %s\n" %(file_name, e))
+        logging.info("Unable to open the file %s. Ending program. Error: %s\n" %(file_name, e))
         sys.exit(1)
     else:
         return the_file

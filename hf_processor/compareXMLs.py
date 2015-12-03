@@ -30,7 +30,9 @@
 from xml.dom.minidom import Document
 from DomHelper import parseString
 from optparse import OptionParser
+from GeneralHelper import setupDeferredLogging
 import sys, traceback
+import logging
 
 def isEqualXML(da, db, ignoreAttributes):
     return isEqualElement(da.documentElement, db.documentElement, ignoreAttributes)
@@ -87,12 +89,14 @@ parser.add_option("-d", "--debug", action="store_true", dest="debug",
                   help="show debug print in standard error output")
 (options, args) = parser.parse_args()
 
+setupDeferredLogging('preprocessor.log', logging.DEBUG)
+
 if (not options.inputXML):
-  sys.stderr.write("inputXML option is mandatory. Use '--help' for informations on how to use this module\n")
+  logging.info("inputXML option is mandatory. Use '--help' for informations on how to use this module\n")
   sys.exit(1)
 
 if (not options.referenceXML):
-  sys.stderr.write("referenceXML option is mandatory. Use '--help' for informations on how to use this module\n")
+  logging.info("referenceXML option is mandatory. Use '--help' for informations on how to use this module\n")
   sys.exit(1)
 
 ignoreAttributes = []
@@ -127,5 +131,5 @@ try:
     sys.exit(2)
 
 except Exception, e:
-  sys.stderr.write('Error when comparing xmls: %s\n%s\n' %(str(e), traceback.format_exc()))
+  logging.info('Error when comparing xmls: %s\n%s\n' %(str(e), traceback.format_exc()))
   sys.exit(64)

@@ -1,8 +1,10 @@
 import re
 import sys
+import logging
 from optparse import OptionParser
 from xml.dom.minidom import Document
 from DomHelper import getDomainDependantTemplatesAndEntries, parseString
+from GeneralHelper import setupDeferredLogging
 
 def isEqualElement(a, b, ignoreAttributes):
   if a.tagName!=b.tagName:
@@ -15,18 +17,18 @@ def isEqualElement(a, b, ignoreAttributes):
       continue
     if aatKey != batKey:
       if options.debug:
-        sys.stderr.write("equality fails for node attributes %s compared to %s; key: %s vs. %s\n" \
+        logging.info("equality fails for node attributes %s compared to %s; key: %s vs. %s\n" \
           %(a.toxml(), b.toxml(), aatKey, batKey))
       return False
     if (a.attributes.get(aatKey) == None and b.attributes.get(aatKey) != None) \
     or (a.attributes.get(aatKey) != None and b.attributes.get(aatKey) == None):
       if options.debug:
-        sys.stderr.write("equality fails for node attributes %s compared to %s; one is None, the other not\n" \
+        logging.info("equality fails for node attributes %s compared to %s; one is None, the other not\n" \
             %(a.toxml(), b.toxml()))
       return False
     if a.attributes.get(aatKey).value != b.attributes.get(aatKey).value:
       if options.debug:
-          sys.stderr.write("equality fails for node attributes %s compared to %s; value: %s vs. %s" \
+          logging.info("equality fails for node attributes %s compared to %s; value: %s vs. %s" \
             %(a.toxml(), b.toxml(), a.attributes.get(aatKey).value, b.attributes.get(aatKey).value))
       return False
 
@@ -80,11 +82,11 @@ def getSourcesWithParallelRegionPositionChanges(inputXML, referenceXML):
 			inputRoutine = inputRoutinesBySourceAndName.get((source, routineName))
 			if inputRoutine == None:
 				if options.debug:
-					sys.stderr.write("routine %s has been deleted from %s\n" %(routineName, source))
+					logging.info("routine %s has been deleted from %s\n" %(routineName, source))
 				return False
 			if inputRoutine.getAttribute('parallelRegionPosition') != referenceRoutine.getAttribute('parallelRegionPosition'):
 				if options.debug:
-					sys.stderr.write("routine %s in source %s does not have the same parallel region position as before\n" %(
+					logging.info("routine %s in source %s does not have the same parallel region position as before\n" %(
 						routineName, source
 					))
 				return False
@@ -129,14 +131,14 @@ def getSourcesWithModuleSymbolChanges(inputXML, referenceXML):
 			inputTemplateAndEntry = inputModuleSymbolIndex.get((moduleName, symbolName))
 			if inputTemplateAndEntry == None:
 				if options.debug:
-					sys.stderr.write("symbol %s has been deleted from %s\n" %(
+					logging.info("symbol %s has been deleted from %s\n" %(
 						symbolName, moduleName
 					))
 				return False #symbol has been deleted
 			inputTemplate,inputEntry = inputModuleSymbolIndex[(moduleName, symbolName)]
 			if not isEqualElement(entry, inputEntry, ["id"]) or not isEqualElement(template, inputTemplate, ["id"]):
 				if options.debug:
-					sys.stderr.write("symbol %s in %s has been changed\n" %(
+					logging.info("symbol %s in %s has been changed\n" %(
 						symbolName, moduleName
 					))
 				return False
@@ -183,6 +185,8 @@ parser.add_option("-i", "--input", dest="input", help="input callgraph to be ana
 parser.add_option("-d", "--debug", action="store_true", dest="debug", help="show debug print in standard error output")
 (options, args) = parser.parse_args()
 
+setupDeferredLogging('preprocessor.log', logging.DEBUG)
+
 if (not options.reference or not options.input):
 	raise Exception("Missing options. Please use '-h' option to see usage.")
 
@@ -216,7 +220,7 @@ try:
 			" ".join(getRoutinesBySource(inputXML).keys())
 		)
 except Exception, e:
-  sys.stderr.write('Error when generating analysing, which sources are to be reprocessed: %s\n' %(str(e)))
+  logging.info('Error when generating analysing, which sources are to be reprocessed: %s\n' %(str(e)))
   sys.exit(1)
 
 

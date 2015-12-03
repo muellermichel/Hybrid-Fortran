@@ -26,10 +26,11 @@
 
 from xml.dom.minidom import Document
 from DomHelper import parseString
-from GeneralHelper import openFile
+from GeneralHelper import openFile, setupDeferredLogging
 from optparse import OptionParser
 import os
 import sys
+import logging
 
 ##################### MAIN ##############################
 #get all program arguments
@@ -38,8 +39,10 @@ parser.add_option("-i", "--sourceXML", dest="source",
                   help="read callgraph from this XML file", metavar="XML")
 (options, args) = parser.parse_args()
 
+setupDeferredLogging('preprocessor.log', logging.DEBUG)
+
 if (not options.source):
-    sys.stderr.write("sourceXML option is mandatory. Use '--help' for informations on how to use this module\n")
+    logging.info("sourceXML option is mandatory. Use '--help' for informations on how to use this module\n")
     sys.exit(1)
 
 #read in working xml

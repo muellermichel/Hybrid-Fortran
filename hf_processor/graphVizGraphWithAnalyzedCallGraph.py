@@ -25,7 +25,7 @@
 #  Author           Michel Müller (AOKI Laboratory)                    #
 #**********************************************************************#
 
-from GeneralHelper import openFile, prettyprint
+from GeneralHelper import openFile, prettyprint, setupDeferredLogging
 from DomHelper import addCallers, addCallees, getRegionPosition
 from H90SymbolDependencyGraphAnalyzer import SymbolDependencyAnalyzer, SymbolType, SymbolAnalysis
 from xml.dom.minidom import Document
@@ -34,6 +34,7 @@ from optparse import OptionParser
 import pydot
 import os
 import sys
+import logging
 
 ##################### MAIN ##############################
 #get all program arguments
@@ -57,12 +58,14 @@ parser.add_option("--less", action="store_true", dest="less",
 
 (options, args) = parser.parse_args()
 
+setupDeferredLogging('preprocessor.log', logging.DEBUG)
+
 if (not options.source):
-  	sys.stderr.write("sourceXML option is mandatory. Use '--help' for informations on how to use this module\n")
+  	logging.info("sourceXML option is mandatory. Use '--help' for informations on how to use this module\n")
   	sys.exit(1)
 
 if options.symbolName and not options.symbolGraphRootRoutine:
-	sys.stderr.write("symbolGraphRootRoutine option is mandatory if you use symbolName\n")
+	logging.info("symbolGraphRootRoutine option is mandatory if you use symbolName\n")
   	sys.exit(1)
 
 output = "./out.png"

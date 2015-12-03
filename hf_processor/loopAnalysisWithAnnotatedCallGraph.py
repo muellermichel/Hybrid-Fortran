@@ -32,12 +32,14 @@ from DomHelper import parseString
 from xml.dom import NotFoundErr
 from H90SymbolDependencyGraphAnalyzer import SymbolDependencyAnalyzer
 from DomHelper import firstDuplicateChild, getNodeValue, getCalleesByCallerName, getCallersByCalleeName
-from GeneralHelper import openFile, printProgressIndicator, progressIndicatorReset
+from GeneralHelper import openFile, printProgressIndicator, progressIndicatorReset, setupDeferredLogging
 from optparse import OptionParser
+import logging
 import os
 import sys
 import pdb
 import traceback
+import logging
 
 def getTemplateRelations(routineNode):
 	templateRelations = []
@@ -144,7 +146,7 @@ def filterParallelRegionNodes(doc, routineNode, appliesTo):
 			try:
 				routineNode.removeChild(regionsNode)
 			except NotFoundErr:
-				sys.stderr.write('Error when analysing callgraph file file %s: region node %s not found in routine node %s\n'
+				logging.info('Error when analysing callgraph file file %s: region node %s not found in routine node %s\n'
 					%(str(options.source), str(regionsNode.toprettyxml()), str(routineNode.toprettyxml()))
 				)
 				sys.exit(1)
@@ -250,7 +252,7 @@ This is not allowed in Hybrid Fortran. Please separate kernel routines from wrap
 			if kernelWrapperCall != None:
 				kernelWrapperName = kernelWrapperCall.getAttribute("callee")
 				if not kernelCallerProblemFound:
-					sys.stderr.write("WARNING: Subroutine %s calls at least one kernel (%s) and at least one kernel wrapper (%s). \
+					logging.info("WARNING: Subroutine %s calls at least one kernel (%s) and at least one kernel wrapper (%s). \
 This may cause device attribute mismatch compiler errors. In this case please wrap all kernels called by %s, such that it does not call a mix of kernel wrappers and kernels.\n"
 						%(kernelCallerName, routineName, kernelWrapperName, kernelCallerName)
 					)
@@ -258,7 +260,7 @@ This may cause device attribute mismatch compiler errors. In this case please wr
 					messagesPresentedFor.append(kernelCallerName)
 				elif kernelCallerName not in messagesPresentedFor:
 					messagesPresentedFor.append(kernelCallerName)
-					sys.stderr.write("...same for %s: calls kernel %s, kernel wrapper %s\n" %(kernelCallerName, routineName, kernelWrapperName))
+					logging.info("...same for %s: calls kernel %s, kernel wrapper %s\n" %(kernelCallerName, routineName, kernelWrapperName))
 	progressIndicatorReset(sys.stderr)
 
 ##################### MAIN ##############################
@@ -275,8 +277,10 @@ parser.add_option("-p", "--pretty", action="store_true", dest="pretty",
                   help="make xml output pretty")
 (options, args) = parser.parse_args()
 
+setupDeferredLogging('preprocessor.log', logging.DEBUG)
+
 if (not options.source):
-    sys.stderr.write("sourceXML option is mandatory. Use '--help' for informations on how to use this module\n")
+    logging.info("sourceXML option is mandatory. Use '--help' for informations on how to use this module\n")
     sys.exit(1)
 
 appliesTo = ""
@@ -284,7 +288,7 @@ if options.appliesTo and options.appliesTo.upper() != "CPU":
 	appliesTo = options.appliesTo
 
 #read in working xml
-sys.stderr.write("reading codebase meta information\n")
+logging.info("Reading codebase meta information\n")
 srcFile = openFile(str(options.source),'r')
 data = srcFile.read()
 srcFile.close()
@@ -293,15 +297,14 @@ doc = parseString(data)
 try:
 	analyseParallelRegions(doc, appliesTo)
 except Exception as e:
-	sys.stderr.write('Error when analysing callgraph file %s: %s\n'
+	logging.info('Error when analysing callgraph file %s: %s\n'
 		%(str(options.source), str(e))
 	)
 	if options.debug:
-		sys.stderr.write(traceback.format_exc())
+		logging.info(traceback.format_exc())
 	sys.exit(1)
 
 if (options.pretty):
 	sys.stdout.write(doc.toprettyxml())
 else:
 	sys.stdout.write(doc.toxml())
-

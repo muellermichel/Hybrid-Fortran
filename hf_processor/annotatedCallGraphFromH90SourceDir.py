@@ -74,21 +74,7 @@ for fileNum, fileInDir in enumerate(filesInDir):
     else:
         printProgressIndicator(sys.stderr, fileInDir, fileNum + 1, len(filesInDir), "Callgraph parsing")
 
-#second pass: loop again through all h90 files and parse the @domainDependant symbol declarations flags
-#   -> update the callgraph document with this information.
-#   note: We do this, since for simplicity reasons, the declaration parser relies on the symbol names that
-#   have been declared in @domainDependant direcrives. Since these directives come *after* the declaration,
-#   we need a second pass
-progressIndicatorReset(sys.stderr)
-for fileNum, fileInDir in enumerate(filesInDir):
-    parser = H90XMLSymbolDeclarationExtractor(doc)
-    parser.debugPrint = options.debug
-    parser.processFile(fileInDir)
-    if options.debug:
-        logging.info("Symbol declarations extracted for " + fileInDir + "")
-    else:
-        printProgressIndicator(sys.stderr, fileInDir, fileNum + 1, len(filesInDir), "Symbol parsing")
-progressIndicatorReset(sys.stderr)
+#second pass: moved to generateP90Codebase.py since we need symbol analysis already
 
 if (options.pretty):
 	sys.stdout.write(doc.toprettyxml())

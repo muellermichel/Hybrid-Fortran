@@ -348,7 +348,7 @@ def getOrCreateFirstLevelElement(doc, nodeName):
         return element
     elements = doc.getElementsByTagName(nodeName)
     if len(elements) > 0:
-        element = templateLibraries[0]
+        element = elements[0]
         firstLevelElementCache[nodeName] = element
         return element
     element = doc.createElement(nodeName)

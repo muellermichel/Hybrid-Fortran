@@ -1031,6 +1031,11 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
 class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
     entryNodesBySymbolName = {}
     currSymbols = []
+    symbolsByModuleNameAndSymbolName = None
+
+    def __init__(self, cgDoc, symbolsByModuleNameAndSymbolName=None):
+        super(H90XMLSymbolDeclarationExtractor, self).__init__(cgDoc)
+        self.symbolsByModuleNameAndSymbolName = symbolsByModuleNameAndSymbolName
 
     def processSymbolAttributes(self, isModule=False):
         currSymbolNames = self.currSymbolsByName.keys()
@@ -1078,7 +1083,12 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
 
     def processImplicitForeignModuleSymbolMatch(self, importMatch):
         super(H90XMLSymbolDeclarationExtractor, self).processImplicitForeignModuleSymbolMatch(importMatch)
+        if not self.symbolsByModuleNameAndSymbolName:
+            return
         moduleName = importMatch.group(1)
+        moduleSymbolsByName = self.symbolsByModuleNameAndSymbolName.get(moduleName)
+        if not moduleSymbolsByName:
+            return
         if moduleName == "":
             raise Exception("import without module specified")
         symbolList = importMatch.group(2).split(',')
@@ -1093,6 +1103,8 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
             else:
                 symbolInScope = stripped
                 sourceSymbol = symbolInScope
+            if moduleSymbolsByName.get(sourceSymbol) == None:
+                continue
             relationNode, templateNode = setTemplateInfos(
                 self.cgDoc,
                 self.routineNodesByProcName.get(self.currSubprocName),

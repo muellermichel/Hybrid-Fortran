@@ -30,8 +30,8 @@
 from xml.dom.minidom import Document
 from DomHelper import parseString, ImmutableDOMDocument
 from optparse import OptionParser
-from H90CallGraphParser import H90toF90Printer, getSymbolsByName, getModuleNodesByName, getParallelRegionData, getSymbolsByRoutineNameAndSymbolName, getSymbolsByModuleNameAndSymbolName
-from GeneralHelper import openFile, getDataFromFile, setupDeferredLogging
+from H90CallGraphParser import H90XMLSymbolDeclarationExtractor, H90toF90Printer, getSymbolsByName, getModuleNodesByName, getParallelRegionData, getSymbolsByRoutineNameAndSymbolName, getSymbolsByModuleNameAndSymbolName
+from GeneralHelper import openFile, getDataFromFile, setupDeferredLogging, printProgressIndicator, progressIndicatorReset
 from RecursiveDirEntries import dirEntries
 from H90SymbolDependencyGraphAnalyzer import SymbolDependencyAnalyzer
 from io import FileIO
@@ -84,46 +84,42 @@ if (not options.implementation):
 	logging.info("implementation option is mandatory. Use '--help' for informations on how to use this module")
 	sys.exit(1)
 
-implementationNamesByTemplateName=None
-try:
-	implementationNamesByTemplateName=json.loads(getDataFromFile(options.implementation))
-except ValueError as e:
-	logging.info('Error decoding implementation json (%s): %s' \
-		%(str(options.implementation), str(e))
-	)
-	sys.exit(1)
-except Exception as e:
-	logging.info('Could not interpret implementation parameter as json file to read. Trying to use it as an implementation name directly')
-	implementationNamesByTemplateName={'default':options.implementation}
-if options.debug:
-	logging.info('Initializing H90toF90Printer with the following implementations: %s' %(json.dumps(implementationNamesByTemplateName)))
-implementationsByTemplateName={
-	templateName:getattr(FortranImplementation, implementationNamesByTemplateName[templateName])(optionFlags)
-	for templateName in implementationNamesByTemplateName.keys()
-}
-cgDoc = parseString(getDataFromFile(options.callgraph), immutable=False)
-try:
-	os.mkdir(options.outputDir)
-except OSError as e:
-	if e.errno != errno.EEXIST:
-		raise e
-	pass
 filesInDir = dirEntries(str(options.sourceDir), True, 'h90')
 
+#   get the callgraph information
+cgDoc = parseString(getDataFromFile(options.callgraph), immutable=False)
+
+#   parse the @domainDependant symbol declarations flags in all h90 files
+#   -> update the callgraph document with this information.
+#   note: We do this, since for simplicity reasons, the declaration parser relies on the symbol names that
+#   have been declared in @domainDependant directives. Since these directives come *after* the declaration,
+#   we needthis a pass
+cgDocWithoutImplicitSymbols = cgDoc.cloneNode(deep=True)
+for fileNum, fileInDir in enumerate(filesInDir):
+    parser = H90XMLSymbolDeclarationExtractor(cgDocWithoutImplicitSymbols)
+    parser.debugPrint = options.debug
+    parser.processFile(fileInDir)
+    if options.debug:
+        logging.info("Symbol declarations extracted for " + fileInDir + "")
+    else:
+        printProgressIndicator(sys.stderr, fileInDir, fileNum + 1, len(filesInDir), "Symbol parsing, excluding imports")
+progressIndicatorReset(sys.stderr)
+
+#   build up meta informations about the whole codebase
 try:
 	logging.info('Processing informations about the whole codebase')
-	moduleNodesByName = getModuleNodesByName(cgDoc)
-	parallelRegionData = getParallelRegionData(cgDoc)
-	symbolAnalyzer = SymbolDependencyAnalyzer(cgDoc)
+	moduleNodesByName = getModuleNodesByName(cgDocWithoutImplicitSymbols)
+	parallelRegionData = getParallelRegionData(cgDocWithoutImplicitSymbols)
+	symbolAnalyzer = SymbolDependencyAnalyzer(cgDocWithoutImplicitSymbols)
 	#next line writes some information to cgDoc as a sideeffect. $$$ clean this up, ideally make cgDoc immutable everywhere for better performance
 	symbolAnalysisByRoutineNameAndSymbolName = symbolAnalyzer.getSymbolAnalysisByRoutine()
 	symbolsByModuleNameAndSymbolName = getSymbolsByModuleNameAndSymbolName(
-		ImmutableDOMDocument(cgDoc),
+		ImmutableDOMDocument(cgDocWithoutImplicitSymbols),
 		moduleNodesByName,
 		symbolAnalysisByRoutineNameAndSymbolName=symbolAnalysisByRoutineNameAndSymbolName
 	)
 	symbolsByRoutineNameAndSymbolName = getSymbolsByRoutineNameAndSymbolName(
-		ImmutableDOMDocument(cgDoc),
+		ImmutableDOMDocument(cgDocWithoutImplicitSymbols),
 		parallelRegionData[2],
 		parallelRegionData[1],
 		symbolAnalysisByRoutineNameAndSymbolName=symbolAnalysisByRoutineNameAndSymbolName,
@@ -135,12 +131,47 @@ except Exception as e:
 		logging.info(traceback.format_exc())
 	sys.exit(1)
 
-for fileInDir in filesInDir:
+#   parse the symbols again, this time know about all informations in the sourced modules in import
+#   -> update the callgraph document with this information.
+for fileNum, fileInDir in enumerate(filesInDir):
+    parser = H90XMLSymbolDeclarationExtractor(cgDoc, symbolsByModuleNameAndSymbolName)
+    parser.debugPrint = options.debug
+    parser.processFile(fileInDir)
+    if options.debug:
+        logging.info("Symbol imports and declarations extracted for " + fileInDir + "")
+    else:
+        printProgressIndicator(sys.stderr, fileInDir, fileNum + 1, len(filesInDir), "Symbol parsing, including imports")
+progressIndicatorReset(sys.stderr)
+
+#   build up implementationNamesByTemplateName
+implementationNamesByTemplateName = None
+try:
+	implementationNamesByTemplateName = json.loads(getDataFromFile(options.implementation))
+except ValueError as e:
+	logging.info('Error decoding implementation json (%s): %s' \
+		%(str(options.implementation), str(e))
+	)
+	sys.exit(1)
+except Exception as e:
+	logging.info('Could not interpret implementation parameter as json file to read. Trying to use it as an implementation name directly')
+	implementationNamesByTemplateName = {'default':options.implementation}
+if options.debug:
+	logging.info('Initializing H90toF90Printer with the following implementations: %s' %(json.dumps(implementationNamesByTemplateName)))
+implementationsByTemplateName = {
+	templateName:getattr(FortranImplementation, implementationNamesByTemplateName[templateName])(optionFlags)
+	for templateName in implementationNamesByTemplateName.keys()
+}
+try:
+	os.mkdir(options.outputDir)
+except OSError as e:
+	if e.errno != errno.EEXIST:
+		raise e
+	pass
+
+#   Finally, do the conversion based on all the information above.
+for fileNum, fileInDir in enumerate(filesInDir):
 	outputPath = os.path.join(os.path.normpath(options.outputDir), os.path.splitext(os.path.basename(fileInDir))[0] + ".P90.temp")
-	logging.info('Converting %s to %s' %(
-		os.path.basename(fileInDir),
-		outputPath
-	))
+	printProgressIndicator(sys.stderr, os.path.basename(fileInDir), fileNum + 1, len(filesInDir), "Converting to Standard Fortran")
 	outputStream = FileIO(outputPath, mode="wb")
 	try:
 		f90printer = H90toF90Printer(
@@ -164,3 +195,4 @@ for fileInDir in filesInDir:
 		sys.exit(1)
 	finally:
 		outputStream.close()
+progressIndicatorReset(sys.stderr)

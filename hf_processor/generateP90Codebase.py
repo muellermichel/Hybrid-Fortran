@@ -105,31 +105,19 @@ for fileNum, fileInDir in enumerate(filesInDir):
         printProgressIndicator(sys.stderr, fileInDir, fileNum + 1, len(filesInDir), "Symbol parsing, excluding imports")
 progressIndicatorReset(sys.stderr)
 
-#   build up meta informations about the whole codebase
-try:
-	logging.info('Processing informations about the whole codebase')
-	moduleNodesByName = getModuleNodesByName(cgDocWithoutImplicitSymbols)
-	parallelRegionData = getParallelRegionData(cgDocWithoutImplicitSymbols)
-	symbolAnalyzer = SymbolDependencyAnalyzer(cgDocWithoutImplicitSymbols)
-	#next line writes some information to cgDoc as a sideeffect. $$$ clean this up, ideally make cgDoc immutable everywhere for better performance
-	symbolAnalysisByRoutineNameAndSymbolName = symbolAnalyzer.getSymbolAnalysisByRoutine()
-	symbolsByModuleNameAndSymbolName = getSymbolsByModuleNameAndSymbolName(
-		ImmutableDOMDocument(cgDocWithoutImplicitSymbols),
-		moduleNodesByName,
-		symbolAnalysisByRoutineNameAndSymbolName=symbolAnalysisByRoutineNameAndSymbolName
-	)
-	symbolsByRoutineNameAndSymbolName = getSymbolsByRoutineNameAndSymbolName(
-		ImmutableDOMDocument(cgDocWithoutImplicitSymbols),
-		parallelRegionData[2],
-		parallelRegionData[1],
-		symbolAnalysisByRoutineNameAndSymbolName=symbolAnalysisByRoutineNameAndSymbolName,
-		debugPrint=options.debug
-	)
-except Exception as e:
-	logging.info('Error when processing meta information about the codebase: %s' %(str(e)))
-	if options.debug:
-		logging.info(traceback.format_exc())
-	sys.exit(1)
+print(continuehere)
+symbolAnalyzer = SymbolDependencyAnalyzer(cgDoc)
+symbolAnalysisByRoutineNameAndSymbolName = symbolAnalyzer.getSymbolAnalysisByRoutine()
+symbolsByModuleNameAndSymbolName = getSymbolsByModuleNameAndSymbolName(
+	ImmutableDOMDocument(cgDocWithoutImplicitSymbols),
+	moduleNodesByName,
+	symbolAnalysisByRoutineNameAndSymbolName=symbolAnalysisByRoutineNameAndSymbolName
+)
+symbolsByModuleNameAndSymbolNameWithoutImplicitImports = getSymbolsByModuleNameAndSymbolName(
+	ImmutableDOMDocument(cgDocWithoutImplicitSymbols),
+	moduleNodesByName,
+	symbolAnalysisByRoutineNameAndSymbolName=symbolsByModuleNameAndSymbolNameWithoutImplicitImports
+)
 
 #   parse the symbols again, this time know about all informations in the sourced modules in import
 #   -> update the callgraph document with this information.
@@ -142,6 +130,32 @@ for fileNum, fileInDir in enumerate(filesInDir):
     else:
         printProgressIndicator(sys.stderr, fileInDir, fileNum + 1, len(filesInDir), "Symbol parsing, including imports")
 progressIndicatorReset(sys.stderr)
+
+#   build up meta informations about the whole codebase
+try:
+	logging.info('Processing informations about the whole codebase')
+	moduleNodesByName = getModuleNodesByName(cgDoc)
+	parallelRegionData = getParallelRegionData(cgDoc)
+	symbolAnalyzer = SymbolDependencyAnalyzer(cgDoc)
+	#next line writes some information to cgDoc as a sideeffect. $$$ clean this up, ideally make cgDoc immutable everywhere for better performance
+	symbolAnalysisByRoutineNameAndSymbolName = symbolAnalyzer.getSymbolAnalysisByRoutine()
+	symbolsByModuleNameAndSymbolName = getSymbolsByModuleNameAndSymbolName(
+		ImmutableDOMDocument(cgDoc),
+		moduleNodesByName,
+		symbolAnalysisByRoutineNameAndSymbolName=symbolAnalysisByRoutineNameAndSymbolName
+	)
+	symbolsByRoutineNameAndSymbolName = getSymbolsByRoutineNameAndSymbolName(
+		ImmutableDOMDocument(cgDoc),
+		parallelRegionData[2],
+		parallelRegionData[1],
+		symbolAnalysisByRoutineNameAndSymbolName=symbolAnalysisByRoutineNameAndSymbolName,
+		debugPrint=options.debug
+	)
+except Exception as e:
+	logging.info('Error when processing meta information about the codebase: %s' %(str(e)))
+	if options.debug:
+		logging.info(traceback.format_exc())
+	sys.exit(1)
 
 #   build up implementationNamesByTemplateName
 implementationNamesByTemplateName = None

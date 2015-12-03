@@ -61,11 +61,11 @@ parser.add_option("--less", action="store_true", dest="less",
 setupDeferredLogging('preprocessor.log', logging.DEBUG)
 
 if (not options.source):
-  	logging.info("sourceXML option is mandatory. Use '--help' for informations on how to use this module\n")
+  	logging.info("sourceXML option is mandatory. Use '--help' for informations on how to use this module")
   	sys.exit(1)
 
 if options.symbolName and not options.symbolGraphRootRoutine:
-	logging.info("symbolGraphRootRoutine option is mandatory if you use symbolName\n")
+	logging.info("symbolGraphRootRoutine option is mandatory if you use symbolName")
   	sys.exit(1)
 
 output = "./out.png"

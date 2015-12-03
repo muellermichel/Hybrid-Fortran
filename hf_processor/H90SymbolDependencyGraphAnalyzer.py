@@ -193,7 +193,7 @@ class SymbolDependencyAnalyzer:
                     prettyprint(call)
                 ))
             if len(callArguments) != len(routineArguments):
-                logging.info("WARNING: Cannot fully analyze symbol dependencies since argument list from caller %s has different length (%i) than routine argument list (%i) for routine %s.\nCall argument list: %s\n" %(
+                logging.info("WARNING: Cannot fully analyze symbol dependencies since argument list from caller %s has different length (%i) than routine argument list (%i) for routine %s.Call argument list: %s\n" %(
                         call.getAttribute("caller"),
                         len(callArguments),
                         len(routineArguments),

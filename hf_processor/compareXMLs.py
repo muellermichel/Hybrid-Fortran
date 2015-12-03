@@ -92,11 +92,11 @@ parser.add_option("-d", "--debug", action="store_true", dest="debug",
 setupDeferredLogging('preprocessor.log', logging.DEBUG)
 
 if (not options.inputXML):
-  logging.info("inputXML option is mandatory. Use '--help' for informations on how to use this module\n")
+  logging.info("inputXML option is mandatory. Use '--help' for informations on how to use this module")
   sys.exit(1)
 
 if (not options.referenceXML):
-  logging.info("referenceXML option is mandatory. Use '--help' for informations on how to use this module\n")
+  logging.info("referenceXML option is mandatory. Use '--help' for informations on how to use this module")
   sys.exit(1)
 
 ignoreAttributes = []
@@ -131,5 +131,5 @@ try:
     sys.exit(2)
 
 except Exception, e:
-  logging.info('Error when comparing xmls: %s\n%s\n' %(str(e), traceback.format_exc()))
+  logging.info('Error when comparing xmls: %s%s\n' %(str(e), traceback.format_exc()))
   sys.exit(64)

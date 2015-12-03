@@ -57,20 +57,20 @@ parser.add_option("--optionFlags", dest="optionFlags",
 setupDeferredLogging('preprocessor.log', logging.DEBUG)
 
 optionFlags = [flag for flag in options.optionFlags.split(',') if flag not in ['', None]] if options.optionFlags != None else []
-logging.info('Option Flags: %s\n' %(optionFlags))
+logging.info('Option Flags: %s' %(optionFlags))
 if options.debug and 'DEBUG_PRINT' not in optionFlags:
 	optionFlags.append('DEBUG_PRINT')
 
 if (not options.sourceFile):
-		logging.info("sourceH90File option is mandatory. Use '--help' for informations on how to use this module\n")
+		logging.info("sourceH90File option is mandatory. Use '--help' for informations on how to use this module")
 		sys.exit(1)
 
 if (not options.callgraph):
-		logging.info("callgraph option is mandatory. Use '--help' for informations on how to use this module\n")
+		logging.info("callgraph option is mandatory. Use '--help' for informations on how to use this module")
 		sys.exit(1)
 
 if (not options.implementation):
-	logging.info("implementation option is mandatory. Use '--help' for informations on how to use this module\n")
+	logging.info("implementation option is mandatory. Use '--help' for informations on how to use this module")
 	sys.exit(1)
 
 try:
@@ -79,15 +79,15 @@ try:
 	try:
 		implementationNamesByTemplateName=json.loads(getDataFromFile(options.implementation))
 	except ValueError as e:
-		logging.info('Error decoding implementation json (%s): %s\n' \
+		logging.info('Error decoding implementation json (%s): %s' \
 			%(str(options.implementation), str(e))
 		)
 		sys.exit(1)
 	except Exception as e:
-		logging.info('Could not interpret implementation parameter as json file to read. Trying to use it as an implementation name directly\n')
+		logging.info('Could not interpret implementation parameter as json file to read. Trying to use it as an implementation name directly')
 		implementationNamesByTemplateName={'default':options.implementation}
 	if options.debug:
-		logging.info('Initializing H90toF90Printer with the following implementations: %s\n' %(json.dumps(implementationNamesByTemplateName)))
+		logging.info('Initializing H90toF90Printer with the following implementations: %s' %(json.dumps(implementationNamesByTemplateName)))
 	implementationsByTemplateName={
 		templateName:getattr(FortranImplementation, implementationNamesByTemplateName[templateName])(optionFlags)
 		for templateName in implementationNamesByTemplateName.keys()
@@ -97,7 +97,7 @@ try:
 	f90printer = H90toF90Printer(cgDoc, implementationsByTemplateName, options.debug)
 	f90printer.processFile(options.sourceFile)
 except Exception as e:
-	logging.info('Error when generating F90 from H90 file %s: %s\n%s\n' \
+	logging.info('Error when generating F90 from H90 file %s: %s%s\n' \
 		%(str(options.sourceFile), str(e), traceback.format_exc())
 	)
 	sys.exit(1)

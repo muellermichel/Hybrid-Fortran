@@ -28,7 +28,7 @@
 import os, sys, re, logging, logging.handlers, atexit
 
 def setupDeferredLogging(filename, logLevel):
-    logging.basicConfig(filename=filename,level=logLevel)
+    logging.basicConfig(filename=filename, level=logLevel, format='%(asctime)s %(message)s')
     streamhandler = logging.StreamHandler(sys.stderr)
     streamhandler.setLevel(logLevel)
     memoryhandler = logging.handlers.MemoryHandler(1024*100, logLevel, streamhandler)
@@ -61,7 +61,7 @@ def openFile(file_name, mode):
     try:
         the_file = open(file_name, mode)
     except(IOError), e:
-        logging.info("Unable to open the file %s. Ending program. Error: %s\n" %(file_name, e))
+        logging.info("Unable to open the file %s. Ending program. Error: %s" %(file_name, e))
         sys.exit(1)
     else:
         return the_file

@@ -42,7 +42,7 @@ parser.add_option("-i", "--sourceXML", dest="source",
 setupDeferredLogging('preprocessor.log', logging.DEBUG)
 
 if (not options.source):
-    logging.info("sourceXML option is mandatory. Use '--help' for informations on how to use this module\n")
+    logging.info("sourceXML option is mandatory. Use '--help' for informations on how to use this module")
     sys.exit(1)
 
 #read in working xml

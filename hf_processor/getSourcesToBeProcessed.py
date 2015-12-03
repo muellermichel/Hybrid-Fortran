@@ -17,13 +17,13 @@ def isEqualElement(a, b, ignoreAttributes):
       continue
     if aatKey != batKey:
       if options.debug:
-        logging.info("equality fails for node attributes %s compared to %s; key: %s vs. %s\n" \
+        logging.info("equality fails for node attributes %s compared to %s; key: %s vs. %s" \
           %(a.toxml(), b.toxml(), aatKey, batKey))
       return False
     if (a.attributes.get(aatKey) == None and b.attributes.get(aatKey) != None) \
     or (a.attributes.get(aatKey) != None and b.attributes.get(aatKey) == None):
       if options.debug:
-        logging.info("equality fails for node attributes %s compared to %s; one is None, the other not\n" \
+        logging.info("equality fails for node attributes %s compared to %s; one is None, the other not" \
             %(a.toxml(), b.toxml()))
       return False
     if a.attributes.get(aatKey).value != b.attributes.get(aatKey).value:
@@ -82,11 +82,11 @@ def getSourcesWithParallelRegionPositionChanges(inputXML, referenceXML):
 			inputRoutine = inputRoutinesBySourceAndName.get((source, routineName))
 			if inputRoutine == None:
 				if options.debug:
-					logging.info("routine %s has been deleted from %s\n" %(routineName, source))
+					logging.info("routine %s has been deleted from %s" %(routineName, source))
 				return False
 			if inputRoutine.getAttribute('parallelRegionPosition') != referenceRoutine.getAttribute('parallelRegionPosition'):
 				if options.debug:
-					logging.info("routine %s in source %s does not have the same parallel region position as before\n" %(
+					logging.info("routine %s in source %s does not have the same parallel region position as before" %(
 						routineName, source
 					))
 				return False
@@ -131,14 +131,14 @@ def getSourcesWithModuleSymbolChanges(inputXML, referenceXML):
 			inputTemplateAndEntry = inputModuleSymbolIndex.get((moduleName, symbolName))
 			if inputTemplateAndEntry == None:
 				if options.debug:
-					logging.info("symbol %s has been deleted from %s\n" %(
+					logging.info("symbol %s has been deleted from %s" %(
 						symbolName, moduleName
 					))
 				return False #symbol has been deleted
 			inputTemplate,inputEntry = inputModuleSymbolIndex[(moduleName, symbolName)]
 			if not isEqualElement(entry, inputEntry, ["id"]) or not isEqualElement(template, inputTemplate, ["id"]):
 				if options.debug:
-					logging.info("symbol %s in %s has been changed\n" %(
+					logging.info("symbol %s in %s has been changed" %(
 						symbolName, moduleName
 					))
 				return False
@@ -220,7 +220,7 @@ try:
 			" ".join(getRoutinesBySource(inputXML).keys())
 		)
 except Exception, e:
-  logging.info('Error when generating analysing, which sources are to be reprocessed: %s\n' %(str(e)))
+  logging.info('Error when generating analysing, which sources are to be reprocessed: %s' %(str(e)))
   sys.exit(1)
 
 

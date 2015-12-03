@@ -40,5 +40,5 @@ try:
   print ' '.join(paths)
   sys.exit(0)
 except Exception, e:
-  logging.info('Error when checking whether %s is contained in %s: %s\n%s\n' %(options.name, options.path, str(e), traceback.format_exc()))
+  logging.info('Error when checking whether %s is contained in %s: %s%s\n' %(options.name, options.path, str(e), traceback.format_exc()))
   sys.exit(64)

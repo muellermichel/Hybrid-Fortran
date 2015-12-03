@@ -668,7 +668,7 @@ class TraceGeneratingFortranImplementation(FortranImplementation):
         super_result = FortranImplementation.declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates)
         result, tracedSymbols = getTracingDeclarationStatements(currRoutineNode, dependantSymbols, self.patterns)
         self.currentTracedSymbols = tracedSymbols
-        logging.info("...In subroutine %s: Symbols declared for tracing: %s\n" %(
+        logging.info("...In subroutine %s: Symbols declared for tracing: %s" %(
                 currRoutineNode.getAttribute('name'),
                 [symbol.name for symbol in tracedSymbols],
             )
@@ -693,7 +693,7 @@ class TraceGeneratingFortranImplementation(FortranImplementation):
             increment_tracing_counter=len(self.currentTracedSymbols) > 0,
             loop_name_postfix='end' if is_subroutine_end else 'exit%i' %(self.earlyReturnCounter)
         )
-        logging.info("...In subroutine %s: Symbols %s used for tracing\n" %(
+        logging.info("...In subroutine %s: Symbols %s used for tracing" %(
                 self.currRoutineNode.getAttribute('name'),
                 [symbol.name for symbol in self.currentTracedSymbols]
             )

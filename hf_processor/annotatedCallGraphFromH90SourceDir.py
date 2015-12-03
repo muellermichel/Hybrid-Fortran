@@ -52,7 +52,7 @@ parser.add_option("-p", "--pretty", action="store_true", dest="pretty",
 setupDeferredLogging('preprocessor.log', logging.DEBUG)
 
 if (not options.sourceDir):
-    logging.info("sourceDirectory option is mandatory. Use '--help' for informations on how to use this module\n")
+    logging.info("sourceDirectory option is mandatory. Use '--help' for informations on how to use this module")
     sys.exit(1)
 
 #prepare xml output
@@ -70,7 +70,7 @@ for fileNum, fileInDir in enumerate(filesInDir):
     parser.debugPrint = options.debug
     parser.processFile(fileInDir)
     if options.debug:
-        logging.info("Callgraph generated for " + fileInDir + "\n")
+        logging.info("Callgraph generated for " + fileInDir + "")
     else:
         printProgressIndicator(sys.stderr, fileInDir, fileNum + 1, len(filesInDir), "Callgraph parsing")
 
@@ -85,7 +85,7 @@ for fileNum, fileInDir in enumerate(filesInDir):
     parser.debugPrint = options.debug
     parser.processFile(fileInDir)
     if options.debug:
-        logging.info("Symbol declarations extracted for " + fileInDir + "\n")
+        logging.info("Symbol declarations extracted for " + fileInDir + "")
     else:
         printProgressIndicator(sys.stderr, fileInDir, fileNum + 1, len(filesInDir), "Symbol parsing")
 progressIndicatorReset(sys.stderr)

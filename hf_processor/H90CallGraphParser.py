@@ -1492,13 +1492,13 @@ This is not allowed for implementations using %s.\
         additionalSymbolsSeparated = self.additionalParametersByKernelName.get(self.currCalleeName)
         additionalImports, additionalDeclarations = self.additionalParametersByKernelName.get(self.currCalleeName, ([], []))
         toBeCompacted = []
-        toBeCompacted, declarationPrefix, otherImports = self.listCompactedSymbolsAndDeclarationPrefixAndOtherImports(additionalImports)
+        toBeCompacted, declarationPrefix, notToBeCompacted = self.listCompactedSymbolsAndDeclarationPrefixAndOtherSymbols(additionalImports + additionalDeclarations)
         compactedArrayList = []
         if len(toBeCompacted) > 0:
             compactedArrayName = "hfimp_%s" %(self.currCalleeName)
             compactedArray = FrameworkArray(compactedArrayName, declarationPrefix, domains=[("hfauto", str(len(toBeCompacted)))], isOnDevice=True)
             compactedArrayList = [compactedArray]
-        additionalSymbols = sorted(otherImports + compactedArrayList + additionalDeclarations)
+        additionalSymbols = sorted(notToBeCompacted + compactedArrayList)
         if len(additionalSymbols) > 0:
             adjustedLine = adjustedLine + "( &\n"
         else:
@@ -1651,7 +1651,7 @@ This is not allowed for implementations using %s.\
             self.parallelRegionTemplatesByProcName.get(subprocName),
             self.currSymbolsByName
         )
-        toBeCompacted, declarationPrefix, otherImports = self.listCompactedSymbolsAndDeclarationPrefixAndOtherImports(
+        toBeCompacted, declarationPrefix, otherImports = self.listCompactedSymbolsAndDeclarationPrefixAndOtherSymbols(
             additionalImportsForOurSelves + additionalDeclarationsForOurselves
         )
         compactedArrayList = []
@@ -1758,7 +1758,7 @@ This is not allowed for implementations using %s.\
         super(H90toF90Printer, self).processNoMatch()
         self.prepareLine(str(self.currentLine), "")
 
-    def listCompactedSymbolsAndDeclarationPrefixAndOtherImports(self, additionalImports):
+    def listCompactedSymbolsAndDeclarationPrefixAndOtherSymbols(self, additionalImports):
         toBeCompacted = []
         otherImports = []
         declarationPrefix = None
@@ -1816,8 +1816,10 @@ This is not allowed for implementations using %s.\
             packedRealSymbolsByCalleeName = {}
             compactionDeclarationPrefixByCalleeName = {}
             for calleeName in self.additionalParametersByKernelName.keys():
-                additionalImports, _ = self.additionalParametersByKernelName[calleeName]
-                toBeCompacted, declarationPrefix, _ = self.listCompactedSymbolsAndDeclarationPrefixAndOtherImports(additionalImports)
+                additionalImports, additionalDeclarations = self.additionalParametersByKernelName[calleeName]
+                toBeCompacted, declarationPrefix, _ = self.listCompactedSymbolsAndDeclarationPrefixAndOtherSymbols(
+                    additionalImports + additionalDeclarations
+                )
                 if len(toBeCompacted) > 0:
                     compactionDeclarationPrefixByCalleeName[calleeName] = declarationPrefix
                     packedRealSymbolsByCalleeName[calleeName] = toBeCompacted
@@ -1862,6 +1864,12 @@ This is not allowed for implementations using %s.\
                     additionalImportSymbolsByName[symbol.name] = symbol
 
                 for symbol in additionalDeclarations:
+                    if symbol.declarationType not in [DeclarationType.LOCAL_ARRAY, DeclarationType.LOCAL_SCALAR]:
+                        # only symbols that are local to the kernel actually need to be declared here.
+                        # Everything else we should have in our own scope already, either through additional imports or
+                        # through module association (we assume the kernel and its wrapper reside in the same module)
+                        continue
+
                     #in case the array uses domain sizes in the declaration that are additional symbols themselves
                     #we need to fix them.
                     adjustedDomains = []
@@ -1884,7 +1892,7 @@ This is not allowed for implementations using %s.\
                             %(self.currSubprocName, symbol, calleeName) \
                         )
                 #TODO: move this into implementation classes
-                toBeCompacted =  packedRealSymbolsByCalleeName.get(calleeName, [])
+                toBeCompacted = packedRealSymbolsByCalleeName.get(calleeName, [])
                 if len(toBeCompacted) > 0:
                     #TODO: generalize for cases where we don't want this to be on the device (e.g. put this into Implementation class)
                     compactedArrayName = "hfimp_%s" %(calleeName)

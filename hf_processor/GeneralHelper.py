@@ -29,14 +29,23 @@ import os, sys, re, logging, logging.handlers, atexit
 
 def setupDeferredLogging(filename, logLevel):
     logging.basicConfig(filename=filename, level=logLevel, format='%(asctime)s %(message)s')
-    streamhandler = logging.StreamHandler(sys.stderr)
-    streamhandler.setLevel(logLevel)
-    memoryhandler = logging.handlers.MemoryHandler(1024*100, logLevel, streamhandler)
+    # formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    # streamhandler = logging.StreamHandler(sys.stderr)
+    # streamhandler.setLevel(logLevel)
+    # streamhandler.setFormatter(formatter)
+    # memoryhandler = logging.handlers.MemoryHandler(1024*100, logLevel, streamhandler)
+
+    # filehandler = logging.FileHandler(filename)
+    # filehandler.setLevel(logLevel)
+    # filehandler.setFormatter(formatter)
+
     # logger = logging.getLogger()
-    # logger.addHandler(memoryhandler) #for some reason this doesn't seem to work yet, the log messages still appear immediately
-    def flush():
-        memoryhandler.flush()
-    atexit.register(flush)
+    # logger.addHandler(memoryhandler)
+    # logger.addHandler(filehandler)
+    # def flush():
+    #     memoryhandler.flush()
+    # atexit.register(flush)
+    # logger.debug("Logger has Initialized")
 
 def progressIndicatorReset(stream):
     stream.write("\n")

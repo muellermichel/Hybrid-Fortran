@@ -118,6 +118,14 @@ class ImmutableDOMNode(object):
 class ImmutableDOMDocument(ImmutableDOMNode):
     pass
 
+def getClonedDocument(doc):
+    clone = doc.cloneNode(deep=True)
+    if hasattr(clone, "_firstLevelElementCache"):
+        del clone._firstLevelElementCache
+    if hasattr(clone, "_templateCache"):
+        del clone._templateCache
+    return clone
+
 def parseString(data, immutable=False):
     doc = parseStringUsingMinidom(data)
     if immutable:
@@ -232,11 +240,11 @@ def firstDuplicateChild(parent, newNode, cgDoc=None):
     #     currAttributes[attributeName] = newNode.attributes[attributeName]
     # attributeTuple = tuple(currAttributes.values())
     # attributeCache = None
-    # if cgDoc and hasattr(cgDoc, "__attributeCache")
-    #     attributeCache = cgDoc.__attributeCache
+    # if cgDoc and hasattr(cgDoc, "_attributeCache")
+    #     attributeCache = cgDoc._attributeCache
     # elif cgDoc:
     #     attributeCache = {}
-    #     cgDoc.__attributeCache = attributeCache
+    #     cgDoc._attributeCache = attributeCache
     # if attributeCache and attributeTuple in attributeCache:
     #     return attributeCache[attributeTuple]
     # if attributeCache:
@@ -341,19 +349,20 @@ def getAttributesDomainsDeclarationPrefixAndMacroNames(moduleTemplate, procedure
 
     return finalAttributes, domainsFromTemplate, finalDeclarationPrefix, finalAccPP, finalDomPP
 
-firstLevelElementCache = {}
 def getOrCreateFirstLevelElement(doc, nodeName):
-    element = firstLevelElementCache.get(nodeName)
+    if not hasattr(doc, '_firstLevelElementCache'):
+        doc._firstLevelElementCache = {}
+    element = doc._firstLevelElementCache.get(nodeName)
     if element:
         return element
     elements = doc.getElementsByTagName(nodeName)
     if len(elements) > 0:
         element = elements[0]
-        firstLevelElementCache[nodeName] = element
+        doc._firstLevelElementCache[nodeName] = element
         return element
     element = doc.createElement(nodeName)
     doc.documentElement.appendChild(element)
-    firstLevelElementCache[nodeName] = element
+    doc._firstLevelElementCache[nodeName] = element
     return element
 
 def setTemplateInfos(doc, parent, specText, templateParentNodeName, templateNodeName, referenceParentNodeName):
@@ -400,10 +409,10 @@ def setTemplateInfos(doc, parent, specText, templateParentNodeName, templateNode
 
 def regionTemplatesByID(cgDoc, templateTypeName):
     regionTemplatesByID = None
-    if hasattr(cgDoc, "__templateCache"):
-        regionTemplatesByID = cgDoc.__templateCache.get(templateTypeName)
+    if hasattr(cgDoc, "_templateCache"):
+        regionTemplatesByID = cgDoc._templateCache.get(templateTypeName)
     else:
-        cgDoc.__templateCache = {}
+        cgDoc._templateCache = {}
     if regionTemplatesByID:
         return regionTemplatesByID
     regionTemplatesByID = {}
@@ -413,7 +422,7 @@ def regionTemplatesByID(cgDoc, templateTypeName):
         if not idStr or idStr == '':
             raise Exception("Template definition without id attribute.")
         regionTemplatesByID[idStr] = templateNode
-    cgDoc.__templateCache[templateTypeName] = regionTemplatesByID
+    cgDoc._templateCache[templateTypeName] = regionTemplatesByID
     return regionTemplatesByID
 
 RoutineNodeInitStage = enum("NO_DIRECTIVES",

@@ -28,7 +28,7 @@
 
 
 from xml.dom.minidom import Document
-from DomHelper import parseString, ImmutableDOMDocument
+from DomHelper import parseString, ImmutableDOMDocument, getClonedDocument
 from optparse import OptionParser
 from H90CallGraphParser import H90XMLSymbolDeclarationExtractor, H90toF90Printer, getSymbolsByName, getModuleNodesByName, getParallelRegionData, getSymbolsByRoutineNameAndSymbolName, getSymbolsByModuleNameAndSymbolName
 from GeneralHelper import openFile, getDataFromFile, setupDeferredLogging, printProgressIndicator, progressIndicatorReset
@@ -94,7 +94,7 @@ cgDoc = parseString(getDataFromFile(options.callgraph), immutable=False)
 #   note: We do this, since for simplicity reasons, the declaration parser relies on the symbol names that
 #   have been declared in @domainDependant directives. Since these directives come *after* the declaration,
 #   we needthis a pass
-cgDocWithoutImplicitSymbols = cgDoc.cloneNode(deep=True)
+cgDocWithoutImplicitSymbols = getClonedDocument(cgDoc)
 for fileNum, fileInDir in enumerate(filesInDir):
     parser = H90XMLSymbolDeclarationExtractor(cgDocWithoutImplicitSymbols)
     parser.debugPrint = options.debug
@@ -105,24 +105,20 @@ for fileNum, fileInDir in enumerate(filesInDir):
         printProgressIndicator(sys.stderr, fileInDir, fileNum + 1, len(filesInDir), "Symbol parsing, excluding imports")
 progressIndicatorReset(sys.stderr)
 
-print(continuehere)
-symbolAnalyzer = SymbolDependencyAnalyzer(cgDoc)
-symbolAnalysisByRoutineNameAndSymbolName = symbolAnalyzer.getSymbolAnalysisByRoutine()
-symbolsByModuleNameAndSymbolName = getSymbolsByModuleNameAndSymbolName(
-	ImmutableDOMDocument(cgDocWithoutImplicitSymbols),
-	moduleNodesByName,
-	symbolAnalysisByRoutineNameAndSymbolName=symbolAnalysisByRoutineNameAndSymbolName
-)
+#   build up symbol table indexed by module name
+moduleNodesByNameWithoutImplicitImports = getModuleNodesByName(cgDocWithoutImplicitSymbols)
+symbolAnalyzer = SymbolDependencyAnalyzer(cgDocWithoutImplicitSymbols)
+symbolAnalysisByRoutineNameAndSymbolNameWithoutImplicitImports = symbolAnalyzer.getSymbolAnalysisByRoutine()
 symbolsByModuleNameAndSymbolNameWithoutImplicitImports = getSymbolsByModuleNameAndSymbolName(
 	ImmutableDOMDocument(cgDocWithoutImplicitSymbols),
-	moduleNodesByName,
-	symbolAnalysisByRoutineNameAndSymbolName=symbolsByModuleNameAndSymbolNameWithoutImplicitImports
+	moduleNodesByNameWithoutImplicitImports,
+	symbolAnalysisByRoutineNameAndSymbolName=symbolAnalysisByRoutineNameAndSymbolNameWithoutImplicitImports
 )
 
 #   parse the symbols again, this time know about all informations in the sourced modules in import
 #   -> update the callgraph document with this information.
 for fileNum, fileInDir in enumerate(filesInDir):
-    parser = H90XMLSymbolDeclarationExtractor(cgDoc, symbolsByModuleNameAndSymbolName)
+    parser = H90XMLSymbolDeclarationExtractor(cgDoc, symbolsByModuleNameAndSymbolNameWithoutImplicitImports)
     parser.debugPrint = options.debug
     parser.processFile(fileInDir)
     if options.debug:

@@ -30,6 +30,7 @@
 from xml.dom.minidom import Document
 from H90Symbol import Symbol, DeclarationType, purgeFromDeclarationSettings
 from H90RegExPatterns import H90RegExPatterns
+from GeneralHelper import UsageError
 from DomHelper import *
 import os
 import sys
@@ -396,7 +397,7 @@ def getDebugOffsetString(domainTuple, previousOffsets):
 			return boundaries[0].strip()
 		if len(boundaries) == 2:
 			return boundaries[1].strip()
-		raise Exception("Unexpected domain size specification: %s" %(domainSizeSpec))
+		raise UsageError("Unexpected domain size specification: %s" %(domainSizeSpec))
 
 	#$$$ change this - it must be consistant with storage_order.F90
 	userdefinedDomNames = ["x", "y", "z", "nz", "i", "j", "vertical", "verticalPlus", "KMAX_CONST", "KMP1_CONST", "ntlm", "ngm", "id_qa_e", "1", "2", "3", "4"]
@@ -713,7 +714,7 @@ class OpenMPFortranImplementation(FortranImplementation):
 
 	def parallelRegionBegin(self, parallelRegionTemplate, outerBranchLevel=0):
 		if self.currDependantSymbols == None:
-			raise Exception("parallel region without any dependant arrays")
+			raise UsageError("parallel region without any dependant arrays")
 		openMPLines = "!$OMP PARALLEL DO DEFAULT(firstprivate) %s " %(getReductionClause(parallelRegionTemplate).upper())
 		openMPLines += "SHARED(%s)\n" %(', '.join([symbol.nameInScope() for symbol in self.currDependantSymbols]))
 		return openMPLines + FortranImplementation.parallelRegionBegin(self, parallelRegionTemplate)
@@ -804,8 +805,6 @@ end subroutine
 					break
 			else:
 				pass
-				# if currRoutineNode.getAttribute("parallelRegionPosition") in ['inside', 'within']:
-				#     raise Exception("kernel or kernel wrapper only has temporary data on the device - no input or output possible here.")
 		result += self.declarationEndPrintStatements()
 		return result
 
@@ -830,7 +829,7 @@ end subroutine
 		regionStr += "\n"
 		domains = getDomainsWithParallelRegionTemplate(parallelRegionTemplate)
 		if len(domains) > 3 or len(domains) < 1:
-			raise Exception("Invalid number of parallel domains in parallel region definition.")
+			raise UsageError("Invalid number of parallel domains in parallel region definition.")
 		for pos in range(len(domains)-1,-1,-1): #use inverted order (optimization of accesses for fortran storage order)
 			regionStr += "!$acc loop independent vector(%s) " %(vectorSizePPNames[pos])
 			# reduction clause is broken in 15.3. better to let the compiler figure it out.
@@ -1012,7 +1011,7 @@ end if\n" %(calleeNode.getAttribute('name'))
 		gridSizeVarNames = ["cugridSizeX", "cugridSizeY", "cugridSizeZ"]
 		domains = getDomainsWithParallelRegionTemplate(parallelRegionTemplate)
 		if len(domains) > 3 or len(domains) < 1:
-			raise Exception("Invalid number of parallel domains in parallel region definition.")
+			raise UsageError("Invalid number of parallel domains in parallel region definition.")
 		blockStr = "cublock = dim3("
 		gridStr = "cugrid = dim3("
 		for i in range(3):
@@ -1076,7 +1075,7 @@ end if\n" %(calleeNode.getAttribute('name'))
 		elif parallelRegionPosition == "outside":
 			return "attributes(device)"
 		else:
-			raise Exception("invalid parallel region position defined for this routine: %s" %(parallelRegionPosition))
+			raise UsageError("invalid parallel region position defined for this routine: %s" %(parallelRegionPosition))
 
 	def subroutineCallInvocationPrefix(self, subroutineName, parallelRegionTemplate):
 		return 'call %s' %(subroutineName)
@@ -1132,7 +1131,7 @@ end if\n" %(calleeNode.getAttribute('name'))
 				alreadyOnDevice = "no"
 			elif (symbol.isPresent and alreadyOnDevice == "no") \
 			or (not symbol.isPresent and alreadyOnDevice == "yes"):
-				raise Exception("Declaration line contains a mix of device present, non-device-present arrays. \
+				raise UsageError("Declaration line contains a mix of device present, non-device-present arrays. \
 Symbols vs present attributes:\n%s" %(str([(symbol.name, symbol.isPresent) for symbol in dependantSymbols])) \
 				)
 		copyHere = "undefined"
@@ -1144,7 +1143,7 @@ Symbols vs present attributes:\n%s" %(str([(symbol.name, symbol.isPresent) for s
 			elif not symbol.isToBeTransfered and copyHere == "undefined":
 				copyHere = "no"
 			elif (symbol.isToBeTransfered and copyHere == "no") or (not symbol.isToBeTransfered and copyHere == "yes"):
-				raise Exception("Declaration line contains a mix of transferHere / non transferHere arrays. \
+				raise UsageError("Declaration line contains a mix of transferHere / non transferHere arrays. \
 Symbols vs transferHere attributes:\n%s" %(str([(symbol.name, symbol.transferHere) for symbol in dependantSymbols])) \
 				)
 		isOnHost = "undefined"
@@ -1156,15 +1155,15 @@ Symbols vs transferHere attributes:\n%s" %(str([(symbol.name, symbol.transferHer
 			elif not symbol.isHostSymbol and isOnHost == "undefined":
 				isOnHost = "no"
 			elif (symbol.isHostSymbol and symbol.isHostSymbol == "no") or (not symbol.isHostSymbol and symbol.isHostSymbol == "yes"):
-				raise Exception("Declaration line contains a mix of host / non host arrays. \
+				raise UsageError("Declaration line contains a mix of host / non host arrays. \
 Symbols vs host attributes:\n%s" %(str([(symbol.name, symbol.isHostSymbol) for symbol in dependantSymbols])) \
 				)
 		if copyHere == "yes" and alreadyOnDevice == "yes":
-			raise Exception("Symbols with 'present' attribute cannot appear on the same specification line as symbols with 'transferHere' attribute.")
+			raise UsageError("Symbols with 'present' attribute cannot appear on the same specification line as symbols with 'transferHere' attribute.")
 		if copyHere == "yes" and isOnHost == "yes":
-			raise Exception("Symbols with 'transferHere' attribute cannot appear on the same specification line as symbols with 'host' attribute.")
+			raise UsageError("Symbols with 'transferHere' attribute cannot appear on the same specification line as symbols with 'host' attribute.")
 		if alreadyOnDevice == "yes" and isOnHost == "yes":
-			raise Exception("Symbols with 'present' attribute cannot appear on the same specification line as symbols with 'host' attribute.")
+			raise UsageError("Symbols with 'present' attribute cannot appear on the same specification line as symbols with 'host' attribute.")
 
 		#analyse the intent of the symbols. Since one line can only have one intent declaration, we can simply assume the intent of the
 		#first symbol
@@ -1215,7 +1214,7 @@ Symbols vs host attributes:\n%s" %(str([(symbol.name, symbol.isHostSymbol) for s
 
 	def iteratorDefinitionBeforeParallelRegion(self, domains):
 		if len(domains) > 3:
-			raise Exception("Only up to 3 parallel dimensions supported. %i are specified: %s." %(len(domains), str(domains)))
+			raise UsageError("Only up to 3 parallel dimensions supported. %i are specified: %s." %(len(domains), str(domains)))
 		cudaDims = ("x", "y", "z")
 		result = ""
 		for index, domain in enumerate(domains):
@@ -1234,8 +1233,6 @@ Symbols vs host attributes:\n%s" %(str([(symbol.name, symbol.isHostSymbol) for s
 		return result
 
 	def parallelRegionBegin(self, parallelRegionTemplate, outerBranchLevel=0):
-		# if appliesTo(["GPU"], parallelRegionTemplate) and outerBranchLevel != 0:
-		#     raise Exception("Cannot implement a GPU parallel region inside a branch. Please move this parallel region into its own subroutine.")
 		domains = getDomainsWithParallelRegionTemplate(parallelRegionTemplate)
 		regionStr = self.iteratorDefinitionBeforeParallelRegion(domains)
 		regionStr += self.safetyOutsideRegion(domains)
@@ -1333,7 +1330,7 @@ class DebugEmulatedCUDAFortranImplementation(DebugCUDAFortranImplementation):
 			raise Exception("Routine name undefined.")
 		iterators = self.getIterators(parallelRegionTemplate)
 		if not iterators or len(iterators) == 0:
-			raise Exception("No iterators in kernel.")
+			raise UsageError("No iterators in kernel.")
 		error_conditional = "("
 		for i in range(len(iterators)):
 			if i != 0:

@@ -27,6 +27,9 @@
 
 import os, sys, re, logging, logging.handlers, atexit
 
+class UsageError(Exception):
+    pass
+
 def setupDeferredLogging(filename, logLevel):
     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
     streamhandler = logging.StreamHandler(sys.stderr)

@@ -299,6 +299,9 @@ doc = parseString(data)
 
 try:
 	analyseParallelRegions(doc, appliesTo)
+except UsageError as e:
+    logging.error('Error: %s' %(str(e)))
+    sys.exit(1)
 except Exception as e:
 	logging.critical('Error when analysing callgraph file %s: %s'
 		%(str(options.source), str(e))

@@ -31,7 +31,7 @@ from xml.dom.minidom import Document
 from DomHelper import parseString, ImmutableDOMDocument, getClonedDocument
 from optparse import OptionParser
 from H90CallGraphParser import H90XMLSymbolDeclarationExtractor, H90toF90Printer, getSymbolsByName, getModuleNodesByName, getParallelRegionData, getSymbolsByRoutineNameAndSymbolName, getSymbolsByModuleNameAndSymbolName
-from GeneralHelper import openFile, getDataFromFile, setupDeferredLogging, printProgressIndicator, progressIndicatorReset
+from GeneralHelper import UsageError, openFile, getDataFromFile, setupDeferredLogging, printProgressIndicator, progressIndicatorReset
 from RecursiveDirEntries import dirEntries
 from H90SymbolDependencyGraphAnalyzer import SymbolDependencyAnalyzer
 from io import FileIO
@@ -140,6 +140,9 @@ try:
 		parallelRegionData[1],
 		symbolAnalysisByRoutineNameAndSymbolName=symbolAnalysisByRoutineNameAndSymbolName
 	)
+except UsageError as e:
+	logging.error('Error: %s' %(str(e)))
+	sys.exit(1)
 except Exception as e:
 	logging.critical('Error when processing meta information about the codebase: %s' %(str(e)))
 	logging.info(traceback.format_exc())
@@ -165,6 +168,7 @@ implementationsByTemplateName = {
 try:
 	os.mkdir(options.outputDir)
 except OSError as e:
+	#we want to handle if a directory exists. every other exception at this point is thrown again.
 	if e.errno != errno.EEXIST:
 		raise e
 	pass
@@ -186,6 +190,9 @@ for fileNum, fileInDir in enumerate(filesInDir):
 			symbolsByRoutineNameAndSymbolName,
 		)
 		f90printer.processFile(fileInDir)
+	except UsageError as e:
+		logging.error('Error: %s' %(str(e)))
+		sys.exit(1)
 	except Exception as e:
 		logging.critical('Error when generating P90.temp from h90 file %s: %s%s\n' \
 			%(str(fileInDir), str(e), traceback.format_exc())

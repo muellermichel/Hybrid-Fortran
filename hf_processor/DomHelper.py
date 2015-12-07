@@ -229,6 +229,12 @@ def appendSeparatedTextAsNodes(text, separator, doc, parent, nodeName):
         appendedNodes.append(entryNode)
     return appendedNodes
 
+def addAndGetEntries(doc, parent, commaSeparatedEntries):
+    return appendSeparatedTextAsNodes(commaSeparatedEntries, ",", doc, parent, "entry")
+
+def purgeDuplicateRelations(parent):
+    pass
+
 def firstDuplicateChild(parent, newNode, cgDoc=None):
     '''Get first duplicate for the newNode within parent's childNodes'''
     ## trying to make this faster, but with th erecursiveness it's tricky
@@ -365,6 +371,18 @@ def getOrCreateFirstLevelElement(doc, nodeName):
     doc._firstLevelElementCache[nodeName] = element
     return element
 
+def updateAndGetParallelRegionInfo(doc, subroutineNode, parallelRegionSpecification, startLine):
+    relationNode, templateNode = setTemplateInfos(
+        doc,
+        subroutineNode,
+        parallelRegionSpecification,
+        "parallelRegionTemplates",
+        "parallelRegionTemplate",
+        "parallelRegions"
+    )
+    relationNode.setAttribute("startLine", str(startLine))
+    return relationNode, templateNode
+
 def setTemplateInfos(doc, parent, specText, templateParentNodeName, templateNodeName, referenceParentNodeName):
     if not parent:
         raise Exception("cannot add template info '%s' to nonexisting parent" %(specText))
@@ -385,7 +403,7 @@ def setTemplateInfos(doc, parent, specText, templateParentNodeName, templateNode
         textAfterSettingName = settingMatch.group(2)
         settingBracketAnalyzer = BracketAnalyzer()
         settingText, remainder = settingBracketAnalyzer.getTextWithinBracketsAndRemainder(textAfterSettingName)
-        appendSeparatedTextAsNodes(settingText, ',', doc, settingNode, 'entry')
+        addAndGetEntries(doc, settingNode, settingText)
 
     #deduplicate the definition
     duplicateTemplateNode = firstDuplicateChild(templateLibrary, templateNode)

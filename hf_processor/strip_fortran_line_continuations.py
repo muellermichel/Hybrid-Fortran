@@ -50,5 +50,5 @@ def pre_sanitize_fortran():
 
 	print output
 
-setupDeferredLogging('preprocessor.log', logging.DEBUG)
+setupDeferredLogging('preprocessor.log', logging.INFO)
 pre_sanitize_fortran()

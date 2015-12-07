@@ -28,24 +28,27 @@
 import os, sys, re, logging, logging.handlers, atexit
 
 def setupDeferredLogging(filename, logLevel):
-    logging.basicConfig(filename=filename, level=logLevel, format='%(asctime)s %(message)s')
-    # formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-    # streamhandler = logging.StreamHandler(sys.stderr)
-    # streamhandler.setLevel(logLevel)
-    # streamhandler.setFormatter(formatter)
-    # memoryhandler = logging.handlers.MemoryHandler(1024*100, logLevel, streamhandler)
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    streamhandler = logging.StreamHandler(sys.stderr)
+    streamhandler.setLevel(logLevel)
+    streamhandler.setFormatter(formatter)
+    memoryhandler = logging.handlers.MemoryHandler(
+        capacity=1024*100,
+        flushLevel=logging.ERROR,
+        target=streamhandler
+    )
 
-    # filehandler = logging.FileHandler(filename)
-    # filehandler.setLevel(logLevel)
-    # filehandler.setFormatter(formatter)
-
-    # logger = logging.getLogger()
-    # logger.addHandler(memoryhandler)
-    # logger.addHandler(filehandler)
-    # def flush():
-    #     memoryhandler.flush()
-    # atexit.register(flush)
-    # logger.debug("Logger has Initialized")
+    filehandler = logging.FileHandler(filename)
+    filehandler.setLevel(logLevel)
+    filehandler.setFormatter(formatter)
+    logger = logging.getLogger()
+    logger.setLevel(logLevel)
+    logger.addHandler(memoryhandler)
+    logger.addHandler(filehandler)
+    def flush():
+        memoryhandler.flush()
+    atexit.register(flush)
+    logging.debug("Logger has Initialized")
 
 def progressIndicatorReset(stream):
     stream.write("\n")
@@ -62,7 +65,7 @@ def printProgressIndicator(stream, currentlyAtText, currentlyAtNum, totalNum, de
 def stripWhitespace(inputStr):
     match = re.match(r'\s*(.*)\s*', inputStr)
     if not match:
-        raise Exception("Unexpected error: Whitespace could not be removed from string %s" %(inputStr))
+        raise Exception("Whitespace could not be removed from string %s" %(inputStr))
     return match.group(1)
 
 def openFile(file_name, mode):
@@ -70,7 +73,7 @@ def openFile(file_name, mode):
     try:
         the_file = open(file_name, mode)
     except(IOError), e:
-        logging.info("Unable to open the file %s. Ending program. Error: %s" %(file_name, e))
+        logging.critical("Unable to open the file %s. Ending program. Error: %s" %(file_name, e))
         sys.exit(1)
     else:
         return the_file
@@ -133,7 +136,7 @@ def areIndexesWithinQuotes(stringToSearch):
                 prefIndex = index
             index = index + sectionLength
             if sectionLength != 1:
-                raise Exception("Unexpected error: quote begin marker with strange number of characters")
+                raise Exception("Quote begin marker with strange number of characters")
             isStringIndexWithinQuote[prefIndex:index] = [True]
 
             #inbetween quotes part
@@ -149,7 +152,7 @@ def areIndexesWithinQuotes(stringToSearch):
             prefIndex = index
             index = index + sectionLength
             if sectionLength != 1:
-                raise Exception("Unexpected error: quote end marker with strange number of characters")
+                raise Exception("Quote end marker with strange number of characters")
             isStringIndexWithinQuote[prefIndex:index] = [True]
 
             #next part that's not within quotes
@@ -160,7 +163,7 @@ def areIndexesWithinQuotes(stringToSearch):
             isStringIndexWithinQuote[prefIndex:index] = [False] * sectionLength
         #sanity check
         if index != len(stringToSearch):
-            raise Exception("Unexpected error: Index at the end of quotes search is %i. Expected: %i" %(index, len(stringToSearch)))
+            raise Exception("Index at the end of quotes search is %i. Expected: %i" %(index, len(stringToSearch)))
     return isStringIndexWithinQuote
 
 def findRightMostOccurrenceNotInsideQuotes(stringToMatch, stringToSearch, rightStartAt=-1):

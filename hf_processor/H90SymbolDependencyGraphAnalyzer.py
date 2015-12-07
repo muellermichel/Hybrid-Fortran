@@ -97,16 +97,16 @@ class SymbolAnalysis:
             self.symbolType = analysis.symbolType
         if (not type(self.sourceModule) in [unicode, str] or self.sourceModule == "") \
         and (type(analysis.sourceModule) in [unicode, str] and analysis.sourceModule != ""):
-            logging.info(
-                "WARNING: Symbol %s is imported from a module downstream in a callgraph (%s) while not being a module symbol earlier in the stream. SourceModule found where not expected.\n" %(
+            logging.warning(
+                "Symbol %s is imported from a module downstream in a callgraph (%s) while not being a module symbol earlier in the stream. SourceModule found where not expected.\n" %(
                     self.name,
                     routineName
                 )
             )
         if (not type(self.sourceSymbol) in [unicode, str] or self.sourceSymbol == "") \
         and (type(analysis.sourceSymbol) in [unicode, str] and analysis.sourceSymbol != ""):
-            logging.info(
-                "WARNING: Symbol %s is imported from a module downstream in a callgraph (%s) while not being a module symbol earlier in the stream. SourceSymbol found where not expected.\n" %(
+            logging.warning(
+                "Symbol %s is imported from a module downstream in a callgraph (%s) while not being a module symbol earlier in the stream. SourceSymbol found where not expected.\n" %(
                     self.name,
                     routineName
                 )
@@ -193,7 +193,7 @@ class SymbolDependencyAnalyzer:
                     prettyprint(call)
                 ))
             if len(callArguments) != len(routineArguments):
-                logging.info("WARNING: Cannot fully analyze symbol dependencies since argument list from caller %s has different length (%i) than routine argument list (%i) for routine %s.Call argument list: %s\n" %(
+                logging.warning("Cannot fully analyze symbol dependencies since argument list from caller %s has different length (%i) than routine argument list (%i) for routine %s.Call argument list: %s\n" %(
                         call.getAttribute("caller"),
                         len(callArguments),
                         len(routineArguments),

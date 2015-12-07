@@ -31,13 +31,13 @@ parser.add_option("-o", "--output", dest="output",
                   help="output combined statistics to FILENAME", metavar="FILENAME")
 (options, args) = parser.parse_args()
 
-setupDeferredLogging('preprocessor.log', logging.DEBUG)
+setupDeferredLogging('preprocessor.log', logging.INFO)
 
 if not options.inputDir or not options.output:
-	print "please see --help on how to use this program"
+	logging.error("please see --help on how to use this program")
 	sys.exit(1)
 
 statFiles = dirEntries(str(options.inputDir), False, 'cprof')
-print "combining %s" %(str(statFiles))
+logging.info("combining %s" %(str(statFiles)))
 statistics = pstats.Stats(*statFiles)
 statistics.dump_stats(options.output)

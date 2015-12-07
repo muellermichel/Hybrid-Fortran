@@ -47,20 +47,17 @@ def isEqualElement(a, b, ignoreAttributes):
     if aatKey in ignoreAttributes and batKey == aatKey:
       continue
     if aatKey != batKey:
-      if options.debug:
-        print "equality fails for node attributes %s compared to %s; key: %s vs. %s" \
-          %(a.toxml(), b.toxml(), aatKey, batKey)
+      logging.debug("equality fails for node attributes %s compared to %s; key: %s vs. %s" \
+          %(a.toxml(), b.toxml(), aatKey, batKey))
       return False
     if (a.attributes.get(aatKey) == None and b.attributes.get(aatKey) != None) \
     or (a.attributes.get(aatKey) != None and b.attributes.get(aatKey) == None):
-      if options.debug:
-        print "equality fails for node attributes %s compared to %s; one is None, the other not" \
-            %(a.toxml(), b.toxml())
+      logging.debug("equality fails for node attributes %s compared to %s; one is None, the other not" \
+        %(a.toxml(), b.toxml()))
       return False
     if a.attributes.get(aatKey).value != b.attributes.get(aatKey).value:
-      if options.debug:
-          print "equality fails for node attributes %s compared to %s; value: %s vs. %s" \
-            %(a.toxml(), b.toxml(), a.attributes.get(aatKey).value, b.attributes.get(aatKey).value)
+      logging.debug("equality fails for node attributes %s compared to %s; value: %s vs. %s" \
+        %(a.toxml(), b.toxml(), a.attributes.get(aatKey).value, b.attributes.get(aatKey).value))
       return False
 
   if len(a.childNodes)!=len(b.childNodes):
@@ -89,14 +86,14 @@ parser.add_option("-d", "--debug", action="store_true", dest="debug",
                   help="show debug print in standard error output")
 (options, args) = parser.parse_args()
 
-setupDeferredLogging('preprocessor.log', logging.DEBUG)
+setupDeferredLogging('preprocessor.log', logging.DEBUG if options.debug else logging.INFO)
 
 if (not options.inputXML):
-  logging.info("inputXML option is mandatory. Use '--help' for informations on how to use this module")
+  logging.error("inputXML option is mandatory. Use '--help' for informations on how to use this module")
   sys.exit(1)
 
 if (not options.referenceXML):
-  logging.info("referenceXML option is mandatory. Use '--help' for informations on how to use this module")
+  logging.error("referenceXML option is mandatory. Use '--help' for informations on how to use this module")
   sys.exit(1)
 
 ignoreAttributes = []
@@ -105,8 +102,7 @@ if (options.ignoreAttributes):
 
 #read in the xmls and compare them
 try:
-  if options.debug:
-    print "Starting comparison of %s to %s" %(options.inputXML, options.referenceXML)
+  logging.debug("Starting comparison of %s to %s" %(options.inputXML, options.referenceXML))
   inputXMLFile = open(str(options.inputXML),'r')
   inputXMLData = inputXMLFile.read()
   inputXMLFile.close()
@@ -116,20 +112,20 @@ try:
   referenceXMLFile.close()
   referenceXML = parseString(referenceXMLData)
 except Exception, e:
-  if options.debug:
-    print "Returning False because of exception when opening either %s or %s" \
-      %(options.inputXML, options.referenceXML)
+  logging.debug("Returning False because of exception when opening either %s or %s" %(
+    options.inputXML,
+    options.referenceXML
+  ))
   sys.exit(2)
 
 try:
   result = isEqualXML(inputXML, referenceXML, ignoreAttributes)
-  if options.debug:
-    print "Result of equality test (e.g. are they equal?): %s" %(result)
+  logging.debug("Result of equality test (e.g. are they equal?): %s" %(result))
   if result == True:
     sys.exit(1)
   else:
     sys.exit(2)
 
 except Exception, e:
-  logging.info('Error when comparing xmls: %s%s\n' %(str(e), traceback.format_exc()))
+  logging.critical('Error when comparing xmls: %s%s\n' %(str(e), traceback.format_exc()))
   sys.exit(64)

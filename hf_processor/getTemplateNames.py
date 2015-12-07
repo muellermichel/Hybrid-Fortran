@@ -36,10 +36,10 @@ parser.add_option("-d", "--debug", action="store_true", dest="debug",
                   help="show debug print in standard error output")
 (options, args) = parser.parse_args()
 
-setupDeferredLogging('preprocessor.log', logging.DEBUG)
+setupDeferredLogging('preprocessor.log', logging.DEBUG if options.debug else logging.INFO)
 
 if (not options.callgraph):
-    logging.info("callgraph option is mandatory. Use '--help' for informations on how to use this module")
+    logging.error("callgraph option is mandatory. Use '--help' for informations on how to use this module")
     sys.exit(1)
 
 #read in callgraph xml
@@ -53,6 +53,6 @@ try:
   print " ".join(templateNames)
 
 except Exception, e:
-  logging.info('Error when trying to extract template names: %s%s\n' \
+  logging.critical('Error when trying to extract template names: %s%s\n' \
     %(str(e), traceback.format_exc()))
   sys.exit(1)

@@ -19,7 +19,7 @@
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
 #**********************************************************************#
-#  Procedure        generateF90fromH90AndAnalyzedCallGraph.py          #
+#  Procedure        generateP90Codebase.py                             #
 #  Comment          Takes one h90 file and the associated complete     #
 #                   callgraph and produces a compilable F90 file       #
 #  Date             2012/08/01                                         #
@@ -61,7 +61,7 @@ parser.add_option("--optionFlags", dest="optionFlags",
 									help="can be used to switch on or off the following flags (comma separated): DO_NOT_TOUCH_GPU_CACHE_SETTINGS")
 (options, args) = parser.parse_args()
 
-setupDeferredLogging('preprocessor.log', logging.DEBUG)
+setupDeferredLogging('preprocessor.log', logging.DEBUG if options.debug else logging.INFO)
 
 optionFlags = [flag for flag in options.optionFlags.split(',') if flag not in ['', None]] if options.optionFlags != None else []
 logging.info('Option Flags: %s' %(optionFlags))
@@ -69,19 +69,19 @@ if options.debug and 'DEBUG_PRINT' not in optionFlags:
 	optionFlags.append('DEBUG_PRINT')
 
 if (not options.sourceDir):
-		logging.info("sourceDir option is mandatory. Use '--help' for informations on how to use this module")
+		logging.error("sourceDir option is mandatory. Use '--help' for informations on how to use this module")
 		sys.exit(1)
 
 if (not options.outputDir):
-		logging.info("outputDir option is mandatory. Use '--help' for informations on how to use this module")
+		logging.error("outputDir option is mandatory. Use '--help' for informations on how to use this module")
 		sys.exit(1)
 
 if (not options.callgraph):
-		logging.info("callgraph option is mandatory. Use '--help' for informations on how to use this module")
+		logging.error("callgraph option is mandatory. Use '--help' for informations on how to use this module")
 		sys.exit(1)
 
 if (not options.implementation):
-	logging.info("implementation option is mandatory. Use '--help' for informations on how to use this module")
+	logging.error("implementation option is mandatory. Use '--help' for informations on how to use this module")
 	sys.exit(1)
 
 filesInDir = dirEntries(str(options.sourceDir), True, 'h90')
@@ -97,12 +97,9 @@ cgDoc = parseString(getDataFromFile(options.callgraph), immutable=False)
 cgDocWithoutImplicitSymbols = getClonedDocument(cgDoc)
 for fileNum, fileInDir in enumerate(filesInDir):
     parser = H90XMLSymbolDeclarationExtractor(cgDocWithoutImplicitSymbols)
-    parser.debugPrint = options.debug
     parser.processFile(fileInDir)
-    if options.debug:
-        logging.info("Symbol declarations extracted for " + fileInDir + "")
-    else:
-        printProgressIndicator(sys.stderr, fileInDir, fileNum + 1, len(filesInDir), "Symbol parsing, excluding imports")
+	logging.debug("Symbol declarations extracted for " + fileInDir + "")
+    printProgressIndicator(sys.stderr, fileInDir, fileNum + 1, len(filesInDir), "Symbol parsing, excluding imports")
 progressIndicatorReset(sys.stderr)
 
 #   build up symbol table indexed by module name
@@ -119,12 +116,9 @@ symbolsByModuleNameAndSymbolNameWithoutImplicitImports = getSymbolsByModuleNameA
 #   -> update the callgraph document with this information.
 for fileNum, fileInDir in enumerate(filesInDir):
     parser = H90XMLSymbolDeclarationExtractor(cgDoc, symbolsByModuleNameAndSymbolNameWithoutImplicitImports)
-    parser.debugPrint = options.debug
     parser.processFile(fileInDir)
-    if options.debug:
-        logging.info("Symbol imports and declarations extracted for " + fileInDir + "")
-    else:
-        printProgressIndicator(sys.stderr, fileInDir, fileNum + 1, len(filesInDir), "Symbol parsing, including imports")
+	logging.debug("Symbol imports and declarations extracted for " + fileInDir + "")
+    printProgressIndicator(sys.stderr, fileInDir, fileNum + 1, len(filesInDir), "Symbol parsing, including imports")
 progressIndicatorReset(sys.stderr)
 
 #   build up meta informations about the whole codebase
@@ -144,13 +138,11 @@ try:
 		ImmutableDOMDocument(cgDoc),
 		parallelRegionData[2],
 		parallelRegionData[1],
-		symbolAnalysisByRoutineNameAndSymbolName=symbolAnalysisByRoutineNameAndSymbolName,
-		debugPrint=options.debug
+		symbolAnalysisByRoutineNameAndSymbolName=symbolAnalysisByRoutineNameAndSymbolName
 	)
 except Exception as e:
-	logging.info('Error when processing meta information about the codebase: %s' %(str(e)))
-	if options.debug:
-		logging.info(traceback.format_exc())
+	logging.critical('Error when processing meta information about the codebase: %s' %(str(e)))
+	logging.debug(traceback.format_exc())
 	sys.exit(1)
 
 #   build up implementationNamesByTemplateName
@@ -158,12 +150,12 @@ implementationNamesByTemplateName = None
 try:
 	implementationNamesByTemplateName = json.loads(getDataFromFile(options.implementation))
 except ValueError as e:
-	logging.info('Error decoding implementation json (%s): %s' \
+	logging.critical('Error decoding implementation json (%s): %s' \
 		%(str(options.implementation), str(e))
 	)
 	sys.exit(1)
 except Exception as e:
-	logging.info('Could not interpret implementation parameter as json file to read. Trying to use it as an implementation name directly')
+	logging.critical('Could not interpret implementation parameter as json file to read. Trying to use it as an implementation name directly')
 	implementationNamesByTemplateName = {'default':options.implementation}
 if options.debug:
 	logging.info('Initializing H90toF90Printer with the following implementations: %s' %(json.dumps(implementationNamesByTemplateName)))
@@ -197,7 +189,7 @@ for fileNum, fileInDir in enumerate(filesInDir):
 		)
 		f90printer.processFile(fileInDir)
 	except Exception as e:
-		logging.info('Error when generating P90.temp from h90 file %s: %s%s\n' \
+		logging.critical('Error when generating P90.temp from h90 file %s: %s%s\n' \
 			%(str(fileInDir), str(e), traceback.format_exc())
 		)
 		logging.info(traceback.format_exc())

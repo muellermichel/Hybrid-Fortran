@@ -72,7 +72,7 @@ def addAttributeToAllCallGraphAncestors(routines, callNodesByCalleeName, routine
 		return
 	for call in calls:
 		if call.getAttribute("callee") != routineName:
-			raise Exception("Unexpected error: Wrong initialisation of caller-by-callee index.")
+			raise Exception("Wrong initialisation of caller-by-callee index.")
 		#we got a match. search the caller routine
 		callerName = call.getAttribute("caller")
 		for routine in routines:
@@ -98,7 +98,7 @@ def addAttributeToAllCallGraphHeirs(routines, callNodesByCallerName, routineNode
 		return
 	for call in calls:
 		if call.getAttribute("caller") != routineName:
-			raise Exception("Unexpected error: Wrong initialisation of callee-by-caller index.")
+			raise Exception("Wrong initialisation of callee-by-caller index.")
 		#check whether this call is within a parallel region. Only take into consideration those that are.
 		if parallelRegionPosition == "within" and call.getAttribute("parallelRegionPosition") != "surround":
 			continue
@@ -130,7 +130,7 @@ def getFirstKernelCallerInCalleesOf(routineName, callNodesByCallerName, parallel
 			continue
 		for subCall in subCalls:
 			if subCall.getAttribute("caller") != calleeName:
-				raise Exception("Unexpected error: Wrong initialisation of callee-by-caller index.")
+				raise Exception("Wrong initialisation of callee-by-caller index.")
 			if parallelRegionNodesByRoutineName.get(subCall.getAttribute("callee")) != None:
 				kernelCallee = subCall
 				break
@@ -146,7 +146,7 @@ def filterParallelRegionNodes(doc, routineNode, appliesTo, templates):
 			try:
 				routineNode.removeChild(regionsNode)
 			except NotFoundErr:
-				logging.info('Error when analysing callgraph file file %s: region node %s not found in routine node %s'
+				logging.critical('Error when analysing callgraph file file %s: region node %s not found in routine node %s'
 					%(str(options.source), str(regionsNode.toprettyxml()), str(routineNode.toprettyxml()))
 				)
 				sys.exit(1)
@@ -222,7 +222,7 @@ This is not allowed in Hybrid Fortran. Please separate kernel routines from wrap
 		routine = parallelRegionNode.parentNode
 		routineName = routine.getAttribute("name")
 		if routineName == None:
-			raise Exception("Unexpected error: Kernel routine without name")
+			raise Exception("Kernel routine without name")
 		addAttributeToAllCallGraphAncestors(routineNodes, callNodesByCalleeName, routine, "parallelRegionPosition", "inside")
 		addAttributeToAllCallGraphHeirs(routineNodes, callNodesByCallerName, routine, "parallelRegionPosition", "outside")
 
@@ -256,7 +256,7 @@ This is not allowed in Hybrid Fortran. Please separate kernel routines from wrap
 			if kernelWrapperCall != None:
 				kernelWrapperName = kernelWrapperCall.getAttribute("callee")
 				if not kernelCallerProblemFound:
-					logging.info("WARNING: Subroutine %s calls at least one kernel (%s) and at least one kernel wrapper (%s). \
+					logging.warning("Subroutine %s calls at least one kernel (%s) and at least one kernel wrapper (%s). \
 This may cause device attribute mismatch compiler errors. In this case please wrap all kernels called by %s, such that it does not call a mix of kernel wrappers and kernels.\n"
 						%(kernelCallerName, routineName, kernelWrapperName, kernelCallerName)
 					)
@@ -280,10 +280,10 @@ parser.add_option("-p", "--pretty", action="store_true", dest="pretty",
                   help="make xml output pretty")
 (options, args) = parser.parse_args()
 
-setupDeferredLogging('preprocessor.log', logging.DEBUG)
+setupDeferredLogging('preprocessor.log', logging.DEBUG if options.debug else logging.INFO)
 
 if (not options.source):
-    logging.info("sourceXML option is mandatory. Use '--help' for informations on how to use this module")
+    logging.error("sourceXML option is mandatory. Use '--help' for informations on how to use this module")
     sys.exit(1)
 
 appliesTo = ""
@@ -300,11 +300,10 @@ doc = parseString(data)
 try:
 	analyseParallelRegions(doc, appliesTo)
 except Exception as e:
-	logging.info('Error when analysing callgraph file %s: %s'
+	logging.critical('Error when analysing callgraph file %s: %s'
 		%(str(options.source), str(e))
 	)
-	if options.debug:
-		logging.info(traceback.format_exc())
+	logging.info(traceback.format_exc())
 	sys.exit(1)
 
 if (options.pretty):

@@ -49,10 +49,10 @@ parser.add_option("-p", "--pretty", action="store_true", dest="pretty",
                   help="make xml output pretty")
 (options, args) = parser.parse_args()
 
-setupDeferredLogging('preprocessor.log', logging.DEBUG)
+setupDeferredLogging('preprocessor.log', logging.DEBUG if options.debug else logging.INFO)
 
 if (not options.sourceDir):
-    logging.info("sourceDirectory option is mandatory. Use '--help' for informations on how to use this module")
+    logging.error("sourceDirectory option is mandatory. Use '--help' for informations on how to use this module")
     sys.exit(1)
 
 #prepare xml output
@@ -67,12 +67,9 @@ filesInDir = dirEntries(str(options.sourceDir), True, 'h90')
 progressIndicatorReset(sys.stderr)
 for fileNum, fileInDir in enumerate(filesInDir):
     parser = H90XMLCallGraphGenerator(doc)
-    parser.debugPrint = options.debug
     parser.processFile(fileInDir)
-    if options.debug:
-        logging.info("Callgraph generated for " + fileInDir + "")
-    else:
-        printProgressIndicator(sys.stderr, fileInDir, fileNum + 1, len(filesInDir), "Callgraph parsing")
+    logging.debug("Callgraph generated for " + fileInDir + "")
+    printProgressIndicator(sys.stderr, fileInDir, fileNum + 1, len(filesInDir), "Callgraph parsing")
 
 #second pass: moved to generateP90Codebase.py since we need symbol analysis already
 

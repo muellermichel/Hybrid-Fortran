@@ -45,7 +45,7 @@ def getReductionClause(parallelRegionTemplate):
         for operator in reductionScalarsByOperator.keys()
     ])
 
-def getDataDirectiveAndUpdateOnDeviceFlags(currRoutineNode, currParallelRegionTemplates, dependantSymbols, createDeclaration, routineIsKernelCaller, debugPrint, enterOrExit='enter'):
+def getDataDirectiveAndUpdateOnDeviceFlags(currRoutineNode, currParallelRegionTemplates, dependantSymbols, createDeclaration, routineIsKernelCaller, enterOrExit='enter'):
     presentDeclaration = "present" # if currRoutineNode.getAttribute("parallelRegionPosition") == 'inside' else "deviceptr"
     copyDeclaration = "copyin"
     if enterOrExit != 'enter':
@@ -59,18 +59,17 @@ def getDataDirectiveAndUpdateOnDeviceFlags(currRoutineNode, currParallelRegionTe
     dataDeclarationsRequired = False
     commaRequired = False
     for index, symbol in enumerate(dependantSymbols):
-        if debugPrint:
-            logging.info(
-                "analyzing symbol %s for data directive. Domains: %s, IsHostSymbol: %s, IsPresent: %s, IsToBeTransfered: %s, SourceModule: %s, Intent: %s\n" %(
-                    symbol.name,
-                    str(symbol.domains),
-                    symbol.isHostSymbol,
-                    symbol.isPresent,
-                    symbol.isToBeTransfered,
-                    str(symbol.sourceModule),
-                    str(symbol.intent)
-                )
+         logging.debug(
+            "analyzing symbol %s for data directive. Domains: %s, IsHostSymbol: %s, IsPresent: %s, IsToBeTransfered: %s, SourceModule: %s, Intent: %s\n" %(
+                symbol.name,
+                str(symbol.domains),
+                symbol.isHostSymbol,
+                symbol.isPresent,
+                symbol.isToBeTransfered,
+                str(symbol.sourceModule),
+                str(symbol.intent)
             )
+        )
         #Rules that lead to a symbol not being touched by directives
         symbol.isOnDevice = False
         if not symbol.domains or len(symbol.domains) == 0:
@@ -380,7 +379,7 @@ def getIteratorDeclaration(currRoutineNode, currParallelRegionTemplates, archite
 def getCUDAErrorHandling(calleeRoutineNode, errorVariable="cuerror", stopImmediately=True):
     name = calleeRoutineNode.getAttribute('name')
     if not name:
-        raise Exception("Unexpected Error: routine node without name")
+        raise Exception("Routine node without name")
     stopLine = ""
     if stopImmediately:
         stopLine = "stop 1\n"
@@ -787,7 +786,6 @@ end subroutine
             dependantSymbols,
             self.createDeclaration,
             routineIsKernelCaller,
-            debugPrint=False,
             enterOrExit='enter'
         )
         self.currRoutineHasDataDeclarations = dataDeclarationsRequired
@@ -992,8 +990,9 @@ class CUDAFortranImplementation(FortranImplementation):
         FortranImplementation.__init__(self, optionFlags)
 
     def warningOnUnrecognizedSubroutineCallInParallelRegion(self, callerName, calleeName):
-        return "WARNING: subroutine %s called inside %s's parallel region, but it is not defined in a h90 file.\n" \
-                    %(calleeName, callerName)
+        return "subroutine %s called inside %s's parallel region, but it is not defined in a h90 file.\n" %(
+            calleeName, callerName
+        )
 
     def kernelCallConfig(self):
         return "<<< cugrid, cublock >>>"

@@ -20,7 +20,7 @@ parser.add_option("-d", "--debug", action="store_true", dest="debug",
                   help="show debug print in standard error output")
 (options, args) = parser.parse_args()
 
-setupDeferredLogging('preprocessor.log', logging.DEBUG)
+setupDeferredLogging('preprocessor.log', logging.DEBUG if options.debug else logging.INFO)
 
 if (not options.paths or options.paths.strip() == ''):
   print ''
@@ -40,5 +40,5 @@ try:
   print ' '.join(paths)
   sys.exit(0)
 except Exception, e:
-  logging.info('Error when checking whether %s is contained in %s: %s%s\n' %(options.name, options.path, str(e), traceback.format_exc()))
+  logging.critical('Error when checking whether %s is contained in %s: %s%s\n' %(options.name, options.path, str(e), traceback.format_exc()))
   sys.exit(64)

@@ -144,8 +144,8 @@ class FortranCodeSanitizer:
                 if blankPos < 1 or len(remainder) >= previousLineLength:
                     #blank not found or at beginning of line
                     #-> bail out in order to avoid infinite loop - just keep the line as it was.
-                    logging.info(
-                        "WARNING: The following line could not be broken up for Fortran compatibility - no suitable spaces found: %s (remainder: %s)\n" %(
+                    logging.warning(
+                        "The following line could not be broken up for Fortran compatibility - no suitable spaces found: %s (remainder: %s)\n" %(
                             currLine,
                             remainder
                         )
@@ -202,7 +202,6 @@ class H90CallGraphParser(object):
     '''An imperative python parser for h90 sourcefiles, based on a finite state machine and regex'''
     '''This class is intended as an abstract class to be inherited and doesn't do anything useful by itself'''
     '''A minimal implementation of this class implements one or more process*Match routines'''
-    debugPrint = False
     state = 'none'
     currSubprocName = None
     currModuleName = None
@@ -259,13 +258,11 @@ class H90CallGraphParser(object):
         return
 
     def processProcBeginMatch(self, subProcBeginMatch):
-        if self.debugPrint:
-            logging.info('entering %s' %(subProcBeginMatch.group(1)))
+        self.logging.debug('entering %s' %(subProcBeginMatch.group(1)))
         return
 
     def processProcEndMatch(self, subProcEndMatch):
-        if self.debugPrint:
-            logging.info('exiting subprocedure')
+        self.logging.debug('exiting subprocedure')
         return
 
     def processParallelRegionMatch(self, parallelRegionMatch):
@@ -598,12 +595,10 @@ class H90CallGraphParser(object):
             except Exception, e:
                 exc_type, exc_obj, exc_tb = sys.exc_info()
                 fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-                logging.info('Error when parsing file %s on line %i: %s; Debug Print: %s; Print of line:%s\n' %(
-                        str(fileName), self.lineNo, str(e), self.debugPrint, str(line).strip()
-                    )
-                )
-                if self.debugPrint:
-                    logging.info(traceback.format_exc())
+                logging.error('Error when parsing file %s on line %i: %s; Print of line:%s\n' %(
+                    str(fileName), self.lineNo, str(e), str(line).strip()
+                ))
+                self.logging.debug(traceback.format_exc())
                 sys.exit(1)
             self.lineNo += 1
 
@@ -743,7 +738,7 @@ class H90XMLCallGraphGenerator(H90CallGraphParser):
             return
         appendSeparatedTextAsNodes(line, ',', self.doc, self.currDomainDependantRelationNode, 'entry')
 
-def getSymbolsByName(cgDoc, parentNode, parallelRegionTemplates=[], currentSymbolsByName={}, symbolAnalysisByRoutineNameAndSymbolName={}, isModuleSymbols=False, debugPrint=False):
+def getSymbolsByName(cgDoc, parentNode, parallelRegionTemplates=[], currentSymbolsByName={}, symbolAnalysisByRoutineNameAndSymbolName={}, isModuleSymbols=False):
     patterns = H90RegExPatterns.Instance()
     templatesAndEntries = getDomainDependantTemplatesAndEntries(cgDoc, parentNode)
     symbolsByName = {}
@@ -752,7 +747,7 @@ def getSymbolsByName(cgDoc, parentNode, parallelRegionTemplates=[], currentSymbo
         raise Exception("parent node without identifier")
     for template, entry in templatesAndEntries:
         dependantName = entry.firstChild.nodeValue
-        symbol = Symbol(dependantName, template, patterns, debugPrint=debugPrint)
+        symbol = Symbol(dependantName, template, patterns)
         symbol.isModuleSymbol = isModuleSymbols
         analysis = symbolAnalysisByRoutineNameAndSymbolName.get(parentName, {}).get(dependantName)
         symbol.analysis = analysis
@@ -853,16 +848,14 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
             parallelRegionTemplates,
             currentSymbolsByName=self.currSymbolsByName,
             isModuleSymbols=isModuleSymbols,
-            debugPrint=self.debugPrint,
             symbolAnalysisByRoutineNameAndSymbolName=self.symbolAnalysisByRoutineNameAndSymbolName \
                 if hasattr(self, 'self.symbolAnalysisByRoutineNameAndSymbolName') \
                 else {}
         ))
-        if self.debugPrint:
-            logging.info("Symbols loaded from template. Symbols currently active in scope: %s. Module Symbol Property: %s" %(
-                str(self.currSymbolsByName.values()),
-                str([self.currSymbolsByName[symbolName].isModuleSymbol for symbolName in self.currSymbolsByName.keys()])
-            ))
+        self.logging.debug("Symbols loaded from template. Symbols currently active in scope: %s. Module Symbol Property: %s" %(
+            str(self.currSymbolsByName.values()),
+            str([self.currSymbolsByName[symbolName].isModuleSymbol for symbolName in self.currSymbolsByName.keys()])
+        ))
 
     def analyseSymbolInformationOnCurrentLine(self, line, analyseImports=True, isModuleSpecification=False):
         def loadAsAdditionalModuleSymbol(symbol):
@@ -960,8 +953,7 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
         #     routineDependantsByName = getSymbolsByName(
         #         self.cgDoc,
         #         routineNode,
-        #         currentSymbolsByName=self.currSymbolsByName,
-        #         debugPrint=self.debugPrint
+        #         currentSymbolsByName=self.currSymbolsByName
         #     )
         #     for dependantName in routineDependantsByName.keys():
         #         symbol = routineDependantsByName[dependantName]
@@ -984,8 +976,7 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
                 domains of first unmatched: %s"
                 %(self.currModuleName, unmatched, str(self.currSymbolsByName[unmatched[0]].domains))
             )
-        if self.debugPrint:
-            logging.info("Clearing current symbol scope since the module definition is finished")
+        self.logging.debug("Clearing current symbol scope since the module definition is finished")
         self.currSymbolsByName = {}
         #$$$ remove this in case we never enable routine domain dependant specifications for module symbols (likely)
         # self.tentativeModuleSymbolsByName = None
@@ -1121,8 +1112,7 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
     def processModuleEndMatch(self, moduleEndMatch):
         #get handles to currently active symbols -> temporarily save the handles
         self.processSymbolAttributes(isModule=True)
-        if self.debugPrint:
-            logging.info("exiting module %s. Storing informations for symbols %s" %(self.currModuleName, str(self.currSymbols)))
+        self.logging.debug("exiting module %s. Storing informations for symbols %s" %(self.currModuleName, str(self.currSymbols)))
         #finish parsing -> superclass destroys handles
         super(H90XMLSymbolDeclarationExtractor, self).processModuleEndMatch(moduleEndMatch)
         #store our symbol informations to the xml
@@ -1135,8 +1125,7 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
     def processProcEndMatch(self, subProcEndMatch):
         #get handles to currently active symbols -> temporarily save the handles
         self.processSymbolAttributes()
-        if self.debugPrint:
-            logging.info("exiting procedure %s. Storing informations for symbols %s" %(self.currSubprocName, str(self.currSymbols)))
+        self.logging.debug("exiting procedure %s. Storing informations for symbols %s" %(self.currSubprocName, str(self.currSymbols)))
         #finish parsing -> superclass destroys handles
         super(H90XMLSymbolDeclarationExtractor, self).processProcEndMatch(subProcEndMatch)
         #store our symbol informations to the xml
@@ -1178,7 +1167,7 @@ def getSymbolsByModuleNameAndSymbolName(cgDoc, moduleNodesByName, symbolAnalysis
             symbol.sourceModule = moduleName
     return symbolsByModuleNameAndSymbolName
 
-def getSymbolsByRoutineNameAndSymbolName(cgDoc, routineNodesByProcName, parallelRegionTemplatesByProcName, symbolAnalysisByRoutineNameAndSymbolName={}, debugPrint=False):
+def getSymbolsByRoutineNameAndSymbolName(cgDoc, routineNodesByProcName, parallelRegionTemplatesByProcName, symbolAnalysisByRoutineNameAndSymbolName={}):
     patterns = H90RegExPatterns.Instance()
     symbolsByRoutineNameAndSymbolName = {}
     for procName in routineNodesByProcName:
@@ -1189,7 +1178,6 @@ def getSymbolsByRoutineNameAndSymbolName(cgDoc, routineNodesByProcName, parallel
             routine,
             parallelRegionTemplatesByProcName.get(procName,[]),
             isModuleSymbols=False,
-            debugPrint=debugPrint,
             symbolAnalysisByRoutineNameAndSymbolName=symbolAnalysisByRoutineNameAndSymbolName
         )
     return symbolsByRoutineNameAndSymbolName
@@ -1223,7 +1211,6 @@ class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
         self,
         cgDoc,
         implementationsByTemplateName,
-        debugPrint=False,
         outputStream=sys.stdout,
         moduleNodesByName=None,
         parallelRegionData=None,
@@ -1233,7 +1220,6 @@ class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
     ):
         super(H90toF90Printer, self).__init__(cgDoc, moduleNodesByName=moduleNodesByName, parallelRegionData=parallelRegionData)
         self.implementationsByTemplateName = implementationsByTemplateName
-        self.debugPrint = debugPrint
         self.outputStream = outputStream
         self.currRoutineIsCallingParallelRegion = False
         self.currSubroutineImplementationNeedsToBeCommented = False
@@ -1266,15 +1252,13 @@ class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
                     self.cgDoc,
                     self.routineNodesByProcName,
                     self.parallelRegionTemplatesByProcName,
-                    self.symbolAnalysisByRoutineNameAndSymbolName,
-                    debugPrint=self.debugPrint
+                    self.symbolAnalysisByRoutineNameAndSymbolName
                 )
         except Exception, e:
             exc_type, exc_obj, exc_tb = sys.exc_info()
             fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
             logging.info('Error when initializing h90 conversion: %s' %(str(e)))
-            if self.debugPrint:
-                logging.info(traceback.format_exc())
+            self.logging.debug(traceback.format_exc())
             sys.exit(1)
 
     @property
@@ -1329,7 +1313,7 @@ This is not allowed for implementations using %s.\
         and not (self.state == "inside_branch" and self.stateBeforeBranch == "inside_parallelRegion") \
         and self.routineNodesByProcName[self.currSubprocName].getAttribute("parallelRegionPosition") != "outside" \
         and len(accessors) != 0:
-            logging.info("WARNING: Dependant symbol %s accessed with accessor domains (%s) outside of a parallel region or subroutine call in subroutine %s(%s:%i)" \
+            logging.warning("Dependant symbol %s accessed with accessor domains (%s) outside of a parallel region or subroutine call in subroutine %s(%s:%i)" \
                 %(symbol.name, str(accessors), self.currSubprocName, self.fileName, self.lineNo)
             )
 
@@ -1397,15 +1381,14 @@ This is not allowed for implementations using %s.\
                 self.currParallelRegionTemplateNode,
                 inside_subroutine_call=isInsideSubroutineCall
             )
-        if self.debugPrint:
-            logging.info("symbol %s on line %i rewritten to %s; change required: %s, accessors: %s, num of independent domains: %i" %(
-                str(symbol),
-                self.lineNo,
-                symbol_access,
-                accessPatternChangeRequired,
-                str(accessors),
-                numOfIndependentDomains
-            ))
+        self.logging.debug("symbol %s on line %i rewritten to %s; change required: %s, accessors: %s, num of independent domains: %i" %(
+            str(symbol),
+            self.lineNo,
+            symbol_access,
+            accessPatternChangeRequired,
+            str(accessors),
+            numOfIndependentDomains
+        ))
         return (prefix + symbol_access + postfix).rstrip() + "\n"
 
     def processSymbolsAndGetAdjustedLine(self, line, isInsideSubroutineCall):
@@ -1426,7 +1409,7 @@ This is not allowed for implementations using %s.\
                 processed = self.processSymbolMatchAndGetAdjustedLine(work, nextMatch, symbol, isInsideSubroutineCall, isPointerAssignment)
                 adjustedMatch = symbol.namePattern.match(processed)
                 if not adjustedMatch:
-                    raise Exception("Unexpected error: symbol %s can't be matched again after adjustment. Adjusted portion: %s" %(symbol.name, processed))
+                    raise Exception("Symbol %s can't be matched again after adjustment. Adjusted portion: %s" %(symbol.name, processed))
                 lineSections.append(adjustedMatch.group(2))
                 work = adjustedMatch.group(3)
                 nextMatch = symbol.namePattern.match(work)
@@ -1466,14 +1449,13 @@ This is not allowed for implementations using %s.\
         parallelRegionPosition = None
         if self.currCalleeNode:
             parallelRegionPosition = self.currCalleeNode.getAttribute("parallelRegionPosition")
-        if self.debugPrint:
-            logging.info("In subroutine %s: Processing subroutine call to %s, parallel region position: %s" \
-                %(self.currSubprocName, self.currCalleeName, parallelRegionPosition) \
-            )
+        self.logging.debug("In subroutine %s: Processing subroutine call to %s, parallel region position: %s" \
+            %(self.currSubprocName, self.currCalleeName, parallelRegionPosition) \
+        )
         if self.currCalleeNode and parallelRegionPosition == "within":
             parallelRegionTemplates = self.parallelRegionTemplatesByProcName.get(self.currCalleeName)
             if parallelRegionTemplates == None or len(parallelRegionTemplates) == 0:
-                raise Exception("Unexpected error: No parallel region templates found for subroutine %s" %(self.currCalleeName))
+                raise Exception("No parallel region templates found for subroutine %s" %(self.currCalleeName))
             adjustedLine = self.implementation.kernelCallPreparation(parallelRegionTemplates[0], calleeNode=self.currCalleeNode)
             adjustedLine = adjustedLine + "call " + self.currCalleeName + " " + self.implementation.kernelCallConfig()
 
@@ -1672,7 +1654,7 @@ This is not allowed for implementations using %s.\
             return
         callsLibraries = self.cgDoc.getElementsByTagName("calls")
         if not callsLibraries or len(callsLibraries) == 0:
-            raise Exception("Unexpected Error: Caller library not found.")
+            raise Exception("Caller library not found.")
         calls = callsLibraries[0].getElementsByTagName("call")
         for call in calls:
             if call.getAttribute("caller") != self.currSubprocName:
@@ -1733,10 +1715,9 @@ This is not allowed for implementations using %s.\
 
     def processParallelRegionMatch(self, parallelRegionMatch):
         super(H90toF90Printer, self).processParallelRegionMatch(parallelRegionMatch)
-        if self.debugPrint:
-            logging.info("...parallel region starts on line %i with active symbols %s" \
-                %(self.lineNo, str(self.currSymbolsByName.values())) \
-            )
+        self.logging.debug("...parallel region starts on line %i with active symbols %s" \
+            %(self.lineNo, str(self.currSymbolsByName.values())) \
+        )
         self.prepareActiveParallelRegion('parallelRegionBegin')
 
     def processParallelRegionEndMatch(self, parallelRegionEndMatch):
@@ -1849,10 +1830,9 @@ This is not allowed for implementations using %s.\
                     self.currRoutineIsCallingParallelRegion,
                     self.routineNodesByProcName[self.currSubprocName].getAttribute('parallelRegionPosition')
                 ).rstrip() + " ! type %i symbol added for this subroutine\n" %(symbol.declarationType)
-                if self.debugPrint:
-                    logging.info("...In subroutine %s: Symbol %s additionally declared" \
-                        %(self.currSubprocName, symbol) \
-                    )
+                self.logging.debug("...In subroutine %s: Symbol %s additionally declared" \
+                    %(self.currSubprocName, symbol) \
+                )
 
             #########################################################################
             # create declaration lines for called kernels                           #
@@ -1887,10 +1867,9 @@ This is not allowed for implementations using %s.\
                         self.currRoutineIsCallingParallelRegion,
                         self.routineNodesByProcName[self.currSubprocName].getAttribute('parallelRegionPosition')
                     ).rstrip() + " ! type %i symbol added for callee %s\n" %(symbol.declarationType, calleeName)
-                    if self.debugPrint:
-                        logging.info("...In subroutine %s: Symbol %s additionally declared and passed to %s" \
-                            %(self.currSubprocName, symbol, calleeName) \
-                        )
+                    self.logging.debug("...In subroutine %s: Symbol %s additionally declared and passed to %s" \
+                        %(self.currSubprocName, symbol, calleeName) \
+                    )
                 #TODO: move this into implementation classes
                 toBeCompacted = packedRealSymbolsByCalleeName.get(calleeName, [])
                 if len(toBeCompacted) > 0:
@@ -1908,10 +1887,9 @@ This is not allowed for implementations using %s.\
                         self.currRoutineIsCallingParallelRegion,
                         self.routineNodesByProcName[self.currSubprocName].getAttribute('parallelRegionPosition')
                     ).rstrip() + " ! compaction array added for callee %s\n" %(calleeName)
-                    if self.debugPrint:
-                        logging.info("...In subroutine %s: Symbols %s packed into array %s" \
-                            %(self.currSubprocName, toBeCompacted, compactedArrayName) \
-                        )
+                    self.logging.debug("...In subroutine %s: Symbols %s packed into array %s" \
+                        %(self.currSubprocName, toBeCompacted, compactedArrayName) \
+                    )
 
             additionalDeclarationsStr += self.implementation.declarationEnd( \
                 self.currSymbolsByName.values() + additionalImports, \
@@ -1960,7 +1938,7 @@ This is not allowed for implementations using %s.\
         for symbol in self.symbolsOnCurrentLine:
             match = symbol.getDeclarationMatch(str(adjustedLine))
             if not match:
-                raise Exception("Unexpected error: Symbol %s not found on a line where it has already been identified before. Current string to search: %s" \
+                raise Exception("Symbol %s not found on a line where it has already been identified before. Current string to search: %s" \
                     %(symbol, adjustedLine))
             adjustedLine = symbol.getAdjustedDeclarationLine(match, \
                 self.parallelRegionTemplatesByProcName.get(self.currSubprocName), \
@@ -2028,7 +2006,7 @@ This is not allowed for implementations using %s.\
         and self.routineNodesByProcName[self.currSubprocName].getAttribute('parallelRegionPosition') == "within":
             templateRelations = self.parallelRegionTemplateRelationsByProcName.get(self.currSubprocName)
             if templateRelations == None or len(templateRelations) == 0:
-                raise Exception("Unexpected Error: No parallel region template relation found for this region.")
+                raise Exception("No parallel region template relation found for this region.")
             for templateRelation in templateRelations:
                 startLine = templateRelation.getAttribute("startLine")
                 if startLine in [None, '']:
@@ -2037,7 +2015,7 @@ This is not allowed for implementations using %s.\
                 try:
                     startLineInt = int(startLine)
                 except ValueError:
-                    raise Exception("Unexpected Error: Invalid startLine definition for parallel region template relation: %s\n. All active template relations: %s\nRoutine node: %s" %(
+                    raise Exception("Invalid startLine definition for parallel region template relation: %s\n. All active template relations: %s\nRoutine node: %s" %(
                         templateRelation.toxml(),
                         [templateRelation.toxml() for templateRelation in templateRelations],
                         self.routineNodesByProcName[self.currSubprocName].toprettyxml()
@@ -2046,21 +2024,20 @@ This is not allowed for implementations using %s.\
                     self.currParallelRegionRelationNode = templateRelation
                     break
             else:
-                raise Exception("Unexpected Error: No parallel region template relation was matched for the current linenumber.")
-            if self.debugPrint:
-                logging.info("parallel region detected on line %i with template relation %s" \
-                    %(self.lineNo, self.currParallelRegionRelationNode.toxml()) \
-                )
+                raise Exception("No parallel region template relation was matched for the current linenumber.")
+            self.logging.debug("parallel region detected on line %i with template relation %s" \
+                %(self.lineNo, self.currParallelRegionRelationNode.toxml()) \
+            )
             templates = self.parallelRegionTemplatesByProcName.get(self.currSubprocName)
             if templates == None or len(templates) == 0:
-                raise Exception("Unexpected Error: No parallel region template found for this region.")
+                raise Exception("No parallel region template found for this region.")
             activeTemplateID = self.currParallelRegionRelationNode.getAttribute("id")
             for template in templates:
                 if template.getAttribute("id") == activeTemplateID:
                     self.currParallelRegionTemplateNode = template
                     break
             else:
-                raise Exception("Unexpected Error: No parallel region template has matched the active template ID.")
+                raise Exception("No parallel region template has matched the active template ID.")
             self.currParallelIterators = self.implementation.getIterators(self.currParallelRegionTemplateNode)
             if len(self.currParallelIterators) > 0:
                 self.processParallelRegionMatch(parallelRegionMatch)
@@ -2106,8 +2083,12 @@ This is not allowed for implementations using %s.\
         subProcCallMatch = self.patterns.subprocCallPattern.match(str(line))
         if subProcCallMatch:
             if subProcCallMatch.group(1) not in self.routineNodesByProcName.keys():
-                logging.info(self.implementation.warningOnUnrecognizedSubroutineCallInParallelRegion( \
-                    self.currSubprocName, subProcCallMatch.group(1)))
+                message = self.implementation.warningOnUnrecognizedSubroutineCallInParallelRegion(
+                    self.currSubprocName,
+                    subProcCallMatch.group(1)
+                )
+                if message != "":
+                    logging.warning(message)
             self.processCallMatch(subProcCallMatch)
             if self.state != 'inside_subroutine_call' and not (self.state == "inside_branch" and self.stateBeforeBranch == "inside_subroutine_call"):
                 self.processCallPost()
@@ -2155,11 +2136,10 @@ This is not allowed for implementations using %s.\
             [self.additionalWrapperImportsByKernelName[kernelName] for kernelName in self.additionalWrapperImportsByKernelName.keys()],
             []
         )
-        if self.debugPrint:
-            logging.info("curr Module: %s; additional imports: %s" %(
-                self.currModuleName,
-                ["%s: %s from %s" %(symbol.name, symbol.declarationType, symbol.sourceModule) for symbol in additionalImports]
-            ))
+        self.logging.debug("curr Module: %s; additional imports: %s" %(
+            self.currModuleName,
+            ["%s: %s from %s" %(symbol.name, symbol.declarationType, symbol.sourceModule) for symbol in additionalImports]
+        ))
         for symbol in additionalImports:
             if symbol.declarationType not in [DeclarationType.FOREIGN_MODULE_SCALAR, DeclarationType.LOCAL_ARRAY, DeclarationType.MODULE_ARRAY]:
                 continue
@@ -2199,7 +2179,6 @@ This is not allowed for implementations using %s.\
     #TODO: remove tab argument everywhere
     def prepareLine(self, line, tab):
         self.currentLine = self.codeSanitizer.sanitizeLines(line)
-        if self.debugPrint:
-            logging.info("[%s]:%i:%s" \
-                %(self.state,self.lineNo,self.currentLine) \
-            )
+        self.logging.debug("[%s]:%i:%s" \
+            %(self.state,self.lineNo,self.currentLine) \
+        )

@@ -503,7 +503,7 @@ def getDomainDependantTemplatesAndEntries(cgDoc, routineNode):
         template = domainDependantTemplateByID[templateID]
         for entry in entries:
             if not entry.firstChild:
-                raise Exception("Unexpected Error: DependantName undefined in subroutine %s, Entry: %s" \
+                raise Exception("DependantName undefined in subroutine %s, Entry: %s" \
                     %(self.currSubprocName, entry.toxml()))
             result.append((template, entry))
     return result

@@ -39,10 +39,10 @@ parser.add_option("-i", "--sourceXML", dest="source",
                   help="read callgraph from this XML file", metavar="XML")
 (options, args) = parser.parse_args()
 
-setupDeferredLogging('preprocessor.log', logging.DEBUG)
+setupDeferredLogging('preprocessor.log', logging.INFO)
 
 if (not options.source):
-    logging.info("sourceXML option is mandatory. Use '--help' for informations on how to use this module")
+    logging.error("sourceXML option is mandatory. Use '--help' for informations on how to use this module")
     sys.exit(1)
 
 #read in working xml

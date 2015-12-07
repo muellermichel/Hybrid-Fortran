@@ -31,19 +31,20 @@ class UsageError(Exception):
     pass
 
 def setupDeferredLogging(filename, logLevel):
-    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    streamFormatter = logging.Formatter('%(levelname)s - %(message)s')
     streamhandler = logging.StreamHandler(sys.stderr)
     streamhandler.setLevel(logLevel)
-    streamhandler.setFormatter(formatter)
+    streamhandler.setFormatter(streamFormatter)
     memoryhandler = logging.handlers.MemoryHandler(
         capacity=1024*100,
         flushLevel=logging.ERROR,
         target=streamhandler
     )
 
+    logFileFormatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
     filehandler = logging.FileHandler(filename)
     filehandler.setLevel(logLevel)
-    filehandler.setFormatter(formatter)
+    filehandler.setFormatter(logFileFormatter)
     logger = logging.getLogger()
     logger.setLevel(logLevel)
     logger.addHandler(memoryhandler)

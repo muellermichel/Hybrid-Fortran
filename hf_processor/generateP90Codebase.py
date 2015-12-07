@@ -142,7 +142,7 @@ try:
 	)
 except Exception as e:
 	logging.critical('Error when processing meta information about the codebase: %s' %(str(e)))
-	logging.debug(traceback.format_exc())
+	logging.info(traceback.format_exc())
 	sys.exit(1)
 
 #   build up implementationNamesByTemplateName

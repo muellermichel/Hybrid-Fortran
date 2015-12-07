@@ -1257,8 +1257,8 @@ class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
         except Exception, e:
             exc_type, exc_obj, exc_tb = sys.exc_info()
             fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-            logging.info('Error when initializing h90 conversion: %s' %(str(e)))
-            logging.debug(traceback.format_exc())
+            logging.critical('Error when initializing h90 conversion: %s' %(str(e)))
+            logging.info(traceback.format_exc())
             sys.exit(1)
 
     @property

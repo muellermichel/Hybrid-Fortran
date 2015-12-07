@@ -94,20 +94,20 @@ cgDoc = parseString(getDataFromFile(options.callgraph), immutable=False)
 #   note: We do this, since for simplicity reasons, the declaration parser relies on the symbol names that
 #   have been declared in @domainDependant directives. Since these directives come *after* the declaration,
 #   we needthis a pass
-cgDocWithoutImplicitSymbols = getClonedDocument(cgDoc)
+# cgDoc = getClonedDocument(cgDoc)
 for fileNum, fileInDir in enumerate(filesInDir):
-	parser = H90XMLSymbolDeclarationExtractor(cgDocWithoutImplicitSymbols)
+	parser = H90XMLSymbolDeclarationExtractor(cgDoc)
 	parser.processFile(fileInDir)
 	logging.debug("Symbol declarations extracted for " + fileInDir + "")
 	printProgressIndicator(sys.stderr, fileInDir, fileNum + 1, len(filesInDir), "Symbol parsing, excluding imports")
 progressIndicatorReset(sys.stderr)
 
 #   build up symbol table indexed by module name
-moduleNodesByNameWithoutImplicitImports = getModuleNodesByName(cgDocWithoutImplicitSymbols)
-symbolAnalyzer = SymbolDependencyAnalyzer(cgDocWithoutImplicitSymbols)
+moduleNodesByNameWithoutImplicitImports = getModuleNodesByName(cgDoc)
+symbolAnalyzer = SymbolDependencyAnalyzer(cgDoc)
 symbolAnalysisByRoutineNameAndSymbolNameWithoutImplicitImports = symbolAnalyzer.getSymbolAnalysisByRoutine()
 symbolsByModuleNameAndSymbolNameWithoutImplicitImports = getSymbolsByModuleNameAndSymbolName(
-	ImmutableDOMDocument(cgDocWithoutImplicitSymbols),
+	ImmutableDOMDocument(cgDoc),
 	moduleNodesByNameWithoutImplicitImports,
 	symbolAnalysisByRoutineNameAndSymbolName=symbolAnalysisByRoutineNameAndSymbolNameWithoutImplicitImports
 )

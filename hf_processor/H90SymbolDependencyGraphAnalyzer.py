@@ -31,7 +31,7 @@
 
 from xml.dom.minidom import Document
 from DomHelper import addCallers, addCallees, createOrGetFirstNodeWithName, getDomainDependantTemplatesAndEntries
-from GeneralHelper import enum, prettyprint
+from GeneralHelper import enum, prettyprint, UsageError
 import sys
 import logging
 
@@ -130,10 +130,13 @@ class SymbolDependencyAnalyzer:
                 index[identifier] = callList
             return index
 
-        routinesByName = dict(
-            (routine.getAttribute("name"), routine)
-            for routine in doc.getElementsByTagName("routine")
-        )
+        routinesByName = {}
+        for routine in doc.getElementsByTagName("routine"):
+            routineName = routine.getAttribute("name")
+            if routineName in routinesByName:
+                raise UsageError("Duplicate subroutines found with name %s. Subroutines need to have unique names in Hybrid Fortran." %(routineName))
+            routinesByName[routineName] = routine
+
         callsByCalleeName = getCallIndexByAttribute("callee")
         callsByCallerName = getCallIndexByAttribute("caller")
         callGraphEdgesByCallerName = {}

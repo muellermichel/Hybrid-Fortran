@@ -232,8 +232,32 @@ def appendSeparatedTextAsNodes(text, separator, doc, parent, nodeName):
 def addAndGetEntries(doc, parent, commaSeparatedEntries):
     return appendSeparatedTextAsNodes(commaSeparatedEntries, ",", doc, parent, "entry")
 
-def purgeDuplicateRelations(parent):
+def deduplicateRelations(parent):
     pass
+
+def hasDuplicateAttributes(node1, node2):
+    if hasattr(node1, "tagName") and ((not hasattr(node2, "tagName")) or node1.tagName != node2.tagName):
+        return False
+    if not node2.attributes or len(node2.attributes) == 0:
+        if not node1.attributes or len(node1.attributes) == 0:
+            #both nodes don't have any attributes
+            return True
+        else:
+            return False
+    if len(node2.attributes) != len(node1.attributes):
+        return False
+    for (name, value) in node1.attributes.items():
+        #we don't care for id attributes. That is, if two otherwise identical nodes have different ids,
+        #they shall not be called unique.
+        if name == "id":
+            continue
+        newAttributeValue = node2.getAttribute(name)
+        if (value != newAttributeValue):
+            break;
+    else:
+        #the inner loop has never breaked -> both nodes share all attributes.
+        return True
+    return False
 
 def firstDuplicateChild(parent, newNode, cgDoc=None):
     '''Get first duplicate for the newNode within parent's childNodes'''
@@ -259,28 +283,8 @@ def firstDuplicateChild(parent, newNode, cgDoc=None):
 
     nodesWithDuplicateAttributes = []
     for childNode in parent.childNodes:
-        if hasattr(childNode, "tagName") and ((not hasattr(newNode, "tagName")) or childNode.tagName != newNode.tagName):
-                continue
-        if (not newNode.attributes or len(newNode.attributes) == 0):
-            if (not childNode.attributes or len(childNode.attributes) == 0):
-                #both the new node and the current childnode don't have any attributes
-                nodesWithDuplicateAttributes.append(childNode)
-                continue
-            else:
-                #child has attributes while newNode doesn't have -> next!
-                continue
-        for (name, value) in childNode.attributes.items():
-            #we don't care for id attributes. That is, if two otherwise identical nodes have different ids,
-            #they shall not be called unique.
-            if name == "id":
-                continue
-            newAttributeValue = newNode.getAttribute(name)
-            if (value != newAttributeValue):
-                break;
-        else:
-            #the inner loop has never breaked -> current child shares all attribute values with newNode.
+        if hasDuplicateAttributes(childNode, newNode):
             nodesWithDuplicateAttributes.append(childNode)
-            break
     if len(nodesWithDuplicateAttributes) == 0:
         return None
 
@@ -320,7 +324,6 @@ def firstDuplicateChild(parent, newNode, cgDoc=None):
                 break
         else:
             return node
-
     return None
 
 def getAttributesDomainsDeclarationPrefixAndMacroNames(moduleTemplate, procedureTemplate):

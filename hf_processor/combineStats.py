@@ -38,6 +38,6 @@ if not options.inputDir or not options.output:
 	sys.exit(1)
 
 statFiles = dirEntries(str(options.inputDir), False, 'cprof')
-logging.info("combining %s" %(str(statFiles)))
+logging.debug("combining %s" %(str(statFiles)))
 statistics = pstats.Stats(*statFiles)
 statistics.dump_stats(options.output)

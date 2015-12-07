@@ -199,7 +199,7 @@ def analyseParallelRegions(doc, appliesTo):
 
 	parallelRegionNodes = doc.getElementsByTagName("parallelRegions")
 	parallelRegionNodesByRoutineName = {}
-	logging.info("Populating parallel region cache")
+	sys.stderr.write("Populating parallel region cache\n")
 	for regionNum, parallelRegionNode in enumerate(parallelRegionNodes):
 		routine = parallelRegionNode.parentNode
 		routineName = routine.getAttribute("name")
@@ -209,7 +209,7 @@ def analyseParallelRegions(doc, appliesTo):
 
 	kernelCallerProblemFound = False
 	messagesPresentedFor = []
-	logging.info("Parallel region analysis")
+	sys.stderr.write("Parallel region analysis\n")
 	for regionNum, parallelRegionNode in enumerate(parallelRegionNodes):
 		if not parallelRegionNode.parentNode.tagName == "routine":
 			raise Exception("Parallel region not within routine.")
@@ -291,7 +291,7 @@ if options.appliesTo and options.appliesTo.upper() != "CPU":
 	appliesTo = options.appliesTo
 
 #read in working xml
-logging.info("Reading codebase meta information")
+sys.stderr.write("Reading codebase meta information\n")
 srcFile = openFile(str(options.source),'r')
 data = srcFile.read()
 srcFile.close()

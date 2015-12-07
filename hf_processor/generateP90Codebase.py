@@ -64,7 +64,7 @@ parser.add_option("--optionFlags", dest="optionFlags",
 setupDeferredLogging('preprocessor.log', logging.DEBUG if options.debug else logging.INFO)
 
 optionFlags = [flag for flag in options.optionFlags.split(',') if flag not in ['', None]] if options.optionFlags != None else []
-logging.info('Option Flags: %s' %(optionFlags))
+logging.debug('Option Flags: %s' %(optionFlags))
 if options.debug and 'DEBUG_PRINT' not in optionFlags:
 	optionFlags.append('DEBUG_PRINT')
 
@@ -96,10 +96,10 @@ cgDoc = parseString(getDataFromFile(options.callgraph), immutable=False)
 #   we needthis a pass
 cgDocWithoutImplicitSymbols = getClonedDocument(cgDoc)
 for fileNum, fileInDir in enumerate(filesInDir):
-    parser = H90XMLSymbolDeclarationExtractor(cgDocWithoutImplicitSymbols)
-    parser.processFile(fileInDir)
+	parser = H90XMLSymbolDeclarationExtractor(cgDocWithoutImplicitSymbols)
+	parser.processFile(fileInDir)
 	logging.debug("Symbol declarations extracted for " + fileInDir + "")
-    printProgressIndicator(sys.stderr, fileInDir, fileNum + 1, len(filesInDir), "Symbol parsing, excluding imports")
+	printProgressIndicator(sys.stderr, fileInDir, fileNum + 1, len(filesInDir), "Symbol parsing, excluding imports")
 progressIndicatorReset(sys.stderr)
 
 #   build up symbol table indexed by module name
@@ -115,15 +115,15 @@ symbolsByModuleNameAndSymbolNameWithoutImplicitImports = getSymbolsByModuleNameA
 #   parse the symbols again, this time know about all informations in the sourced modules in import
 #   -> update the callgraph document with this information.
 for fileNum, fileInDir in enumerate(filesInDir):
-    parser = H90XMLSymbolDeclarationExtractor(cgDoc, symbolsByModuleNameAndSymbolNameWithoutImplicitImports)
-    parser.processFile(fileInDir)
+	parser = H90XMLSymbolDeclarationExtractor(cgDoc, symbolsByModuleNameAndSymbolNameWithoutImplicitImports)
+	parser.processFile(fileInDir)
 	logging.debug("Symbol imports and declarations extracted for " + fileInDir + "")
-    printProgressIndicator(sys.stderr, fileInDir, fileNum + 1, len(filesInDir), "Symbol parsing, including imports")
+	printProgressIndicator(sys.stderr, fileInDir, fileNum + 1, len(filesInDir), "Symbol parsing, including imports")
 progressIndicatorReset(sys.stderr)
 
 #   build up meta informations about the whole codebase
 try:
-	logging.info('Processing informations about the whole codebase')
+	sys.stderr.write('Processing informations about the whole codebase\n')
 	moduleNodesByName = getModuleNodesByName(cgDoc)
 	parallelRegionData = getParallelRegionData(cgDoc)
 	symbolAnalyzer = SymbolDependencyAnalyzer(cgDoc)
@@ -157,8 +157,7 @@ except ValueError as e:
 except Exception as e:
 	logging.critical('Could not interpret implementation parameter as json file to read. Trying to use it as an implementation name directly')
 	implementationNamesByTemplateName = {'default':options.implementation}
-if options.debug:
-	logging.info('Initializing H90toF90Printer with the following implementations: %s' %(json.dumps(implementationNamesByTemplateName)))
+logging.debug('Initializing H90toF90Printer with the following implementations: %s' %(json.dumps(implementationNamesByTemplateName)))
 implementationsByTemplateName = {
 	templateName:getattr(FortranImplementation, implementationNamesByTemplateName[templateName])(optionFlags)
 	for templateName in implementationNamesByTemplateName.keys()
@@ -179,13 +178,12 @@ for fileNum, fileInDir in enumerate(filesInDir):
 		f90printer = H90toF90Printer(
 			ImmutableDOMDocument(cgDoc), #using our immutable version we can speed up ALL THE THINGS through caching
 			implementationsByTemplateName,
-			options.debug,
 			outputStream,
 			moduleNodesByName,
-        	parallelRegionData,
-        	symbolAnalysisByRoutineNameAndSymbolName,
-        	symbolsByModuleNameAndSymbolName,
-        	symbolsByRoutineNameAndSymbolName,
+			parallelRegionData,
+			symbolAnalysisByRoutineNameAndSymbolName,
+			symbolsByModuleNameAndSymbolName,
+			symbolsByRoutineNameAndSymbolName,
 		)
 		f90printer.processFile(fileInDir)
 	except Exception as e:

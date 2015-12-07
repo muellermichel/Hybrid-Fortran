@@ -294,7 +294,7 @@ class Symbol(object):
 		self.initLevel = Init.NOTHING_LOADED
 		if template != None:
 			self.loadTemplate(template)
-		self.logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] initialized")
+		logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] initialized")
 
 	def __repr__(self):
 		return self.domainRepresentation()
@@ -654,10 +654,10 @@ class Symbol(object):
 			if self._isPresent:
 				raise Exception("Symbol %s has contradicting attributes 'transferHere' and 'present'" %(self))
 			self._isToBeTransfered = True
-		self.logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] attributes set")
+		logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] attributes set")
 
 	def storeDomainDependantEntryNodeAttributes(self, domainDependantEntryNode):
-		self.logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] storing symbol attributes for %s. Init Level: %s" %(str(self), str(self.initLevel)))
+		logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] storing symbol attributes for %s. Init Level: %s" %(str(self), str(self.initLevel)))
 		if self.intent:
 			domainDependantEntryNode.setAttribute("intent", self.intent)
 		if self.declarationPrefix:
@@ -675,7 +675,7 @@ class Symbol(object):
 			)
 
 	def loadDomainDependantEntryNodeAttributes(self, domainDependantEntryNode, warnOnOverwrite=True):
-		self.logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] +++++++++ LOADING DOMAIN DEPENDANT NODE ++++++++++ ")
+		logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] +++++++++ LOADING DOMAIN DEPENDANT NODE ++++++++++ ")
 
 		#   This symbol has an explicit domain dependant entry - make sure to store this as the name used in the scope
 		self._nameInScope = self.name
@@ -697,7 +697,7 @@ class Symbol(object):
 			for dimSize in self.declaredDimensionSizes:
 				if dimSize.strip() != "":
 					self.domains.append(('HF_GENERIC_DIM', dimSize))
-			self.logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] dimsizes from domain dependant node: %s " %(str(self.declaredDimensionSizes)))
+			logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] dimsizes from domain dependant node: %s " %(str(self.declaredDimensionSizes)))
 		self.checkIntegrityOfDomains()
 		self.initLevel = max(self.initLevel, Init.DEPENDANT_ENTRYNODE_ATTRIBUTES_LOADED)
 
@@ -722,7 +722,7 @@ class Symbol(object):
 		declarationPrefixFromTemplate = getDeclarationPrefix(self.template)
 		self.loadDeclarationPrefixFromString(declarationPrefixFromTemplate)
 		self.loadDomains(dependantDomNameAndSize, parallelRegionTemplates)
-		self.logging.debug(
+		logging.debug(
 				"[" + str(self) + ".init " + str(self.initLevel) + "] Domains loaded from callgraph information for symbol %s. Parallel active: %s. Parallel Inactive: %s. Declaration Prefix: %s. dependantDomNameAndSize: %s declarationPrefix: %s. Parallel Regions: %i\n" %(
 					str(self),
 					str(self.parallelActiveDims),
@@ -737,7 +737,7 @@ class Symbol(object):
 	def loadDeclarationPrefixFromString(self, declarationPrefixFromTemplate):
 		if declarationPrefixFromTemplate != None and declarationPrefixFromTemplate.strip() != "":
 			self.declarationPrefix = declarationPrefixFromTemplate
-		self.logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] declaration prefix loaded: %s" %(declarationPrefixFromTemplate))
+		logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] declaration prefix loaded: %s" %(declarationPrefixFromTemplate))
 
 	def loadDomains(self, dependantDomNameAndSize, parallelRegionTemplates=[]):
 		if dependantDomNameAndSize == None or len(dependantDomNameAndSize) == 0:
@@ -762,7 +762,7 @@ class Symbol(object):
 		self.aggregatedRegionDomSizesByName = {}
 		for parallelRegionTemplate in parallelRegionTemplates:
 			regionDomNameAndSize = getDomNameAndSize(parallelRegionTemplate)
-			self.logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] analyzing domains for parallel region: %s; dependant domsize by name: %s" %(
+			logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] analyzing domains for parallel region: %s; dependant domsize by name: %s" %(
 				str(regionDomNameAndSize),
 				str(dependantDomSizeByName)
 			))
@@ -784,7 +784,7 @@ class Symbol(object):
 			if dependantDomName in self.aggregatedRegionDomSizesByName:
 				self.aggregatedRegionDomSizesByName[dependantDomName][0] = dependantDomSize
 
-		self.logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] before reset. parallel active: %s; parallel inactive: %s" %(
+		logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] before reset. parallel active: %s; parallel inactive: %s" %(
 				str(self.parallelActiveDims),
 				str(self.parallelInactiveDims)
 			))
@@ -797,12 +797,12 @@ class Symbol(object):
 				raise Exception("Symbol %s's dependant domain size %s is not declared as one of its dimensions." \
 					%(self.name, dependantDomSize))
 			self.domains.append((dependantDomName, dependantDomSize))
-			self.logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] adding domain %s to symbol %s; Domains now: %s" %(
+			logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] adding domain %s to symbol %s; Domains now: %s" %(
 				str((dependantDomName, dependantDomSize)), self.name, self.domains
 			))
 		if self.isAutoDom and not self.isPointer:
 			alreadyEstablishedDomSizes = [domSize for (domName, domSize) in self.domains]
-			self.logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] Symbol %s is an autoDom symbol: Checking already established domains %s against previous dimensions: %s. dependantDomNameAndSize: %s" %(
+			logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] Symbol %s is an autoDom symbol: Checking already established domains %s against previous dimensions: %s. dependantDomNameAndSize: %s" %(
 				self.name, str(self.domains), str(dimsBeforeReset), str(dependantDomNameAndSize))
 			)
 			for (domName, domSize) in dimsBeforeReset:
@@ -820,11 +820,11 @@ class Symbol(object):
 			logging.warning("[" + str(self) + ".init " + str(self.initLevel) + "] symbol %s's routine node attributes are loaded when the initialization level has already advanced further" \
 				%(str(self))
 			)
-		self.logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] +++++++++ LOADING MODULE NODE ++++++++++ ")
+		logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] +++++++++ LOADING MODULE NODE ++++++++++ ")
 		self.routineNode = moduleNode #MMU 2015-11-18: $$$ This needs to be commented or rethought
 		self.loadTemplateAttributes()
 		self.initLevel = max(self.initLevel, Init.ROUTINENODE_ATTRIBUTES_LOADED)
-		self.logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] symbol attributes loaded from module node for %s. Domains at this point: %s. Init Level: %s" %(str(self), str(self.domains), str(self.initLevel)))
+		logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] symbol attributes loaded from module node for %s. Domains at this point: %s. Init Level: %s" %(str(self), str(self.domains), str(self.initLevel)))
 
 	def loadRoutineNodeAttributes(self, routineNode, parallelRegionTemplates):
 		if self.initLevel < Init.DEPENDANT_ENTRYNODE_ATTRIBUTES_LOADED:
@@ -835,7 +835,7 @@ class Symbol(object):
 			logging.warning("[" + str(self) + ".init " + str(self.initLevel) + "] symbol %s's routine node attributes are loaded when the initialization level has already advanced further" \
 				%(str(self))
 			)
-		self.logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] +++++++++ LOADING ROUTINE NODE ++++++++++ ")
+		logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] +++++++++ LOADING ROUTINE NODE ++++++++++ ")
 		self.routineNode = routineNode
 		#get and check parallelRegionPosition
 		routineName = self.nameOfScope
@@ -851,7 +851,7 @@ class Symbol(object):
 			parallelRegionTemplatesUsedForLoading = parallelRegionTemplates
 		self.loadTemplateAttributes(parallelRegionTemplatesUsedForLoading)
 		self.initLevel = max(self.initLevel, Init.ROUTINENODE_ATTRIBUTES_LOADED)
-		self.logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] routine node attributes loaded for symbol %s. Domains at this point: %s" %(self.name, str(self.domains)))
+		logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] routine node attributes loaded for symbol %s. Domains at this point: %s" %(self.name, str(self.domains)))
 
 	def loadDeclaration(self, paramDeclMatch, patterns, currentRoutineArguments):
 		if self.initLevel < Init.TEMPLATE_LOADED:
@@ -866,7 +866,7 @@ class Symbol(object):
 				%(str(self))
 			)
 
-		self.logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] +++++++++ LOADING DECLARATION ++++++++++ ")
+		logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] +++++++++ LOADING DECLARATION ++++++++++ ")
 
 		#   The name used in the declaration pattern is just self.name - so store this as the scoped name for now
 		self._nameInScope = self.name
@@ -912,7 +912,7 @@ Automatic reshaping is not supported since this is a pointer type. Domains in Di
 		elif self.isAutoDom:
 			# for the stencil use case: user will still specify the dimensions in the declaration
 			# -> autodom picks them up and integrates them as parallel active dims
-			self.logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] Loading dimensions for autoDom, non-pointer symbol %s. Declared dimensions: %s, Known dimension sizes used for parallel regions: %s, Parallel Active Dims: %s, Parallel Inactive Dims: %s" %(
+			logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] Loading dimensions for autoDom, non-pointer symbol %s. Declared dimensions: %s, Known dimension sizes used for parallel regions: %s, Parallel Active Dims: %s, Parallel Inactive Dims: %s" %(
 				str(self), str(dimensionSizes), str(self.aggregatedRegionDomSizesByName), str(self.parallelActiveDims), str(self.parallelInactiveDims)
 			))
 			for dimensionSize in dimensionSizes:
@@ -927,7 +927,7 @@ Automatic reshaping is not supported since this is a pointer type. Domains in Di
 					missingParallelDomain = domName
 					break
 				if missingParallelDomain != None:
-					self.logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] Dimension size %s matched to a parallel region but not matched in the domain dependant \
+					logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] Dimension size %s matched to a parallel region but not matched in the domain dependant \
 template for symbol %s - automatically inserting it for domain name %s\n"
 						%(dimensionSize, self.name, domName)
 					)
@@ -948,7 +948,7 @@ template for symbol %s - automatically inserting it for domain name %s\n"
 				else:
 					self.parallelInactiveDims.append(dimensionSize)
 					self.domains.append(("HF_GENERIC_PARALLEL_INACTIVE_DIM", dimensionSize))
-			self.logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] done loading autoDom dimensions for symbol %s. Parallel Active Dims: %s, Parallel Inactive Dims: %s" %(str(self), str(self.parallelActiveDims), str(self.parallelInactiveDims)))
+			logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] done loading autoDom dimensions for symbol %s. Parallel Active Dims: %s, Parallel Inactive Dims: %s" %(str(self), str(self.parallelActiveDims), str(self.parallelInactiveDims)))
 
 		# at this point we may not go further if the parallel region data
 		# has not yet been analyzed.
@@ -991,7 +991,7 @@ template for symbol %s - automatically inserting it for domain name %s\n"
 					self.domains.insert(lastParallelDomainIndex, (parallelDomName, parallelDomSizes[0]))
 			if self.parallelRegionPosition == "outside":
 				self.domains = [(domName, domSize) for (domName, domSize) in self.domains if not domName in self.parallelActiveDims]
-			self.logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] parallel active dims analysed for symbol %s" %(str(self)))
+			logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] parallel active dims analysed for symbol %s" %(str(self)))
 
 		#   Now match the declared dimensions to those in the         #
 		#   'parallelInactive' set, using the declared domain sizes.  #
@@ -1025,7 +1025,7 @@ template for symbol %s - automatically inserting it for domain name %s\n"
 						break
 				else:
 					self.domains.append(("HF_GENERIC_PARALLEL_INACTIVE_DIM", dimSize))
-		self.logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] dependant directive analysed for symbol %s" %(str(self)))
+		logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] dependant directive analysed for symbol %s" %(str(self)))
 
 		#    Sanity checks                                            #
 		if len(self.domains) < len(dimensionSizes):
@@ -1047,7 +1047,7 @@ Parallel region position: %s"
 			self.domains = getReorderedDomainsAccordingToDeclaration(self.domains, dimensionSizes)
 		self.checkIntegrityOfDomains()
 		self.initLevel = max(self.initLevel, Init.DECLARATION_LOADED)
-		self.logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] declaration loaded for symbol %s. Domains at this point: %s" %(self.name, str(self.domains)))
+		logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] declaration loaded for symbol %s. Domains at this point: %s" %(self.name, str(self.domains)))
 
 	def loadImportInformation(self, importMatch, cgDoc, moduleNode):
 		if self.initLevel < Init.TEMPLATE_LOADED:
@@ -1061,7 +1061,7 @@ Parallel region position: %s"
 			logging.warning("[" + str(self) + ".init " + str(self.initLevel) + "] symbol %s's import information is loaded when the initialization level has already advanced further." \
 				%(str(self))
 			)
-		self.logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] +++++++++ LOADING IMPORT INFORMATION ++++++++++ ")
+		logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] +++++++++ LOADING IMPORT INFORMATION ++++++++++ ")
 		sourceModuleName = importMatch.group(1)
 		self.sourceModule = sourceModuleName
 		if type(self.sourceModule) != str or self.sourceModule == "":
@@ -1100,7 +1100,7 @@ Parallel region position: %s"
 			#MMU 2015-9-14: This check fails with older CUDA Fortran based implementations where module data wasn't yet supported
 			# raise Exception("Symbol %s not found in module information available to Hybrid Fortran. Please use an appropriate @domainDependant specification." %(self.name))
 		informationLoadedFromModule = True
-		self.logging.debug(
+		logging.debug(
 				"[" + str(self) + ".init " + str(self.initLevel) + "] Loading symbol information for %s imported from %s (import line: '%s')\n\
 Current Domains: %s\n" %(
 					self.name, self.sourceModule, importMatch.group(0), str(self.domains)
@@ -1114,7 +1114,7 @@ Current Domains: %s\n" %(
 		self.accPPName = accPP
 		self.domPPName = domPP
 		self.initLevel = max(self.initLevel, Init.DECLARATION_LOADED)
-		self.logging.debug(
+		logging.debug(
 				"[" + str(self) + ".init " + str(self.initLevel) + "] Symbol %s's initialization completed using module information.\nDomains found in module: %s; parallel active: %s; parallel inactive: %s\n" %(
 					str(self),
 					str(domains),
@@ -1153,7 +1153,7 @@ Current Domains: %s\n" %(
 		return prefix + str(self) + postfix
 
 	def getDeclarationLineForAutomaticSymbol(self, purgeList=[], patterns=H90RegExPatterns.Instance(), name_prefix="", use_domain_reordering=True, skip_on_missing_declaration=False):
-		self.logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] Decl.Line.Gen: Purge List: %s, Name Prefix: %s, Domain Reordering: %s, Skip on Missing: %s." %(
+		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] Decl.Line.Gen: Purge List: %s, Name Prefix: %s, Domain Reordering: %s, Skip on Missing: %s." %(
 				str(purgeList),
 				name_prefix,
 				str(use_domain_reordering),
@@ -1322,10 +1322,10 @@ Please specify the domains and their sizes with domName and domSize attributes i
 				return [] #working around a problem in PGI 15.1: Inliner bails out in certain situations (module test kernel 3+4) if arrays are passed in like a(:,:,:).
 			return [iterator.strip().replace(" ", "") for iterator in iterators]
 
-		self.logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] producing access representation for symbol %s; parallel iterators: %s, offsets: %s" %(self.name, str(parallelIterators), str(offsets)))
+		logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] producing access representation for symbol %s; parallel iterators: %s, offsets: %s" %(self.name, str(parallelIterators), str(offsets)))
 
 		if self.initLevel < Init.ROUTINENODE_ATTRIBUTES_LOADED:
-			self.logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] only returning name since routine attributes haven't been loaded yet.")
+			logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] only returning name since routine attributes haven't been loaded yet.")
 			return self.name
 
 		if len(parallelIterators) == 0 \
@@ -1352,17 +1352,17 @@ Please specify the domains and their sizes with domName and domSize attributes i
 		result += symbolNameUsedInAccessor
 
 		if len(self.domains) == 0:
-			self.logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] Symbol has 0 domains - only returning name.")
+			logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] Symbol has 0 domains - only returning name.")
 			return result
 		iterators = getIterators(self.domains, parallelIterators, offsets)
 		if len(iterators) == 0:
-			self.logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] No iterators have been determined - only returning name.")
+			logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] No iterators have been determined - only returning name.")
 			return result
 
 		needsAdditionalClosingBracket = False
 		result += "("
 		accPP, accPPIsExplicit = self.accPP()
-		self.logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] accPP Macro: %s, Explicit Macro: %s, Active Domains matching domain dependant template: %s, Number of Parallel Domains: %i\
+		logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] accPP Macro: %s, Explicit Macro: %s, Active Domains matching domain dependant template: %s, Number of Parallel Domains: %i\
 Currently loaded template: %s\n" %(
 				accPP, str(accPPIsExplicit), self.activeDomainsMatchSpecification, self.numOfParallelDomains, self.template.toxml() if self.template != None else "None"
 			))

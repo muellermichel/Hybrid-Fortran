@@ -30,8 +30,20 @@ import os, sys, re, logging, logging.handlers, atexit
 class UsageError(Exception):
     pass
 
+class HFContextFormatter(logging.Formatter):
+    def __init__(self):
+        noContextFormat = '%(asctime)s - %(levelname)s - %(message)s'
+        contextFormat = '%(asctime)s - %(hfFile)s:%(hfLineNo)s - %(levelname)s - %(message)s'
+        logging.Formatter.__init__(self, noContextFormat)
+        self.contextFormatter = logging.Formatter(contextFormat)
+
+    def format(self, record):
+        if hasattr(record, "hfFile") and hasattr(record, "hfLineNo"):
+            return self.contextFormatter.format(record)
+        return logging.Formatter.format(self, record)
+
 def setupDeferredLogging(filename, logLevel):
-    streamFormatter = logging.Formatter('%(levelname)s - %(message)s')
+    streamFormatter = HFContextFormatter()
     streamhandler = logging.StreamHandler(sys.stderr)
     streamhandler.setLevel(logLevel)
     streamhandler.setFormatter(streamFormatter)
@@ -41,7 +53,7 @@ def setupDeferredLogging(filename, logLevel):
         target=streamhandler
     )
 
-    logFileFormatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    logFileFormatter = HFContextFormatter()
     filehandler = logging.FileHandler(filename)
     filehandler.setLevel(logLevel)
     filehandler.setFormatter(logFileFormatter)

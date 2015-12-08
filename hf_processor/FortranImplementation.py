@@ -502,6 +502,8 @@ class FortranImplementation(object):
 	currRoutineNode = None
 	useOpenACCForDebugPrintStatements = True
 	patterns = None
+	supportsArbitraryDataAccessesOutsideOfKernels = True
+	supportsNativeMemsetsOutsideOfKernels = True
 
 	def __init__(self, optionFlags):
 		self.patterns = H90RegExPatterns.Instance()
@@ -982,6 +984,8 @@ class CUDAFortranImplementation(FortranImplementation):
 	onDevice = True
 	multipleParallelRegionsPerSubroutineAllowed = False
 	useOpenACCForDebugPrintStatements = False
+	supportsArbitraryDataAccessesOutsideOfKernels = False
+	supportsNativeMemsetsOutsideOfKernels = True
 
 	def __init__(self, optionFlags):
 		self.currRoutineNode = None

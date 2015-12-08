@@ -1344,7 +1344,7 @@ Please specify the domains and their sizes with domName and domSize attributes i
 			return result
 
 		needsAdditionalClosingBracket = False
-		result += "("
+		result += "( " #we add a space here so there is a higher change that the line can be broken up. iterators with preprocessor macros can take a lot of space.
 		accPP, accPPIsExplicit = self.accPP()
 		logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] accPP Macro: %s, Explicit Macro: %s, Active Domains matching domain dependant template: %s, Number of Parallel Domains: %i\
 Currently loaded template: %s\n" %(
@@ -1363,7 +1363,7 @@ Currently loaded template: %s\n" %(
 
 		if needsAdditionalClosingBracket:
 			result = result + ")"
-		result = result + ")"
+		result = result + " )" #same reason for the spacing as for the opening bracket.
 		return result
 
 	def getTemplateEntryNodeValues(self, parentName):

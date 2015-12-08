@@ -44,6 +44,9 @@ import pdb
 import traceback
 import logging
 
+currFile = None
+currLineNo = None
+
 class FortranRoutineArgumentParser:
     arguments = None
 
@@ -148,7 +151,8 @@ class FortranCodeSanitizer:
                         "The following line could not be broken up for Fortran compatibility - no suitable spaces found: %s (remainder: %s)\n" %(
                             currLine,
                             remainder
-                        )
+                        ),
+                        extra={"hfLineNo":currLineNo, "hfFile":currFile}
                     )
                     break
                 previousLineLength = len(remainder)
@@ -258,11 +262,11 @@ class H90CallGraphParser(object):
         return
 
     def processProcBeginMatch(self, subProcBeginMatch):
-        logging.debug('entering %s' %(subProcBeginMatch.group(1)))
+        logging.debug('entering %s' %(subProcBeginMatch.group(1)), extra={"hfLineNo":currLineNo, "hfFile":currFile})
         return
 
     def processProcEndMatch(self, subProcEndMatch):
-        logging.debug('exiting subprocedure')
+        logging.debug('exiting subprocedure', extra={"hfLineNo":currLineNo, "hfFile":currFile})
         return
 
     def processParallelRegionMatch(self, parallelRegionMatch):
@@ -578,6 +582,8 @@ class H90CallGraphParser(object):
         raise Exception("unexpected undefined parser state: %s" %(self.state))
 
     def processLine(self, line):
+        global currLineNo
+        currLineNo = self.lineNo
         self.currentLine = line
 
         #here we only load the current line into the branch analyzer for further use, we don't need the result of this method
@@ -589,19 +595,24 @@ class H90CallGraphParser(object):
     def processFile(self, fileName):
         self.lineNo = 1
         self.fileName = fileName
+        global currFile
+        currFile = os.path.basename(fileName)
         for line in fileinput.input([fileName]):
             try:
                 self.processLine(line)
             except UsageError as e:
-                logging.error('Error: %s' %(str(e)))
+                logging.error('Error: %s' %(str(e)), extra={"hfLineNo":currLineNo, "hfFile":currFile})
                 sys.exit(1)
             except Exception as e:
                 exc_type, exc_obj, exc_tb = sys.exc_info()
                 fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-                logging.error('Error when parsing file %s on line %i: %s; Print of line:%s\n' %(
-                    str(fileName), self.lineNo, str(e), str(line).strip()
-                ))
-                logging.info(traceback.format_exc())
+                logging.error(
+                    'Error when parsing file %s on line %i: %s; Print of line:%s\n' %(
+                        str(fileName), self.lineNo, str(e), str(line).strip()
+                    ),
+                    extra={"hfLineNo":currLineNo, "hfFile":currFile}
+                )
+                logging.info(traceback.format_exc(), extra={"hfLineNo":currLineNo, "hfFile":currFile})
                 sys.exit(1)
             self.lineNo += 1
 
@@ -609,7 +620,8 @@ class H90CallGraphParser(object):
             logging.info(
                 'Error when parsing file %s: File ended unexpectedly. Parser state: %s; Current Callee: %s; Current Subprocedure name: %s; Current Linenumber: %i; Current ArgumentParser: %s\n' %(
                     str(fileName), self.state, self.currCalleeName, self.currSubprocName, self.lineNo, str(self.currArgumentParser)
-                )
+                ),
+                extra={"hfLineNo":currLineNo, "hfFile":currFile}
             )
             sys.exit(1)
         del self.lineNo
@@ -852,10 +864,13 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
                 if hasattr(self, 'self.symbolAnalysisByRoutineNameAndSymbolName') \
                 else {}
         ))
-        logging.debug("Symbols loaded from template. Symbols currently active in scope: %s. Module Symbol Property: %s" %(
-            str(self.currSymbolsByName.values()),
-            str([self.currSymbolsByName[symbolName].isModuleSymbol for symbolName in self.currSymbolsByName.keys()])
-        ))
+        logging.debug(
+            "Symbols loaded from template. Symbols currently active in scope: %s. Module Symbol Property: %s" %(
+                str(self.currSymbolsByName.values()),
+                str([self.currSymbolsByName[symbolName].isModuleSymbol for symbolName in self.currSymbolsByName.keys()])
+            ),
+            extra={"hfLineNo":currLineNo, "hfFile":currFile}
+        )
 
     def analyseSymbolInformationOnCurrentLine(self, line, analyseImports=True, isModuleSpecification=False):
         def loadAsAdditionalModuleSymbol(symbol):
@@ -976,7 +991,7 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
                 domains of first unmatched: %s"
                 %(self.currModuleName, unmatched, str(self.currSymbolsByName[unmatched[0]].domains))
             )
-        logging.debug("Clearing current symbol scope since the module definition is finished")
+        logging.debug("Clearing current symbol scope since the module definition is finished", extra={"hfLineNo":currLineNo, "hfFile":currFile})
         self.currSymbolsByName = {}
         #$$$ remove this in case we never enable routine domain dependant specifications for module symbols (likely)
         # self.tentativeModuleSymbolsByName = None
@@ -1112,7 +1127,7 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
     def processModuleEndMatch(self, moduleEndMatch):
         #get handles to currently active symbols -> temporarily save the handles
         self.processSymbolAttributes(isModule=True)
-        logging.debug("exiting module %s. Storing informations for symbols %s" %(self.currModuleName, str(self.currSymbols)))
+        logging.debug("exiting module %s. Storing informations for symbols %s" %(self.currModuleName, str(self.currSymbols)), extra={"hfLineNo":currLineNo, "hfFile":currFile})
         #finish parsing -> superclass destroys handles
         super(H90XMLSymbolDeclarationExtractor, self).processModuleEndMatch(moduleEndMatch)
         #store our symbol informations to the xml
@@ -1125,7 +1140,7 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
     def processProcEndMatch(self, subProcEndMatch):
         #get handles to currently active symbols -> temporarily save the handles
         self.processSymbolAttributes()
-        logging.debug("exiting procedure %s. Storing informations for symbols %s" %(self.currSubprocName, str(self.currSymbols)))
+        logging.debug("exiting procedure %s. Storing informations for symbols %s" %(self.currSubprocName, str(self.currSymbols)), extra={"hfLineNo":currLineNo, "hfFile":currFile})
         #finish parsing -> superclass destroys handles
         super(H90XMLSymbolDeclarationExtractor, self).processProcEndMatch(subProcEndMatch)
         #store our symbol informations to the xml
@@ -1255,12 +1270,12 @@ class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
                     self.symbolAnalysisByRoutineNameAndSymbolName
                 )
         except UsageError as e:
-            logging.error('Error: %s' %(str(e)))
+            logging.error('Error: %s' %(str(e)), extra={"hfLineNo":currLineNo, "hfFile":currFile})
             sys.exit(1)
         except Exception as e:
             exc_type, exc_obj, exc_tb = sys.exc_info()
             fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-            logging.critical('Error when initializing h90 conversion: %s' %(str(e)))
+            logging.critical('Error when initializing h90 conversion: %s' %(str(e)), extra={"hfLineNo":currLineNo, "hfFile":currFile})
             logging.info(traceback.format_exc())
             sys.exit(1)
 
@@ -1306,7 +1321,8 @@ This is not allowed for implementations using %s.\
         postfixEscaped = re.escape(postfix)
         accessors, postfix = getAccessorsAndRemainder(postfix)
 
-        if symbol.domains \
+        if not self.implementation.supportsArbitraryDataAccessesOutsideOfKernels \
+        and symbol.domains \
         and len(symbol.domains) > 0 \
         and not isInsideSubroutineCall \
         and not isPointerAssignment \
@@ -1315,9 +1331,20 @@ This is not allowed for implementations using %s.\
         and self.state != "inside_parallelRegion" \
         and not (self.state == "inside_branch" and self.stateBeforeBranch == "inside_parallelRegion") \
         and self.routineNodesByProcName[self.currSubprocName].getAttribute("parallelRegionPosition") != "outside" \
-        and len(accessors) != 0:
-            logging.warning("Dependant symbol %s accessed with accessor domains (%s) outside of a parallel region or subroutine call in subroutine %s(%s:%i)" \
-                %(symbol.name, str(accessors), self.currSubprocName, self.fileName, self.lineNo)
+        and len(accessors) != 0 \
+        and ( \
+            not self.implementation.supportsNativeMemsetsOutsideOfKernels \
+            or any([accessor.strip() != ":" for accessor in accessors]) \
+        ):
+            logging.warning(
+                "Dependant symbol %s accessed with accessor domains (%s) outside of a parallel region or subroutine call in subroutine %s(%s:%i)" %(
+                    symbol.name,
+                    str(accessors),
+                    self.currSubprocName,
+                    self.fileName,
+                    self.lineNo
+                ),
+                extra={"hfLineNo":currLineNo, "hfFile":currFile}
             )
 
         #$$$ why are we checking for a present statement?
@@ -1384,14 +1411,17 @@ This is not allowed for implementations using %s.\
                 self.currParallelRegionTemplateNode,
                 inside_subroutine_call=isInsideSubroutineCall
             )
-        logging.debug("symbol %s on line %i rewritten to %s; change required: %s, accessors: %s, num of independent domains: %i" %(
-            str(symbol),
-            self.lineNo,
-            symbol_access,
-            accessPatternChangeRequired,
-            str(accessors),
-            numOfIndependentDomains
-        ))
+        logging.debug(
+            "symbol %s on line %i rewritten to %s; change required: %s, accessors: %s, num of independent domains: %i" %(
+                str(symbol),
+                self.lineNo,
+                symbol_access,
+                accessPatternChangeRequired,
+                str(accessors),
+                numOfIndependentDomains
+            ),
+            extra={"hfLineNo":currLineNo, "hfFile":currFile}
+        )
         return (prefix + symbol_access + postfix).rstrip() + "\n"
 
     def processSymbolsAndGetAdjustedLine(self, line, isInsideSubroutineCall):
@@ -1452,8 +1482,9 @@ This is not allowed for implementations using %s.\
         parallelRegionPosition = None
         if self.currCalleeNode:
             parallelRegionPosition = self.currCalleeNode.getAttribute("parallelRegionPosition")
-        logging.debug("In subroutine %s: Processing subroutine call to %s, parallel region position: %s" \
-            %(self.currSubprocName, self.currCalleeName, parallelRegionPosition) \
+        logging.debug(
+            "In subroutine %s: Processing subroutine call to %s, parallel region position: %s" %(self.currSubprocName, self.currCalleeName, parallelRegionPosition),
+            extra={"hfLineNo":currLineNo, "hfFile":currFile}
         )
         if self.currCalleeNode and parallelRegionPosition == "within":
             parallelRegionTemplates = self.parallelRegionTemplatesByProcName.get(self.currCalleeName)
@@ -1718,8 +1749,9 @@ This is not allowed for implementations using %s.\
 
     def processParallelRegionMatch(self, parallelRegionMatch):
         super(H90toF90Printer, self).processParallelRegionMatch(parallelRegionMatch)
-        logging.debug("...parallel region starts on line %i with active symbols %s" \
-            %(self.lineNo, str(self.currSymbolsByName.values())) \
+        logging.debug(
+            "...parallel region starts on line %i with active symbols %s" %(self.lineNo, str(self.currSymbolsByName.values())),
+            extra={"hfLineNo":currLineNo, "hfFile":currFile}
         )
         self.prepareActiveParallelRegion('parallelRegionBegin')
 
@@ -1833,8 +1865,9 @@ This is not allowed for implementations using %s.\
                     self.currRoutineIsCallingParallelRegion,
                     self.routineNodesByProcName[self.currSubprocName].getAttribute('parallelRegionPosition')
                 ).rstrip() + " ! type %i symbol added for this subroutine\n" %(symbol.declarationType)
-                logging.debug("...In subroutine %s: Symbol %s additionally declared" \
-                    %(self.currSubprocName, symbol) \
+                logging.debug(
+                    "...In subroutine %s: Symbol %s additionally declared" %(self.currSubprocName, symbol),
+                    extra={"hfLineNo":currLineNo, "hfFile":currFile}
                 )
 
             #########################################################################
@@ -1870,8 +1903,9 @@ This is not allowed for implementations using %s.\
                         self.currRoutineIsCallingParallelRegion,
                         self.routineNodesByProcName[self.currSubprocName].getAttribute('parallelRegionPosition')
                     ).rstrip() + " ! type %i symbol added for callee %s\n" %(symbol.declarationType, calleeName)
-                    logging.debug("...In subroutine %s: Symbol %s additionally declared and passed to %s" \
-                        %(self.currSubprocName, symbol, calleeName) \
+                    logging.debug(
+                        "...In subroutine %s: Symbol %s additionally declared and passed to %s" %(self.currSubprocName, symbol, calleeName),
+                        extra={"hfLineNo":currLineNo, "hfFile":currFile}
                     )
                 #TODO: move this into implementation classes
                 toBeCompacted = packedRealSymbolsByCalleeName.get(calleeName, [])
@@ -1890,8 +1924,9 @@ This is not allowed for implementations using %s.\
                         self.currRoutineIsCallingParallelRegion,
                         self.routineNodesByProcName[self.currSubprocName].getAttribute('parallelRegionPosition')
                     ).rstrip() + " ! compaction array added for callee %s\n" %(calleeName)
-                    logging.debug("...In subroutine %s: Symbols %s packed into array %s" \
-                        %(self.currSubprocName, toBeCompacted, compactedArrayName) \
+                    logging.debug(
+                        "...In subroutine %s: Symbols %s packed into array %s" %(self.currSubprocName, toBeCompacted, compactedArrayName),
+                        extra={"hfLineNo":currLineNo, "hfFile":currFile}
                     )
 
             additionalDeclarationsStr += self.implementation.declarationEnd( \
@@ -1900,7 +1935,6 @@ This is not allowed for implementations using %s.\
                 self.routineNodesByProcName[self.currSubprocName], \
                 self.parallelRegionTemplatesByProcName.get(self.currSubprocName)
             )
-
 
             #########################################################################
             # additional symbols for kernels to be packed                           #
@@ -2028,8 +2062,9 @@ This is not allowed for implementations using %s.\
                     break
             else:
                 raise Exception("No parallel region template relation was matched for the current linenumber.")
-            logging.debug("parallel region detected on line %i with template relation %s" \
-                %(self.lineNo, self.currParallelRegionRelationNode.toxml()) \
+            logging.debug(
+                "parallel region detected on line %i with template relation %s" %(self.lineNo, self.currParallelRegionRelationNode.toxml()),
+                extra={"hfLineNo":currLineNo, "hfFile":currFile}
             )
             templates = self.parallelRegionTemplatesByProcName.get(self.currSubprocName)
             if templates == None or len(templates) == 0:
@@ -2091,7 +2126,7 @@ This is not allowed for implementations using %s.\
                     subProcCallMatch.group(1)
                 )
                 if message != "":
-                    logging.warning(message)
+                    logging.warning(message, extra={"hfLineNo":currLineNo, "hfFile":currFile})
             self.processCallMatch(subProcCallMatch)
             if self.state != 'inside_subroutine_call' and not (self.state == "inside_branch" and self.stateBeforeBranch == "inside_subroutine_call"):
                 self.processCallPost()
@@ -2139,10 +2174,13 @@ This is not allowed for implementations using %s.\
             [self.additionalWrapperImportsByKernelName[kernelName] for kernelName in self.additionalWrapperImportsByKernelName.keys()],
             []
         )
-        logging.debug("curr Module: %s; additional imports: %s" %(
-            self.currModuleName,
-            ["%s: %s from %s" %(symbol.name, symbol.declarationType, symbol.sourceModule) for symbol in additionalImports]
-        ))
+        logging.debug(
+            "curr Module: %s; additional imports: %s" %(
+                self.currModuleName,
+                ["%s: %s from %s" %(symbol.name, symbol.declarationType, symbol.sourceModule) for symbol in additionalImports]
+            ),
+            extra={"hfLineNo":currLineNo, "hfFile":currFile}
+        )
         for symbol in additionalImports:
             if symbol.declarationType not in [DeclarationType.FOREIGN_MODULE_SCALAR, DeclarationType.LOCAL_ARRAY, DeclarationType.MODULE_ARRAY]:
                 continue
@@ -2182,6 +2220,7 @@ This is not allowed for implementations using %s.\
     #TODO: remove tab argument everywhere
     def prepareLine(self, line, tab):
         self.currentLine = self.codeSanitizer.sanitizeLines(line)
-        logging.debug("[%s]:%i:%s" \
-            %(self.state,self.lineNo,self.currentLine) \
+        logging.debug(
+            "[%s]:%i:%s" %(self.state,self.lineNo,self.currentLine),
+            extra={"hfLineNo":currLineNo, "hfFile":currFile}
         )

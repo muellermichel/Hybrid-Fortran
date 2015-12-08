@@ -264,7 +264,7 @@ This may cause device attribute mismatch compiler errors. In this case please wr
 					messagesPresentedFor.append(kernelCallerName)
 				elif kernelCallerName not in messagesPresentedFor:
 					messagesPresentedFor.append(kernelCallerName)
-					logging.info("...same for %s: calls kernel %s, kernel wrapper %s" %(kernelCallerName, routineName, kernelWrapperName))
+					logging.warning("...same for %s: calls kernel %s, kernel wrapper %s" %(kernelCallerName, routineName, kernelWrapperName))
 
 ##################### MAIN ##############################
 #get all program arguments

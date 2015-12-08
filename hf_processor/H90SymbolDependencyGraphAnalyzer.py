@@ -49,7 +49,6 @@ SymbolType = enum(
 def emitSymbolAnalysisWarnings(analysisWarningsByCalleeName):
     for calleeName in analysisWarningsByCalleeName:
         warnings = analysisWarningsByCalleeName[calleeName]
-        warnings.append((call.getAttribute("caller"), len(callArguments), len(routineArguments), str(callArguments)))
         callers = [warning[0] for warning in warnings]
         logging.warning("Cannot fully analyze symbol dependencies since argument list from callers %s has different length (e.g. %i) than routine argument list (%i) for routine %s.\n" %(
                 callers,
@@ -184,11 +183,13 @@ class SymbolDependencyAnalyzer:
         self.doc = doc
         self.symbolsNode = createOrGetFirstNodeWithName('symbols', doc)
 
-    def getSymbolAnalysisFor(self, routineName, symbolAnalysis=None, symbolAnalysisByNameAndSource=None, call=None, analysisWarningsByCalleeName={}):
+    def getSymbolAnalysisFor(self, routineName, symbolAnalysis=None, symbolAnalysisByNameAndSource=None, call=None, analysisWarningsByCalleeName=None):
         if symbolAnalysis == None:
             symbolAnalysis = {}
         if symbolAnalysisByNameAndSource == None:
             symbolAnalysisByNameAndSource = {}
+        if analysisWarningsByCalleeName == None:
+            analysisWarningsByCalleeName = {}
         routine = self.routinesByName.get(routineName)
         if not routine:
             return symbolAnalysis, symbolAnalysisByNameAndSource
@@ -210,6 +211,7 @@ class SymbolDependencyAnalyzer:
             if len(callArguments) != len(routineArguments):
                 warnings = analysisWarningsByCalleeName.get(routineName, [])
                 warnings.append((call.getAttribute("caller"), len(callArguments), len(routineArguments), str(callArguments)))
+                analysisWarningsByCalleeName[routineName] = warnings
                 return symbolAnalysis, symbolAnalysisByNameAndSource
 
         templates_and_entries = getDomainDependantTemplatesAndEntries(

@@ -606,7 +606,7 @@ class H90CallGraphParser(object):
             except Exception as e:
                 exc_type, exc_obj, exc_tb = sys.exc_info()
                 fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-                logging.error(
+                logging.critical(
                     'Error when parsing file %s on line %i: %s; Print of line:%s\n' %(
                         str(fileName), self.lineNo, str(e), str(line).strip()
                     ),
@@ -879,6 +879,10 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
             self.symbolsOnCurrentLine.append(symbol)
             self.currSymbolsByName[symbol.name] = symbol
 
+        selectiveImportMatch = self.patterns.selectiveImportPattern.match(str(line))
+        if selectiveImportMatch:
+            self.processImplicitForeignModuleSymbolMatch(selectiveImportMatch)
+
         symbolNames = self.currSymbolsByName.keys()
         for symbolName in symbolNames:
             symbol = self.currSymbolsByName[symbolName]
@@ -945,9 +949,6 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
         super(H90CallGraphAndSymbolDeclarationsParser, self).processInsideDeclarationsState(line)
         if (self.state != 'inside_branch' and self.state != 'inside_declarations') or (self.state == "inside_branch" and self.stateBeforeBranch != "inside_declarations"):
             return
-        selectiveImportMatch = self.patterns.selectiveImportPattern.match(str(line))
-        if selectiveImportMatch:
-            self.processImplicitForeignModuleSymbolMatch(selectiveImportMatch)
         self.analyseSymbolInformationOnCurrentLine(line)
 
     def processImplicitForeignModuleSymbolMatch(self, importMatch):
@@ -1111,17 +1112,32 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
                 sourceSymbol = symbolInScope
             if moduleSymbolsByName.get(sourceSymbol) == None:
                 continue
+            parentNode = None
+            isInModuleScope = self.currSubprocName in [None, ""]
+            if not isInModuleScope:
+                parentNode = self.routineNodesByProcName.get(self.currSubprocName)
+            else:
+                parentNode = self.moduleNodesByName[self.currModuleName]
             relationNode, templateNode = setTemplateInfos(
                 self.cgDoc,
-                self.routineNodesByProcName.get(self.currSubprocName),
+                parentNode,
                 specText="attribute(autoDom)",
                 templateParentNodeName="domainDependantTemplates",
                 templateNodeName="domainDependantTemplate",
                 referenceParentNodeName="domainDependants"
             )
-            addAndGetEntries(self.cgDoc, relationNode, symbolInScope)
+            entries = addAndGetEntries(self.cgDoc, relationNode, symbolInScope)
+            if len(entries) != 1:
+                raise Exception("Could not add entry for symbol %s" %(entry))
             symbol = ImplicitForeignModuleSymbol(moduleName, symbolInScope, sourceSymbol, template=templateNode)
             symbol.isMatched = True
+            symbol.loadDomainDependantEntryNodeAttributes(entries[0])
+            if isInModuleScope:
+                symbol.loadModuleNodeAttributes(parentNode)
+                symbol.isModuleSymbol = True
+                symbol.isHostSymbol = True
+            else:
+                symbol.loadRoutineNodeAttributes(parentNode, self.parallelRegionTemplatesByProcName.get(self.currSubprocName))
             self.currSymbolsByName[symbol.name] = symbol
 
     def processModuleEndMatch(self, moduleEndMatch):
@@ -1797,7 +1813,6 @@ This is not allowed for implementations using %s.\
             else:
                 otherImports.append(symbol)
         return toBeCompacted, declarationPrefix, otherImports
-
 
     def processInsideDeclarationsState(self, line):
         '''process everything that happens per h90 declaration line'''

@@ -385,6 +385,10 @@ class Symbol(object):
 	def isHostSymbol(self):
 		return self._isHostSymbol and not self._isPresent and not self._isToBeTransfered
 
+	@isHostSymbol.setter
+	def isHostSymbol(self, _isHostSymbol):
+		self._isHostSymbol = _isHostSymbol
+
 	@property
 	def isPresent(self):
 		return self._isPresent
@@ -439,6 +443,8 @@ class Symbol(object):
 				return True
 			return False
 
+		if not self.routineNode:
+			raise Exception("Cannot define declaration type for symbol %s without a routine or module node loaded" %(self))
 		if self._declarationTypeOverride != None:
 			return self._declarationTypeOverride
 		if len(self.domains) > 0:

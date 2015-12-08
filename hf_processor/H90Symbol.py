@@ -457,10 +457,10 @@ class Symbol(object):
 			return DeclarationType.OTHER_ARGUMENT
 		if hasSourceModule(self, onlyLocal=True):
 			return DeclarationType.LOCAL_MODULE_SCALAR
-		if self.intent == "local":
-			return DeclarationType.LOCAL_SCALAR
 		if hasSourceModule(self):
 			return DeclarationType.FOREIGN_MODULE_SCALAR
+		if self.intent == "local":
+			return DeclarationType.LOCAL_SCALAR
 		if self.initLevel < Init.ROUTINENODE_ATTRIBUTES_LOADED:
 			return DeclarationType.UNDEFINED
 		return DeclarationType.OTHER_SCALAR
@@ -1136,16 +1136,8 @@ Current Domains: %s\n" %(
 		dimensionStr, postfix = self.getDimensionStringAndRemainderFromDeclMatch(paramDeclMatch, dimensionPattern)
 		return prefix + str(self) + postfix
 
-	def getDeclarationLineForAutomaticSymbol(self, purgeList=[], patterns=H90RegExPatterns.Instance(), name_prefix="", use_domain_reordering=True, skip_on_missing_declaration=False):
-		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] Decl.Line.Gen: Purge List: %s, Name Prefix: %s, Domain Reordering: %s, Skip on Missing: %s." %(
-				str(purgeList),
-				name_prefix,
-				str(use_domain_reordering),
-				str(skip_on_missing_declaration)
-			))
+	def getPurgedDeclarationPrefix(self, purgeList=[]):
 		if self.declarationPrefix == None or self.declarationPrefix == "":
-			if skip_on_missing_declaration:
-				return ""
 			if self.routineNode:
 				routineHelperText = " for subroutine %s," %(self.nameOfScope)
 			raise Exception("Symbol %s (type %i) needs to be automatically declared%s but there is no information about its type. \
@@ -1160,8 +1152,8 @@ EXAMPLE:\n\
 		declarationPrefix = self.declarationPrefix
 		if "::" not in declarationPrefix:
 			declarationPrefix = declarationPrefix.rstrip() + " ::"
-
 		if len(purgeList) != 0:
+			patterns = H90RegExPatterns.Instance()
 			declarationDirectivesWithoutIntent, _,  symbolDeclarationStr = purgeFromDeclarationSettings(
 				declarationPrefix + " " + str(self),
 				[self],
@@ -1170,8 +1162,19 @@ EXAMPLE:\n\
 				withAndWithoutIntent=True
 			)
 			declarationPrefix = declarationDirectivesWithoutIntent
+		return declarationPrefix.strip()
 
-		return declarationPrefix + " " + name_prefix + self.domainRepresentation(use_domain_reordering)
+	def getDeclarationLineForAutomaticSymbol(self, purgeList=[], patterns=H90RegExPatterns.Instance(), name_prefix="", use_domain_reordering=True, skip_on_missing_declaration=False):
+		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] Decl.Line.Gen: Purge List: %s, Name Prefix: %s, Domain Reordering: %s, Skip on Missing: %s." %(
+			str(purgeList),
+			name_prefix,
+			str(use_domain_reordering),
+			str(skip_on_missing_declaration)
+		))
+		if skip_on_missing_declaration and (self.declarationPrefix == None or self.declarationPrefix == ""):
+			return ""
+		declarationPrefix = self.getPurgedDeclarationPrefix(purgeList)
+		return declarationPrefix.strip() + " " + name_prefix + self.domainRepresentation(use_domain_reordering)
 
 	def selectAllRepresentation(self):
 		if self.initLevel < Init.ROUTINENODE_ATTRIBUTES_LOADED:

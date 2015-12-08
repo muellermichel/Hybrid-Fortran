@@ -1791,7 +1791,7 @@ This is not allowed for implementations using %s.\
             and 'real' in symbol.declarationPrefix.lower() \
             and (declarationPrefix == None \
             or symbol.declarationPrefix.strip().lower() == declarationPrefix.strip().lower()):
-                declarationPrefix = symbol.declarationPrefix
+                declarationPrefix = symbol.getPurgedDeclarationPrefix(['intent', 'public'])
                 symbol.isCompacted = True
                 toBeCompacted.append(symbol)
             else:

@@ -285,7 +285,7 @@ class Symbol(object):
 		if patterns != None:
 			self.patterns = patterns
 		else:
-			self.patterns = H90RegExPatterns.Instance() #warning! very slow, avoid this code path.
+			self.patterns = H90RegExPatterns.Instance()
 		self.declPattern = self.patterns.get(r'(\s*(?:double\s+precision|real|integer|logical).*?[\s,:]+)' + re.escape(name) + r'((?:\s|\,|\(|$)+.*)')
 		self.namePattern = self.patterns.get(r'((?:[^\"\']|(?:\".*\")|(?:\'.*\'))*?(?:\W|^))(' + re.escape(name) + r'(?:_d)?)((?:\W.*)|\Z)')
 		self.symbolImportPattern = self.patterns.get(r'^\s*use\s*(\w*)[,\s]*only\s*\:.*?\W' + re.escape(name) + r'\W.*')
@@ -816,10 +816,6 @@ class Symbol(object):
 			raise Exception("Symbol %s's routine node attributes are loaded without loading the entry node attributes first."
 				%(str(self))
 			)
-		if self.initLevel > Init.DEPENDANT_ENTRYNODE_ATTRIBUTES_LOADED:
-			logging.warning("[" + str(self) + ".init " + str(self.initLevel) + "] symbol %s's routine node attributes are loaded when the initialization level has already advanced further" \
-				%(str(self))
-			)
 		logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] +++++++++ LOADING MODULE NODE ++++++++++ ")
 		self.routineNode = moduleNode #MMU 2015-11-18: $$$ This needs to be commented or rethought
 		self.loadTemplateAttributes()
@@ -829,10 +825,6 @@ class Symbol(object):
 	def loadRoutineNodeAttributes(self, routineNode, parallelRegionTemplates):
 		if self.initLevel < Init.DEPENDANT_ENTRYNODE_ATTRIBUTES_LOADED:
 			raise Exception("Symbol %s's routine node attributes are loaded without loading the entry node attributes first."
-				%(str(self))
-			)
-		if self.initLevel > Init.DEPENDANT_ENTRYNODE_ATTRIBUTES_LOADED:
-			logging.warning("[" + str(self) + ".init " + str(self.initLevel) + "] symbol %s's routine node attributes are loaded when the initialization level has already advanced further" \
 				%(str(self))
 			)
 		logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] +++++++++ LOADING ROUTINE NODE ++++++++++ ")
@@ -860,10 +852,6 @@ class Symbol(object):
 					str(self),
 					self.initLevel
 				)
-			)
-		if self.initLevel > Init.ROUTINENODE_ATTRIBUTES_LOADED:
-			logging.warning("[" + str(self) + ".init " + str(self.initLevel) + "] symbol %s's declaration is loaded when the initialization level has already advanced further." \
-				%(str(self))
 			)
 
 		logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] +++++++++ LOADING DECLARATION ++++++++++ ")
@@ -1056,10 +1044,6 @@ Parallel region position: %s"
 					str(self),
 					self.initLevel
 				)
-			)
-		if self.initLevel > Init.ROUTINENODE_ATTRIBUTES_LOADED:
-			logging.warning("[" + str(self) + ".init " + str(self.initLevel) + "] symbol %s's import information is loaded when the initialization level has already advanced further." \
-				%(str(self))
 			)
 		logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] +++++++++ LOADING IMPORT INFORMATION ++++++++++ ")
 		sourceModuleName = importMatch.group(1)

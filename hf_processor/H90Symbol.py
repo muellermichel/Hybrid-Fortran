@@ -490,14 +490,7 @@ class Symbol(object):
 			if mine != other \
 			and mine not in ["", DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES[attributeName]] \
 			and other not in ["", DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES[attributeName]]:
-				raise Exception("Symbol %s in (%s|%s): Conflict with attribute %s: %s vs %s. Please solve this inconsitency in the @domainDependant specifications" %(
-					self.name,
-					self.nameOfScope,
-					otherSymbol.nameOfScope,
-					attributeName,
-					mine,
-					other
-				))
+				return mine
 			if other not in ["", DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES[attributeName]]:
 				return other
 			return mine
@@ -506,13 +499,7 @@ class Symbol(object):
 			mine = self.domains
 			other = otherSymbol.domains
 			if len(mine) > 0 and len(other) > 0 and len(mine) != len(other):
-				raise Exception("Symbol %s in (%s|%s): Conflicting domains: %s vs %s." %(
-					self.name,
-					self.nameOfScope,
-					otherSymbol.nameOfScope,
-					mine,
-					other
-				))
+				return mine
 			if len(mine) > 0 and len(other) > 0:
 				for index, entry in enumerate(mine):
 					if entry != other[index]:
@@ -535,13 +522,7 @@ class Symbol(object):
 						break
 				else:
 					return merged
-				raise Exception("Symbol %s in (%s|%s): Conflicting domains: %s vs %s." %(
-					self.name,
-					self.nameOfScope,
-					otherSymbol.nameOfScope,
-					mine,
-					other
-				))
+				return mine
 			if len(other) > 0:
 				return other
 			return mine
@@ -560,40 +541,14 @@ class Symbol(object):
 				))
 			if isinstance(mine, dict):
 				if len(mine.keys()) > 0 and len(other.keys()) > 0:
-					if len(mine.keys()) == len(other.keys()):
-						for key in mine.keys():
-							if mine[key] != other[key]:
-								break
-						else:
-							return mine
-					raise Exception("Symbol %s in (%s|%s): Conflict with attribute %s: %s vs %s." %(
-						self.name,
-						self.nameOfScope,
-						otherSymbol.nameOfScope,
-						attributeName,
-						mine,
-						other
-					))
+					return mine
 				if len(other.keys()) > 0:
 					return other
 				return mine
 			if not isinstance(mine, list):
 				raise Exception("unrecognized collection type for attribute %s" %(attributeName))
 			if len(mine) > 0 and len(other) > 0:
-				if len(mine) == len(other):
-					for index, entry in enumerate(mine):
-						if entry != other[index]:
-							break
-					else:
-						return mine
-				raise Exception("Symbol %s in (%s|%s): Conflict with attribute %s: %s vs %s." %(
-					self.name,
-					self.nameOfScope,
-					otherSymbol.nameOfScope,
-					attributeName,
-					mine,
-					other
-				))
+				return mine
 			if len(other) > 0:
 				return other
 			return mine
@@ -616,12 +571,6 @@ class Symbol(object):
 
 		if self.name != otherSymbol.name:
 			raise Exception("cannot merge %s with %s - not the same symbol name" %(self.name, otherSymbol.name))
-		if self.initLevel > Init.ROUTINENODE_ATTRIBUTES_LOADED or otherSymbol.initLevel > Init.ROUTINENODE_ATTRIBUTES_LOADED:
-			raise Exception("cannot merge %s, one of the symbols has been loaded passed the possible merge state: (self: %i), (other: %i)" %(
-				self.name,
-				self.initLevel,
-				otherSymbol.initLevel
-			))
 		for attribute in DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES:
 			setattr(self, attribute, getMergedSimpleAttributeValue(attribute))
 		for domainAttributeName in DEFAULT_SYMBOL_INSTANCE_DOMAIN_ATTRIBUTES.keys():

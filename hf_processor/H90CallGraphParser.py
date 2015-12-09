@@ -942,7 +942,7 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
 
     def processInsideModuleState(self, line):
         super(H90CallGraphAndSymbolDeclarationsParser, self).processInsideModuleState(line)
-        self.analyseSymbolInformationOnCurrentLine(line, analyseImports=False, isModuleSpecification=True)
+        self.analyseSymbolInformationOnCurrentLine(line, isModuleSpecification=True)
 
     def processInsideDeclarationsState(self, line):
         '''process everything that happens per h90 declaration line'''
@@ -1008,6 +1008,7 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
 
     def processProcEndMatch(self, subProcEndMatch):
         super(H90CallGraphAndSymbolDeclarationsParser, self).processProcEndMatch(subProcEndMatch)
+        routineNode = self.routineNodesByProcName.get(self.currSubprocName)
         dependants = self.currSymbolsByName.keys()
         unmatched = []
         for dependant in dependants:
@@ -1024,6 +1025,11 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
                 del self.currSymbolsByName[dependant]
                 continue
             unmatched.append(dependant)
+        if not routineNode:
+            return
+        if routineNode.getAttribute('parallelRegionPosition') in [None, '']:
+            return
+        #for routines that are 'grey' (no parallel region position) we want to unload symbols but not complain about unmatched stuff.
         if len(unmatched) != 0:
             raise Exception("The following non-scalar domain dependant declarations could not be found within subroutine %s: %s;\n\
                 domains of first unmatched: %s"
@@ -1134,11 +1140,14 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
             symbol.loadDomainDependantEntryNodeAttributes(entries[0])
             if isInModuleScope:
                 symbol.loadModuleNodeAttributes(parentNode)
-                symbol.isModuleSymbol = True
-                symbol.isHostSymbol = True
             else:
                 symbol.loadRoutineNodeAttributes(parentNode, self.parallelRegionTemplatesByProcName.get(self.currSubprocName))
             symbol.merge(moduleSymbolsByName[sourceSymbol])
+            if isInModuleScope:
+                symbol.isModuleSymbol = True
+                symbol.isHostSymbol = True
+            else:
+                symbol.isModuleSymbol = False
             self.currSymbolsByName[symbol.name] = symbol
 
     def processModuleEndMatch(self, moduleEndMatch):

@@ -1138,6 +1138,7 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
                 symbol.isHostSymbol = True
             else:
                 symbol.loadRoutineNodeAttributes(parentNode, self.parallelRegionTemplatesByProcName.get(self.currSubprocName))
+            symbol.merge(moduleSymbolsByName[sourceSymbol])
             self.currSymbolsByName[symbol.name] = symbol
 
     def processModuleEndMatch(self, moduleEndMatch):

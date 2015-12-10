@@ -1040,6 +1040,7 @@ end if\n" %(calleeNode.getAttribute('name'))
 		result += getCUDAErrorHandling(calleeRoutineNode)
 		return result
 
+	#$$$ MMU 2015-12-10: we need to pass in symbol analysis here so it can be added for isDummySymbolForRoutine
 	def getAdditionalKernelParameters(self, cgDoc, routineNode, moduleNode, parallelRegionTemplates, currSymbolsByName={}):
 		def getAdditionalImportsAndDeclarationsForParentScope(parentNode):
 			additionalImports = []
@@ -1050,6 +1051,10 @@ end if\n" %(calleeNode.getAttribute('name'))
 				dependantName = entry.firstChild.nodeValue
 				symbol = currSymbolsByName.get(dependantName)
 				if symbol == None:
+					logging.debug("while analyzing additional kernel parameters: symbol %s was not available yet for parent %s, so it was loaded freshly" %(
+						dependantName,
+						parentNode.getAttribute('name')
+					))
 					symbol = Symbol(dependantName, template)
 					symbol.loadDomainDependantEntryNodeAttributes(entry)
 

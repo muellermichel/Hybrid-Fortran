@@ -42,16 +42,21 @@ class HFContextFormatter(logging.Formatter):
             return self.contextFormatter.format(record)
         return logging.Formatter.format(self, record)
 
-def setupDeferredLogging(filename, logLevel):
-    streamFormatter = HFContextFormatter()
-    streamhandler = logging.StreamHandler(sys.stderr)
-    streamhandler.setLevel(logLevel)
-    streamhandler.setFormatter(streamFormatter)
-    memoryhandler = logging.handlers.MemoryHandler(
-        capacity=1024*100,
-        flushLevel=logging.ERROR,
-        target=streamhandler
-    )
+def setupDeferredLogging(filename, logLevel, showDeferredLogging=True):
+    if showDeferredLogging:
+        streamFormatter = HFContextFormatter()
+        streamhandler = logging.StreamHandler(sys.stderr)
+        streamhandler.setLevel(logLevel)
+        streamhandler.setFormatter(streamFormatter)
+        memoryhandler = logging.handlers.MemoryHandler(
+            capacity=1024*100,
+            flushLevel=logging.ERROR,
+            target=streamhandler
+        )
+        logger.addHandler(memoryhandler)
+        def flush():
+            memoryhandler.flush()
+        atexit.register(flush)
 
     logFileFormatter = HFContextFormatter()
     filehandler = logging.FileHandler(filename)
@@ -59,11 +64,7 @@ def setupDeferredLogging(filename, logLevel):
     filehandler.setFormatter(logFileFormatter)
     logger = logging.getLogger()
     logger.setLevel(logLevel)
-    logger.addHandler(memoryhandler)
     logger.addHandler(filehandler)
-    def flush():
-        memoryhandler.flush()
-    atexit.register(flush)
     logging.debug("Logger has Initialized")
 
 def progressIndicatorReset(stream):

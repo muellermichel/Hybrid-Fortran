@@ -61,7 +61,7 @@ parser.add_option("--optionFlags", dest="optionFlags",
 									help="can be used to switch on or off the following flags (comma separated): DO_NOT_TOUCH_GPU_CACHE_SETTINGS")
 (options, args) = parser.parse_args()
 
-setupDeferredLogging('preprocessor.log', logging.DEBUG if options.debug else logging.INFO)
+setupDeferredLogging('preprocessor.log', logging.DEBUG if options.debug else logging.INFO, showDeferredLogging=not options.debug)
 
 optionFlags = [flag for flag in options.optionFlags.split(',') if flag not in ['', None]] if options.optionFlags != None else []
 logging.debug('Option Flags: %s' %(optionFlags))

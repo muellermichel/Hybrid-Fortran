@@ -251,7 +251,6 @@ class Symbol(object):
 	isCompacted = False
 	isModuleSymbol = False
 	declPattern = None
-	namePattern = None
 	importPattern = None
 	pointerAssignmentPattern = None
 	parallelRegionPosition = None
@@ -287,7 +286,6 @@ class Symbol(object):
 		else:
 			self.patterns = H90RegExPatterns.Instance()
 		self.declPattern = self.patterns.get(r'(\s*(?:double\s+precision|real|integer|logical).*?[\s,:]+)' + re.escape(name) + r'((?:\s|\,|\(|$)+.*)')
-		self.namePattern = self.patterns.get(r'((?:[^\"\']|(?:\".*\")|(?:\'.*\'))*?(?:\W|^))(' + re.escape(name) + r'(?:_d)?)((?:\W.*)|\Z)')
 		self.symbolImportPattern = self.patterns.get(r'^\s*use\s*(\w*)[,\s]*only\s*\:.*?\W' + re.escape(name) + r'\W.*')
 		self.symbolImportMapPattern = self.patterns.get(r'.*?\W' + re.escape(name) + r'\s*\=\>\s*(\w*).*')
 		self.pointerDeclarationPattern = self.patterns.get(r'\s*(?:double\s+precision|real|integer|logical).*?pointer.*?[\s,:]+' + re.escape(name))
@@ -356,6 +354,11 @@ class Symbol(object):
 	@property
 	def isArgument(self):
 		return self._isArgumentOverride or (self.analysis and self.analysis.symbolType in [SymbolType.ARGUMENT_WITH_DOMAIN_DEPENDANT_SPEC, SymbolType.ARGUMENT])
+
+	@property
+	def namePattern(self):
+		symbolName = self._nameInScope if self._nameInScope != None else self.name
+		return self.patterns.get(r'((?:[^\"\']|(?:\".*\")|(?:\'.*\'))*?(?:\W|^))(' + re.escape(symbolName) + r'(?:_d)?)((?:\W.*)|\Z)')
 
 	@isArgument.setter
 	def isArgument(self, _isArgumentOverride):
@@ -443,10 +446,10 @@ class Symbol(object):
 				return True
 			return False
 
-		if not self.routineNode:
-			raise Exception("Cannot define declaration type for symbol %s without a routine or module node loaded" %(self))
 		if self._declarationTypeOverride != None:
 			return self._declarationTypeOverride
+		if not self.routineNode:
+			raise Exception("Cannot define declaration type for symbol %s without a routine or module node loaded" %(self))
 		if len(self.domains) > 0:
 			if hasSourceModule(self):
 				if self.isArgument:

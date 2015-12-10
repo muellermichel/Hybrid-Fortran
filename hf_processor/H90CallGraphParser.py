@@ -1014,7 +1014,7 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
         for dependant in dependants:
             if self.currSymbolsByName[dependant].isModuleSymbol:
                 continue
-            if self.currSymbolsByName[dependant].isMatched:
+            if self.currSymbolsByName[dependant].isMatched or (routineNode and routineNode.getAttribute('parallelRegionPosition') in [None, '']):
                 del self.currSymbolsByName[dependant]
                 continue
             if len(self.currSymbolsByName[dependant].domains) == 0:

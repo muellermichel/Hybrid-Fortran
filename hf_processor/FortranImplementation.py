@@ -561,7 +561,7 @@ class FortranImplementation(object):
 		return ""
 
 	def getAdditionalKernelParameters(self, cgDoc, routineNode, moduleNode, parallelRegionTemplates, currSymbolsByName={}):
-		return [], []
+		return [], [], []
 
 	def getIterators(self, parallelRegionTemplate):
 		if not appliesTo(["CPU", ""], parallelRegionTemplate):
@@ -1044,6 +1044,7 @@ end if\n" %(calleeNode.getAttribute('name'))
 		def getAdditionalImportsAndDeclarationsForParentScope(parentNode):
 			additionalImports = []
 			additionalDeclarations = []
+			additionalDummies = []
 			dependantTemplatesAndEntries = getDomainDependantTemplatesAndEntries(cgDoc, parentNode)
 			for template, entry in dependantTemplatesAndEntries:
 				dependantName = entry.firstChild.nodeValue
@@ -1057,13 +1058,19 @@ end if\n" %(calleeNode.getAttribute('name'))
 					additionalImports.append(symbol)
 				elif symbol.declarationType == DeclarationType.LOCAL_MODULE_SCALAR:
 					additionalDeclarations.append(symbol)
-			return additionalImports, additionalDeclarations
+				elif symbol.declarationType == DeclarationType.LOCAL_ARRAY and not symbol.isDummySymbolForRoutine(
+					routineName=parentNode.getAttribute('name')
+				):
+					additionalDummies.append(symbol)
+			return additionalImports, additionalDeclarations, additionalDummies
 
 		if routineNode.getAttribute("parallelRegionPosition") != "within" or not parallelRegionTemplates:
-			return [], []
-		routineImports, routineDeclarations = getAdditionalImportsAndDeclarationsForParentScope(routineNode)
-		moduleImports, moduleDeclarations = getAdditionalImportsAndDeclarationsForParentScope(moduleNode)
-		return sorted(routineImports + moduleImports), sorted(routineDeclarations + moduleDeclarations)
+			return [], [], []
+		moduleImports, moduleDeclarations, additionalDummies = getAdditionalImportsAndDeclarationsForParentScope(moduleNode)
+		if len(additionalDummies) != 0:
+			raise Exception("dummies are supposed to be added for module scope symbols")
+		routineImports, routineDeclarations, additionalDummies = getAdditionalImportsAndDeclarationsForParentScope(routineNode)
+		return sorted(routineImports + moduleImports), sorted(routineDeclarations + moduleDeclarations), sorted(additionalDummies)
 
 	def getIterators(self, parallelRegionTemplate):
 		if not appliesTo(["GPU"], parallelRegionTemplate):

@@ -761,8 +761,11 @@ def getSymbolsByName(cgDoc, parentNode, parallelRegionTemplates=[], currentSymbo
         dependantName = entry.firstChild.nodeValue
         symbol = Symbol(dependantName, template, patterns)
         symbol.isModuleSymbol = isModuleSymbols
-        analysis = symbolAnalysisByRoutineNameAndSymbolName.get(parentName, {}).get(dependantName)
-        symbol.analysis = analysis
+
+        symbolAnalysisPerCallee = symbolAnalysisByRoutineNameAndSymbolName.get(parentName, {}).get(symbol.name, [])
+        if len(symbolAnalysisPerCallee) > 0:
+            symbol.analysis = symbolAnalysisPerCallee[0]
+
         symbol.loadDomainDependantEntryNodeAttributes(entry)
         if isModuleSymbols:
             symbol.loadModuleNodeAttributes(parentNode)
@@ -861,7 +864,7 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
             currentSymbolsByName=self.currSymbolsByName,
             isModuleSymbols=isModuleSymbols,
             symbolAnalysisByRoutineNameAndSymbolName=self.symbolAnalysisByRoutineNameAndSymbolName \
-                if hasattr(self, 'self.symbolAnalysisByRoutineNameAndSymbolName') \
+                if hasattr(self, 'symbolAnalysisByRoutineNameAndSymbolName') \
                 else {}
         ))
         logging.debug(
@@ -921,7 +924,10 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
         for symbol in self.symbolsOnCurrentLine:
             if symbol.isArray and arrayDeclarationLine == False or not symbol.isArray and arrayDeclarationLine == True:
                 raise UsageError(
-                    "Array symbols have been mixed with non-array symbols on the same line. This is invalid in Hybrid Fortran. Please move apart these declarations.\n"
+                    "Array symbols have been mixed with non-array symbols on the same line (%s has declaration type %i). This is invalid in Hybrid Fortran. Please move apart these declarations.\n" %(
+                        symbol.name,
+                        symbol.declarationType
+                    )
                 )
             arrayDeclarationLine = symbol.isArray
 
@@ -1609,9 +1615,9 @@ This is not allowed for implementations using %s.\
 
         self.prepareLine(callPreparationForSymbols + adjustedLine + callPostForSymbols, self.tab_insideSub)
 
-    def processAdditionalSubroutineParametersAndGetAdjustedLine(self):
+    def processAdditionalSubroutineParametersAndGetAdjustedLine(self, additionalDummies):
         adjustedLine = str(self.currentLine)
-        if len(self.currAdditionalSubroutineParameters) == 0:
+        if len(self.currAdditionalSubroutineParameters + additionalDummies) == 0:
             return adjustedLine
 
         paramListMatch = self.patterns.subprocFirstLineParameterListPattern.match(adjustedLine)
@@ -1623,7 +1629,7 @@ This is not allowed for implementations using %s.\
             paramListStr = ")"
         #adjusted line now contains only prefix, including the opening bracket
         symbolNum = 0
-        for symbol in self.currAdditionalSubroutineParameters:
+        for symbol in self.currAdditionalSubroutineParameters + additionalDummies:
             adjustedLine = adjustedLine + symbol.nameInScope()
             if symbolNum != len(self.currAdditionalSubroutineParameters) - 1 or len(paramListStr) > 1:
                 adjustedLine = adjustedLine + ","
@@ -1686,13 +1692,15 @@ This is not allowed for implementations using %s.\
         #build list of additional subroutine parameters
         #(parameters that the user didn't specify but that are necessary based on the features of the underlying technology
         # and the symbols declared by the user, such us temporary arrays and imported symbols)
-        additionalImportsForOurSelves, additionalDeclarationsForOurselves = self.implementation.getAdditionalKernelParameters(
+        additionalImportsForOurSelves, additionalDeclarationsForOurselves, additionalDummies = self.implementation.getAdditionalKernelParameters(
             self.cgDoc,
             routineNode,
             self.moduleNodesByName[self.currModuleName],
             self.parallelRegionTemplatesByProcName.get(subprocName),
             self.currSymbolsByName
         )
+        for symbol in additionalImportsForOurSelves + additionalDeclarationsForOurselves:
+            symbol.isEmulatingSymbolThatWasActiveInCurrentScope = True
         toBeCompacted, declarationPrefix, otherImports = self.listCompactedSymbolsAndDeclarationPrefixAndOtherSymbols(
             additionalImportsForOurSelves + additionalDeclarationsForOurselves
         )
@@ -1703,7 +1711,7 @@ This is not allowed for implementations using %s.\
             compactedArrayList = [compactedArray]
         self.currAdditionalSubroutineParameters = sorted(otherImports + compactedArrayList)
         self.currAdditionalCompactedSubroutineParameters = sorted(toBeCompacted)
-        adjustedLine = self.processAdditionalSubroutineParametersAndGetAdjustedLine()
+        adjustedLine = self.processAdditionalSubroutineParametersAndGetAdjustedLine(additionalDummies)
 
         #print line
         self.prepareLine(self.implementation.subroutinePrefix(routineNode) + " " + adjustedLine, self.tab_outsideSub)
@@ -1723,7 +1731,7 @@ This is not allowed for implementations using %s.\
             callee = self.routineNodesByProcName.get(calleeName)
             if not callee:
                 continue
-            additionalImportsForDeviceCompatibility, additionalDeclarationsForDeviceCompatibility = self.implementation.getAdditionalKernelParameters(
+            additionalImportsForDeviceCompatibility, additionalDeclarationsForDeviceCompatibility, additionalDummies = self.implementation.getAdditionalKernelParameters(
                 self.cgDoc,
                 callee,
                 self.moduleNodesByName[self.currModuleName],
@@ -1750,7 +1758,7 @@ This is not allowed for implementations using %s.\
                     symbol.resetScope()
                     symbol.nameOfScope = self.currSubprocName
                 self.additionalWrapperImportsByKernelName[calleeName] = additionalImportsByName.values()
-            self.additionalParametersByKernelName[calleeName] = (additionalImportsForDeviceCompatibility, additionalDeclarationsForDeviceCompatibility)
+            self.additionalParametersByKernelName[calleeName] = (additionalImportsForDeviceCompatibility, additionalDeclarationsForDeviceCompatibility + additionalDummies)
             if callee.getAttribute("parallelRegionPosition") != "within":
                 continue
             self.currRoutineIsCallingParallelRegion = True

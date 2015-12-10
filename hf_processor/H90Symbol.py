@@ -274,6 +274,7 @@ class Symbol(object):
 	_nameInScope = None
 	_declarationTypeOverride = None
 	attributes = None
+	isEmulatingSymbolThatWasActiveInCurrentScope = False
 
 	def __init__(self, name, template=None, patterns=None):
 		if not name or name == "":
@@ -321,26 +322,6 @@ class Symbol(object):
 		if other == None:
 			return False
 		return self.nameInScope() >= other.nameInScope()
-
-	def nameInScope(self, useDeviceVersionIfAvailable=True):
-		#Give a symbol representation that is guaranteed to *not* collide with any local namespace (as long as programmer doesn't use any 'hfXXX' pre- or postfixes)
-		def automaticName(symbol):
-			if symbol.analysis and symbol.routineNode:
-				aliasName = symbol.analysis.aliasNamesByRoutineName.get(symbol.nameOfScope)
-				if aliasName not in [None, '']:
-					return aliasName
-			if symbol.nameIsGuaranteedUniqueInScope:
-				return symbol.name
-			referencingName = symbol.name + "_hfauto_" + symbol.nameOfScope
-			referencingName = referencingName.strip()
-			return referencingName[:min(len(referencingName), 31)] #cut after 31 chars because of Fortran 90 limitation
-
-		if self._nameInScope == None:
-			self._nameInScope = automaticName(self)
-		if useDeviceVersionIfAvailable and self.isUsingDevicePostfix:
-			return self._nameInScope + "_d"
-		return self._nameInScope
-
 
 	@property
 	def nameIsGuaranteedUniqueInScope(self):
@@ -398,6 +379,8 @@ class Symbol(object):
 
 	@property
 	def isArray(self):
+		if self.domains and len(self.domains) > 0:
+			return True
 		return self.declarationType in [
 			DeclarationType.LOCAL_ARRAY,
 			DeclarationType.MODULE_ARRAY,
@@ -477,6 +460,32 @@ class Symbol(object):
 	@declarationType.setter
 	def declarationType(self, _declarationTypeOverride):
 		self._declarationTypeOverride = _declarationTypeOverride
+
+	def nameInScope(self, useDeviceVersionIfAvailable=True):
+		#Give a symbol representation that is guaranteed to *not* collide with any local namespace (as long as programmer doesn't use any 'hfXXX' pre- or postfixes)
+		def automaticName(symbol):
+			if symbol.analysis and symbol.routineNode:
+				aliasName = symbol.analysis.aliasNamesByRoutineName.get(symbol.nameOfScope)
+				if aliasName not in [None, '']:
+					return aliasName
+			if symbol.nameIsGuaranteedUniqueInScope:
+				return symbol.name
+			referencingName = symbol.name + "_hfauto_" + symbol.nameOfScope
+			referencingName = referencingName.strip()
+			return referencingName[:min(len(referencingName), 31)] #cut after 31 chars because of Fortran 90 limitation
+
+		if self.isEmulatingSymbolThatWasActiveInCurrentScope:
+			self._nameInScope = self.name
+		if self._nameInScope == None:
+			self._nameInScope = automaticName(self)
+		if useDeviceVersionIfAvailable and self.isUsingDevicePostfix:
+			return self._nameInScope + "_d"
+		return self._nameInScope
+
+	def isDummySymbolForRoutine(self, routineName):
+		if not self.analysis:
+			return False
+		return self.analysis.aliasNamesByRoutineName.get(routineName) != None
 
 	def loadDefaults(self):
 		def loadAttributesFromObject(obj):
@@ -842,8 +851,9 @@ class Symbol(object):
 
 		#   look at declaration of symbol and get its                 #
 		#   dimensions.                                               #
-		dimensionStr, remainder = self.getDimensionStringAndRemainderFromDeclMatch(paramDeclMatch, \
-			patterns.dimensionPattern \
+		dimensionStr, remainder = self.getDimensionStringAndRemainderFromDeclMatch(
+			paramDeclMatch,
+			patterns.dimensionPattern
 		)
 		dimensionSizes = [sizeStr.strip() for sizeStr in dimensionStr.split(',') if sizeStr.strip() != ""]
 		if self.isAutoDom:

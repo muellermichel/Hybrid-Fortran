@@ -43,6 +43,8 @@ class HFContextFormatter(logging.Formatter):
         return logging.Formatter.format(self, record)
 
 def setupDeferredLogging(filename, logLevel, showDeferredLogging=True):
+    logger = logging.getLogger()
+    logger.setLevel(logLevel)
     if showDeferredLogging:
         streamFormatter = HFContextFormatter()
         streamhandler = logging.StreamHandler(sys.stderr)
@@ -57,13 +59,10 @@ def setupDeferredLogging(filename, logLevel, showDeferredLogging=True):
         def flush():
             memoryhandler.flush()
         atexit.register(flush)
-
     logFileFormatter = HFContextFormatter()
     filehandler = logging.FileHandler(filename)
     filehandler.setLevel(logLevel)
     filehandler.setFormatter(logFileFormatter)
-    logger = logging.getLogger()
-    logger.setLevel(logLevel)
     logger.addHandler(filehandler)
     logging.debug("Logger has Initialized")
 

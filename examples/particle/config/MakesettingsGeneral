@@ -9,7 +9,7 @@
 #    of the executable. These main files can be placed anywhere in your     #
 #    source directory or one of its subdirectories.                         #
 #############################################################################
-EXECUTABLES="particle"
+EXECUTABLES=
 
 #############################################################################
 # directories as seen from project directory.                               #

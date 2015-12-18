@@ -53,25 +53,26 @@ for i in $output_file_pattern; do
 		echo "skipping ${refPath} (doesn't exist)" 1>&2
 	else
 		echo "checking against ${refPath}" 1>&2
-		if [ ! -f ${i} ]; then
+		if [ ! -f "${i}" ]; then
 			echo "output file ${i} expected but not found from $(pwd)" 1>&2
 			error_found=true
-		fi
-		formatParamCurr="${formatParam}"
-		if [[ $extension == "nc" ]]; then
-			echo "Using NetCDF module for accuracy test" 1>&2
-			formatParamCurr="${formatParam} --netcdf"
-		fi
-		output_file_found=true
-		echo "calling accuracy with format paramter ${formatParam}" 1>&2
-		python ${HF_DIR}/hf_bin/accuracy.py -f $i --reference "$refPath" $formatParamCurr && :
-		rc=$?
-		if [ $errorVal -eq 0 ] ; then
-		    errorVal=$rc
-		fi
-		if [ $rc -ne 0 ] ; then
-		    echo "Accuracy test has returned error $rc" 1>&2
-		    error_found=true
+		else
+			formatParamCurr="${formatParam}"
+			if [[ $extension == "nc" ]]; then
+				echo "Using NetCDF module for accuracy test" 1>&2
+				formatParamCurr="${formatParam} --netcdf"
+			fi
+			output_file_found=true
+			echo "calling accuracy with format paramter ${formatParam}" 1>&2
+			python ${HF_DIR}/hf_bin/accuracy.py -f $i --reference "$refPath" $formatParamCurr && :
+			rc=$?
+			if [ $errorVal -eq 0 ] ; then
+			    errorVal=$rc
+			fi
+			if [ $rc -ne 0 ] ; then
+			    echo "Accuracy test has returned error $rc" 1>&2
+			    error_found=true
+			fi
 		fi
 	fi
 done

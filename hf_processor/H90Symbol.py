@@ -276,7 +276,7 @@ class Symbol(object):
 	attributes = None
 	isEmulatingSymbolThatWasActiveInCurrentScope = False
 
-	def __init__(self, name, template=None, patterns=None):
+	def __init__(self, name, template=None, patterns=None, symbolEntry=None, scopeNode=None, analysis=None, parallelRegionTemplates=[]):
 		if not name or name == "":
 			raise Exception("Name required for initializing symbol")
 
@@ -286,6 +286,7 @@ class Symbol(object):
 			self.patterns = patterns
 		else:
 			self.patterns = H90RegExPatterns.Instance()
+		self.analysis = analysis
 		self.declPattern = self.patterns.get(r'(\s*(?:double\s+precision|real|integer|logical).*?[\s,:]+)' + re.escape(name) + r'((?:\s|\,|\(|$)+.*)')
 		self.symbolImportPattern = self.patterns.get(r'^\s*use\s*(\w*)[,\s]*only\s*\:.*?\W' + re.escape(name) + r'\W.*')
 		self.symbolImportMapPattern = self.patterns.get(r'.*?\W' + re.escape(name) + r'\s*\=\>\s*(\w*).*')
@@ -293,7 +294,21 @@ class Symbol(object):
 		self.initLevel = Init.NOTHING_LOADED
 		if template != None:
 			self.loadTemplate(template)
+		if (symbolEntry != None or scopeNode != None) \
+		and (symbolEntry == None or scopeNode == None):
+			raise Exception("symbol entry (%s) and scope node (%s) need to be set together for symbol %s" %(symbolEntry, scopeNode, self))
+		if symbolEntry != None:
+			self.isModuleSymbol = scopeNode.tagName == "module"
+			self.loadDomainDependantEntryNodeAttributes(symbolEntry)
+			if self.isModuleSymbol:
+				self.loadModuleNodeAttributes(scopeNode)
+			else:
+				self.loadRoutineNodeAttributes(scopeNode, parallelRegionTemplates)
 		logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] initialized")
+
+	def initWithScope(self, name, template, symbolEntry, scopeNode, analysis, parallelRegionTemplates=[]):
+		self.__init__(name, template)
+
 
 	def __repr__(self):
 		return self.domainRepresentation()

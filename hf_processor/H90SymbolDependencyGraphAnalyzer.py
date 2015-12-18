@@ -57,8 +57,13 @@ def emitSymbolAnalysisWarnings(analysisWarningsByCalleeName):
                 calleeName
         ))
 
-class SymbolAnalysis:
+def getAnalysisForSymbol(symbolAnalysisByRoutineNameAndSymbolName, parentName, symbolName):
+    symbolAnalysisPerCallee = symbolAnalysisByRoutineNameAndSymbolName.get(parentName, {}).get(symbolName, [])
+    if len(symbolAnalysisPerCallee) > 0:
+        return symbolAnalysisPerCallee[0]
+    return None
 
+class SymbolAnalysis:
     def __init__(self):
         self.aliasNamesByRoutineName = {}
         self.argumentIndexByRoutineName = {}

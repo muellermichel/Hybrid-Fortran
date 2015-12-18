@@ -29,6 +29,7 @@
 
 from xml.dom.minidom import Document
 from H90Symbol import Symbol, DeclarationType, purgeFromDeclarationSettings
+from H90SymbolDependencyGraphAnalyzer import getAnalysisForSymbol
 from H90RegExPatterns import H90RegExPatterns
 from GeneralHelper import UsageError
 from DomHelper import *
@@ -560,7 +561,15 @@ class FortranImplementation(object):
 	def additionalIncludes(self):
 		return ""
 
-	def getAdditionalKernelParameters(self, cgDoc, routineNode, moduleNode, parallelRegionTemplates, currSymbolsByName={}):
+	def getAdditionalKernelParameters(
+		self,
+		cgDoc,
+		routineNode,
+		moduleNode,
+		parallelRegionTemplates,
+		currSymbolsByName={},
+		symbolAnalysisByRoutineNameAndSymbolName={}
+	):
 		return [], [], []
 
 	def getIterators(self, parallelRegionTemplate):
@@ -1040,8 +1049,15 @@ end if\n" %(calleeNode.getAttribute('name'))
 		result += getCUDAErrorHandling(calleeRoutineNode)
 		return result
 
-	#$$$ MMU 2015-12-10: we need to pass in symbol analysis here so it can be added for isDummySymbolForRoutine
-	def getAdditionalKernelParameters(self, cgDoc, routineNode, moduleNode, parallelRegionTemplates, currSymbolsByName={}):
+	def getAdditionalKernelParameters(
+		self,
+		cgDoc,
+		routineNode,
+		moduleNode,
+		parallelRegionTemplates,
+		currSymbolsByName={},
+		symbolAnalysisByRoutineNameAndSymbolName={}
+	):
 		def getAdditionalImportsAndDeclarationsForParentScope(parentNode):
 			additionalImports = []
 			additionalDeclarations = []
@@ -1055,9 +1071,14 @@ end if\n" %(calleeNode.getAttribute('name'))
 						dependantName,
 						parentNode.getAttribute('name')
 					))
-					symbol = Symbol(dependantName, template)
-					symbol.loadDomainDependantEntryNodeAttributes(entry)
-
+					symbol = Symbol(
+			            dependantName,
+			            template,
+			            symbolEntry=entry,
+			            scopeNode=parentNode,
+			            analysis=getAnalysisForSymbol(symbolAnalysisByRoutineNameAndSymbolName, parentNode.getAttribute('name'), dependantName),
+			            parallelRegionTemplates=parallelRegionTemplates
+			        )
 				symbol.loadRoutineNodeAttributes(parentNode, parallelRegionTemplates)
 				if symbol.declarationType == DeclarationType.FOREIGN_MODULE_SCALAR :
 					additionalImports.append(symbol)

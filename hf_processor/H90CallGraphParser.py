@@ -32,7 +32,7 @@
 from xml.dom.minidom import Document
 from DomHelper import *
 from GeneralHelper import UsageError, BracketAnalyzer, findRightMostOccurrenceNotInsideQuotes, stripWhitespace, enum
-from H90SymbolDependencyGraphAnalyzer import SymbolDependencyAnalyzer
+from H90SymbolDependencyGraphAnalyzer import SymbolDependencyAnalyzer, getAnalysisForSymbol
 from H90Symbol import *
 from H90RegExPatterns import H90RegExPatterns
 import os
@@ -759,19 +759,14 @@ def getSymbolsByName(cgDoc, parentNode, parallelRegionTemplates=[], currentSymbo
         raise Exception("parent node without identifier")
     for template, entry in templatesAndEntries:
         dependantName = entry.firstChild.nodeValue
-        symbol = Symbol(dependantName, template, patterns)
-        symbol.isModuleSymbol = isModuleSymbols
-
-        symbolAnalysisPerCallee = symbolAnalysisByRoutineNameAndSymbolName.get(parentName, {}).get(symbol.name, [])
-        if len(symbolAnalysisPerCallee) > 0:
-            symbol.analysis = symbolAnalysisPerCallee[0]
-
-        symbol.loadDomainDependantEntryNodeAttributes(entry)
-        if isModuleSymbols:
-            symbol.loadModuleNodeAttributes(parentNode)
-        else:
-            symbol.loadRoutineNodeAttributes(parentNode, parallelRegionTemplates)
-
+        symbol = Symbol(
+            dependantName,
+            template,
+            symbolEntry=entry,
+            scopeNode=parentNode,
+            analysis=getAnalysisForSymbol(symbolAnalysisByRoutineNameAndSymbolName, parentName, dependantName),
+            parallelRegionTemplates=parallelRegionTemplates
+        )
         existingSymbol = symbolsByName.get(dependantName)
         if existingSymbol == None:
             existingSymbol = currentSymbolsByName.get(dependantName)
@@ -1552,12 +1547,13 @@ This is not allowed for implementations using %s.\
         else:
             adjustedLine = adjustedLine + "("
         symbolNum = 0
-        bridgeStr = ", & !additional parameter inserted by framework\n" + self.tab_insideSub + "& "
+        bridgeStr1 = ", & !additional parameter"
+        bridgeStr2 = "inserted by framework\n" + self.tab_insideSub + "& "
         for symbol in additionalSymbols:
             hostName = symbol.nameInScope()
             adjustedLine = adjustedLine + hostName
             if symbolNum < len(additionalSymbols) - 1 or paramListMatch:
-                adjustedLine = adjustedLine + bridgeStr
+                adjustedLine = adjustedLine + "%s (type %i) %s" %(bridgeStr1, symbol.declarationType, bridgeStr2)
             symbolNum = symbolNum + 1
         if paramListMatch:
             adjustedLine = adjustedLine + self.processSymbolsAndGetAdjustedLine(paramListMatch.group(2), isInsideSubroutineCall=True)
@@ -1580,10 +1576,10 @@ This is not allowed for implementations using %s.\
                         raise Exception("No collection of symbols found for callee %s" %(self.currCalleeName))
                     symbolNameInCallee = None
                     for symbolName in symbolsInCalleeByName:
-                        symbolAnalysisPerCallee = self.symbolAnalysisByRoutineNameAndSymbolName.get(self.currCalleeName, {}).get(symbolName)
-                        if symbolAnalysisPerCallee == None or len(symbolAnalysisPerCallee) == 0:
+                        analysis = getAnalysisForSymbol(self.symbolAnalysisByRoutineNameAndSymbolName, self.currCalleeName, symbolName)
+                        if not analysis:
                             continue
-                        if symbolAnalysisPerCallee[0].aliasNamesByRoutineName.get(self.currSubprocName) == symbol.name:
+                        if analysis.aliasNamesByRoutineName.get(self.currSubprocName) == symbol.name:
                             symbolNameInCallee = symbolName
                             break
                     if symbolNameInCallee == None:
@@ -1697,7 +1693,8 @@ This is not allowed for implementations using %s.\
             routineNode,
             self.moduleNodesByName[self.currModuleName],
             self.parallelRegionTemplatesByProcName.get(subprocName),
-            self.currSymbolsByName
+            self.currSymbolsByName,
+            self.symbolAnalysisByRoutineNameAndSymbolName
         )
         for symbol in additionalImportsForOurSelves + additionalDeclarationsForOurselves:
             symbol.isEmulatingSymbolThatWasActiveInCurrentScope = True
@@ -1736,7 +1733,8 @@ This is not allowed for implementations using %s.\
                 callee,
                 self.moduleNodesByName[self.currModuleName],
                 self.parallelRegionTemplatesByProcName.get(calleeName),
-                self.currSymbolsByName
+                self.currSymbolsByName,
+                self.symbolAnalysisByRoutineNameAndSymbolName
             )
             for symbol in additionalImportsForDeviceCompatibility + additionalDeclarationsForDeviceCompatibility:
                 symbol.resetScope()

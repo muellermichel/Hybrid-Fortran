@@ -505,6 +505,7 @@ class FortranImplementation(object):
 	patterns = None
 	supportsArbitraryDataAccessesOutsideOfKernels = True
 	supportsNativeMemsetsOutsideOfKernels = True
+	supportsNativeModuleImportsWithinKernels = True
 
 	def __init__(self, optionFlags):
 		self.patterns = H90RegExPatterns.Instance()
@@ -995,6 +996,7 @@ class CUDAFortranImplementation(FortranImplementation):
 	useOpenACCForDebugPrintStatements = False
 	supportsArbitraryDataAccessesOutsideOfKernels = False
 	supportsNativeMemsetsOutsideOfKernels = True
+	supportsNativeModuleImportsWithinKernels = False
 
 	def __init__(self, optionFlags):
 		self.currRoutineNode = None

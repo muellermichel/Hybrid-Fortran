@@ -86,17 +86,43 @@ if (not options.implementation):
 
 filesInDir = dirEntries(str(options.sourceDir), True, 'h90')
 
+try:
+	os.mkdir(options.outputDir)
+except OSError as e:
+	#we want to handle if a directory exists. every other exception at this point is thrown again.
+	if e.errno != errno.EEXIST:
+		raise e
+	pass
+
 #   get the callgraph information
 cgDoc = parseString(getDataFromFile(options.callgraph), immutable=False)
+
+#   build up implementationNamesByTemplateName
+implementationNamesByTemplateName = None
+try:
+	implementationNamesByTemplateName = json.loads(getDataFromFile(options.implementation))
+except ValueError as e:
+	logging.critical('Error decoding implementation json (%s): %s' \
+		%(str(options.implementation), str(e))
+	)
+	sys.exit(1)
+except Exception as e:
+	logging.critical('Could not interpret implementation parameter as json file to read. Trying to use it as an implementation name directly')
+	implementationNamesByTemplateName = {'default':options.implementation}
+logging.debug('Initializing H90toF90Printer with the following implementations: %s' %(json.dumps(implementationNamesByTemplateName)))
+implementationsByTemplateName = {
+	templateName:getattr(FortranImplementation, implementationNamesByTemplateName[templateName])(optionFlags)
+	for templateName in implementationNamesByTemplateName.keys()
+}
 
 #   parse the @domainDependant symbol declarations flags in all h90 files
 #   -> update the callgraph document with this information.
 #   note: We do this, since for simplicity reasons, the declaration parser relies on the symbol names that
 #   have been declared in @domainDependant directives. Since these directives come *after* the declaration,
-#   we needthis a pass
+#   we need this pass
 # cgDoc = getClonedDocument(cgDoc)
 for fileNum, fileInDir in enumerate(filesInDir):
-	parser = H90XMLSymbolDeclarationExtractor(cgDoc)
+	parser = H90XMLSymbolDeclarationExtractor(cgDoc, implementationsByTemplateName=implementationsByTemplateName)
 	parser.processFile(fileInDir)
 	logging.debug("Symbol declarations extracted for " + fileInDir + "")
 	printProgressIndicator(sys.stderr, fileInDir, fileNum + 1, len(filesInDir), "Symbol parsing, excluding imports")
@@ -115,7 +141,11 @@ symbolsByModuleNameAndSymbolNameWithoutImplicitImports = getSymbolsByModuleNameA
 #   parse the symbols again, this time know about all informations in the sourced modules in import
 #   -> update the callgraph document with this information.
 for fileNum, fileInDir in enumerate(filesInDir):
-	parser = H90XMLSymbolDeclarationExtractor(cgDoc, symbolsByModuleNameAndSymbolNameWithoutImplicitImports)
+	parser = H90XMLSymbolDeclarationExtractor(
+		cgDoc,
+		symbolsByModuleNameAndSymbolNameWithoutImplicitImports,
+		implementationsByTemplateName=implementationsByTemplateName
+	)
 	parser.processFile(fileInDir)
 	logging.debug("Symbol imports and declarations extracted for " + fileInDir + "")
 	printProgressIndicator(sys.stderr, fileInDir, fileNum + 1, len(filesInDir), "Symbol parsing, including imports")
@@ -148,30 +178,7 @@ except Exception as e:
 	logging.info(traceback.format_exc())
 	sys.exit(1)
 
-#   build up implementationNamesByTemplateName
-implementationNamesByTemplateName = None
-try:
-	implementationNamesByTemplateName = json.loads(getDataFromFile(options.implementation))
-except ValueError as e:
-	logging.critical('Error decoding implementation json (%s): %s' \
-		%(str(options.implementation), str(e))
-	)
-	sys.exit(1)
-except Exception as e:
-	logging.critical('Could not interpret implementation parameter as json file to read. Trying to use it as an implementation name directly')
-	implementationNamesByTemplateName = {'default':options.implementation}
-logging.debug('Initializing H90toF90Printer with the following implementations: %s' %(json.dumps(implementationNamesByTemplateName)))
-implementationsByTemplateName = {
-	templateName:getattr(FortranImplementation, implementationNamesByTemplateName[templateName])(optionFlags)
-	for templateName in implementationNamesByTemplateName.keys()
-}
-try:
-	os.mkdir(options.outputDir)
-except OSError as e:
-	#we want to handle if a directory exists. every other exception at this point is thrown again.
-	if e.errno != errno.EEXIST:
-		raise e
-	pass
+
 
 #   Finally, do the conversion based on all the information above.
 for fileNum, fileInDir in enumerate(filesInDir):

@@ -832,7 +832,7 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
     #$$$ remove this in case we never enable routine domain dependant specifications for module symbols (likely)
     # tentativeModuleSymbolsByName = None
 
-    def __init__(self, cgDoc, moduleNodesByName=None, parallelRegionData=None):
+    def __init__(self, cgDoc, moduleNodesByName=None, parallelRegionData=None, implementationsByTemplateName=None):
         self.cgDoc = cgDoc
         self.symbolsOnCurrentLine = []
         self.importsOnCurrentLine = []
@@ -845,11 +845,21 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
 
         if parallelRegionData == None:
             parallelRegionData = getParallelRegionData(cgDoc)
+        self.implementationsByTemplateName = implementationsByTemplateName
         self.parallelRegionTemplatesByProcName = parallelRegionData[1]
         self.parallelRegionTemplateRelationsByProcName = parallelRegionData[0]
         self.routineNodesByProcName = parallelRegionData[2]
         self.routineNodesByModule = parallelRegionData[3]
         super(H90CallGraphAndSymbolDeclarationsParser, self).__init__()
+
+    @property
+    def implementation(self):
+        implementation = self.implementationsByTemplateName.get(self.currTemplateName)
+        if implementation == None:
+            implementation = self.implementationsByTemplateName.get('default')
+        if implementation == None:
+            raise Exception("no default implementation defined")
+        return implementation
 
     def loadSymbolsFromTemplate(self, parentNode, parallelRegionTemplates, isModuleSymbols=False):
         self.currSymbolsByName.update(getSymbolsByName(
@@ -1047,8 +1057,8 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
     currSymbols = []
     symbolsByModuleNameAndSymbolName = None
 
-    def __init__(self, cgDoc, symbolsByModuleNameAndSymbolName=None):
-        super(H90XMLSymbolDeclarationExtractor, self).__init__(cgDoc)
+    def __init__(self, cgDoc, symbolsByModuleNameAndSymbolName=None, implementationsByTemplateName=None):
+        super(H90XMLSymbolDeclarationExtractor, self).__init__(cgDoc, implementationsByTemplateName=implementationsByTemplateName)
         self.symbolsByModuleNameAndSymbolName = symbolsByModuleNameAndSymbolName
 
     def processSymbolAttributes(self, isModule=False):
@@ -1098,9 +1108,21 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
     def processImplicitForeignModuleSymbolMatch(self, importMatch):
         super(H90XMLSymbolDeclarationExtractor, self).processImplicitForeignModuleSymbolMatch(importMatch)
         if not self.symbolsByModuleNameAndSymbolName:
-            return
+            return #in case we run this at a point where foreign symbol analysis is not available yet
+        parentNode = None
+        isInModuleScope = self.currSubprocName in [None, ""]
+        if not isInModuleScope:
+            parentNode = self.routineNodesByProcName.get(self.currSubprocName)
+        else:
+            parentNode = self.moduleNodesByName[self.currModuleName]
+        parallelRegionPosition = parentNode.getAttribute("parallelRegionPosition")
         moduleName = importMatch.group(1)
+        moduleSymbolParsingRequired = not self.implementation.supportsNativeModuleImportsWithinKernels and parallelRegionPosition in ["within", "outside"]
         moduleSymbolsByName = self.symbolsByModuleNameAndSymbolName.get(moduleName)
+        if not moduleSymbolsByName and moduleSymbolParsingRequired:
+            raise UsageError("No symbol information for module %s. Please make this module available to Hybrid Fortran by moving it to a .h90 (.H90) file." %(
+                moduleName
+            ))
         if not moduleSymbolsByName:
             return
         if moduleName == "":
@@ -1117,14 +1139,16 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
             else:
                 symbolInScope = stripped
                 sourceSymbol = symbolInScope
-            if moduleSymbolsByName.get(sourceSymbol) == None:
+            moduleSymbol = moduleSymbolsByName.get(sourceSymbol)
+            if not moduleSymbol and moduleSymbolParsingRequired:
+                raise UsageError(
+                    "No symbol information for symbol %s in module %s. Please make Hybrid Fortran aware of this symbol by declaring it in a @domainDependant directive in the module specification part." %(
+                        sourceSymbol,
+                        moduleName
+                    )
+                )
+            elif not moduleSymbol:
                 continue
-            parentNode = None
-            isInModuleScope = self.currSubprocName in [None, ""]
-            if not isInModuleScope:
-                parentNode = self.routineNodesByProcName.get(self.currSubprocName)
-            else:
-                parentNode = self.moduleNodesByName[self.currModuleName]
             relationNode, templateNode = setTemplateInfos(
                 self.cgDoc,
                 parentNode,
@@ -1143,7 +1167,7 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
                 symbol.loadModuleNodeAttributes(parentNode)
             else:
                 symbol.loadRoutineNodeAttributes(parentNode, self.parallelRegionTemplatesByProcName.get(self.currSubprocName))
-            symbol.merge(moduleSymbolsByName[sourceSymbol])
+            symbol.merge(moduleSymbol)
             if isInModuleScope:
                 symbol.isModuleSymbol = True
                 symbol.isHostSymbol = True
@@ -1236,7 +1260,6 @@ class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
     currParallelIterators = None
     intentPattern = None
     dimensionPattern = None
-    implementationsByTemplateName = None
     codeSanitizer = None
     stateBeforeBranch = None
     currParallelRegionRelationNode = None
@@ -1260,8 +1283,12 @@ class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
         symbolsByModuleNameAndSymbolName=None,
         symbolsByRoutineNameAndSymbolName=None
     ):
-        super(H90toF90Printer, self).__init__(cgDoc, moduleNodesByName=moduleNodesByName, parallelRegionData=parallelRegionData)
-        self.implementationsByTemplateName = implementationsByTemplateName
+        super(H90toF90Printer, self).__init__(
+            cgDoc,
+            moduleNodesByName=moduleNodesByName,
+            parallelRegionData=parallelRegionData,
+            implementationsByTemplateName=implementationsByTemplateName
+        )
         self.outputStream = outputStream
         self.currRoutineIsCallingParallelRegion = False
         self.currSubroutineImplementationNeedsToBeCommented = False
@@ -1305,15 +1332,6 @@ class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
             logging.critical('Error when initializing h90 conversion: %s' %(str(e)), extra={"hfLineNo":currLineNo, "hfFile":currFile})
             logging.info(traceback.format_exc())
             sys.exit(1)
-
-    @property
-    def implementation(self):
-        implementation = self.implementationsByTemplateName.get(self.currTemplateName)
-        if implementation == None:
-            implementation = self.implementationsByTemplateName.get('default')
-        if implementation == None:
-            raise Exception("no default implementation defined")
-        return implementation
 
     def prepareActiveParallelRegion(self, implementationFunctionName):
         routineNode = self.routineNodesByProcName.get(self.currSubprocName)

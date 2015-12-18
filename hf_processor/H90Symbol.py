@@ -306,10 +306,6 @@ class Symbol(object):
 				self.loadRoutineNodeAttributes(scopeNode, parallelRegionTemplates)
 		logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] initialized")
 
-	def initWithScope(self, name, template, symbolEntry, scopeNode, analysis, parallelRegionTemplates=[]):
-		self.__init__(name, template)
-
-
 	def __repr__(self):
 		return self.domainRepresentation()
 

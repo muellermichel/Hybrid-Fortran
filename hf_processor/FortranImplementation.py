@@ -1217,10 +1217,10 @@ Symbols vs host attributes:\n%s" %(str([(symbol.name, symbol.isHostSymbol) for s
 		and (declarationType == DeclarationType.FOREIGN_MODULE_SCALAR or declarationType == DeclarationType.LOCAL_MODULE_SCALAR):
 			adjustedLine = declarationDirectives + " ,intent(in), value ::" + symbolDeclarationStr
 
-		#local arrays in kernels
-		elif parallelRegionPosition == "within" \
-		and declarationType == DeclarationType.LOCAL_ARRAY:
-			adjustedLine = declarationDirectives + ",intent(out), device ::" + symbolDeclarationStr
+		# #local arrays in kernels
+		# elif parallelRegionPosition == "within" \
+		# and declarationType == DeclarationType.LOCAL_ARRAY:
+		# 	adjustedLine = declarationDirectives + ",intent(out), device ::" + symbolDeclarationStr
 
 		#passed in scalars in kernels and inside kernels
 		elif parallelRegionPosition in ["within", "outside"] \

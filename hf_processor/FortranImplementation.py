@@ -1086,7 +1086,8 @@ end if\n" %(calleeNode.getAttribute('name'))
 			            parallelRegionTemplates=parallelRegionTemplates
 			        )
 				symbol.loadRoutineNodeAttributes(parentNode, parallelRegionTemplates)
-				if symbol.declarationType == DeclarationType.LOCAL_MODULE_SCALAR:
+				if symbol.declarationType == DeclarationType.LOCAL_MODULE_SCALAR \
+				and routineNode.getAttribute('module') == moduleNode.getAttribute('name'):
 					additionalDeclarations.append(symbol)
 				elif (symbol.analysis and symbol.analysis.isModuleSymbol) or symbol.declarationType == DeclarationType.FOREIGN_MODULE_SCALAR:
 					additionalImports.append(symbol)

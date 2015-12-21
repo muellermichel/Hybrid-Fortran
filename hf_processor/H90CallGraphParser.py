@@ -1841,11 +1841,11 @@ This is not allowed for implementations using %s.\
             #-> need to pack all real symbols into an array to make it work reliably for cases where many reals are imported
             # why not integers? because they can be used as array boundaries.
             # Note: currently only a single real type per subroutine is supported for compaction
+            currentDeclarationPrefix = symbol.getPurgedDeclarationPrefix(['intent', 'public']).strip().lower()
             if declType in [DeclarationType.FOREIGN_MODULE_SCALAR, DeclarationType.LOCAL_MODULE_SCALAR] \
             and 'real' in symbol.declarationPrefix.lower() \
-            and (declarationPrefix == None \
-            or symbol.declarationPrefix.strip().lower() == declarationPrefix.strip().lower()):
-                declarationPrefix = symbol.getPurgedDeclarationPrefix(['intent', 'public'])
+            and (declarationPrefix == None or currentDeclarationPrefix == declarationPrefix):
+                declarationPrefix = currentDeclarationPrefix
                 symbol.isCompacted = True
                 toBeCompacted.append(symbol)
             else:

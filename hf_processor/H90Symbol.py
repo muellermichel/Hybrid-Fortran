@@ -592,8 +592,8 @@ class Symbol(object):
 				return True
 			return False
 
-		if self.name != otherSymbol.name:
-			raise Exception("cannot merge %s with %s - not the same symbol name" %(self.name, otherSymbol.name))
+		if self.name != otherSymbol.name and self.sourceSymbol != otherSymbol.name and self.name != otherSymbol.sourceSymbol:
+			raise Exception("cannot merge %s with %s - doesn't seem to be be the same symbol" %(self.name, otherSymbol.name))
 		for attribute in DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES:
 			setattr(self, attribute, getMergedSimpleAttributeValue(attribute))
 		for domainAttributeName in DEFAULT_SYMBOL_INSTANCE_DOMAIN_ATTRIBUTES.keys():

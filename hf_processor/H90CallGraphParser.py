@@ -1906,9 +1906,9 @@ This is not allowed for implementations using %s.\
             # create declaration lines for symbols for ourself                      #
             #########################################################################
             for symbol in ourSymbolsToAdd:
-                purgeList=['public']
+                purgeList=['public', 'parameter']
                 if symbol.isCompacted:
-                    purgeList=['intent', 'public']
+                    purgeList=['intent', 'public', 'parameter']
                 additionalDeclarationsStr += self.tab_insideSub + self.implementation.adjustDeclarationForDevice(
                     self.tab_insideSub +
                         symbol.getDeclarationLineForAutomaticSymbol(purgeList).strip(),
@@ -1949,7 +1949,7 @@ This is not allowed for implementations using %s.\
                     symbol.domains = adjustedDomains
 
                     additionalDeclarationsStr += self.implementation.adjustDeclarationForDevice(
-                        symbol.getDeclarationLineForAutomaticSymbol(purgeList=['intent', 'public']).strip(),
+                        symbol.getDeclarationLineForAutomaticSymbol(purgeList=['intent', 'public', 'parameter']).strip(),
                         [symbol],
                         self.currRoutineIsCallingParallelRegion,
                         self.routineNodesByProcName[self.currSubprocName].getAttribute('parallelRegionPosition')

@@ -32,7 +32,7 @@
 from xml.dom.minidom import Document
 from DomHelper import *
 from GeneralHelper import UsageError, BracketAnalyzer, findRightMostOccurrenceNotInsideQuotes, stripWhitespace, enum
-from H90SymbolDependencyGraphAnalyzer import SymbolDependencyAnalyzer, getAnalysisForSymbol
+from H90SymbolDependencyGraphAnalyzer import SymbolDependencyAnalyzer, getAnalysisForSymbol, getArguments
 from H90Symbol import *
 from H90RegExPatterns import H90RegExPatterns
 import os
@@ -1552,7 +1552,7 @@ This is not allowed for implementations using %s.\
         paramListMatch = self.patterns.subprocFirstLineParameterListPattern.match(arguments)
         if not paramListMatch and len(arguments.strip()) > 0:
             raise Exception("Subprocedure arguments without enclosing brackets. This is invalid in Hybrid Fortran")
-        additionalSymbolsSeparated = self.additionalParametersByKernelName.get(self.currCalleeName)
+
         additionalImports, additionalDeclarations = self.additionalParametersByKernelName.get(self.currCalleeName, ([], []))
         toBeCompacted = []
         toBeCompacted, declarationPrefix, notToBeCompacted = self.listCompactedSymbolsAndDeclarationPrefixAndOtherSymbols(additionalImports + additionalDeclarations)
@@ -1582,48 +1582,48 @@ This is not allowed for implementations using %s.\
 
         callPreparationForSymbols = ""
         callPostForSymbols = ""
-        # if self.currCalleeNode and self.currCalleeNode.getAttribute("parallelRegionPosition") == "within":
-        if self.currCalleeNode:
-            if self.state != "inside_subroutine_call" and not (self.state == "inside_branch" and self.stateBeforeBranch == "inside_subroutine_call"):
-                currSubprocNode = self.routineNodesByProcName.get(self.currSubprocName)
-                callPreparationForSymbols = ""
-                callPostForSymbols = ""
-                for symbol in self.symbolsPassedInCurrentCallByName.values():
-                    if symbol.isHostSymbol:
+        if self.currCalleeNode \
+        and self.state != "inside_subroutine_call" \
+        and not (self.state == "inside_branch" and self.stateBeforeBranch == "inside_subroutine_call"):
+            currSubprocNode = self.routineNodesByProcName.get(self.currSubprocName)
+            callPreparationForSymbols = ""
+            callPostForSymbols = ""
+            for symbol in self.symbolsPassedInCurrentCallByName.values():
+                if symbol.isHostSymbol:
+                    continue
+                symbolsInCalleeByName = self.symbolsByRoutineNameAndSymbolName.get(self.currCalleeName)
+                if symbolsInCalleeByName == None:
+                    raise Exception("No collection of symbols found for callee %s" %(self.currCalleeName))
+                symbolNameInCallee = None
+                for symbolName in symbolsInCalleeByName:
+                    analysis = getAnalysisForSymbol(self.symbolAnalysisByRoutineNameAndSymbolName, self.currCalleeName, symbolName)
+                    if not analysis:
                         continue
-                    symbolsInCalleeByName = self.symbolsByRoutineNameAndSymbolName.get(self.currCalleeName)
-                    if symbolsInCalleeByName == None:
-                        raise Exception("No collection of symbols found for callee %s" %(self.currCalleeName))
-                    symbolNameInCallee = None
-                    for symbolName in symbolsInCalleeByName:
-                        analysis = getAnalysisForSymbol(self.symbolAnalysisByRoutineNameAndSymbolName, self.currCalleeName, symbolName)
-                        if not analysis:
-                            continue
-                        if analysis.aliasNamesByRoutineName.get(self.currSubprocName) == symbol.name:
-                            symbolNameInCallee = symbolName
-                            break
-                    if symbolNameInCallee == None:
-                        continue #this symbol isn't passed in to the callee
-                    symbolsInCalleeByName = self.symbolsByRoutineNameAndSymbolName.get(self.currCalleeName)
-                    if symbolsInCalleeByName == None:
-                        raise Exception("No collection of symbols found for callee %s" %(self.currCalleeName))
-                    symbolInCallee = symbolsInCalleeByName.get(symbolNameInCallee)
-                    if symbolInCallee == None:
-                        raise Exception("Symbol %s's data expected for callee %s, but could not be found" %(
-                            symbolNameInCallee,
-                            self.currCalleeName
-                        ))
-                    callPreparationForSymbols += self.implementation.callPreparationForPassedSymbol(
-                        currSubprocNode,
-                        symbolInCaller=symbol,
-                        symbolInCallee=symbolInCallee
-                    )
-                    callPostForSymbols += self.implementation.callPostForPassedSymbol(
-                        currSubprocNode,
-                        symbolInCaller=symbol,
-                        symbolInCallee=symbolInCallee
-                    )
-                adjustedLine = self.processCallPostAndGetAdjustedLine(adjustedLine)
+                    if analysis.aliasNamesByRoutineName.get(self.currSubprocName) == symbol.name:
+                        symbolNameInCallee = symbolName
+                        break
+                if symbolNameInCallee == None:
+                    continue #this symbol isn't passed in to the callee
+                symbolsInCalleeByName = self.symbolsByRoutineNameAndSymbolName.get(self.currCalleeName)
+                if symbolsInCalleeByName == None:
+                    raise Exception("No collection of symbols found for callee %s" %(self.currCalleeName))
+                symbolInCallee = symbolsInCalleeByName.get(symbolNameInCallee)
+                if symbolInCallee == None:
+                    raise Exception("Symbol %s's data expected for callee %s, but could not be found" %(
+                        symbolNameInCallee,
+                        self.currCalleeName
+                    ))
+                callPreparationForSymbols += self.implementation.callPreparationForPassedSymbol(
+                    currSubprocNode,
+                    symbolInCaller=symbol,
+                    symbolInCallee=symbolInCallee
+                )
+                callPostForSymbols += self.implementation.callPostForPassedSymbol(
+                    currSubprocNode,
+                    symbolInCaller=symbol,
+                    symbolInCallee=symbolInCallee
+                )
+            adjustedLine = self.processCallPostAndGetAdjustedLine(adjustedLine)
 
         if self.state != "inside_subroutine_call" and not (self.state == "inside_branch" and self.stateBeforeBranch == "inside_subroutine_call"):
             self.symbolsPassedInCurrentCallByName = {}
@@ -1710,6 +1710,7 @@ This is not allowed for implementations using %s.\
         # and the symbols declared by the user, such us temporary arrays and imported symbols)
         additionalImportsForOurSelves, additionalDeclarationsForOurselves, additionalDummies = self.implementation.getAdditionalKernelParameters(
             self.cgDoc,
+            self.currArguments,
             routineNode,
             self.moduleNodesByName[self.currModuleName],
             self.parallelRegionTemplatesByProcName.get(subprocName),
@@ -1750,6 +1751,7 @@ This is not allowed for implementations using %s.\
                 continue
             additionalImportsForDeviceCompatibility, additionalDeclarationsForDeviceCompatibility, additionalDummies = self.implementation.getAdditionalKernelParameters(
                 self.cgDoc,
+                getArguments(call),
                 callee,
                 self.moduleNodesByName[self.currModuleName],
                 self.parallelRegionTemplatesByProcName.get(calleeName),

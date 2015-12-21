@@ -63,6 +63,12 @@ def getAnalysisForSymbol(symbolAnalysisByRoutineNameAndSymbolName, parentName, s
         return symbolAnalysisPerCallee[0]
     return None
 
+def getArguments(parentNode):
+    return [
+        argument.getAttribute("symbolName")
+        for argument in parentNode.getElementsByTagName("argument")
+    ]
+
 class SymbolAnalysis:
     def __init__(self):
         self.aliasNamesByRoutineName = {}
@@ -198,16 +204,10 @@ class SymbolDependencyAnalyzer:
         routine = self.routinesByName.get(routineName)
         if not routine:
             return symbolAnalysis, symbolAnalysisByNameAndSource
-        routineArguments = [
-            argument.getAttribute("symbolName")
-            for argument in routine.getElementsByTagName("argument")
-        ]
+        routineArguments = getArguments(routine)
         callArguments = []
         if call != None:
-            callArguments = [
-                argument.getAttribute("symbolName")
-                for argument in call.getElementsByTagName("argument")
-            ]
+            callArguments = getArguments(call)
             if call.getAttribute("callee") != routineName:
                 raise Exception("call passed to analysis of %s is not a call to this routine: %s" %(
                     routineName,

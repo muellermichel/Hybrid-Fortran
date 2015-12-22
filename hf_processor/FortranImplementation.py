@@ -1157,6 +1157,7 @@ end if\n" %(calleeNode.getAttribute('name'))
 		adjustedLine = line
 		adjustedLine = adjustedLine.rstrip()
 
+		#$$$ generalize this using using symbol.getSanitizedDeclarationPrefix with a new 'intent' parameter
 		declarationDirectivesWithoutIntent, declarationDirectives,  symbolDeclarationStr = purgeFromDeclarationSettings( \
 			line, \
 			dependantSymbols, \
@@ -1219,12 +1220,18 @@ Symbols vs host attributes:\n%s" %(str([(symbol.name, symbol.isHostSymbol) for s
 		if dependantSymbols[0].isCompacted:
 			return adjustedLine + "\n"
 
+		deviceType = "device"
+		#$$$ this doesn't work since CUDA Fortran only allows constant memory in the local module data. Instead we should probably automatically declare
+		#    module data as constant (and check that it isn't edited anywhere inside the device code) as an optimization.
+		# if dependantSymbols[0].isConstant:
+		# 	deviceType = "constant"
+
 		#module scalars in kernels
 		if parallelRegionPosition == "within" \
 		and (declarationType == DeclarationType.FOREIGN_MODULE_SCALAR or declarationType == DeclarationType.LOCAL_MODULE_SCALAR):
 			adjustedLine = declarationDirectives + " ,intent(in), value ::" + symbolDeclarationStr
 
-		# #local arrays in kernels
+		# #local arrays in kernels (MMU 2015-12: PGI 15.x seems to be OK with locally declared arrays)
 		# elif parallelRegionPosition == "within" \
 		# and declarationType == DeclarationType.LOCAL_ARRAY:
 		# 	adjustedLine = declarationDirectives + ",intent(out), device ::" + symbolDeclarationStr
@@ -1245,14 +1252,14 @@ Symbols vs host attributes:\n%s" %(str([(symbol.name, symbol.isHostSymbol) for s
 					dependantSymbol.isOnDevice = False
 			elif alreadyOnDevice == "yes" or intent in [None, "", "local"]:
 				# we don't need copies of the dependants on cpu
-				adjustedLine = declarationDirectives + " ,device ::" + symbolDeclarationStr
+				adjustedLine = "%s, %s :: %s" %(declarationDirectives, deviceType, symbolDeclarationStr)
 				for dependantSymbol in dependantSymbols:
 					dependantSymbol.isOnDevice = True
 			elif copyHere == "yes" or routineIsKernelCaller:
 				for dependantSymbol in dependantSymbols:
 					dependantSymbol.isUsingDevicePostfix = True
 					dependantSymbol.isOnDevice = True
-					adjustedLine = str(adjustedLine) + "\n" + str(declarationDirectivesWithoutIntent) + " ,device :: " + str(dependantSymbol)
+					adjustedLine += "\n" + "%s, %s :: %s" %(declarationDirectivesWithoutIntent, deviceType, str(dependantSymbol))
 
 		return adjustedLine + "\n"
 

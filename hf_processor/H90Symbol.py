@@ -248,6 +248,7 @@ class Symbol(object):
 	isAutoDom = False
 	_isToBeTransfered = False
 	_isHostSymbol = False
+	isConstant = False
 	isCompacted = False
 	isModuleSymbol = False
 	declPattern = None
@@ -471,6 +472,34 @@ class Symbol(object):
 	@declarationType.setter
 	def declarationType(self, _declarationTypeOverride):
 		self._declarationTypeOverride = _declarationTypeOverride
+
+	def _getPurgedDeclarationPrefix(self, purgeList=[]):
+		if self.declarationPrefix == None or self.declarationPrefix == "":
+			if self.routineNode:
+				routineHelperText = " for subroutine %s," %(self.nameOfScope)
+			raise Exception("Symbol %s (type %i) needs to be automatically declared%s but there is no information about its type. \
+Please either use an @domainDependant specification in the imported module's module scope OR \
+specify the type like in a Fortran 90 declaration line using a @domainDependant {declarationPrefix([TYPE DECLARATION])} directive within the current subroutine.\n\n\
+EXAMPLE:\n\
+@domainDependant {declarationPrefix(real(8))}\n\
+%s\n\
+@end domainDependant" %(self.nameInScope(), self.declarationType, routineHelperText, self.name)
+			)
+
+		declarationPrefix = self.declarationPrefix
+		if "::" not in declarationPrefix:
+			declarationPrefix = declarationPrefix.rstrip() + " ::"
+		if len(purgeList) != 0:
+			patterns = H90RegExPatterns.Instance()
+			declarationDirectivesWithoutIntent, _,  symbolDeclarationStr = purgeFromDeclarationSettings(
+				declarationPrefix + " " + str(self),
+				[self],
+				patterns,
+				purgeList=purgeList,
+				withAndWithoutIntent=True
+			)
+			declarationPrefix = declarationDirectivesWithoutIntent
+		return declarationPrefix.strip()
 
 	def nameInScope(self, useDeviceVersionIfAvailable=True):
 		#Give a symbol representation that is guaranteed to *not* collide with any local namespace (as long as programmer doesn't use any 'hfXXX' pre- or postfixes)
@@ -1115,33 +1144,16 @@ Current Domains: %s\n" %(
 		dimensionStr, postfix = self.getDimensionStringAndRemainderFromDeclMatch(paramDeclMatch, dimensionPattern)
 		return prefix + str(self) + postfix
 
-	def getPurgedDeclarationPrefix(self, purgeList=[]):
-		if self.declarationPrefix == None or self.declarationPrefix == "":
-			if self.routineNode:
-				routineHelperText = " for subroutine %s," %(self.nameOfScope)
-			raise Exception("Symbol %s (type %i) needs to be automatically declared%s but there is no information about its type. \
-Please either use an @domainDependant specification in the imported module's module scope OR \
-specify the type like in a Fortran 90 declaration line using a @domainDependant {declarationPrefix([TYPE DECLARATION])} directive within the current subroutine.\n\n\
-EXAMPLE:\n\
-@domainDependant {declarationPrefix(real(8))}\n\
-%s\n\
-@end domainDependant" %(self.nameInScope(), self.declarationType, routineHelperText, self.name)
-			)
-
-		declarationPrefix = self.declarationPrefix
-		if "::" not in declarationPrefix:
-			declarationPrefix = declarationPrefix.rstrip() + " ::"
-		if len(purgeList) != 0:
-			patterns = H90RegExPatterns.Instance()
-			declarationDirectivesWithoutIntent, _,  symbolDeclarationStr = purgeFromDeclarationSettings(
-				declarationPrefix + " " + str(self),
-				[self],
-				patterns,
-				purgeList=purgeList,
-				withAndWithoutIntent=True
-			)
-			declarationPrefix = declarationDirectivesWithoutIntent
-		return declarationPrefix.strip()
+	def getSanitizedDeclarationPrefix(self, purgeList=[]):
+		if self.declarationPrefix in [None, ""]:
+			raise Exception("Cannot generate declaration prefix for %s" %(str(self)))
+		if len(purgeList) == 0:
+			purgeList = ['intent', 'public', 'parameter']
+		result = self._getPurgedDeclarationPrefix(purgeList)
+		kindMatch = self.patterns.declarationKindPattern.match(result)
+		if kindMatch:
+			result = kindMatch.group(1) + kindMatch.group(2) + kindMatch.group(3)
+		return result.strip().lower()
 
 	def getDeclarationLineForAutomaticSymbol(self, purgeList=[], patterns=H90RegExPatterns.Instance(), name_prefix="", use_domain_reordering=True, skip_on_missing_declaration=False):
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] Decl.Line.Gen: Purge List: %s, Name Prefix: %s, Domain Reordering: %s, Skip on Missing: %s." %(
@@ -1152,7 +1164,7 @@ EXAMPLE:\n\
 		))
 		if skip_on_missing_declaration and (self.declarationPrefix == None or self.declarationPrefix == ""):
 			return ""
-		declarationPrefix = self.getPurgedDeclarationPrefix(purgeList)
+		declarationPrefix = self.getSanitizedDeclarationPrefix(purgeList)
 		return declarationPrefix.strip() + " " + name_prefix + self.domainRepresentation(use_domain_reordering)
 
 	def selectAllRepresentation(self):
@@ -1420,7 +1432,6 @@ class ImplicitForeignModuleSymbol(Symbol):
 		self.sourceSymbol = sourceSymbol
 
 class FrameworkArray(Symbol):
-
 	def __init__(self, name, declarationPrefix, domains, isOnDevice):
 		if not name or name == "":
 			raise Exception("Name required for initializing framework array")
@@ -1433,6 +1444,8 @@ class FrameworkArray(Symbol):
 		self.domains = domains
 		self.isMatched = True
 		self.isOnDevice = isOnDevice
+		self.isConstant = True
 		self.declarationPrefix = declarationPrefix
 		self.initLevel = Init.NOTHING_LOADED
 		self._declarationTypeOverride = DeclarationType.FRAMEWORK_ARRAY
+		self.patterns = H90RegExPatterns.Instance()

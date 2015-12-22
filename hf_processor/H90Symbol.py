@@ -716,6 +716,16 @@ EXAMPLE:\n\
 		for domain in self.domains:
 			if not isinstance(domain, tuple):
 				raise Exception("Invalid definition of domain in symbol %s: %s" %(self.name, str(domain)))
+		parallelDomainSizesDict = {}
+		for domainName, domainSize in self.domains:
+			if not domainName in self.parallelActiveDims:
+				continue
+			if domainSize in parallelDomainSizesDict:
+				raise Exception("Multiple occurences of parallel dimension %s for symbol %s - this is not allowed in Hybrid Fortran" %(
+					domainSize,
+					str(self)
+				))
+			parallelDomainSizesDict[domainSize] = None
 
 	def loadTemplateAttributes(self, parallelRegionTemplates=[]):
 		if self.initLevel < Init.TEMPLATE_LOADED:
@@ -767,6 +777,7 @@ EXAMPLE:\n\
 		self.parallelInactiveDims = []
 		self.aggregatedRegionDomNames = []
 		self.aggregatedRegionDomSizesByName = {}
+		parallelRegionDomNamesBySize = {}
 		for parallelRegionTemplate in parallelRegionTemplates:
 			regionDomNameAndSize = getDomNameAndSize(parallelRegionTemplate)
 			logging.debug("[" + str(self) + ".init " + str(self.initLevel) + "] analyzing domains for parallel region: %s; dependant domsize by name: %s" %(
@@ -782,6 +793,7 @@ EXAMPLE:\n\
 				elif regionDomSize not in self.aggregatedRegionDomSizesByName[regionDomName]:
 					self.aggregatedRegionDomSizesByName[regionDomName].append(regionDomSize)
 				self.aggregatedRegionDomNames.append(regionDomName)
+				parallelRegionDomNamesBySize[regionDomSize] = regionDomName
 
 		for (dependantDomName, dependantDomSize) in dependantDomNameAndSize:
 			#build up parallel inactive dimensions again
@@ -799,8 +811,8 @@ EXAMPLE:\n\
 		dimsBeforeReset = copy.deepcopy(self.domains)
 		self.domains = []
 		for (dependantDomName, dependantDomSize) in dependantDomNameAndSize:
-			if dependantDomName not in self.parallelActiveDims and \
-			dependantDomName not in self.parallelInactiveDims:
+			if dependantDomName not in self.parallelActiveDims \
+			and dependantDomName not in self.parallelInactiveDims:
 				raise Exception("Symbol %s's dependant domain size %s is not declared as one of its dimensions." \
 					%(self.name, dependantDomSize))
 			self.domains.append((dependantDomName, dependantDomSize))
@@ -813,7 +825,9 @@ EXAMPLE:\n\
 				self.name, str(self.domains), str(dimsBeforeReset), str(dependantDomNameAndSize))
 			)
 			for (domName, domSize) in dimsBeforeReset:
-				if len(dimsBeforeReset) <= len(self.domains) and domSize in alreadyEstablishedDomSizes:
+				if domName in self.parallelActiveDims \
+				or parallelRegionDomNamesBySize.get(domSize) != None \
+				or (len(dimsBeforeReset) <= len(self.domains) and domSize in alreadyEstablishedDomSizes):
 					continue
 				self.domains.append((domName, domSize))
 		self.checkIntegrityOfDomains()

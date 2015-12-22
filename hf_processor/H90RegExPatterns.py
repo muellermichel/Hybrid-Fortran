@@ -49,6 +49,7 @@ class H90RegExPatterns:
         'dimensionPattern': r'(.*?),?\s*dimension\s*\(\s*(.*?)\s*\)(.*)',
         'symbolDeclTestPattern': r'.*?::.*',
         'symbolDeclPattern': r"(\s*(?:double\s+precision|real|integer|character|logical)(?:.*?))\s*::(.*)",
+        'declarationKindPattern': r'(.*?)\s*kind\s*=\s*(\w*)\s*(.*)',
         'pointerAssignmentPattern': r"^\s*\w+\s*\=\>\s*\w+.*",
         'whileLoopPattern': r"\s*do\s*while\W.*",
         'loopPattern': r"\s*do\W.*",
@@ -61,7 +62,7 @@ class H90RegExPatterns:
         'argumentPattern': r'\s*(?:subroutine|call)?\s*(?:\w*)\s*\((.*)',
         'selectiveImportPattern': r'^\s*use\s*(\w*)[,\s]*only\s*\:\s*([=>,\s\w]*)(?:\s.*|$)',
         'singleMappedImportPattern': r'\s*(\w*)\s*=>\s*(\w*)\s*',
-        'declarationKindPattern': r'(.*?)\s*kind\s*=\s*(\w*)\s*(.*)'
+        'callArgumentPattern': r'\s*(\w*)\s*(.*)'
     }
 
     def __init__(self):

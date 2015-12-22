@@ -525,7 +525,7 @@ EXAMPLE:\n\
 	def isDummySymbolForRoutine(self, routineName):
 		if not self.analysis:
 			return False
-		return self.analysis.aliasNamesByRoutineName.get(routineName) != None
+		return self.analysis.argumentIndexByRoutineName.get(routineName) != None
 
 	def loadDefaults(self):
 		def loadAttributesFromObject(obj):

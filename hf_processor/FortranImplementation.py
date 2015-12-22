@@ -1062,15 +1062,15 @@ end if\n" %(calleeNode.getAttribute('name'))
 		currSymbolsByName={},
 		symbolAnalysisByRoutineNameAndSymbolName={}
 	):
-		def getAdditionalImportsAndDeclarationsForParentScope(parentNode):
+		def getAdditionalImportsAndDeclarationsForParentScope(parentNode, argumentSymbolNames):
 			additionalImports = []
 			additionalDeclarations = []
 			additionalDummies = []
 			dependantTemplatesAndEntries = getDomainDependantTemplatesAndEntries(cgDoc, parentNode)
 			for template, entry in dependantTemplatesAndEntries:
 				dependantName = entry.firstChild.nodeValue
-				if dependantName in currArguments:
-					continue
+				if dependantName in argumentSymbolNames:
+					continue #in case user is working with slices and passing them to different symbols inside the kernel, he has to manage that stuff manually
 				symbol = currSymbolsByName.get(dependantName)
 				if symbol == None:
 					logging.debug("while analyzing additional kernel parameters: symbol %s was not available yet for parent %s, so it was loaded freshly" %(
@@ -1086,23 +1086,29 @@ end if\n" %(calleeNode.getAttribute('name'))
 			            parallelRegionTemplates=parallelRegionTemplates
 			        )
 				symbol.loadRoutineNodeAttributes(parentNode, parallelRegionTemplates)
+				if symbol.isDummySymbolForRoutine(routineName=parentNode.getAttribute('name')):
+					continue #already passed manually
 				if symbol.declarationType == DeclarationType.LOCAL_MODULE_SCALAR \
 				and routineNode.getAttribute('module') == moduleNode.getAttribute('name'):
 					additionalDeclarations.append(symbol)
 				elif (symbol.analysis and symbol.analysis.isModuleSymbol) or symbol.declarationType == DeclarationType.FOREIGN_MODULE_SCALAR:
 					additionalImports.append(symbol)
-				elif symbol.declarationType == DeclarationType.LOCAL_ARRAY and not symbol.isDummySymbolForRoutine(
-					routineName=parentNode.getAttribute('name')
-				):
+				elif symbol.declarationType == DeclarationType.LOCAL_ARRAY:
 					additionalDummies.append(symbol)
 			return additionalImports, additionalDeclarations, additionalDummies
 
 		if routineNode.getAttribute("parallelRegionPosition") != "within" or not parallelRegionTemplates:
 			return [], [], []
-		moduleImports, moduleDeclarations, additionalDummies = getAdditionalImportsAndDeclarationsForParentScope(moduleNode)
+		argumentSymbolNames = []
+		for argument in currArguments:
+			argumentMatch = self.patterns.callArgumentPattern.match(argument)
+			if not argumentMatch:
+				raise UsageError("illegal argument: %s" %(argument))
+			argumentSymbolNames.append(argumentMatch.group(1))
+		moduleImports, moduleDeclarations, additionalDummies = getAdditionalImportsAndDeclarationsForParentScope(moduleNode, argumentSymbolNames)
 		if len(additionalDummies) != 0:
 			raise Exception("dummies are supposed to be added for module scope symbols")
-		routineImports, routineDeclarations, additionalDummies = getAdditionalImportsAndDeclarationsForParentScope(routineNode)
+		routineImports, routineDeclarations, additionalDummies = getAdditionalImportsAndDeclarationsForParentScope(routineNode, argumentSymbolNames)
 		return sorted(routineImports + moduleImports), sorted(routineDeclarations + moduleDeclarations), sorted(additionalDummies)
 
 	def getIterators(self, parallelRegionTemplate):

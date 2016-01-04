@@ -1645,11 +1645,11 @@ This is not allowed for implementations using %s.\
             paramListStr = ")"
         #adjusted line now contains only prefix, including the opening bracket
         symbolNum = 0
-        for symbol in self.currAdditionalSubroutineParameters + additionalDummies:
+        for symbol in sorted(self.currAdditionalSubroutineParameters + additionalDummies):
             adjustedLine = adjustedLine + symbol.nameInScope()
             if symbolNum != len(self.currAdditionalSubroutineParameters) - 1 or len(paramListStr) > 1:
                 adjustedLine = adjustedLine + ","
-            adjustedLine = adjustedLine + " & !additional symbol inserted by framework \n" + self.tab_outsideSub + "& "
+            adjustedLine = adjustedLine + " & !additional type %i symbol inserted by framework \n" %(symbol.declarationType) + self.tab_outsideSub + "& "
             symbolNum = symbolNum + 1
         return adjustedLine + paramListStr
 

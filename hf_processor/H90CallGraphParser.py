@@ -1601,9 +1601,10 @@ This is not allowed for implementations using %s.\
             for symbol in self.symbolsPassedInCurrentCallByName.values():
                 if symbol.isHostSymbol:
                     continue
-                symbolsInCalleeByName = self.symbolsByRoutineNameAndSymbolName.get(self.currCalleeName)
-                if symbolsInCalleeByName == None:
-                    raise Exception("No collection of symbols found for callee %s" %(self.currCalleeName))
+                symbolsInCalleeByName = dict(
+                    (symbol.name, symbol)
+                    for symbol in self.symbolsByRoutineNameAndSymbolName.get(self.currCalleeName, {}).values()
+                )
                 symbolNameInCallee = None
                 for symbolName in symbolsInCalleeByName:
                     analysis = getAnalysisForSymbol(self.symbolAnalysisByRoutineNameAndSymbolName, self.currCalleeName, symbolName)
@@ -1614,9 +1615,6 @@ This is not allowed for implementations using %s.\
                         break
                 if symbolNameInCallee == None:
                     continue #this symbol isn't passed in to the callee
-                symbolsInCalleeByName = self.symbolsByRoutineNameAndSymbolName.get(self.currCalleeName)
-                if symbolsInCalleeByName == None:
-                    raise Exception("No collection of symbols found for callee %s" %(self.currCalleeName))
                 symbolInCallee = symbolsInCalleeByName.get(symbolNameInCallee)
                 if symbolInCallee == None:
                     raise Exception("Symbol %s's data expected for callee %s, but could not be found" %(

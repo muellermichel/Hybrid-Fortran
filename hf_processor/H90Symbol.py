@@ -31,7 +31,7 @@ import pdb
 from DomHelper import *
 from GeneralHelper import enum, BracketAnalyzer
 from H90RegExPatterns import H90RegExPatterns
-from GeneralHelper import Singleton
+from GeneralHelper import Singleton, UsageError
 from H90SymbolDependencyGraphAnalyzer import SymbolDependencyAnalyzer, SymbolType
 
 Init = enum("NOTHING_LOADED",
@@ -694,11 +694,6 @@ EXAMPLE:\n\
 		for domainName, domainSize in self.domains:
 			if not domainName in self.parallelActiveDims:
 				continue
-			if domainSize in parallelDomainSizesDict:
-				raise Exception("Multiple occurences of parallel dimension %s for symbol %s - this is not allowed in Hybrid Fortran" %(
-					domainSize,
-					str(self)
-				))
 			parallelDomainSizesDict[domainSize] = None
 
 	def loadTemplateAttributes(self, parallelRegionTemplates=[]):

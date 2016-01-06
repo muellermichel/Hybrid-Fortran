@@ -1719,7 +1719,7 @@ This is not allowed for implementations using %s.\
             self.cgDoc,
             self.currArguments,
             routineNode,
-            self.moduleNodesByName[self.currModuleName],
+            self.moduleNodesByName[routineNode.getAttribute('module')],
             self.parallelRegionTemplatesByProcName.get(subprocName),
             self.currSymbolsByName,
             self.symbolAnalysisByRoutineNameAndSymbolName
@@ -1762,7 +1762,7 @@ This is not allowed for implementations using %s.\
                 self.cgDoc,
                 getArguments(call),
                 callee,
-                self.moduleNodesByName[self.currModuleName],
+                self.moduleNodesByName[callee.getAttribute('module')],
                 self.parallelRegionTemplatesByProcName.get(calleeName),
                 self.currSymbolsByName,
                 self.symbolAnalysisByRoutineNameAndSymbolName

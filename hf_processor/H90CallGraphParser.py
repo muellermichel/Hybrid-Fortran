@@ -767,12 +767,12 @@ def getSymbolsByName(cgDoc, parentNode, parallelRegionTemplates=[], currentSymbo
             analysis=getAnalysisForSymbol(symbolAnalysisByRoutineNameAndSymbolName, parentName, dependantName),
             parallelRegionTemplates=parallelRegionTemplates
         )
-        existingSymbol = symbolsByName.get(dependantName)
+        existingSymbol = symbolsByName.get(uniqueIdentifier(dependantName, parentName))
         if existingSymbol == None:
-            existingSymbol = currentSymbolsByName.get(dependantName)
+            existingSymbol = currentSymbolsByName.get(uniqueIdentifier(dependantName, parentName))
         if existingSymbol != None:
             symbol.merge(existingSymbol)
-        symbolsByName[dependantName] = symbol
+        symbolsByName[symbol.uniqueIdentifier] = symbol
     return symbolsByName
 
 def getModuleNodesByName(cgDoc):
@@ -1141,7 +1141,7 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
             else:
                 symbolInScope = stripped
                 sourceSymbol = symbolInScope
-            moduleSymbol = moduleSymbolsByName.get(sourceSymbol)
+            moduleSymbol = moduleSymbolsByName.get(uniqueIdentifier(sourceSymbol, moduleName))
             if not moduleSymbol and moduleSymbolParsingRequired:
                 raise UsageError(
                     "No symbol information for symbol %s in module %s. Please make Hybrid Fortran aware of this symbol by declaring it in a @domainDependant{attribute(host)} directive in the module specification part." %(
@@ -1354,6 +1354,16 @@ This is not allowed for implementations using %s.\
         implementationAttr = getattr(self, 'implementation')
         functionAttr = getattr(implementationAttr, implementationFunctionName)
         self.prepareLine(functionAttr(self.currParallelRegionTemplateNode, self.branchAnalyzer.level), self.tab_insideSub)
+
+    def filterOutSymbolsAlreadyAliveInCurrentScope(self, symbolList):
+        return [
+            symbol for symbol in symbolList
+            if not symbol.analysis \
+            or ( \
+                symbol.name not in self.symbolsByRoutineNameAndSymbolName.get(self.currSubprocName, {}) \
+                and symbol.analysis.argumentIndexByRoutineName.get(self.currSubprocName, -1) == -1 \
+            )
+        ]
 
     def processSymbolMatchAndGetAdjustedLine(self, line, symbolMatch, symbol, isInsideSubroutineCall, isPointerAssignment):
         def getAccessorsAndRemainder(accessorString):
@@ -1699,7 +1709,6 @@ This is not allowed for implementations using %s.\
 
     def processProcBeginMatch(self, subProcBeginMatch):
         super(H90toF90Printer, self).processProcBeginMatch(subProcBeginMatch)
-
         subprocName = subProcBeginMatch.group(1)
         routineNode = self.routineNodesByProcName.get(subprocName)
         if not routineNode:
@@ -1749,7 +1758,9 @@ This is not allowed for implementations using %s.\
             callee = self.routineNodesByProcName.get(calleeName)
             if not callee:
                 continue
-            additionalImportsForDeviceCompatibility, additionalDeclarationsForDeviceCompatibility, additionalDummies = self.implementation.getAdditionalKernelParameters(
+            additionalImportsForDeviceCompatibility, \
+            additionalDeclarationsForDeviceCompatibility, \
+            additionalDummies = self.implementation.getAdditionalKernelParameters(
                 self.cgDoc,
                 getArguments(call),
                 callee,
@@ -1758,25 +1769,19 @@ This is not allowed for implementations using %s.\
                 self.currSymbolsByName,
                 self.symbolAnalysisByRoutineNameAndSymbolName
             )
-            for symbol in additionalImportsForDeviceCompatibility + additionalDeclarationsForDeviceCompatibility:
-                symbol.resetScope()
-                symbol.nameOfScope = self.currSubprocName
+            for symbol in additionalImportsForDeviceCompatibility + additionalDeclarationsForDeviceCompatibility + additionalDummies:
+                symbol.resetScope(self.currSubprocName)
             if 'DEBUG_PRINT' in self.implementation.optionFlags:
                 tentativeAdditionalImports = getModuleArraysForCallee(
                     calleeName,
                     self.symbolAnalysisByRoutineNameAndSymbolName,
                     self.symbolsByModuleNameAndSymbolName
                 )
-                additionalImports = [
-                    symbol for symbol in tentativeAdditionalImports
-                    if symbol.name not in self.symbolsByRoutineNameAndSymbolName.get(self.currSubprocName, {}) and \
-                    symbol.analysis.argumentIndexByRoutineName.get(subprocName, -1) == -1
-                ]
+                additionalImports = self.filterOutSymbolsAlreadyAliveInCurrentScope(tentativeAdditionalImports)
                 additionalImportsByName = {}
                 for symbol in additionalImports:
                     additionalImportsByName[symbol.name] = symbol
-                    symbol.resetScope()
-                    symbol.nameOfScope = self.currSubprocName
+                    symbol.resetScope(self.currSubprocName)
                 self.additionalWrapperImportsByKernelName[calleeName] = additionalImportsByName.values()
             self.additionalParametersByKernelName[calleeName] = (additionalImportsForDeviceCompatibility, additionalDeclarationsForDeviceCompatibility + additionalDummies)
             if callee.getAttribute("parallelRegionPosition") != "within":
@@ -1896,10 +1901,11 @@ This is not allowed for implementations using %s.\
             #########################################################################
             # mark in code, include additional symbols for kernel calls             #
             #########################################################################
-            numberOfAdditionalDeclarations = len(self.additionalParametersByKernelName.keys()) \
+            numberOfAdditionalDeclarations = ( \
+                len(sum([self.additionalParametersByKernelName[kname][1] for kname in self.additionalParametersByKernelName], [])) \
                 + len(ourSymbolsToAdd) \
-                + len(additionalImports) \
-                + len(packedRealSymbolsByCalleeName.keys())
+                + len(packedRealSymbolsByCalleeName.keys()) \
+            )
             if numberOfAdditionalDeclarations > 0:
                 additionalDeclarationsStr = "\n" + self.tab_insideSub + \
                  "! ****** additional symbols inserted by framework to emulate device support of language features\n"
@@ -1932,7 +1938,7 @@ This is not allowed for implementations using %s.\
                 for symbol in additionalImports:
                     additionalImportSymbolsByName[symbol.name] = symbol
 
-                for symbol in additionalDeclarations:
+                for symbol in self.filterOutSymbolsAlreadyAliveInCurrentScope(additionalDeclarations):
                     if symbol.declarationType not in [DeclarationType.LOCAL_ARRAY, DeclarationType.LOCAL_SCALAR]:
                         # only symbols that are local to the kernel actually need to be declared here.
                         # Everything else we should have in our own scope already, either through additional imports or
@@ -2220,12 +2226,14 @@ This is not allowed for implementations using %s.\
 
     def processSpecificationBeginning(self):
         adjustedLine = self.currentLine
-        additionalImports = sum(
-            [self.additionalParametersByKernelName[kernelName][0] for kernelName in self.additionalParametersByKernelName.keys()],
-            []
-        ) + sum(
-            [self.additionalWrapperImportsByKernelName[kernelName] for kernelName in self.additionalWrapperImportsByKernelName.keys()],
-            []
+        additionalImports = self.filterOutSymbolsAlreadyAliveInCurrentScope(
+            sum(
+                [self.additionalParametersByKernelName[kernelName][0] for kernelName in self.additionalParametersByKernelName.keys()],
+                []
+            ) + sum(
+                [self.additionalWrapperImportsByKernelName[kernelName] for kernelName in self.additionalWrapperImportsByKernelName.keys()],
+                []
+            )
         )
         logging.debug(
             "curr Module: %s; additional imports: %s" %(

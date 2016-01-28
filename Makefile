@@ -23,7 +23,7 @@
 #                                                                           #
 #***************************************************************************#
 SHELL=/bin/bash
-TOOLSDIR=${HF_DIR}/hf_processor/
+TOOLSDIR=${HF_DIR}/hf/
 EXAMPLEDIR=${HF_DIR}/example/
 EXAMPLEDIR_SOURCE=${EXAMPLEDIR}source/
 EXAMPLEDIR_CONFIG=${EXAMPLEDIR}config/

@@ -590,7 +590,7 @@ ${SRC_DIR_HFPP}%.h90: %.h90
 define generate_p90_rules
 $(4): ${SRC_H90TGT_HFPP} $(2)implementationNamesByTemplate ${CG_DIR}$(3)
 	@$$(call yellowecho,"...........converting all h90 files")
-	python ${python_flags} ${HF_DIR}/hf_processor/generateP90Codebase.py -i ${SRC_DIR_HFPP} -o $(1) -c ${CG_DIR}$(3) ${H90_PREPROCESSOR_ARGS} --implementation=$(2)implementationNamesByTemplate --optionFlags=${OPTION_FLAGS},${preprocessor_args} > $$@
+	python ${python_flags} ${HF_DIR}/hf/generateP90Codebase.py -i ${SRC_DIR_HFPP} -o $(1) -c ${CG_DIR}$(3) ${H90_PREPROCESSOR_ARGS} --implementation=$(2)implementationNamesByTemplate --optionFlags=${OPTION_FLAGS},${preprocessor_args} > $$@
 
 $(1)%.P90: $(1)%.P90.temp
 	@$$(call yellowecho,"...........copy $$(notdir $$<) if new or changed")

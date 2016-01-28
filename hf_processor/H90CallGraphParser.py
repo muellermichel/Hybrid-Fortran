@@ -750,7 +750,7 @@ class H90XMLCallGraphGenerator(H90CallGraphParser):
             return
         addAndGetEntries(self.doc, self.currDomainDependantRelationNode, line)
 
-def getSymbolsByName(cgDoc, parentNode, parallelRegionTemplates=[], currentSymbolsByName={}, symbolAnalysisByRoutineNameAndSymbolName={}, isModuleSymbols=False):
+def getSymbolsByName(cgDoc, parentNode, parallelRegionTemplates=[], currentModuleName=None, currentSymbolsByName={}, symbolAnalysisByRoutineNameAndSymbolName={}, isModuleSymbols=False):
     patterns = H90RegExPatterns.Instance()
     templatesAndEntries = getDomainDependantTemplatesAndEntries(cgDoc, parentNode)
     symbolsByName = {}
@@ -770,6 +770,10 @@ def getSymbolsByName(cgDoc, parentNode, parallelRegionTemplates=[], currentSymbo
         existingSymbol = symbolsByName.get(uniqueIdentifier(dependantName, parentName))
         if existingSymbol == None:
             existingSymbol = currentSymbolsByName.get(uniqueIdentifier(dependantName, parentName))
+        if existingSymbol == None and currentModuleName not in [None, ""]:
+            existingSymbol = currentSymbolsByName.get(uniqueIdentifier(dependantName, currentModuleName))
+            if existingSymbol != None:
+                symbol.resetScope(currentModuleName) #if this symbol is found in the local module, assume we are using that module symbol here. Problem: Does not cover when local scope overrides module scope.
         if existingSymbol != None:
             symbol.merge(existingSymbol)
         symbolsByName[symbol.uniqueIdentifier] = symbol
@@ -865,7 +869,8 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
         self.currSymbolsByName.update(getSymbolsByName(
             self.cgDoc,
             parentNode,
-            parallelRegionTemplates,
+            parallelRegionTemplates=parallelRegionTemplates,
+            currentModuleName=self.currModuleName,
             currentSymbolsByName=self.currSymbolsByName,
             isModuleSymbols=isModuleSymbols,
             symbolAnalysisByRoutineNameAndSymbolName=self.symbolAnalysisByRoutineNameAndSymbolName \
@@ -881,11 +886,11 @@ class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
         )
 
     def analyseSymbolInformationOnCurrentLine(self, line, analyseImports=True, isModuleSpecification=False):
-        def loadAsAdditionalModuleSymbol(symbol):
-            symbol.isModuleSymbol = True
-            symbol.loadModuleNodeAttributes(self.moduleNodesByName[self.currModuleName])
-            self.symbolsOnCurrentLine.append(symbol)
-            self.currSymbolsByName[symbol.name] = symbol
+        # def loadAsAdditionalModuleSymbol(symbol): #$$$ remove this in case we never enable routine domain dependant specifications for module symbols (likely)
+        #     symbol.isModuleSymbol = True
+        #     symbol.loadModuleNodeAttributes(self.moduleNodesByName[self.currModuleName])
+        #     self.symbolsOnCurrentLine.append(symbol)
+        #     self.currSymbolsByName[symbol.name] = symbol
 
         selectiveImportMatch = self.patterns.selectiveImportPattern.match(str(line))
         if selectiveImportMatch:
@@ -1986,10 +1991,10 @@ This is not allowed for implementations using %s.\
                         extra={"hfLineNo":currLineNo, "hfFile":currFile}
                     )
 
-            additionalDeclarationsStr += self.implementation.declarationEnd( \
-                self.currSymbolsByName.values() + additionalImports, \
-                self.currRoutineIsCallingParallelRegion, \
-                self.routineNodesByProcName[self.currSubprocName], \
+            additionalDeclarationsStr += self.implementation.declarationEnd(
+                self.currSymbolsByName.values() + additionalImports,
+                self.currRoutineIsCallingParallelRegion,
+                self.routineNodesByProcName[self.currSubprocName],
                 self.parallelRegionTemplatesByProcName.get(self.currSubprocName)
             )
 

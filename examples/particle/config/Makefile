@@ -32,6 +32,6 @@ helper_functions_gpu: helper_functions.o
 
 # ADD YOUR DEPENDENCIES BELOW THIS LINE
 # -------->
-particle.o : storage_order.F90 ../source/storage.h ${USER_LIB}
+particle.o : time_profiling.o storage_order.F90 ../source/storage.h ${USER_LIB}
 particle_openACC.o : storage_order.F90 ../source/storage.h ${USER_LIB}
 

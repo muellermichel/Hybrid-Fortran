@@ -22,25 +22,25 @@ module simple_weather
   real(8), allocatable, target, dimension(:,:) :: surface_thermal_energy, planetary_thermal_energy
   real(8) :: t_start_output_cycle, t_start_output_cycle_w_io
 
-  interface
-    subroutine print_slice(thermal_energy, slice_k, nx, ny, nz) bind(C, name="print_slice")
-      use iso_c_binding,only: c_int, c_double
+!   interface
+!     subroutine print_slice(thermal_energy, slice_k, nx, ny, nz) bind(C, name="print_slice")
+!       use iso_c_binding,only: c_int, c_double
 
-      integer(c_int),value :: nx, ny, nz, slice_k
-      real(c_double), dimension(0:nx+1,0:ny+1,nz) :: thermal_energy
-    end subroutine print_slice
-    subroutine diffuse_c(runtime_total_s, runtime_boundary_s, thermal_energy_updated, thermal_energy, nx, ny, nz) bind(C, name="diffuse_c")
-      use iso_c_binding,only: c_int, c_double
+!       integer(c_int),value :: nx, ny, nz, slice_k
+!       real(c_double), dimension(0:nx+1,0:ny+1,nz) :: thermal_energy
+!     end subroutine print_slice
+!     subroutine diffuse_c(runtime_total_s, runtime_boundary_s, thermal_energy_updated, thermal_energy, nx, ny, nz) bind(C, name="diffuse_c")
+!       use iso_c_binding,only: c_int, c_double
 
-      real(c_double) :: runtime_total_s, runtime_boundary_s
-      integer(c_int),value :: nx, ny, nz
-      real(c_double), dimension(0:nx+1,0:ny+1,nz) :: thermal_energy_updated, thermal_energy
+!       real(c_double) :: runtime_total_s, runtime_boundary_s
+!       integer(c_int),value :: nx, ny, nz
+!       real(c_double), dimension(0:nx+1,0:ny+1,nz) :: thermal_energy_updated, thermal_energy
 
-      @domainDependant {attribute(autoDom, host)}
-      thermal_energy_updated, thermal_energy
-      @end domainDependant
-    end subroutine diffuse_c
-  end interface
+!       @domainDependant {attribute(autoDom, host)}
+!       thermal_energy_updated, thermal_energy
+!       @end domainDependant
+!     end subroutine diffuse_c
+!   end interface
 
   @domainDependant{attribute(autoDom,host), domName(i,j,k), domSize(0:nx+1,0:ny+1,nz)}
   thermal_energy, thermal_energy_c, thermal_energy_updated
@@ -110,17 +110,17 @@ module simple_weather
       end if
       call run_physics(thermal_energy_current, surface_thermal_energy, planetary_thermal_energy)
       if (use_c) then
-#ifdef GPU
-        !$acc data present(thermal_energy_current,thermal_energy_updated)
-#else
-        !$acc data copyin(thermal_energy_current) copy(thermal_energy_updated)
-#endif
-        !$acc host_data use_device(thermal_energy_current,thermal_energy_updated)
-        call diffuse_c(curr_elapsed_runtime_diffusion, curr_elapsed_runtime_boundary, thermal_energy_updated, thermal_energy_current, nx, ny, nz)
-        call incrementCounterWithElapsed(counter4, curr_elapsed_runtime_boundary)
-        call incrementCounterWithElapsed(counter1, curr_elapsed_runtime_diffusion)
-        !$acc end host_data
-        !$acc end data
+! #ifdef GPU
+!         !$acc data present(thermal_energy_current,thermal_energy_updated)
+! #else
+!         !$acc data copyin(thermal_energy_current) copy(thermal_energy_updated)
+! #endif
+!         !$acc host_data use_device(thermal_energy_current,thermal_energy_updated)
+!         call diffuse_c(curr_elapsed_runtime_diffusion, curr_elapsed_runtime_boundary, thermal_energy_updated, thermal_energy_current, nx, ny, nz)
+!         call incrementCounterWithElapsed(counter4, curr_elapsed_runtime_boundary)
+!         call incrementCounterWithElapsed(counter1, curr_elapsed_runtime_diffusion)
+!         !$acc end host_data
+!         !$acc end data
       else
         call diffuse(thermal_energy_updated, thermal_energy_current)
       end if
@@ -230,17 +230,20 @@ module simple_weather
     allocate(updated_test_data(nz,0:nx+1,0:ny+1))
     test_data(:,:,:) = 0.0d0
     updated_test_data(:,:,:) = 0.0d0
-    !$acc data copyin(test_data) copy(updated_test_data)
-    !$acc host_data use_device(test_data,updated_test_data)
-    call diffuse_c(curr_elapsed_runtime_diffusion, curr_elapsed_runtime_boundary, updated_test_data, test_data, nx, ny, nz)
-    !$acc end host_data
-    !$acc end data
+!     !$acc data copyin(test_data) copy(updated_test_data)
+!     !$acc host_data use_device(test_data,updated_test_data)
+!     call diffuse_c(curr_elapsed_runtime_diffusion, curr_elapsed_runtime_boundary, updated_test_data, test_data, nx, ny, nz)
+!     !$acc end host_data
+!     !$acc end data
   end subroutine
 end module
 
 program main
   use simple_weather
   use M_kracken
+  @if {architecture(GPU)}
+  use openacc
+  @end if
   implicit none
   integer(4) :: nx, ny, nz
   real(8) :: end_time, timestep, output_timestep
@@ -253,6 +256,10 @@ program main
   timestep = rget('cmd_ts')
   output_timestep = rget('cmd_tso')
 
+  @if {architecture(GPU)}
+  call acc_init( acc_device_nvidia )
+  @end if
+
 !   call testrun_cuda_kernels
 !   write(6,*) "test done"
 
@@ -261,14 +268,16 @@ program main
   write(6,'(A,F0.1,A,F0.1,A,F0.1)') "Starting simulation. End Time: ", end_time, " Timestep: ", timestep, " Output Timestep: ", output_timestep
   write(6,*) "================== Hybrid Fortran Version =================="
   call simulate(thermal_energy, 0.0d0, end_time, timestep, output_timestep, .false.)
-  thermal_energy_updated(:,:,:) = 0.0d0
-  write(6,*) "================== CUDA C Version =================="
-  call simulate(thermal_energy_c, 0.0d0, end_time, timestep, output_timestep, .true.)
-  !check the c version only with GPU order (ordering is wrong with the CPU version)
-  #ifdef GPU
-  call check(thermal_energy_c, thermal_energy)
-  write(6,*) "cuda version checks out"
-  #endif
+
+!   thermal_energy_updated(:,:,:) = 0.0d0
+!   write(6,*) "================== CUDA C Version =================="
+!   call simulate(thermal_energy_c, 0.0d0, end_time, timestep, output_timestep, .true.)
+!   !check the c version only with GPU order (ordering is wrong with the CPU version)
+!   #ifdef GPU
+!   call check(thermal_energy_c, thermal_energy)
+!   write(6,*) "cuda version checks out"
+!   #endif
+
   call cleanup
   write(6,*) "stopping..."
   stop

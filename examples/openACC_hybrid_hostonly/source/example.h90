@@ -60,10 +60,17 @@ end module example
 
 program main
   use example
+  @if {architecture(GPU)}
+  use openacc
+  @end if
   real, dimension(DOM(NX, NY, NZ)) :: a, b, c, d, e, f
   integer :: x, y, z
   integer :: fail_x, fail_y, fail_z
   logical test
+
+  @if {architecture(GPU)}
+  call acc_init( acc_device_nvidia )
+  @end if
 
   a(:,:,:) = 1.0d0
   b(:,:,:) = 2.0d0

@@ -29,9 +29,9 @@ import re, sys, copy
 import logging
 import pdb
 from tools.DomHelper import *
-from GeneralHelper import enum, BracketAnalyzer
+from tools.GeneralHelper import enum, BracketAnalyzer
 from H90RegExPatterns import H90RegExPatterns
-from GeneralHelper import Singleton, UsageError
+from tools.GeneralHelper import Singleton, UsageError
 from H90SymbolDependencyGraphAnalyzer import SymbolDependencyAnalyzer, SymbolType
 
 Init = enum("NOTHING_LOADED",

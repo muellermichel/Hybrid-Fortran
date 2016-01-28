@@ -30,7 +30,7 @@
 from xml.dom.minidom import Document
 from tools.DomHelper import parseString
 from optparse import OptionParser
-from GeneralHelper import setupDeferredLogging
+from tools.GeneralHelper import setupDeferredLogging
 import sys, traceback
 import logging
 

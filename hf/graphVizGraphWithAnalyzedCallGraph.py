@@ -25,7 +25,7 @@
 #  Author           Michel Müller (AOKI Laboratory)                    #
 #**********************************************************************#
 
-from GeneralHelper import openFile, prettyprint, setupDeferredLogging
+from tools.GeneralHelper import openFile, prettyprint, setupDeferredLogging
 from tools.DomHelper import addCallers, addCallees, getRegionPosition
 from H90SymbolDependencyGraphAnalyzer import SymbolDependencyAnalyzer, SymbolType, SymbolAnalysis
 from xml.dom.minidom import Document

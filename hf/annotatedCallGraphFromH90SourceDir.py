@@ -30,7 +30,7 @@
 from xml.dom.minidom import Document
 from optparse import OptionParser
 from RecursiveDirEntries import dirEntries
-from GeneralHelper import printProgressIndicator, progressIndicatorReset, setupDeferredLogging
+from tools.GeneralHelper import printProgressIndicator, progressIndicatorReset, setupDeferredLogging
 from H90CallGraphParser import H90XMLCallGraphGenerator, H90XMLSymbolDeclarationExtractor
 import os
 import sys

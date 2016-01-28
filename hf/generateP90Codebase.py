@@ -31,7 +31,7 @@ from xml.dom.minidom import Document
 from tools.DomHelper import parseString, ImmutableDOMDocument, getClonedDocument
 from optparse import OptionParser
 from H90CallGraphParser import H90XMLSymbolDeclarationExtractor, H90toF90Printer, getSymbolsByName, getModuleNodesByName, getParallelRegionData, getSymbolsByRoutineNameAndSymbolName, getSymbolsByModuleNameAndSymbolName
-from GeneralHelper import UsageError, openFile, getDataFromFile, setupDeferredLogging, printProgressIndicator, progressIndicatorReset
+from tools.GeneralHelper import UsageError, openFile, getDataFromFile, setupDeferredLogging, printProgressIndicator, progressIndicatorReset
 from RecursiveDirEntries import dirEntries
 from H90SymbolDependencyGraphAnalyzer import SymbolDependencyAnalyzer
 from io import FileIO

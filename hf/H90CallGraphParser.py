@@ -31,7 +31,7 @@
 
 from xml.dom.minidom import Document
 from tools.DomHelper import *
-from GeneralHelper import UsageError, BracketAnalyzer, findRightMostOccurrenceNotInsideQuotes, stripWhitespace, enum
+from tools.GeneralHelper import UsageError, BracketAnalyzer, findRightMostOccurrenceNotInsideQuotes, stripWhitespace, enum
 from H90SymbolDependencyGraphAnalyzer import SymbolDependencyAnalyzer, getAnalysisForSymbol, getArguments
 from H90Symbol import *
 from H90RegExPatterns import H90RegExPatterns

@@ -26,7 +26,7 @@
 
 from xml.dom.minidom import Document
 from tools.DomHelper import parseString
-from GeneralHelper import openFile, setupDeferredLogging
+from tools.GeneralHelper import openFile, setupDeferredLogging
 from optparse import OptionParser
 import os
 import sys

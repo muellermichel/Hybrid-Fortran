@@ -1,6 +1,6 @@
 import sys, re, fileinput
 import logging
-from GeneralHelper import findLeftMostOccurrenceNotInsideQuotes, setupDeferredLogging
+from tools.GeneralHelper import findLeftMostOccurrenceNotInsideQuotes, setupDeferredLogging
 
 openMPLinePattern = re.compile(r'\s*\!\$OMP.*', re.IGNORECASE)
 openACCLinePattern = re.compile(r'\s*\!\$ACC.*', re.IGNORECASE)

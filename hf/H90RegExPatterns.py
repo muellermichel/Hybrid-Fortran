@@ -27,7 +27,7 @@
 #**********************************************************************#
 import re
 import logging
-from GeneralHelper import Singleton
+from tools.GeneralHelper import Singleton
 
 @Singleton
 class H90RegExPatterns:

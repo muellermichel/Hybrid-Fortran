@@ -4,7 +4,7 @@ import logging
 from optparse import OptionParser
 from xml.dom.minidom import Document
 from tools.DomHelper import getDomainDependantTemplatesAndEntries, parseString
-from GeneralHelper import setupDeferredLogging
+from tools.GeneralHelper import setupDeferredLogging
 
 def isEqualElement(a, b, ignoreAttributes):
   if a.tagName!=b.tagName:

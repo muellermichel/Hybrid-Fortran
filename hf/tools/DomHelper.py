@@ -26,7 +26,7 @@
 
 
 from xml.dom.minidom import Document, Node, parseString as parseStringUsingMinidom
-from GeneralHelper import BracketAnalyzer, enum
+from tools.GeneralHelper import BracketAnalyzer, enum
 import uuid
 import re
 import logging

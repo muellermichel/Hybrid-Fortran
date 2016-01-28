@@ -20,7 +20,7 @@
 
 import pstats, sys
 from optparse import OptionParser
-from GeneralHelper import setupDeferredLogging
+from tools.GeneralHelper import setupDeferredLogging
 from RecursiveDirEntries import dirEntries
 import logging
 

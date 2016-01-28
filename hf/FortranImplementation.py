@@ -22,7 +22,7 @@ from H90Symbol import Symbol, DeclarationType, purgeFromDeclarationSettings
 from H90SymbolDependencyGraphAnalyzer import getAnalysisForSymbol
 from H90RegExPatterns import H90RegExPatterns
 from tools.GeneralHelper import UsageError
-from tools.DomHelper import *
+from tools.DomHelper import getDomainDependantTemplatesAndEntries
 from implementations.commons import *
 import os, logging
 

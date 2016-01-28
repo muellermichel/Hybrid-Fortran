@@ -1,4 +1,5 @@
 from tools.GeneralHelper import UsageError
+from tools.DomHelper import appliesTo, getDomainsWithParallelRegionTemplate, getReductionScalarsByOperator, getTemplate
 import logging
 
 def getReductionClause(parallelRegionTemplate):

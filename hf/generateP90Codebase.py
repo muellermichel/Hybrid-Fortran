@@ -28,7 +28,7 @@
 
 
 from xml.dom.minidom import Document
-from DomHelper import parseString, ImmutableDOMDocument, getClonedDocument
+from tools.DomHelper import parseString, ImmutableDOMDocument, getClonedDocument
 from optparse import OptionParser
 from H90CallGraphParser import H90XMLSymbolDeclarationExtractor, H90toF90Printer, getSymbolsByName, getModuleNodesByName, getParallelRegionData, getSymbolsByRoutineNameAndSymbolName, getSymbolsByModuleNameAndSymbolName
 from GeneralHelper import UsageError, openFile, getDataFromFile, setupDeferredLogging, printProgressIndicator, progressIndicatorReset

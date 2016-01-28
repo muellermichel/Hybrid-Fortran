@@ -28,7 +28,7 @@
 
 
 from xml.dom.minidom import Document
-from DomHelper import parseString
+from tools.DomHelper import parseString
 from optparse import OptionParser
 from GeneralHelper import setupDeferredLogging
 import sys, traceback

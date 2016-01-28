@@ -26,10 +26,10 @@
 #**********************************************************************#
 
 from GeneralHelper import openFile, prettyprint, setupDeferredLogging
-from DomHelper import addCallers, addCallees, getRegionPosition
+from tools.DomHelper import addCallers, addCallees, getRegionPosition
 from H90SymbolDependencyGraphAnalyzer import SymbolDependencyAnalyzer, SymbolType, SymbolAnalysis
 from xml.dom.minidom import Document
-from DomHelper import parseString
+from tools.DomHelper import parseString
 from optparse import OptionParser
 import pydot
 import os

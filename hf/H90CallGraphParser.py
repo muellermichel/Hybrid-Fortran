@@ -30,7 +30,7 @@
 
 
 from xml.dom.minidom import Document
-from DomHelper import *
+from tools.DomHelper import *
 from GeneralHelper import UsageError, BracketAnalyzer, findRightMostOccurrenceNotInsideQuotes, stripWhitespace, enum
 from H90SymbolDependencyGraphAnalyzer import SymbolDependencyAnalyzer, getAnalysisForSymbol, getArguments
 from H90Symbol import *

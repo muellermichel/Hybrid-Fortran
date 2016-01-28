@@ -3,7 +3,7 @@ import sys
 import logging
 from optparse import OptionParser
 from xml.dom.minidom import Document
-from DomHelper import getDomainDependantTemplatesAndEntries, parseString
+from tools.DomHelper import getDomainDependantTemplatesAndEntries, parseString
 from GeneralHelper import setupDeferredLogging
 
 def isEqualElement(a, b, ignoreAttributes):

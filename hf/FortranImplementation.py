@@ -32,7 +32,7 @@ from H90Symbol import Symbol, DeclarationType, purgeFromDeclarationSettings
 from H90SymbolDependencyGraphAnalyzer import getAnalysisForSymbol
 from H90RegExPatterns import H90RegExPatterns
 from GeneralHelper import UsageError
-from DomHelper import *
+from tools.DomHelper import *
 import os
 import sys
 import re

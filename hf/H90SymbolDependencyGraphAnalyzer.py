@@ -30,7 +30,7 @@
 
 
 from xml.dom.minidom import Document
-from DomHelper import addCallers, addCallees, createOrGetFirstNodeWithName, getDomainDependantTemplatesAndEntries
+from tools.DomHelper import addCallers, addCallees, createOrGetFirstNodeWithName, getDomainDependantTemplatesAndEntries
 from GeneralHelper import enum, prettyprint, UsageError
 import sys
 import logging

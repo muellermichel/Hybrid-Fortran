@@ -28,7 +28,7 @@
 import re, sys, copy
 import logging
 import pdb
-from DomHelper import *
+from tools.DomHelper import *
 from GeneralHelper import enum, BracketAnalyzer
 from H90RegExPatterns import H90RegExPatterns
 from GeneralHelper import Singleton, UsageError

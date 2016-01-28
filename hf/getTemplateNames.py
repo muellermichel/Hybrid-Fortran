@@ -19,7 +19,7 @@
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
 from xml.dom.minidom import Document
-from DomHelper import parseString
+from tools.DomHelper import parseString
 from optparse import OptionParser
 from GeneralHelper import openFile, setupDeferredLogging
 import os

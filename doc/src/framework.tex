@@ -1,5 +1,5 @@
 \chapter{The Hybrid Fortran Framework} \label{cha:framework}
-Hybrid Fortran is a directive based extension of the and a code transformation tool within the Fortran language. It is intended for enabling GPGPU acceleration of data parallel programs using a unified codebase. Performance Portability was a major design aspect of this framework - not only should it enable the accelerated target to achieve optimal performance, but the CPU target should keep performing as before the migration. In the backend it automatically creates CUDA Fortran code for GPU and OpenMP Fortran code for CPU, in both cases making use of data parallelism defined by the user through directives. Additionally, a GNU Make build system as well as an automatic test system is provided. Hybrid Fortran has been successfully used for speeding up the Physical Core of Japan's national next generation weather prediction model by a factor of 3.6x on Kepler K20x vs. 6 Core Westmere \textit{while not loosing any CPU performance}.
+Hybrid Fortran is a directive based extension of the and a code transformation tool within the Fortran language. It is intended for enabling GPGPU acceleration of data parallel programs using a unified codebase. Performance Portability was a major design aspect of this framework - not only should it enable the accelerated target to achieve optimal performance, but the CPU target should keep performing as before the migration. In the backend it automatically creates CUDA Fortran or OpenACC Fortran code for GPU and OpenMP Fortran code for CPU, in both cases making use of data parallelism defined by the user through directives. Additionally, a GNU Make build system as well as an automatic test system is provided. Hybrid Fortran has been successfully used for speeding up the Physical Core of Japan's national next generation weather prediction model by a factor of 3.6x on Kepler K20x vs. 6 Core Westmere \textit{while not loosing any CPU performance}.
 
 This chapter will describe the functionality of the \textbf{Hybrid Fortran} framework from a user perspective. Chapter \ref{cha:usage} guides through setup, portation, debugging and testing in a 'howto'-like fashion. Chapter \ref{cha:implementation} will go into implementation details for those who would like to adapt \textbf{Hybrid Fortran} to their own specific usecases.
 
@@ -31,7 +31,7 @@ This section gives an overview over the design goals of the \textbf{Hybrid Fortr
 
  \item Temporary automatic arrays, module data and imported scalars within GPU kernels (aka subroutines containing a GPU `@parallelRegion`) - this functionality is provided in addition to CUDA Fortran's device syntax features.
 
- \item Experimental Support for Pointers.
+ \item Support for Pointers.
 
  \item Separate build directories for the automatically created CPU and GPU codes, showing you the created F90 files. Get a clear view of what happens in the back end without cluttering up your source directories.
 
@@ -40,6 +40,8 @@ This section gives an overview over the design goals of the \textbf{Hybrid Fortr
  \item Highly human readable intermediate F90 source files. The callgraph, including subroutine names, remains the same as in the user code you specify. The code in the intermediate source files is auto indented for additional reading comfort.
 
  \item Macro support for your codebase - a separate preprocessor stage is applied even before the hybrid fortran preprocessor comes in, in order to facilitate the DRY principle.
+
+ \item Arbitrary usage of line length and line continuations is allowed in Hybrid Fortran. The framework will automatically merge all continued lines, then apply the transformation steps, then split the lines up again in order to ensure compliance with Fortran compilers.
 
  \item Automatic creation of your callgraph as a graphviz image, facilitating your code reasoning. Simply type `make graphs` in the command line in your project directory.
 
@@ -87,6 +89,7 @@ The following attributes are supported for this directive:
  \item [domSize] (Required) Set of the domain dimensions in the same order as their respective domain names specified using the \verb|domName| attribute. It is required that $|domName| = |domSize|$.
  \item [startAt] Set the lower boundary for each domain at which to start computations. Omitting this attribute will set all boundaries to \verb|1|. It is required that $|startAt| = |domName|$.
  \item [endAt] Set the upper boundary for each domain at which to end computations. Omitting this attribute will set all boundaries to \verb|domSize| for each domain. It is required that $|startAt| = |domName|$.
+ \item [reduction] Works in the same way as OpenMP reduction directives. This is only supported with the OpenACC backend however. For example \verb|reduction(+:result)| sums up result over all threads.
  \item [template] Defines a postfix that is to be applied to different attributes that are loaded using the preprocessor. Currently this only affects CUDA Blocksizes: They are loaded using \verb|CUDA_BLOCKSIZE_X_[Template-Name]| from the preprocessor (\verb|storage_order.F90| is the most handy place to define them). The goal of this attribute is to to be able to hoist hardware dependent attributes outside of the code, so when a new architecture comes along, all you need to do is rewriting the template. This functionality will be extended in future Hybrid Fortran releases. Specify this template name without quotes.
 \end{description}
 
@@ -365,18 +368,17 @@ end module example
 The following restrictions will need to be applied to standard Fortran 90 syntax in order to make it compatible with the \textbf{Hybrid Fortran} framework in its current state. For the most part these restrictions are necessary in order to ensure CUDA Fortran compatibility. Other restrictions have been introduced in order to reduce the program complexity while still maintaining suitability for common physical packages.
 
 \begin{figure}[htpb]
-	\centering
-	\includegraphics[width=7.5cm]{figures/subroutineTypes.png}
-	\caption[Hybrid Fortran Subroutine Types]{Callgraph showing subroutine types with restrictions for GPU compilation.}
-	\label{figure:subroutineTypes}
+  \centering
+  \includegraphics[width=7.5cm]{figures/subroutineTypes.png}
+  \caption[Hybrid Fortran Subroutine Types]{Callgraph showing subroutine types with restrictions for GPU compilation.}
+  \label{figure:subroutineTypes}
 \end{figure}
 
 \begin{enumerate}
  \item Hybrid Fortran has only been tested using free form Fortran 90 and Fortran 2003 syntax.
  \item Your free form files will need the f90 or F90 file endings for the Hybrid Fortran build system to pick them up (this is also recommended by Intel if you want to use their compiler).
- \item Support for pointers in kernel callers is still experimental. See the \verb|diffusion3D| example for an example code on how to use pointers together with Hybrid Fortran. All pointers that are to touch the device need a specified intent and their domain / dimension setup needs to be specified within a domainDependant directive.
- \item Hybrid Fortran currently supports data parallel programming for multicore CPU and GPU. In order to use reduce functions, it is recommended to use BLAS/CUBLAS (see poisson2d solver example).
- \item Currently no line continuations are supported for the attribute definitions of directives.
+ \item All pointers that are to touch the device need a specified intent and their domain / dimension setup needs to be specified within a domainDependant directive. See the \verb|diffusion3D| example for an example code on how to use pointers together with Hybrid Fortran.
+ \item When using the CUDA Fortran backend, Hybrid Fortran only supports data parallel programming. In order to use reduce functions, it is recommended to either use BLAS/CUBLAS (see poisson2d solver example) or use the OpenACC backend together with \verb|@parallelRegion| directives and \verb|reduce| attributes.
  \item Because of OpenACC / CUDA Fortran restrictions, kernel- and inside kernel subroutines may not
   \begin{enumerate}
    \item contain symbols declared with the \verb|DATA| or \verb|SAVE| attribute.
@@ -417,15 +419,13 @@ The following restrictions will need to be applied to standard Fortran 90 syntax
  @end domainDependant
  ..
  \end{lstlisting}
- \item The regular Fortran 90 declarations of any symbols declared as domain dependant may not contain line continuations.
- \item Use statements in kernel- and inside kernel subroutines may not contain line continuations.
  \item All source files (h90\footnote{h90 is the file extension used for Hybrid Fortran source files.}, H90\footnote{H90 is the file extension used for Hybrid Fortran source files that contain same-file macro expansions.}, f90, F90) need to have distinctive filenames since they will be copied into flat source directories by the build system.
  \item Subroutines in h90 and H90 files need distinctive names for the entire source tree.
  \item Only subroutines are supported together with \textbf{Hybrid Fortran} directives, e.g. functions are not supported.
- \item Preprocessor directives that affect the Hybrid Fortran preprocessing (such as code macros) must be expandable from definitions within the same H90 file. Use the H90 file suffix (instead of h90) in case you want to use macros in your code.
+ \item Preprocessor directives that affect the Hybrid Fortran preprocessing (such as code macros) must be expandable from definitions within the same H90 file, i.e. imports are not followed. Use the H90 file suffix (instead of h90) in case you want to use macros in your code.
  \item If you use local module scalars inside a kernel subroutine, the wrapper subroutine must reside in the same module.
  \item Module scalars, when used in a kernel subroutine, will loose their constant characteristic on GPU. They therefore can't be used where a constant is required, such as in a \verb|case| statement. (They do work as a dimension specifier for automatic arrays however.)
- \item I/O statements such as \verb|read| or \verb|write| and \verb|STOP| statements are not possible inside GPU parallel regions, except for emulated mode.
+ \item I/O statements such as \verb|read| or \verb|write| and \verb|STOP| statements are not possible inside GPU parallel regions, except for emulated mode. \verb|print| is however supported.
 \end{enumerate}
 
 In general, since
@@ -452,7 +452,7 @@ Using the following guidelines, Hybrid Fortran is able to manage your imported m
  \item After the specification part of your module, add \verb|@domainDependant| directives and include all arrays that need to be touched by your parallel regions.
  \item In case your module data arrays are allocatable (which is probably the case if your problem dimensions are runtime defined), you cannot use \verb|attribute(autoDom)|. Instead, use the \verb|domName| and \verb|domSize| attributes to specify the domain setup. You may use runtime defined scalar variables (e.g. \verb|nx|, \verb|i|, ...) within this specification as long as these variables are always defined within the parallel regions that use these arrays. These runtime variables do \textbf{not} need to be imported into the declaring module.
  \item Specify \verb|attribute(host)| for all these arrays in the module specification.
- \item In the module data consuming kernel subroutine, simply import the data with \verb|use| statements (please note that Hybrid Fortran cannot parse multiline \verb|use| statements at this point). And specify them also inside the corresponding \verb|domainDependant| directive. You may use \verb|attribute(autoDom)| there, since Hybrid Fortran will use the domain information that you provide in the module specification. The data handling at this point follows the same rules as locally declared arrays (see above) - so make sure that you use \verb|attribute(present)| and \verb|attribute(transferHere)| if you have multiple kernel subroutines that touch the same data.
+ \item In the module data consuming kernel subroutine, simply import the data with \verb|use| statements (please note that Hybrid Fortran cannot parse multiline \verb|use| statements at this point) and specify them also inside the corresponding \verb|domainDependant| directive. You may use \verb|attribute(autoDom)| there, since Hybrid Fortran will use the domain information that you provide in the module specification. The data handling at this point follows the same rules as locally declared arrays (see above) - so make sure that you use \verb|attribute(present)| and \verb|attribute(transferHere)| if you have multiple kernel subroutines that touch the same data.
 \end{enumerate}
 
 \clearpage
@@ -461,68 +461,66 @@ Using the following guidelines, Hybrid Fortran is able to manage your imported m
 The following table gives an overview over the differences between OpenACC and the \textbf{Hybrid Fortran} framework.
 
 \begin{table}[htpb]
-	\centering
-	\footnotesize
-	\begin{tabular}{l|c|c|l}
-		Feature & OpenACC & Hybrid & Comments \\
-		& & Fortran 90 & \\
-		\hline \hline
-		Enables close to fully optimized  & & \checkmark & CUDA Fortran implementation \\
-		Fortran code for GPU execution & & & available, which has equal or better \\
-		& & & performance than OpenACC in all \\
-		& & & cases known to us \\
-		\hline
-		Enables close to fully & & \checkmark & Storage order abstraction as well \\
-		optimized Fortran code & & & as allowing both coarse grained \\
-		for CPU execution & & & as well as fine grained parallelization \\
-		& & & leads to this result. \\
-		\hline
-		Automatic device data & \checkmark & \checkmark & \\
-		copying & & & \\
-		\hline
-		Allows adjusted looping & & \checkmark & \\
-		patterns for CPU and & & & \\
-		GPU execution & & & \\
-		\hline
-		Allows changing the & & \checkmark & \\
-		looping patterns with & & & \\
-		minimal adjustments in & & & \\
-		user code & & & \\
-		\hline
-		Handles compile time & & \checkmark & \\
-		defined storage order & & & \\
-		\hline
-		Allows to adapt & & \checkmark & Details, see section \ref{sub:switchImplementation} \\
-		for other technologies & & & \\
-		without changing the user & & & \\
-		code (e.g. switching to & & & \\
-		OpenCL) & & & \\
-		\hline
-		Allows arbitrary access & \checkmark & \checkmark &  \\
-		patterns in parallel & & & \\
-		domains & & & \\
-		& & & \\
-		& & & \\
-		\hline
-		Allows multiple parallel & \checkmark & (\checkmark) & HF: Only OpenACC backend. \\
-		regions per subroutine & & & \\
-		\hline
-		Generated GPU code remains & & \checkmark & OpenACC compiles to CUDA C \\
-		easily human & & & (PGI), introduces new \\
-		readable & & & functions for device kernels. \\
-		& & & Hybrid Fortran can translate to \\
-		& & & CUDA Fortran, code remains \\
-		& & & easily readable.\\
-		\hline
-		Allows debugging of & \checkmark & \checkmark & \\
-		device data & & & \\
-		\hline
-		Framework Sourcecode & & \checkmark & \\
-		available & & & \\
-		\hline
-	\end{tabular}
-	\caption{Feature Comparison OpenACC vs. Hybrid Fortran}
-	\label{table:featureComparisonFrameworks}
+  \centering
+  \footnotesize
+  \begin{tabular}{l|c|c|l}
+    Feature & OpenACC & Hybrid & Comments \\
+    & & Fortran 90 & \\
+    \hline \hline
+    Enables close to fully optimized  & & \checkmark & CUDA Fortran implementation \\
+    Fortran code for GPU execution & & & available, which has equal or better \\
+    & & & performance than OpenACC in all \\
+    & & & cases known to us \\
+    \hline
+    Enables close to fully & & \checkmark & Storage order abstraction as well \\
+    optimized Fortran code & & & as allowing both coarse grained \\
+    for CPU execution & & & as well as fine grained parallelization \\
+    & & & leads to this result. \\
+    \hline
+    Automatic device data & \checkmark & \checkmark & \\
+    copying & & & \\
+    \hline
+    Allows adjusted looping & & \checkmark & \\
+    patterns for CPU and & & & \\
+    GPU execution & & & \\
+    \hline
+    Allows changing the & & \checkmark & \\
+    looping patterns with & & & \\
+    minimal adjustments in & & & \\
+    user code & & & \\
+    \hline
+    Handles compile time & & \checkmark & \\
+    defined storage order & & & \\
+    \hline
+    Allows to adapt & & \checkmark & Details, see section \ref{sub:switchImplementation} \\
+    for other technologies & & & \\
+    without changing the user & & & \\
+    code (e.g. switching to & & & \\
+    OpenCL) & & & \\
+    \hline
+    Allows arbitrary access & \checkmark & \checkmark &  \\
+    patterns in parallel & & & \\
+    domains & & & \\
+    & & & \\
+    & & & \\
+    \hline
+    Allows multiple parallel & \checkmark & (\checkmark) & HF: Only OpenACC backend. \\
+    regions per subroutine & & & \\
+    \hline
+    Generated GPU code remains & & \checkmark & OpenACC compiles to CUDA C \\
+    easily human & & & (PGI), introduces new \\
+    readable & & & functions for device kernels. \\
+    & & & Hybrid Fortran can translate to \\
+    & & & CUDA Fortran, code remains \\
+    & & & easily readable.\\
+    \hline
+    Allows debugging of & \checkmark & \checkmark & \\
+    device data & & & \\
+    \hline
+    Framework Sourcecode & & \checkmark & \\
+    available & & & \\
+    \hline
+  \end{tabular}
+  \caption{Feature Comparison OpenACC vs. Hybrid Fortran}
+  \label{table:featureComparisonFrameworks}
 \end{table}
-
-

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (C) 2014 Michel Müller, Tokyo Institute of Technology
+# Copyright (C) 2016 Michel Müller, Tokyo Institute of Technology
 
 # This file is part of Hybrid Fortran.
 

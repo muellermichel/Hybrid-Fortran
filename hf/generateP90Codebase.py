@@ -25,7 +25,7 @@ from H90CallGraphParser import H90XMLSymbolDeclarationExtractor, H90toF90Printer
 from tools.GeneralHelper import UsageError, openFile, getDataFromFile, setupDeferredLogging, printProgressIndicator, progressIndicatorReset
 from RecursiveDirEntries import dirEntries
 from H90SymbolDependencyGraphAnalyzer import SymbolDependencyAnalyzer
-import implementations.FortranImplementation
+import implementations.fortran
 from io import FileIO
 import os, errno, sys, json, traceback, logging
 
@@ -96,7 +96,7 @@ except Exception as e:
 	implementationNamesByTemplateName = {'default':options.implementation}
 logging.debug('Initializing H90toF90Printer with the following implementations: %s' %(json.dumps(implementationNamesByTemplateName)))
 implementationsByTemplateName = {
-	templateName:getattr(FortranImplementation, implementationNamesByTemplateName[templateName])(optionFlags)
+	templateName:getattr(implementations.fortran, implementationNamesByTemplateName[templateName])(optionFlags)
 	for templateName in implementationNamesByTemplateName.keys()
 }
 

@@ -77,6 +77,14 @@ See also the [results overview](../results/Overview.md).
         <td>Array Accessor Functions Example</td>
         <td>Tests more complicated array access patterns like 'a(min(n_max,i),j)' with the Hybrid Fortran parser.</td>
     </tr>
+    <tr>
+        <td>5D Parallel Vector Example</td>
+        <td>Tests parallel (in two dimensions) computation of up to 5D data in different configurations. This is used to emulate the data setup of many physical processes packages.</td>
+    </tr>
+    <tr>
+        <td>Simple Weather</td>
+        <td>A unscientifically simple weather model, accelerated with Hybrid Fortran, used as an academic example to explain the framework.</td>
+    </tr>
 </table>
 
 ## Link to Sources, Available Versions and Implementation Accuracy
@@ -221,6 +229,22 @@ See also the [results overview](../results/Overview.md).
         <td>Array Accessor Function Example</td>
         <td><a href="https://github.com/muellermichel/Hybrid-Fortran/tree/master/examples/array_accessor_functions">Link</a></td>
         <td>1E-8</td>
+        <td>No</td>
+        <td>No</td>
+        <td>No</td>
+    </tr>
+    <tr>
+        <td>5D Parallel Vector Example</td>
+        <td><a href="https://github.com/muellermichel/Hybrid-Fortran/tree/master/examples/5D_parallel_vector">Link</a></td>
+        <td>1E-8</td>
+        <td>No</td>
+        <td>No</td>
+        <td>No</td>
+    </tr>
+    <tr>
+        <td>Simple Weather</td>
+        <td><a href="https://github.com/muellermichel/Hybrid-Fortran/tree/master/examples/simple_weather">Link</a></td>
+        <td>n/a</td>
         <td>No</td>
         <td>No</td>
         <td>No</td>

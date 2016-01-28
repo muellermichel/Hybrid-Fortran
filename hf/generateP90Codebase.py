@@ -18,15 +18,6 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
-#**********************************************************************#
-#  Procedure        generateP90Codebase.py                             #
-#  Comment          Takes one h90 file and the associated complete     #
-#                   callgraph and produces a compilable F90 file       #
-#  Date             2012/08/01                                         #
-#  Author           Michel Müller (AOKI Laboratory)                    #
-#**********************************************************************#
-
-
 from xml.dom.minidom import Document
 from tools.DomHelper import parseString, ImmutableDOMDocument, getClonedDocument
 from optparse import OptionParser
@@ -34,15 +25,9 @@ from H90CallGraphParser import H90XMLSymbolDeclarationExtractor, H90toF90Printer
 from tools.GeneralHelper import UsageError, openFile, getDataFromFile, setupDeferredLogging, printProgressIndicator, progressIndicatorReset
 from RecursiveDirEntries import dirEntries
 from H90SymbolDependencyGraphAnalyzer import SymbolDependencyAnalyzer
+import implementations.FortranImplementation
 from io import FileIO
-import os
-import errno
-import sys
-import json
-import traceback
-import StringIO
-import FortranImplementation
-import logging
+import os, errno, sys, json, traceback, logging
 
 ##################### MAIN ##############################
 #get all program arguments

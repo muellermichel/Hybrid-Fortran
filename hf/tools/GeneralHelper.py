@@ -18,13 +18,6 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
-#**********************************************************************#
-#  Procedure        FileHelper.py                                      #
-#  Date             2012/07/27                                         #
-#  Author           Michel Müller (AOKI Laboratory)                    #
-#**********************************************************************#
-
-
 import os, sys, re, logging, logging.handlers, atexit
 
 class UsageError(Exception):

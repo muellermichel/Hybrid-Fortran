@@ -18,13 +18,6 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
-#**********************************************************************#
-#  Procedure        Domhelper.py                                       #
-#  Date             2012/07/30                                         #
-#  Author           Michel Müller (AOKI Laboratory)                    #
-#**********************************************************************#
-
-
 from xml.dom.minidom import Document, Node, parseString as parseStringUsingMinidom
 from tools.GeneralHelper import BracketAnalyzer, enum
 import uuid

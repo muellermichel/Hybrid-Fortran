@@ -963,7 +963,3 @@ class DebugEmulatedCUDAFortranImplementation(DebugCUDAFortranImplementation):
 		if is_subroutine_end:
 			self.currDependantSymbols = None
 		return DebugCUDAFortranImplementation.subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, is_subroutine_end)
-
-
-
-

@@ -25,7 +25,7 @@ from tools.commons import UsageError, BracketAnalyzer
 from tools.analysis import SymbolDependencyAnalyzer, getAnalysisForSymbol, getArguments
 from tools.patterns import RegExPatterns
 from machinery.parser import H90CallGraphAndSymbolDeclarationsParser, getSymbolsByName, currFile, currLineNo
-from commons import FortranCodeSanitizer
+from machinery.commons import FortranCodeSanitizer
 
 def getModuleArraysForCallee(calleeName, symbolAnalysisByRoutineNameAndSymbolName, symbolsByModuleNameAndSymbolName):
     moduleSymbols = []

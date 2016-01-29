@@ -24,7 +24,7 @@ from models.symbol import *
 from tools.commons import UsageError, BracketAnalyzer
 from tools.analysis import SymbolDependencyAnalyzer, getAnalysisForSymbol, getArguments
 from tools.patterns import RegExPatterns
-from commons import FortranRoutineArgumentParser, FortranCodeSanitizer
+from machinery.commons import FortranRoutineArgumentParser, FortranCodeSanitizer
 
 currFile = None
 currLineNo = None

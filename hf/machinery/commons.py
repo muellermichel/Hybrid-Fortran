@@ -19,7 +19,7 @@
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
 import re, logging
-from tools.GeneralHelper import BracketAnalyzer, findRightMostOccurrenceNotInsideQuotes
+from tools.commons import BracketAnalyzer, findRightMostOccurrenceNotInsideQuotes
 
 class FortranRoutineArgumentParser:
     arguments = None

@@ -1,7 +1,7 @@
 import re
 import sys
 from optparse import OptionParser
-from tools.GeneralHelper import setupDeferredLogging
+from tools.commons import setupDeferredLogging
 import logging
 
 def filterExceptions(exceptions, paths):

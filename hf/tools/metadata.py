@@ -19,7 +19,7 @@
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
 from xml.dom.minidom import Document, Node, parseString as parseStringUsingMinidom
-from tools.GeneralHelper import BracketAnalyzer, enum
+from tools.commons import BracketAnalyzer, enum
 import uuid
 import re
 import logging

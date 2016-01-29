@@ -18,8 +18,8 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
-from tools.GeneralHelper import UsageError
-from tools.DomHelper import appliesTo, getDomainsWithParallelRegionTemplate, getReductionScalarsByOperator, getTemplate
+from tools.commons import UsageError
+from tools.metadata import appliesTo, getDomainsWithParallelRegionTemplate, getReductionScalarsByOperator, getTemplate
 import logging
 
 def getReductionClause(parallelRegionTemplate):

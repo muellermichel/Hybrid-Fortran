@@ -25,11 +25,11 @@
 #  Author           Michel Müller (AOKI Laboratory)                    #
 #**********************************************************************#
 
-from tools.GeneralHelper import openFile, prettyprint, setupDeferredLogging
-from tools.DomHelper import addCallers, addCallees, getRegionPosition
-from tools.SymbolDependencyGraphAnalyzer import SymbolDependencyAnalyzer, SymbolType, SymbolAnalysis
+from tools.commons import openFile, prettyprint, setupDeferredLogging
+from tools.metadata import addCallers, addCallees, getRegionPosition
+from tools.analysis import SymbolDependencyAnalyzer, SymbolType, SymbolAnalysis
 from xml.dom.minidom import Document
-from tools.DomHelper import parseString
+from tools.metadata import parseString
 from optparse import OptionParser
 import pydot
 import os

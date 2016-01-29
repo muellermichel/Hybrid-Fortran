@@ -18,20 +18,9 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
-#**********************************************************************#
-#  Procedure        CallGraphParser.py                              #
-#  Comment          Generates a Fortran callgraph in xml format        #
-#                   including parallel region annotations.             #
-#                   For parsing it uses a combination of               #
-#                   a finite state machine and regex (per line)        #
-#  Date             2012/07/27                                         #
-#  Author           Michel Müller (AOKI Laboratory)                    #
-#**********************************************************************#
-
-
 from xml.dom.minidom import Document
-from tools.DomHelper import addCallers, addCallees, createOrGetFirstNodeWithName, getDomainDependantTemplatesAndEntries
-from tools.GeneralHelper import enum, prettyprint, UsageError
+from tools.metadata import addCallers, addCallees, createOrGetFirstNodeWithName, getDomainDependantTemplatesAndEntries
+from tools.commons import enum, prettyprint, UsageError
 import sys
 import logging
 

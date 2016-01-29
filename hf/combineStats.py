@@ -20,8 +20,8 @@
 
 import pstats, sys
 from optparse import OptionParser
-from tools.GeneralHelper import setupDeferredLogging
-from tools.RecursiveDirEntries import dirEntries
+from tools.commons import setupDeferredLogging
+from tools.filesystem import dirEntries
 import logging
 
 parser = OptionParser()

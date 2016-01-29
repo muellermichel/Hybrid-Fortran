@@ -18,16 +18,9 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
-#**********************************************************************#
-#  Procedure        RegExPatterns.py                                #
-#  Comment          Stores compiled regex patterns needed for          #
-#                   Hybrid Fortran parsing                            #
-#  Date             2013/01/29                                         #
-#  Author           Michel Müller (RIKEN)                              #
-#**********************************************************************#
 import re
 import logging
-from tools.GeneralHelper import Singleton
+from tools.commons import Singleton
 
 @Singleton
 class RegExPatterns:

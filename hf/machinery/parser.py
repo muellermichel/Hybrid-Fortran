@@ -19,11 +19,11 @@
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
 import os, sys, fileinput, re, traceback, logging
-from tools.DomHelper import *
-from models.Symbol import *
-from tools.GeneralHelper import UsageError, BracketAnalyzer
-from tools.SymbolDependencyGraphAnalyzer import SymbolDependencyAnalyzer, getAnalysisForSymbol, getArguments
-from tools.RegExPatterns import RegExPatterns
+from tools.metadata import *
+from models.symbol import *
+from tools.commons import UsageError, BracketAnalyzer
+from tools.analysis import SymbolDependencyAnalyzer, getAnalysisForSymbol, getArguments
+from tools.patterns import RegExPatterns
 from commons import FortranRoutineArgumentParser, FortranCodeSanitizer
 
 currFile = None

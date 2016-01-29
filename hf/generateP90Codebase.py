@@ -19,13 +19,13 @@
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
 from xml.dom.minidom import Document
-from tools.DomHelper import parseString, ImmutableDOMDocument, getClonedDocument
+from tools.metadata import parseString, ImmutableDOMDocument, getClonedDocument
 from optparse import OptionParser
 from machinery.parser import H90XMLSymbolDeclarationExtractor, getSymbolsByName, getModuleNodesByName, getParallelRegionData
 from machinery.converter import H90toF90Printer, getSymbolsByRoutineNameAndSymbolName, getSymbolsByModuleNameAndSymbolName
-from tools.GeneralHelper import UsageError, openFile, getDataFromFile, setupDeferredLogging, printProgressIndicator, progressIndicatorReset
-from tools.RecursiveDirEntries import dirEntries
-from tools.SymbolDependencyGraphAnalyzer import SymbolDependencyAnalyzer
+from tools.commons import UsageError, openFile, getDataFromFile, setupDeferredLogging, printProgressIndicator, progressIndicatorReset
+from tools.filesystem import dirEntries
+from tools.analysis import SymbolDependencyAnalyzer
 import implementations.fortran
 from io import FileIO
 import os, errno, sys, json, traceback, logging

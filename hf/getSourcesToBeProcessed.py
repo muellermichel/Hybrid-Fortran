@@ -3,8 +3,8 @@ import sys
 import logging
 from optparse import OptionParser
 from xml.dom.minidom import Document
-from tools.DomHelper import getDomainDependantTemplatesAndEntries, parseString
-from tools.GeneralHelper import setupDeferredLogging
+from tools.metadata import getDomainDependantTemplatesAndEntries, parseString
+from tools.commons import setupDeferredLogging
 
 def isEqualElement(a, b, ignoreAttributes):
   if a.tagName!=b.tagName:

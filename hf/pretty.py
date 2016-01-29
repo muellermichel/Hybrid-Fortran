@@ -25,8 +25,8 @@
 #**********************************************************************#
 
 from xml.dom.minidom import Document
-from tools.DomHelper import parseString
-from tools.GeneralHelper import openFile, setupDeferredLogging
+from tools.metadata import parseString
+from tools.commons import openFile, setupDeferredLogging
 from optparse import OptionParser
 import os
 import sys

@@ -18,21 +18,14 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
-#**********************************************************************#
-#  Procedure        Symbol.py                                       #
-#  Comment          Provide functionality for HF symbols               #
-#  Date             2012/08/02                                         #
-#  Author           Michel Müller (AOKI Laboratory)                    #
-#**********************************************************************#
-
 import re, sys, copy
 import logging
 import pdb
-from tools.DomHelper import *
-from tools.GeneralHelper import enum, BracketAnalyzer
-from tools.RegExPatterns import RegExPatterns
-from tools.GeneralHelper import Singleton, UsageError
-from tools.SymbolDependencyGraphAnalyzer import SymbolDependencyAnalyzer, SymbolType
+from tools.metadata import *
+from tools.commons import enum, BracketAnalyzer
+from tools.patterns import RegExPatterns
+from tools.commons import Singleton, UsageError
+from tools.analysis import SymbolDependencyAnalyzer, SymbolType
 
 Init = enum("NOTHING_LOADED",
 	"TEMPLATE_LOADED",

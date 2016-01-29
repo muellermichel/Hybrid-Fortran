@@ -18,11 +18,11 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
-from models.Symbol import Symbol, DeclarationType, purgeFromDeclarationSettings
-from tools.SymbolDependencyGraphAnalyzer import getAnalysisForSymbol
-from tools.RegExPatterns import RegExPatterns
-from tools.GeneralHelper import UsageError
-from tools.DomHelper import getDomainDependantTemplatesAndEntries
+from models.symbol import Symbol, DeclarationType, purgeFromDeclarationSettings
+from tools.analysis import getAnalysisForSymbol
+from tools.patterns import RegExPatterns
+from tools.commons import UsageError
+from tools.metadata import getDomainDependantTemplatesAndEntries
 from implementations.commons import *
 import os, logging
 

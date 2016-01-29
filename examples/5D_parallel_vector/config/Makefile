@@ -22,7 +22,7 @@
 #  Date             2013/02/01                                              #
 #  Author           Michel Müller (RIKEN)                                   #
 #***************************************************************************#
-TOOLSDIR=${HF_DIR}/hf/
+TOOLSDIR=${HF_DIR}/hf_processor/
 include ./MakesettingsGeneral
 include ./Makesettings
 include ${TOOLSDIR}MakefileForCompilationCommon

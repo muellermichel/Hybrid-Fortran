@@ -33,6 +33,7 @@
 #***************************************************************************#
 
 CONFIGDIR=./config/
+HF_PYTHON_DIR=${HF_DIR}/hf/
 
 include ${CONFIGDIR}MakesettingsGeneral
 
@@ -113,11 +114,11 @@ SRC_DIR_GPU=${DIR_GPU}${SRC_DIR_COMMON}/
 SRC_DIR_HFPP=$(shell pwd)/${BASEDIR_POST}/hf_preprocessed/
 
 SRC_F90_PRE='$(shell find ${SRC_DIR_COMMON} -type f -name '*.f90' -o -name '*.f')'
-SRC_F90=$(shell python ${TOOLSDIR}filterExceptions.py --paths ${SRC_F90_PRE} --exceptions ${EXCEPTIONS})
+SRC_F90=$(shell python ${HF_PYTHON_DIR}filterExceptions.py --paths ${SRC_F90_PRE} --exceptions ${EXCEPTIONS})
 SRC_F90PP_PRE='$(shell find ${SRC_DIR_COMMON} -type f -name '*.F90' -o -name '*.F')'
-SRC_F90PP=$(shell python ${TOOLSDIR}filterExceptions.py --paths ${SRC_F90PP_PRE} --exceptions ${EXCEPTIONS})
+SRC_F90PP=$(shell python ${HF_PYTHON_DIR}filterExceptions.py --paths ${SRC_F90PP_PRE} --exceptions ${EXCEPTIONS})
 SRC_C_PRE='$(shell find ${SRC_DIR_COMMON} -type f -name '*.c' -o -name '*.cu')'
-SRC_C=$(shell python ${TOOLSDIR}filterExceptions.py --paths ${SRC_C_PRE} --exceptions ${EXCEPTIONS})
+SRC_C=$(shell python ${HF_PYTHON_DIR}filterExceptions.py --paths ${SRC_C_PRE} --exceptions ${EXCEPTIONS})
 
 SRC_LIB_FORT=$(shell find ${LIBDIR} -type f -name '*.f90')
 SRC_LIB_FORT_PP=$(shell find ${LIBDIR} -type f -name '*.F90')
@@ -125,7 +126,7 @@ SRC_LIB_H90=$(shell find ${LIBDIR} -type f -name '*.h90')
 SRC_LIB_H90_WITH_PP=$(shell find ${LIBDIR} -type f -name '*.H90')
 SRC_FORT=${SRC_F90} ${SRC_F90PP} ${SRC_LIB_FORT} ${SRC_LIB_FORT_PP}
 SRC_TGT_FORT_PRE='$(SRC_FORT:.F90=.P90)'
-SRC_TGT_FORT=$(shell python ${TOOLSDIR}filterExceptions.py --paths ${SRC_TGT_FORT_PRE} --exceptions 'storage_order') storage_order.F90
+SRC_TGT_FORT=$(shell python ${HF_PYTHON_DIR}filterExceptions.py --paths ${SRC_TGT_FORT_PRE} --exceptions 'storage_order') storage_order.F90
 
 SRC_FORT_CPU=$(addprefix $(SRC_DIR_CPU),$(notdir ${SRC_TGT_FORT}))
 SRC_FORT_GPU=$(addprefix $(SRC_DIR_GPU),$(notdir ${SRC_TGT_FORT}))
@@ -133,9 +134,9 @@ SRC_C_CPU=$(addprefix $(SRC_DIR_CPU),$(notdir ${SRC_C}))
 SRC_C_GPU=$(addprefix $(SRC_DIR_GPU),$(notdir ${SRC_C}))
 
 SRC_H90_WITHOUT_PP_PRE='$(shell find ${SRC_DIR_COMMON} -type f -name '*.h90')'
-SRC_H90_WITHOUT_PP=$(shell python ${TOOLSDIR}filterExceptions.py --paths ${SRC_H90_WITHOUT_PP_PRE} --exceptions ${EXCEPTIONS})
+SRC_H90_WITHOUT_PP=$(shell python ${HF_PYTHON_DIR}filterExceptions.py --paths ${SRC_H90_WITHOUT_PP_PRE} --exceptions ${EXCEPTIONS})
 SRC_H90_WITH_PP_PRE='$(shell find ${SRC_DIR_COMMON} -type f -name '*.H90')'
-SRC_H90_WITH_PP=$(shell python ${TOOLSDIR}filterExceptions.py --paths ${SRC_H90_WITH_PP_PRE} --exceptions ${EXCEPTIONS})
+SRC_H90_WITH_PP=$(shell python ${HF_PYTHON_DIR}filterExceptions.py --paths ${SRC_H90_WITH_PP_PRE} --exceptions ${EXCEPTIONS})
 SRC_H90_ALL=${SRC_H90_WITHOUT_PP} ${SRC_H90_WITH_PP} ${SRC_LIB_H90} ${SRC_LIB_H90_WITH_PP}
 SRC_H90TGT_HFPP_PRE=$(addprefix $(SRC_DIR_HFPP),$(notdir $(SRC_H90_ALL)))
 SRC_H90TGT_HFPP=$(SRC_H90TGT_HFPP_PRE:.H90=.h90)
@@ -477,7 +478,7 @@ endif
 
 ${CG_DIR}rawCG.xml: ${SRC_H90TGT_HFPP}
 	@echo "...........hybrid files have been modified => building and testing hybrid callgraph"
-	mkdir -p ${CG_DIR} && python ${PYTHON_ARGS_GENERAL} ${PYTHON_ARGS_RAW_CG} ${TOOLSDIR}/annotatedCallGraphFromH90SourceDir.py -i ${SRC_DIR_HFPP} ${H90_PREPROCESSOR_ARGS} > $@
+	mkdir -p ${CG_DIR} && python ${PYTHON_ARGS_GENERAL} ${PYTHON_ARGS_RAW_CG} ${HF_PYTHON_DIR}annotatedCallGraphFromH90SourceDir.py -i ${SRC_DIR_HFPP} ${H90_PREPROCESSOR_ARGS} > $@
 
 ${DIR_CPU}implementationNamesByTemplate: ${CG_DIR}rawCG.xml
 	@mkdir -p ${DIR_CPU} && ${HF_DIR}/hf_bin/getImplementationNameByTemplate.sh cpu ${IMPLEMENTATION_MODE_SPECIFIER} ${CONFIGDIR}MakesettingsGeneral ${CG_DIR}rawCG.xml > ${DIR_CPU}implementationNamesByTemplate
@@ -491,10 +492,10 @@ ${CG_DIR}CG_CPU.xml: ${CG_DIR}rawCG.xml
 		if [ -e $@ ]; then \
 			mv $@ $@.ref ; \
 		fi )
-	mkdir -p ${CG_DIR} && python ${TOOLSDIR}/loopAnalysisWithAnnotatedCallGraph.py -i $< ${H90_PREPROCESSOR_ARGS} -a CPU > $@
+	mkdir -p ${CG_DIR} && python ${HF_PYTHON_DIR}loopAnalysisWithAnnotatedCallGraph.py -i $< ${H90_PREPROCESSOR_ARGS} -a CPU > $@
 	@(set -e && \
 		mkdir -p ${SRC_DIR_CPU} && \
-		SOURCES_TO_REGENERATE=`python ${PYTHON_ARGS_GENERAL} ${PYTHON_ARGS_CPU_CG} ${TOOLSDIR}/getSourcesToBeProcessed.py -i $@ -r $@.ref ${H90_PREPROCESSOR_ARGS}` && \
+		SOURCES_TO_REGENERATE=`python ${PYTHON_ARGS_GENERAL} ${PYTHON_ARGS_CPU_CG} ${HF_PYTHON_DIR}getSourcesToBeProcessed.py -i $@ -r $@.ref ${H90_PREPROCESSOR_ARGS}` && \
 		PATHS_TO_REGENERATE="" && \
 		for SOURCE in $${SOURCES_TO_REGENERATE[*]} ; do \
 	   	PATHS_TO_REGENERATE="$${PATHS_TO_REGENERATE} ${SRC_DIR_CPU}$${SOURCE}.F90" ; \
@@ -508,10 +509,10 @@ ${CG_DIR}CG_GPU.xml: ${CG_DIR}rawCG.xml
 		if [ -e $@ ]; then \
 			mv $@ $@.ref ; \
 		fi )
-	mkdir -p ${CG_DIR} && python ${TOOLSDIR}/loopAnalysisWithAnnotatedCallGraph.py -i $< ${H90_PREPROCESSOR_ARGS} -a GPU > $@
+	mkdir -p ${CG_DIR} && python ${HF_PYTHON_DIR}loopAnalysisWithAnnotatedCallGraph.py -i $< ${H90_PREPROCESSOR_ARGS} -a GPU > $@
 	@(set -e && \
 		mkdir -p ${SRC_DIR_GPU} && \
-		SOURCES_TO_REGENERATE=`python ${TOOLSDIR}/getSourcesToBeProcessed.py -i $@ -r $@.ref ${H90_PREPROCESSOR_ARGS}` && \
+		SOURCES_TO_REGENERATE=`python ${HF_PYTHON_DIR}getSourcesToBeProcessed.py -i $@ -r $@.ref ${H90_PREPROCESSOR_ARGS}` && \
 		PATHS_TO_REGENERATE= && \
 		for SOURCE in $${SOURCES_TO_REGENERATE[*]} ; do \
 	   	PATHS_TO_REGENERATE="$${PATHS_TO_REGENERATE} ${SRC_DIR_GPU}$${SOURCE}.F90" ; \
@@ -521,11 +522,11 @@ ${CG_DIR}CG_GPU.xml: ${CG_DIR}rawCG.xml
 
 ${CG_DIR}CG_CPU.png: ${CG_DIR}CG_CPU.xml
 	@echo ...creating $@ from $< >${DEBUG_OUTPUT}
-	python ${TOOLSDIR}/graphVizGraphWithAnalyzedCallGraph.py -i $< ${H90_PREPROCESSOR_ARGS} -o $@
+	python ${HF_PYTHON_DIR}graphVizGraphWithAnalyzedCallGraph.py -i $< ${H90_PREPROCESSOR_ARGS} -o $@
 
 ${CG_DIR}CG_GPU.png: ${CG_DIR}CG_GPU.xml
 	@echo ...creating $@ from $< >${DEBUG_OUTPUT}
-	python ${TOOLSDIR}/graphVizGraphWithAnalyzedCallGraph.py -i $< ${H90_PREPROCESSOR_ARGS} -o $@
+	python ${HF_PYTHON_DIR}graphVizGraphWithAnalyzedCallGraph.py -i $< ${H90_PREPROCESSOR_ARGS} -o $@
 
 ${SRC_DIR_CPU}%.f90: %.f90
 	@echo ...copying file into $@ >${DEBUG_OUTPUT}
@@ -585,12 +586,12 @@ ${SRC_DIR_GPU}%.cu: %.cu
 
 ${SRC_DIR_HFPP}%.h90: %.h90
 	@echo ...........preparing file for HF parsing: $<
-	@mkdir -p ${SRC_DIR_HFPP} && python ${TOOLSDIR}/strip_fortran_line_continuations.py $< > $@
+	@mkdir -p ${SRC_DIR_HFPP} && python ${HF_PYTHON_DIR}strip_fortran_line_continuations.py $< > $@
 
 define generate_p90_rules
 $(4): ${SRC_H90TGT_HFPP} $(2)implementationNamesByTemplate ${CG_DIR}$(3)
 	@$$(call yellowecho,"...........converting all h90 files")
-	python ${python_flags} ${HF_DIR}/hf/generateP90Codebase.py -i ${SRC_DIR_HFPP} -o $(1) -c ${CG_DIR}$(3) ${H90_PREPROCESSOR_ARGS} --implementation=$(2)implementationNamesByTemplate --optionFlags=${OPTION_FLAGS},${preprocessor_args} > $$@
+	python ${python_flags} ${HF_PYTHON_DIR}generateP90Codebase.py -i ${SRC_DIR_HFPP} -o $(1) -c ${CG_DIR}$(3) ${H90_PREPROCESSOR_ARGS} --implementation=$(2)implementationNamesByTemplate --optionFlags=${OPTION_FLAGS},${preprocessor_args} > $$@
 
 $(1)%.P90: $(1)%.P90.temp
 	@$$(call yellowecho,"...........copy $$(notdir $$<) if new or changed")
@@ -602,4 +603,4 @@ $(eval $(call generate_p90_rules,${SRC_DIR_GPU},${DIR_GPU},${GPU_CALLGRAPH_FILE}
 
 ${SRC_DIR_HFPP}%.h90: %.H90
 	@echo ...........preprocessing and preparing file for HF parsing: $<
-	mkdir -p ${SRC_DIR_HFPP} && cd $(dir $<) && set -o pipefail && < $(notdir $<) sed "s/\/\//¢/g" | gcc -E -w ${PFLAGS} - | tr "\`" '\n' | sed "s/¢/\/\//g" | python ${TOOLSDIR}/strip_fortran_line_continuations.py > $@
+	mkdir -p ${SRC_DIR_HFPP} && cd $(dir $<) && set -o pipefail && < $(notdir $<) sed "s/\/\//¢/g" | gcc -E -w ${PFLAGS} - | tr "\`" '\n' | sed "s/¢/\/\//g" | python ${HF_PYTHON_DIR}strip_fortran_line_continuations.py > $@

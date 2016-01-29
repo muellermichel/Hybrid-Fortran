@@ -31,5 +31,5 @@
 #    * ./config/Makefile (source dependencies)                              #
 #                                                                           #
 #***************************************************************************#
-TOOLSDIR=${HF_DIR}/hf/
+TOOLSDIR=${HF_DIR}/hf_processor/
 include ${TOOLSDIR}MakefileCommon

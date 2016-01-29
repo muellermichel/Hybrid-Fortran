@@ -21,7 +21,8 @@
 from xml.dom.minidom import Document
 from tools.DomHelper import parseString, ImmutableDOMDocument, getClonedDocument
 from optparse import OptionParser
-from machinery.CallGraphParser import H90XMLSymbolDeclarationExtractor, H90toF90Printer, getSymbolsByName, getModuleNodesByName, getParallelRegionData, getSymbolsByRoutineNameAndSymbolName, getSymbolsByModuleNameAndSymbolName
+from machinery.parser import H90XMLSymbolDeclarationExtractor, getSymbolsByName, getModuleNodesByName, getParallelRegionData
+from machinery.converter import H90toF90Printer, getSymbolsByRoutineNameAndSymbolName, getSymbolsByModuleNameAndSymbolName
 from tools.GeneralHelper import UsageError, openFile, getDataFromFile, setupDeferredLogging, printProgressIndicator, progressIndicatorReset
 from tools.RecursiveDirEntries import dirEntries
 from tools.SymbolDependencyGraphAnalyzer import SymbolDependencyAnalyzer

@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: UTF-8 -*-
 
-# Copyright (C) 2015 Michel Müller, Tokyo Institute of Technology
+# Copyright (C) 2016 Michel Müller, Tokyo Institute of Technology
 
 # This file is part of Hybrid Fortran.
 

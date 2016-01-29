@@ -155,7 +155,7 @@ See also the [results overview](../results/Overview.md).
     </tr>
     <tr>
         <td>Parallel Vector and Reduction Example</td>
-        <td><a href="https://github.com/muellermichel/Hybrid-Fortran/blob/master/hf/example_example.h90">Link</a> [2]</td>
+        <td><a href="https://github.com/muellermichel/Hybrid-Fortran/blob/master/hf_template/example_example.h90">Link</a> [2]</td>
         <td>1E-8</td>
         <td>No</td>
         <td>No</td>

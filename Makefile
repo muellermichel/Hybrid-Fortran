@@ -23,7 +23,7 @@
 #                                                                           #
 #***************************************************************************#
 SHELL=/bin/bash
-TOOLSDIR=${HF_DIR}/hf/
+TEMPLATEDIR=${HF_DIR}/hf_template/
 EXAMPLEDIR=${HF_DIR}/example/
 EXAMPLEDIR_SOURCE=${EXAMPLEDIR}source/
 EXAMPLEDIR_CONFIG=${EXAMPLEDIR}config/
@@ -50,25 +50,25 @@ example:
 	@mkdir -p ${EXAMPLEDIR_CONFIG}
 	@mkdir -p ${EXAMPLEDIR_SOURCE}
 	@if [ ! -e ${EXAMPLEDIR}Makefile ]; then \
-	    cp -f ${TOOLSDIR}MakefileForProjectTemplate ${EXAMPLEDIR}Makefile; \
+	    cp -f ${TEMPLATEDIR}MakefileForProjectTemplate ${EXAMPLEDIR}Makefile; \
 	fi; \
 	if [ ! -e ${EXAMPLEDIR_CONFIG}MakesettingsGeneral ]; then \
-	    cp -f ${TOOLSDIR}MakesettingsGeneralTemplate ${EXAMPLEDIR_CONFIG}MakesettingsGeneral; \
+	    cp -f ${TEMPLATEDIR}MakesettingsGeneralTemplate ${EXAMPLEDIR_CONFIG}MakesettingsGeneral; \
 	fi; \
 	if [ ! -e ${EXAMPLEDIR_CONFIG}Makefile ]; then \
-	    cp -f ${TOOLSDIR}MakefileForCompilationTemplate ${EXAMPLEDIR_CONFIG}Makefile; \
+	    cp -f ${TEMPLATEDIR}MakefileForCompilationTemplate ${EXAMPLEDIR_CONFIG}Makefile; \
 	fi; \
 	if [ ! -e ${EXAMPLEDIR_CONFIG}MakesettingsCPU ]; then \
-	    cp -f ${TOOLSDIR}MakesettingsCPUTemplate ${EXAMPLEDIR_CONFIG}MakesettingsCPU; \
+	    cp -f ${TEMPLATEDIR}MakesettingsCPUTemplate ${EXAMPLEDIR_CONFIG}MakesettingsCPU; \
 	fi; \
 	if [ ! -e ${EXAMPLEDIR_CONFIG}MakesettingsGPU ]; then \
-	    cp -f ${TOOLSDIR}MakesettingsGPUTemplate ${EXAMPLEDIR_CONFIG}MakesettingsGPU; \
+	    cp -f ${TEMPLATEDIR}MakesettingsGPUTemplate ${EXAMPLEDIR_CONFIG}MakesettingsGPU; \
 	fi; \
 	if [ ! -e ${EXAMPLEDIR_SOURCE}example.h90 ]; then \
-	    cp -f ${TOOLSDIR}example_example.h90 ${EXAMPLEDIR_SOURCE}example.h90; \
+	    cp -f ${TEMPLATEDIR}example_example.h90 ${EXAMPLEDIR_SOURCE}example.h90; \
 	fi; \
 	if [ ! -e ${EXAMPLEDIR_SOURCE}storage_order.F90 ]; then \
-	    cp -f ${TOOLSDIR}example_storage_order.F90 ${EXAMPLEDIR_SOURCE}storage_order.F90; \
+	    cp -f ${TEMPLATEDIR}example_storage_order.F90 ${EXAMPLEDIR_SOURCE}storage_order.F90; \
 	fi
 
 test_example: example

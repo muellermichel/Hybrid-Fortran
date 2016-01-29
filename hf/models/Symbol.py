@@ -19,7 +19,7 @@
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
 #**********************************************************************#
-#  Procedure        H90Symbol.py                                       #
+#  Procedure        Symbol.py                                       #
 #  Comment          Provide functionality for HF symbols               #
 #  Date             2012/08/02                                         #
 #  Author           Michel Müller (AOKI Laboratory)                    #
@@ -30,9 +30,9 @@ import logging
 import pdb
 from tools.DomHelper import *
 from tools.GeneralHelper import enum, BracketAnalyzer
-from H90RegExPatterns import H90RegExPatterns
+from tools.RegExPatterns import RegExPatterns
 from tools.GeneralHelper import Singleton, UsageError
-from H90SymbolDependencyGraphAnalyzer import SymbolDependencyAnalyzer, SymbolType
+from tools.SymbolDependencyGraphAnalyzer import SymbolDependencyAnalyzer, SymbolType
 
 Init = enum("NOTHING_LOADED",
 	"TEMPLATE_LOADED",
@@ -242,7 +242,7 @@ class Symbol(object):
 		if patterns != None:
 			self.patterns = patterns
 		else:
-			self.patterns = H90RegExPatterns.Instance()
+			self.patterns = RegExPatterns.Instance()
 		self.analysis = analysis
 		self.declPattern = self.patterns.get(r'(\s*(?:double\s+precision|real|integer|logical).*?[\s,:]+)' + re.escape(name) + r'((?:\s|\,|\(|$)+.*)')
 		self.symbolImportPattern = self.patterns.get(r'^\s*use\s*(\w*)[,\s]*only\s*\:.*?\W' + re.escape(name) + r'\W.*')
@@ -449,7 +449,7 @@ EXAMPLE:\n\
 		if "::" not in declarationPrefix:
 			declarationPrefix = declarationPrefix.rstrip() + " ::"
 		if len(purgeList) != 0:
-			patterns = H90RegExPatterns.Instance()
+			patterns = RegExPatterns.Instance()
 			declarationDirectivesWithoutIntent, _,  symbolDeclarationStr = purgeFromDeclarationSettings(
 				declarationPrefix + " " + str(self),
 				[self],
@@ -1138,7 +1138,7 @@ Current Domains: %s\n" %(
 			result = kindMatch.group(1) + kindMatch.group(2) + kindMatch.group(3)
 		return result.strip().lower()
 
-	def getDeclarationLineForAutomaticSymbol(self, purgeList=[], patterns=H90RegExPatterns.Instance(), name_prefix="", use_domain_reordering=True, skip_on_missing_declaration=False):
+	def getDeclarationLineForAutomaticSymbol(self, purgeList=[], patterns=RegExPatterns.Instance(), name_prefix="", use_domain_reordering=True, skip_on_missing_declaration=False):
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] Decl.Line.Gen: Purge List: %s, Name Prefix: %s, Domain Reordering: %s, Skip on Missing: %s." %(
 			str(purgeList),
 			name_prefix,

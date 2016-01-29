@@ -21,10 +21,10 @@
 from xml.dom.minidom import Document
 from tools.DomHelper import parseString, ImmutableDOMDocument, getClonedDocument
 from optparse import OptionParser
-from H90CallGraphParser import H90XMLSymbolDeclarationExtractor, H90toF90Printer, getSymbolsByName, getModuleNodesByName, getParallelRegionData, getSymbolsByRoutineNameAndSymbolName, getSymbolsByModuleNameAndSymbolName
+from machinery.CallGraphParser import H90XMLSymbolDeclarationExtractor, H90toF90Printer, getSymbolsByName, getModuleNodesByName, getParallelRegionData, getSymbolsByRoutineNameAndSymbolName, getSymbolsByModuleNameAndSymbolName
 from tools.GeneralHelper import UsageError, openFile, getDataFromFile, setupDeferredLogging, printProgressIndicator, progressIndicatorReset
-from RecursiveDirEntries import dirEntries
-from H90SymbolDependencyGraphAnalyzer import SymbolDependencyAnalyzer
+from tools.RecursiveDirEntries import dirEntries
+from tools.SymbolDependencyGraphAnalyzer import SymbolDependencyAnalyzer
 import implementations.fortran
 from io import FileIO
 import os, errno, sys, json, traceback, logging

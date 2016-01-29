@@ -21,7 +21,7 @@
 import pstats, sys
 from optparse import OptionParser
 from tools.GeneralHelper import setupDeferredLogging
-from RecursiveDirEntries import dirEntries
+from tools.RecursiveDirEntries import dirEntries
 import logging
 
 parser = OptionParser()

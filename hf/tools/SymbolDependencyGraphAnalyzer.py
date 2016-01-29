@@ -19,7 +19,7 @@
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
 #**********************************************************************#
-#  Procedure        H90CallGraphParser.py                              #
+#  Procedure        CallGraphParser.py                              #
 #  Comment          Generates a Fortran callgraph in xml format        #
 #                   including parallel region annotations.             #
 #                   For parsing it uses a combination of               #

@@ -30,7 +30,7 @@
 from xml.dom.minidom import Document
 from tools.DomHelper import parseString
 from xml.dom import NotFoundErr
-from H90SymbolDependencyGraphAnalyzer import SymbolDependencyAnalyzer
+from tools.SymbolDependencyGraphAnalyzer import SymbolDependencyAnalyzer
 from tools.DomHelper import firstDuplicateChild, getNodeValue, getCalleesByCallerName, getCallersByCalleeName
 from tools.GeneralHelper import openFile, printProgressIndicator, progressIndicatorReset, setupDeferredLogging
 from optparse import OptionParser

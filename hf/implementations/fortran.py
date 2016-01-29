@@ -18,9 +18,9 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
-from H90Symbol import Symbol, DeclarationType, purgeFromDeclarationSettings
-from H90SymbolDependencyGraphAnalyzer import getAnalysisForSymbol
-from H90RegExPatterns import H90RegExPatterns
+from models.Symbol import Symbol, DeclarationType, purgeFromDeclarationSettings
+from tools.SymbolDependencyGraphAnalyzer import getAnalysisForSymbol
+from tools.RegExPatterns import RegExPatterns
 from tools.GeneralHelper import UsageError
 from tools.DomHelper import getDomainDependantTemplatesAndEntries
 from implementations.commons import *
@@ -42,7 +42,7 @@ class FortranImplementation(object):
 	supportsNativeModuleImportsWithinKernels = True
 
 	def __init__(self, optionFlags):
-		self.patterns = H90RegExPatterns.Instance()
+		self.patterns = RegExPatterns.Instance()
 		self.currDependantSymbols = None
 		self.currParallelRegionTemplateNode = None
 		if type(optionFlags) == list:

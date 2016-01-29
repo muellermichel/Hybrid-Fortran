@@ -29,9 +29,9 @@
 
 from xml.dom.minidom import Document
 from optparse import OptionParser
-from RecursiveDirEntries import dirEntries
+from tools.RecursiveDirEntries import dirEntries
 from tools.GeneralHelper import printProgressIndicator, progressIndicatorReset, setupDeferredLogging
-from H90CallGraphParser import H90XMLCallGraphGenerator, H90XMLSymbolDeclarationExtractor
+from machinery.CallGraphParser import H90XMLCallGraphGenerator, H90XMLSymbolDeclarationExtractor
 import os
 import sys
 import fileinput

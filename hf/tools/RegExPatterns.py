@@ -19,7 +19,7 @@
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
 #**********************************************************************#
-#  Procedure        H90RegExPatterns.py                                #
+#  Procedure        RegExPatterns.py                                #
 #  Comment          Stores compiled regex patterns needed for          #
 #                   Hybrid Fortran parsing                            #
 #  Date             2013/01/29                                         #
@@ -30,7 +30,7 @@ import logging
 from tools.GeneralHelper import Singleton
 
 @Singleton
-class H90RegExPatterns:
+class RegExPatterns:
     dynamicPatternsByRegex = None
     staticRegexByPatternName = {
         'blankPattern': r'\s',

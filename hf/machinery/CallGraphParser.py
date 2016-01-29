@@ -21,9 +21,9 @@
 from xml.dom.minidom import Document
 from tools.DomHelper import *
 from tools.GeneralHelper import UsageError, BracketAnalyzer, findRightMostOccurrenceNotInsideQuotes, stripWhitespace, enum
-from H90SymbolDependencyGraphAnalyzer import SymbolDependencyAnalyzer, getAnalysisForSymbol, getArguments
-from H90Symbol import *
-from H90RegExPatterns import H90RegExPatterns
+from tools.SymbolDependencyGraphAnalyzer import SymbolDependencyAnalyzer, getAnalysisForSymbol, getArguments
+from models.Symbol import *
+from tools.RegExPatterns import RegExPatterns
 import os
 import sys
 import fileinput
@@ -191,7 +191,7 @@ class FortranCodeSanitizer:
 
         return "\n".join(tabbedCodeLines) + "\n"
 
-class H90CallGraphParser(object):
+class CallGraphParser(object):
     '''An imperative python parser for h90 sourcefiles, based on a finite state machine and regex'''
     '''This class is intended as an abstract class to be inherited and doesn't do anything useful by itself'''
     '''A minimal implementation of this class implements one or more process*Match routines'''
@@ -209,7 +209,7 @@ class H90CallGraphParser(object):
     currSymbolsByName = None
 
     def __init__(self):
-        self.patterns = H90RegExPatterns.Instance()
+        self.patterns = RegExPatterns.Instance()
         self.state = "none"
         self.currCalleeName = None
         self.currArguments = None
@@ -231,7 +231,7 @@ class H90CallGraphParser(object):
            'inside_branch': self.processInsideBranch,
            'inside_ignore': self.processInsideIgnore
          }
-        super(H90CallGraphParser, self).__init__()
+        super(CallGraphParser, self).__init__()
 
     def processCallMatch(self, subProcCallMatch):
         if (not subProcCallMatch.group(1) or subProcCallMatch.group(1) == ''):
@@ -616,7 +616,7 @@ class H90CallGraphParser(object):
         del self.lineNo
         del self.fileName
 
-class H90XMLCallGraphGenerator(H90CallGraphParser):
+class H90XMLCallGraphGenerator(CallGraphParser):
     doc = None
     routines = None
     modules = None
@@ -740,7 +740,7 @@ class H90XMLCallGraphGenerator(H90CallGraphParser):
         addAndGetEntries(self.doc, self.currDomainDependantRelationNode, line)
 
 def getSymbolsByName(cgDoc, parentNode, parallelRegionTemplates=[], currentModuleName=None, currentSymbolsByName={}, symbolAnalysisByRoutineNameAndSymbolName={}, isModuleSymbols=False):
-    patterns = H90RegExPatterns.Instance()
+    patterns = RegExPatterns.Instance()
     templatesAndEntries = getDomainDependantTemplatesAndEntries(cgDoc, parentNode)
     symbolsByName = {}
     parentName = parentNode.getAttribute('name')
@@ -813,7 +813,7 @@ def getParallelRegionData(cgDoc):
                 parallelRegionTemplatesByProcName[procName] = regionTemplates
     return parallelRegionTemplateRelationsByProcName, parallelRegionTemplatesByProcName, routineNodesByProcName, routineNodesByModule
 
-class H90CallGraphAndSymbolDeclarationsParser(H90CallGraphParser):
+class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
     cgDoc = None
     symbolsOnCurrentLine = None
     importsOnCurrentLine = None
@@ -1212,7 +1212,7 @@ def getModuleArraysForCallee(calleeName, symbolAnalysisByRoutineNameAndSymbolNam
     return moduleSymbols
 
 def getSymbolsByModuleNameAndSymbolName(cgDoc, moduleNodesByName, symbolAnalysisByRoutineNameAndSymbolName={}):
-    patterns = H90RegExPatterns.Instance()
+    patterns = RegExPatterns.Instance()
     symbolsByModuleNameAndSymbolName = {}
     for moduleName in moduleNodesByName.keys():
         moduleNode = moduleNodesByName.get(moduleName)
@@ -1230,7 +1230,7 @@ def getSymbolsByModuleNameAndSymbolName(cgDoc, moduleNodesByName, symbolAnalysis
     return symbolsByModuleNameAndSymbolName
 
 def getSymbolsByRoutineNameAndSymbolName(cgDoc, routineNodesByProcName, parallelRegionTemplatesByProcName, symbolAnalysisByRoutineNameAndSymbolName={}):
-    patterns = H90RegExPatterns.Instance()
+    patterns = RegExPatterns.Instance()
     symbolsByRoutineNameAndSymbolName = {}
     for procName in routineNodesByProcName:
         routine = routineNodesByProcName[procName]

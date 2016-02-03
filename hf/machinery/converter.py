@@ -75,7 +75,7 @@ def getSymbolsByRoutineNameAndSymbolName(cgDoc, routineNodesByProcName, parallel
         )
     return symbolsByRoutineNameAndSymbolName
 
-class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
+class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
     currSubroutineImplementationNeedsToBeCommented = False
     currRoutineIsCallingParallelRegion = False
     currCalleeNode = None
@@ -110,7 +110,7 @@ class H90toF90Printer(H90CallGraphAndSymbolDeclarationsParser):
         symbolsByModuleNameAndSymbolName=None,
         symbolsByRoutineNameAndSymbolName=None
     ):
-        super(H90toF90Printer, self).__init__(
+        super(H90toF90Converter, self).__init__(
             cgDoc,
             moduleNodesByName=moduleNodesByName,
             parallelRegionData=parallelRegionData,
@@ -357,7 +357,7 @@ This is not allowed for implementations using %s.\
         return adjustedLine
 
     def processCallMatch(self, subProcCallMatch):
-        super(H90toF90Printer, self).processCallMatch(subProcCallMatch)
+        super(H90toF90Converter, self).processCallMatch(subProcCallMatch)
         adjustedLine = "call " + self.currCalleeName
         self.currCalleeNode = self.routineNodesByProcName.get(self.currCalleeName)
 
@@ -487,15 +487,15 @@ This is not allowed for implementations using %s.\
         return adjustedLine + paramListStr
 
     def processTemplateMatch(self, templateMatch):
-        super(H90toF90Printer, self).processTemplateMatch(templateMatch)
+        super(H90toF90Converter, self).processTemplateMatch(templateMatch)
         self.prepareLine("","")
 
     def processTemplateEndMatch(self, templateEndMatch):
-        super(H90toF90Printer, self).processTemplateEndMatch(templateEndMatch)
+        super(H90toF90Converter, self).processTemplateEndMatch(templateEndMatch)
         self.prepareLine("","")
 
     def processBranchMatch(self, branchMatch):
-        super(H90toF90Printer, self).processBranchMatch(branchMatch)
+        super(H90toF90Converter, self).processBranchMatch(branchMatch)
         branchSettingText = branchMatch.group(1).strip()
         branchSettings = branchSettingText.split(",")
         if len(branchSettings) != 1:
@@ -523,15 +523,15 @@ This is not allowed for implementations using %s.\
         self.currentLineNeedsPurge = True
 
     def processModuleBeginMatch(self, moduleBeginMatch):
-        super(H90toF90Printer, self).processModuleBeginMatch(moduleBeginMatch)
+        super(H90toF90Converter, self).processModuleBeginMatch(moduleBeginMatch)
         self.implementation.processModuleBegin(self.currModuleName)
 
     def processModuleEndMatch(self, moduleEndMatch):
-        super(H90toF90Printer, self).processModuleEndMatch(moduleEndMatch)
+        super(H90toF90Converter, self).processModuleEndMatch(moduleEndMatch)
         self.implementation.processModuleEnd()
 
     def processProcBeginMatch(self, subProcBeginMatch):
-        super(H90toF90Printer, self).processProcBeginMatch(subProcBeginMatch)
+        super(H90toF90Converter, self).processProcBeginMatch(subProcBeginMatch)
         subprocName = subProcBeginMatch.group(1)
         routineNode = self.routineNodesByProcName.get(subprocName)
         if not routineNode:
@@ -627,10 +627,10 @@ This is not allowed for implementations using %s.\
         self.currAdditionalSubroutineParameters = []
         self.currAdditionalCompactedSubroutineParameters = []
         self.currSubroutineImplementationNeedsToBeCommented = False
-        super(H90toF90Printer, self).processProcEndMatch(subProcEndMatch)
+        super(H90toF90Converter, self).processProcEndMatch(subProcEndMatch)
 
     def processParallelRegionMatch(self, parallelRegionMatch):
-        super(H90toF90Printer, self).processParallelRegionMatch(parallelRegionMatch)
+        super(H90toF90Converter, self).processParallelRegionMatch(parallelRegionMatch)
         logging.debug(
             "...parallel region starts on line %i with active symbols %s" %(self.lineNo, str(self.currSymbolsByName.values())),
             extra={"hfLineNo":currLineNo, "hfFile":currFile}
@@ -638,22 +638,22 @@ This is not allowed for implementations using %s.\
         self.prepareActiveParallelRegion('parallelRegionBegin')
 
     def processParallelRegionEndMatch(self, parallelRegionEndMatch):
-        super(H90toF90Printer, self).processParallelRegionEndMatch(parallelRegionEndMatch)
+        super(H90toF90Converter, self).processParallelRegionEndMatch(parallelRegionEndMatch)
         self.prepareActiveParallelRegion('parallelRegionEnd')
         self.currParallelIterators = []
         self.currParallelRegionTemplateNode = None
         self.currParallelRegionRelationNode = None
 
     def processDomainDependantMatch(self, domainDependantMatch):
-        super(H90toF90Printer, self).processDomainDependantMatch(domainDependantMatch)
+        super(H90toF90Converter, self).processDomainDependantMatch(domainDependantMatch)
         self.prepareLine("", "")
 
     def processDomainDependantEndMatch(self, domainDependantEndMatch):
-        super(H90toF90Printer, self).processDomainDependantEndMatch(domainDependantEndMatch)
+        super(H90toF90Converter, self).processDomainDependantEndMatch(domainDependantEndMatch)
         self.prepareLine("", "")
 
     def processNoMatch(self):
-        super(H90toF90Printer, self).processNoMatch()
+        super(H90toF90Converter, self).processNoMatch()
         self.prepareLine(str(self.currentLine), "")
 
     def listCompactedSymbolsAndDeclarationPrefixAndOtherSymbols(self, additionalImports):
@@ -682,7 +682,7 @@ This is not allowed for implementations using %s.\
 
     def processInsideDeclarationsState(self, line):
         '''process everything that happens per h90 declaration line'''
-        super(H90toF90Printer, self).processInsideDeclarationsState(line)
+        super(H90toF90Converter, self).processInsideDeclarationsState(line)
         routineNode = self.routineNodesByProcName.get(self.currSubprocName)
 
         if self.state != "inside_declarations" and self.state != "inside_module" and self.state != "inside_subroutine_call" \
@@ -1040,11 +1040,11 @@ This is not allowed for implementations using %s.\
         self.prepareLine(adjustedLine, self.tab_insideSub)
 
     def processInsideDomainDependantRegionState(self, line):
-        super(H90toF90Printer, self).processInsideDomainDependantRegionState(line)
+        super(H90toF90Converter, self).processInsideDomainDependantRegionState(line)
         self.prepareLine("", "")
 
     def processInsideModuleDomainDependantRegionState(self, line):
-        super(H90toF90Printer, self).processInsideModuleDomainDependantRegionState(line)
+        super(H90toF90Converter, self).processInsideModuleDomainDependantRegionState(line)
         self.prepareLine("", "")
 
     def processSpecificationBeginning(self):
@@ -1073,7 +1073,6 @@ This is not allowed for implementations using %s.\
                 symbol.nameInScope(),
                 symbol.sourceSymbol if symbol.sourceSymbol not in [None, ""] else symbol.name
             )
-
         self.prepareLine(adjustedLine + self.implementation.additionalIncludes(), self.tab_insideSub)
 
     def processInsideBranch(self, line):
@@ -1094,12 +1093,12 @@ This is not allowed for implementations using %s.\
 
     def processLine(self, line):
         self.currentLineNeedsPurge = False
-        super(H90toF90Printer, self).processLine(line)
+        super(H90toF90Converter, self).processLine(line)
         self.outputStream.write(self.currentLine)
 
     def processFile(self, fileName):
         self.outputStream.write(self.implementation.filePreparation(fileName))
-        super(H90toF90Printer, self).processFile(fileName)
+        super(H90toF90Converter, self).processFile(fileName)
 
     #TODO: remove tab argument everywhere
     def prepareLine(self, line, tab):

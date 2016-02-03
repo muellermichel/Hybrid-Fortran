@@ -22,7 +22,7 @@ from xml.dom.minidom import Document
 from tools.metadata import parseString, ImmutableDOMDocument, getClonedDocument
 from optparse import OptionParser
 from machinery.parser import H90XMLSymbolDeclarationExtractor, getSymbolsByName, getModuleNodesByName, getParallelRegionData
-from machinery.converter import H90toF90Printer, getSymbolsByRoutineNameAndSymbolName, getSymbolsByModuleNameAndSymbolName
+from machinery.converter import H90toF90Converter, getSymbolsByRoutineNameAndSymbolName, getSymbolsByModuleNameAndSymbolName
 from tools.commons import UsageError, openFile, getDataFromFile, setupDeferredLogging, printProgressIndicator, progressIndicatorReset
 from tools.filesystem import dirEntries
 from tools.analysis import SymbolDependencyAnalyzer
@@ -95,7 +95,7 @@ except ValueError as e:
 except Exception as e:
 	logging.critical('Could not interpret implementation parameter as json file to read. Trying to use it as an implementation name directly')
 	implementationNamesByTemplateName = {'default':options.implementation}
-logging.debug('Initializing H90toF90Printer with the following implementations: %s' %(json.dumps(implementationNamesByTemplateName)))
+logging.debug('Initializing H90toF90Converter with the following implementations: %s' %(json.dumps(implementationNamesByTemplateName)))
 implementationsByTemplateName = {
 	templateName:getattr(implementations.fortran, implementationNamesByTemplateName[templateName])(optionFlags)
 	for templateName in implementationNamesByTemplateName.keys()
@@ -172,7 +172,7 @@ for fileNum, fileInDir in enumerate(filesInDir):
 	printProgressIndicator(sys.stderr, os.path.basename(fileInDir), fileNum + 1, len(filesInDir), "Converting to Standard Fortran")
 	outputStream = FileIO(outputPath, mode="wb")
 	try:
-		f90printer = H90toF90Printer(
+		converter = H90toF90Converter(
 			ImmutableDOMDocument(cgDoc), #using our immutable version we can speed up ALL THE THINGS through caching
 			implementationsByTemplateName,
 			outputStream,
@@ -182,7 +182,7 @@ for fileNum, fileInDir in enumerate(filesInDir):
 			symbolsByModuleNameAndSymbolName,
 			symbolsByRoutineNameAndSymbolName,
 		)
-		f90printer.processFile(fileInDir)
+		converter.processFile(fileInDir)
 	except UsageError as e:
 		logging.error('Error: %s' %(str(e)))
 		sys.exit(1)

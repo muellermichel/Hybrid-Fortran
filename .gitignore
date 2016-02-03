@@ -1,3 +1,4 @@
+*.sublime-workspace
 *.pyc
 pp/*
 pp_old/*

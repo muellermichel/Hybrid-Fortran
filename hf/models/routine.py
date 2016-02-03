@@ -21,15 +21,25 @@
 def containsKernels(routineNode):
 	return False
 
+def uniqueIdentifier(routineName, implementationName):
+	return (routineName + "_hfauto_" + implementationName).strip()
+
 class Routine(object):
 	def __init__(self, name, routineNode, implementation):
 		self.name = name
+		self.implementation = implementation
 		self._routineNode = routineNode
-		self._implementation = implementation
-		self._text = ""
+		self._specificationText = ""
+		self._bodyText = ""
+		self.sisterRoutine = None
 
 	def __repr__(self):
 		return self._text
+
+	def nameInScope(self):
+		if not self.sisterRoutine:
+			return self.name
+		return uniqueIdentifier(self.name, self.implementation.architecture[0])
 
 	def loadHeaderLine(self, header):
 		pass
@@ -39,3 +49,6 @@ class Routine(object):
 
 	def loadBodyLine(self, implementation):
 		pass
+
+	def implemented(self):
+		return ""

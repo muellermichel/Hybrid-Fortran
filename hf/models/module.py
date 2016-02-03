@@ -22,24 +22,33 @@ class Module(object):
 
 	def __init__(self, name, moduleNode):
 		self.name = name
-		self.moduleNode = moduleNode
-		self._hostDataRoutines = []
-		self._acceleratorDataRoutines = []
+		self._moduleNode = moduleNode
+		self._routinesByNameAndImplementationClass = {}
+		self._specificationText = ""
+		self._firstRoutinesByName = {}
 
-	def loadRoutine(self, routine):
-		self._hostDataRoutines.append(routine)
+	def _header(self):
+		return "module %s" %(self.nameInScope())
 
-	def getHeader(self):
-		return "module %s" %(self.name)
+	def _footer(self):
+		return "end module %s" %(self.nameInScope())
 
-	def getSpecification(self):
+	def nameInScope(self):
+		return self.name
+
+	def loadSpecificationLine(self):
 		pass
 
-	def getRoutines(self):
-		return "\n".join([
-			"%s\n%s" %(routine.getHostVersion(), routine.getAcceleratorVersion())
-			for routine in self._routines
-		])
+	def loadRoutine(self, routine):
+		routinesByImplementationClass = self._routinesByNameAndImplementationClass.get(routine.name, {})
+		if len(routinesByImplementationClass.keys()) == 0:
+			self._firstRoutinesByName[routine.name] = routine
+		else:
+			routine.sisterRoutine = self._firstRoutinesByName[routine.name]
+		routinesByImplementationClass[routine.implementation.__class__.__name__] = routine
+		self._routinesByNameAndImplementationClass[routine.name] = routinesByImplementationClass
 
-	def getFooter(self):
-		return "end module %s" %(self.name)
+	def implemented(self):
+		return self._header() \
+			+ self._specificationText \
+			+ 

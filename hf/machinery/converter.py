@@ -513,7 +513,7 @@ This is not allowed for implementations using %s.\
             else:
                 self.state = 'inside_ignore'
         elif branchSettingMatch.group(1) == "architecture":
-            if branchSettingMatch.group(2) == self.implementation.architecture:
+            if branchSettingMatch.group(2).lower() in self.implementation.architecture:
                 self.state = 'inside_branch'
             else:
                 self.state = 'inside_ignore'

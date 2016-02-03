@@ -27,7 +27,7 @@ from implementations.commons import *
 import os, logging
 
 class FortranImplementation(object):
-	architecture = "CPU"
+	architecture = ["cpu", "host"]
 	onDevice = False
 	multipleParallelRegionsPerSubroutineAllowed = True
 	optionFlags = []
@@ -276,7 +276,7 @@ class OpenMPFortranImplementation(FortranImplementation):
 		return FortranImplementation.subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, is_subroutine_end)
 
 class PGIOpenACCFortranImplementation(FortranImplementation):
-	architecture = "GPU"
+	architecture = ["openacc", "gpu", "nvd", "nvidia"]
 	onDevice = True
 	currRoutineHasDataDeclarations = False
 	createDeclaration = "create"
@@ -524,7 +524,7 @@ class TraceCheckingOpenACCFortranImplementation(DebugPGIOpenACCFortranImplementa
 		return result
 
 class CUDAFortranImplementation(FortranImplementation):
-	architecture = "GPU"
+	architecture = ["cuda", "gpu", "nvd", "nvidia"]
 	onDevice = True
 	multipleParallelRegionsPerSubroutineAllowed = False
 	useOpenACCForDebugPrintStatements = False

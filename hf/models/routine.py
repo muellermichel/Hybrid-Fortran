@@ -25,33 +25,33 @@ def uniqueIdentifier(routineName, implementationName):
 	return (routineName + "_hfauto_" + implementationName).strip()
 
 class Routine(object):
+
 	def __init__(self, name, routineNode, implementation):
 		self.name = name
 		self.implementation = implementation
-		self._routineNode = routineNode
-		self._specificationText = ""
-		self._bodyText = ""
 		self.sisterRoutine = None
-
-	def __repr__(self):
-		return self._text
+		self._routineNode = routineNode
+		self._headerText = ""
+		self._specificationText = ""
+		self._regions = []
 
 	def nameInScope(self):
 		if not self.sisterRoutine:
 			return self.name
 		return uniqueIdentifier(self.name, self.implementation.architecture[0])
 
-	def loadHeaderLine(self, header):
-		pass
+	def loadHeaderLine(self, headerLine):
+		self._headerText += headerLine
 
 	def loadSpecificationLine(self, specificationLine):
-		pass
+		self._specificationText += specificationLine
 
-	def loadBodyLine(self, bodyLine):
-		pass
-
-	def synthesizedKernels(self):
-		return self.implementation.synthesizedKernels()
+	def loadRegion(self, region):
+		self._regions.append(region)
 
 	def implemented(self):
-		return ""
+		return _headerText \
+			+ _specificationText \
+			+ "\n".join([
+				region.implemented() for region in self._regions
+			])

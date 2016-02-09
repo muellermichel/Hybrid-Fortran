@@ -90,10 +90,17 @@ class CallGraphParser(object):
 
     def processProcBeginMatch(self, subProcBeginMatch):
         logging.debug('entering %s' %(subProcBeginMatch.group(1)), extra={"hfLineNo":currLineNo, "hfFile":currFile})
+        self.currSubprocName = subProcBeginMatch.group(1)
+        self.currArgumentParser = FortranRoutineArgumentParser()
+        self.currArgumentParser.processString(subProcBeginMatch.group(0), self.patterns)
+        self.currArguments = self.currArgumentParser.arguments
         return
 
     def processProcEndMatch(self, subProcEndMatch):
         logging.debug('exiting subprocedure', extra={"hfLineNo":currLineNo, "hfFile":currFile})
+        self.currSubprocName = None
+        self.currArgumentParser = None
+        self.currArguments = None
         return
 
     def processParallelRegionMatch(self, parallelRegionMatch):
@@ -200,10 +207,6 @@ class CallGraphParser(object):
         elif subProcBeginMatch:
             if (not subProcBeginMatch.group(1) or subProcBeginMatch.group(1) == ''):
                 raise UsageError("subprocedure begin without matching subprocedure name")
-            self.currSubprocName = subProcBeginMatch.group(1)
-            self.currArgumentParser = FortranRoutineArgumentParser()
-            self.currArgumentParser.processString(subProcBeginMatch.group(0), self.patterns)
-            self.currArguments = self.currArgumentParser.arguments
             self.processProcBeginMatch(subProcBeginMatch)
             if self.state == "inside_branch":
                 self.stateBeforeBranch = 'inside_declarations'
@@ -248,7 +251,6 @@ class CallGraphParser(object):
                 self.stateBeforeBranch = 'inside_module'
             else:
                 self.state = 'inside_module'
-            self.currSubprocName = None
         elif parallelRegionMatch:
             raise UsageError("parallel region without parallel dependants")
         elif (self.patterns.subprocBeginPattern.match(str(line))):
@@ -290,7 +292,6 @@ class CallGraphParser(object):
                 self.stateBeforeBranch = 'inside_module'
             else:
                 self.state = 'inside_module'
-            self.currSubprocName = None
         elif parallelRegionMatch:
             self.processParallelRegionMatch(parallelRegionMatch)
             self.state = 'inside_parallelRegion'

@@ -48,6 +48,9 @@ class FortranImplementation(object):
 		if type(optionFlags) == list:
 			self.optionFlags = optionFlags
 
+	def splitIntoCompatibleRoutines(self, routine):
+		return [routine]
+
 	def filePreparation(self, filename):
 		return '''#include "storage_order.F90"\n'''
 

@@ -36,8 +36,8 @@ class Module(object):
 	def nameInScope(self):
 		return self.name
 
-	def loadSpecificationLine(self):
-		pass
+	def loadSpecificationLine(self, specificationLine):
+		self._specificationText += specificationLine
 
 	def loadRoutine(self, routine):
 		routinesByImplementationClass = self._routinesByNameAndImplementationClass.get(routine.name, {})
@@ -53,13 +53,17 @@ class Module(object):
 			}
 
 	def implemented(self):
+		routines = []
+		for routine in sum([
+			v.values()
+			for _, v in enumerate(self._routinesByNameAndImplementationClass)
+		], []):
+			routines += routine.implementation.splitIntoCompatibleRoutines(routine)
+
 		return self._header() \
 			+ self._specificationText \
 			+ '\n'.join([
 				routine.implemented()
-				for routine in sum([
-					v.values()
-					for _, v in enumerate(self._routinesByNameAndImplementationClass)
-				], [])
+				for routine in routines
 			]) \
 			+ self._footer()

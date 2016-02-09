@@ -44,11 +44,14 @@ class Routine(object):
 	def loadHeaderLine(self, header):
 		pass
 
-	def loadSpecificationLine(self, specification):
+	def loadSpecificationLine(self, specificationLine):
 		pass
 
-	def loadBodyLine(self, implementation):
+	def loadBodyLine(self, bodyLine):
 		pass
+
+	def synthesizedKernels(self):
+		return self.implementation.synthesizedKernels()
 
 	def implemented(self):
 		return ""

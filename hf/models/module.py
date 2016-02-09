@@ -47,8 +47,19 @@ class Module(object):
 			routine.sisterRoutine = self._firstRoutinesByName[routine.name]
 		routinesByImplementationClass[routine.implementation.__class__.__name__] = routine
 		self._routinesByNameAndImplementationClass[routine.name] = routinesByImplementationClass
+		for kernelRoutine in routine.synthesizedKernels():
+			self._routinesByNameAndImplementationClass[kernelRoutine.name] = {
+				kernelRoutine.implementation.__class__: kernelRoutine
+			}
 
 	def implemented(self):
 		return self._header() \
 			+ self._specificationText \
-			+ 
+			+ '\n'.join([
+				routine.implemented()
+				for routine in sum([
+					v.values()
+					for _, v in enumerate(self._routinesByNameAndImplementationClass)
+				], [])
+			]) \
+			+ self._footer()

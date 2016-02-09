@@ -22,7 +22,7 @@ class Module(object):
 
 	def __init__(self, name, moduleNode):
 		self.name = name
-		self._moduleNode = moduleNode
+		self.node = moduleNode
 		self._routinesByNameAndImplementationClass = {}
 		self._specificationText = ""
 		self._firstRoutinesByName = {}

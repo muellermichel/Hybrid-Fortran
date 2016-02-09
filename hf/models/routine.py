@@ -26,11 +26,26 @@ def uniqueIdentifier(routineName, implementationName):
 
 class Routine(object):
 
+	def __init__(self, name):
+		if not type(name) in [str, unicode] or name.strip() == "":
+			raise Exception("no valid name passed when trying to initialize routine")
+		self.name = name
+
+	def nameInScope(self):
+		return self.name
+
+class AnalyzableRoutine(Routine):
+
 	def __init__(self, name, routineNode, implementation):
+		super(AnalyzableRoutine, self).__init__(name)
+		if not routineNode:
+			raise Exception("no definition passed when trying to initialize routine '%s'" %(name))
+		if not implementation:
+			raise Exception("no implementation passed when trying to initialize routine '%s'" %(name))
 		self.name = name
 		self.implementation = implementation
 		self.sisterRoutine = None
-		self._routineNode = routineNode
+		self.node = routineNode
 		self._headerText = ""
 		self._specificationText = ""
 		self._regions = []

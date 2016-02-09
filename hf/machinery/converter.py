@@ -20,6 +20,9 @@
 
 import os, sys, re, traceback, logging
 from models.symbol import *
+from models.region import Region
+from models.routine import Routine, AnalyzableRoutine
+from models.module import Module
 from tools.metadata import *
 from tools.commons import UsageError, BracketAnalyzer
 from tools.analysis import SymbolDependencyAnalyzer, getAnalysisForSymbol, getArguments
@@ -76,26 +79,8 @@ def getSymbolsByRoutineNameAndSymbolName(cgDoc, routineNodesByProcName, parallel
     return symbolsByRoutineNameAndSymbolName
 
 class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
-    currSubroutineImplementationNeedsToBeCommented = False
-    currRoutineIsCallingParallelRegion = False
-    currCalleeNode = None
-    additionalParametersByKernelName = None
-    additionalWrapperImportsByKernelName = None
-    currAdditionalSubroutineParameters = None
-    currAdditionalCompactedSubroutineParameters = None
-    symbolsPassedInCurrentCallByName = None
-    currParallelIterators = None
-    intentPattern = None
-    dimensionPattern = None
-    codeSanitizer = None
     stateBeforeBranch = None
-    currParallelRegionRelationNode = None
-    currParallelRegionTemplateNode = None
-    symbolsByModuleName = None
-    symbolAnalysisByRoutineName = None
-    symbolsByRoutineNameAndSymbolName = None
     currentLineNeedsPurge = False
-
     tab_insideSub = "\t\t"
     tab_outsideSub = "\t"
 
@@ -124,7 +109,10 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
         self.additionalWrapperImportsByKernelName = {}
         self.currParallelIterators = []
         self.currentLine = ""
-        self.currCalleeNode = None
+        self.currRoutine = None
+        self.currRegion = None
+        self.currModule = None
+        self.currCallee = None
         self.currAdditionalSubroutineParameters = []
         self.currAdditionalCompactedSubroutineParameters = []
         self.codeSanitizer = FortranCodeSanitizer()
@@ -160,33 +148,38 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
             logging.info(traceback.format_exc())
             sys.exit(1)
 
+    def switchToNewRegion(self):
+        self.currRegion = Region()
+        self.currRoutine.loadRegion(self.currRegion)
+
     def prepareActiveParallelRegion(self, implementationFunctionName):
-        routineNode = self.routineNodesByProcName.get(self.currSubprocName)
+        routineNode = self.routineNodesByProcName.get(self.currRoutine.name)
         if not routineNode:
-            raise Exception("no definition found for routine '%s'", self.currSubprocName)
+            raise Exception("no definition found for routine '%s'", self.currRoutine.name)
         if routineNode.getAttribute('parallelRegionPosition') != 'within':
-            return
-        templates = self.parallelRegionTemplatesByProcName.get(self.currSubprocName)
+            return False
+        templates = self.parallelRegionTemplatesByProcName.get(self.currRoutine.name)
         if not templates or len(templates) == 0:
             raise Exception("Unexpected: no parallel template definition found for routine '%s'" \
-                %(self.currSubprocName))
+                %(self.currRoutine.name))
         if len(templates) > 1 and self.implementation.multipleParallelRegionsPerSubroutineAllowed != True:
             raise Exception("Unexpected: more than one parallel region templates found for subroutine '%s' containing a parallelRegion directive \
 This is not allowed for implementations using %s.\
-                " %(self.currSubprocName, type(self.implementation).__name__)
+                " %(self.currRoutine.name, type(self.implementation).__name__)
             )
 
         implementationAttr = getattr(self, 'implementation')
         functionAttr = getattr(implementationAttr, implementationFunctionName)
         self.prepareLine(functionAttr(self.currParallelRegionTemplateNode, self.branchAnalyzer.level), self.tab_insideSub)
+        return True
 
     def filterOutSymbolsAlreadyAliveInCurrentScope(self, symbolList):
         return [
             symbol for symbol in symbolList
             if not symbol.analysis \
             or ( \
-                symbol.name not in self.symbolsByRoutineNameAndSymbolName.get(self.currSubprocName, {}) \
-                and symbol.analysis.argumentIndexByRoutineName.get(self.currSubprocName, -1) == -1 \
+                symbol.name not in self.symbolsByRoutineNameAndSymbolName.get(self.currRoutine.name, {}) \
+                and symbol.analysis.argumentIndexByRoutineName.get(self.currRoutine.name, -1) == -1 \
             )
         ]
 
@@ -212,7 +205,7 @@ This is not allowed for implementations using %s.\
         and not symbol.isHostSymbol \
         and self.state != "inside_parallelRegion" \
         and not (self.state == "inside_branch" and self.stateBeforeBranch == "inside_parallelRegion") \
-        and self.routineNodesByProcName[self.currSubprocName].getAttribute("parallelRegionPosition") != "outside" \
+        and self.currRoutine.node.getAttribute("parallelRegionPosition") != "outside" \
         and len(accessors) != 0 \
         and ( \
             not self.implementation.supportsNativeMemsetsOutsideOfKernels \
@@ -222,7 +215,7 @@ This is not allowed for implementations using %s.\
                 "Dependant symbol %s accessed with accessor domains (%s) outside of a parallel region or subroutine call in subroutine %s(%s:%i)" %(
                     symbol.name,
                     str(accessors),
-                    self.currSubprocName,
+                    self.currRoutine.name,
                     self.fileName,
                     self.lineNo
                 ),
@@ -342,7 +335,7 @@ This is not allowed for implementations using %s.\
     def processSymbolImportAndGetAdjustedLine(self, importMatch):
         return self.implementation.adjustImportForDevice(\
             importMatch.group(0), \
-            self.routineNodesByProcName[self.currSubprocName].getAttribute('parallelRegionPosition')
+            self.currRoutine.node.getAttribute('parallelRegionPosition')
         )
 
     def processCallPostAndGetAdjustedLine(self, line):
@@ -351,36 +344,44 @@ This is not allowed for implementations using %s.\
         additionalModuleSymbols = self.additionalWrapperImportsByKernelName.get(self.currCalleeName, [])
         for symbol in additionalImportsAndDeclarations[1] + additionalModuleSymbols:
             allSymbolsPassedByName[symbol.name] = symbol
-        adjustedLine = line + "\n" + self.implementation.kernelCallPost(allSymbolsPassedByName, self.currCalleeNode)
-        self.symbolsPassedInCurrentCallByName = {}
-        self.currCalleeNode = None
+        adjustedLine = line + "\n" + self.implementation.kernelCallPost(allSymbolsPassedByName, self.currCallee.node)
         return adjustedLine
 
     def processCallMatch(self, subProcCallMatch):
         super(H90toF90Converter, self).processCallMatch(subProcCallMatch)
+        calleeNode = self.routineNodesByProcName.get(self.currCalleeName)
+        if calleeNode:
+            self.currCallee = AnalyzableRoutine(
+                self.currCalleeName,
+                self.routineNodesByProcName.get(self.currCalleeName),
+                self.implementation
+            )
+        else:
+            self.currCallee = Routine(self.currCalleeName)
+        self.switchToNewRegion()
+
         adjustedLine = "call " + self.currCalleeName
-        self.currCalleeNode = self.routineNodesByProcName.get(self.currCalleeName)
 
         parallelRegionPosition = None
-        if self.currCalleeNode:
-            parallelRegionPosition = self.currCalleeNode.getAttribute("parallelRegionPosition")
+        if isinstance(self.currCallee, AnalyzableRoutine):
+            parallelRegionPosition = self.currCallee.node.getAttribute("parallelRegionPosition")
         logging.debug(
-            "In subroutine %s: Processing subroutine call to %s, parallel region position: %s" %(self.currSubprocName, self.currCalleeName, parallelRegionPosition),
+            "In subroutine %s: Processing subroutine call to %s, parallel region position: %s" %(self.currRoutine.name, self.currCalleeName, parallelRegionPosition),
             extra={"hfLineNo":currLineNo, "hfFile":currFile}
         )
-        if self.currCalleeNode and parallelRegionPosition == "within":
+        if isinstance(self.currCallee, AnalyzableRoutine) and parallelRegionPosition == "within":
             parallelRegionTemplates = self.parallelRegionTemplatesByProcName.get(self.currCalleeName)
             if parallelRegionTemplates == None or len(parallelRegionTemplates) == 0:
                 raise Exception("No parallel region templates found for subroutine %s" %(self.currCalleeName))
-            adjustedLine = self.implementation.kernelCallPreparation(parallelRegionTemplates[0], calleeNode=self.currCalleeNode)
+            adjustedLine = self.implementation.kernelCallPreparation(parallelRegionTemplates[0], calleeNode=self.currCallee.node)
             adjustedLine = adjustedLine + "call " + self.currCalleeName + " " + self.implementation.kernelCallConfig()
 
-        # if self.currCalleeNode \
-        # and getRoutineNodeInitStage(self.currCalleeNode) == RoutineNodeInitStage.DIRECTIVES_WITHOUT_PARALLELREGION_POSITION:
+        # if isinstance(self.currCallee, AnalyzableRoutine) \
+        # and getRoutineNodeInitStage(self.currCallee.node) == RoutineNodeInitStage.DIRECTIVES_WITHOUT_PARALLELREGION_POSITION:
         #     #special case. see also processBeginMatch.
         #     self.prepareLine("! " + subProcCallMatch.group(0), "")
         #     self.symbolsPassedInCurrentCallByName = {}
-        #     self.currCalleeNode = None
+        #     self.currCallee = None
         #     return
 
         arguments = subProcCallMatch.group(2)
@@ -417,10 +418,10 @@ This is not allowed for implementations using %s.\
 
         callPreparationForSymbols = ""
         callPostForSymbols = ""
-        if self.currCalleeNode \
+        if isinstance(self.currCallee, AnalyzableRoutine) \
         and self.state != "inside_subroutine_call" \
         and not (self.state == "inside_branch" and self.stateBeforeBranch == "inside_subroutine_call"):
-            currSubprocNode = self.routineNodesByProcName.get(self.currSubprocName)
+            currSubprocNode = self.routineNodesByProcName.get(self.currRoutine.name)
             callPreparationForSymbols = ""
             callPostForSymbols = ""
             for symbol in self.symbolsPassedInCurrentCallByName.values():
@@ -435,7 +436,7 @@ This is not allowed for implementations using %s.\
                     analysis = getAnalysisForSymbol(self.symbolAnalysisByRoutineNameAndSymbolName, self.currCalleeName, symbolName)
                     if not analysis:
                         continue
-                    if analysis.aliasNamesByRoutineName.get(self.currSubprocName) == symbol.name:
+                    if analysis.aliasNamesByRoutineName.get(self.currRoutine.name) == symbol.name:
                         symbolNameInCallee = symbolName
                         break
                 if symbolNameInCallee == None:
@@ -460,7 +461,8 @@ This is not allowed for implementations using %s.\
 
         if self.state != "inside_subroutine_call" and not (self.state == "inside_branch" and self.stateBeforeBranch == "inside_subroutine_call"):
             self.symbolsPassedInCurrentCallByName = {}
-            self.currCalleeNode = None
+            self.currCallee = None
+            self.switchToNewRegion()
 
         self.prepareLine(callPreparationForSymbols + adjustedLine + callPostForSymbols, self.tab_insideSub)
 
@@ -508,7 +510,7 @@ This is not allowed for implementations using %s.\
 
         self.stateBeforeBranch = self.state
         if branchSettingMatch.group(1) == "parallelRegion":
-            if branchSettingMatch.group(2) == self.routineNodesByProcName[self.currSubprocName].getAttribute('parallelRegionPosition').strip():
+            if branchSettingMatch.group(2) == self.currRoutine.node.getAttribute('parallelRegionPosition').strip():
                 self.state = 'inside_branch'
             else:
                 self.state = 'inside_ignore'
@@ -525,17 +527,23 @@ This is not allowed for implementations using %s.\
     def processModuleBeginMatch(self, moduleBeginMatch):
         super(H90toF90Converter, self).processModuleBeginMatch(moduleBeginMatch)
         self.implementation.processModuleBegin(self.currModuleName)
+        self.currModule = Module(
+            self.currModuleName,
+            self.moduleNodesByName[self.currModuleName]
+        )
 
     def processModuleEndMatch(self, moduleEndMatch):
-        super(H90toF90Converter, self).processModuleEndMatch(moduleEndMatch)
+        self.currModule = None
         self.implementation.processModuleEnd()
+        super(H90toF90Converter, self).processModuleEndMatch(moduleEndMatch)
 
     def processProcBeginMatch(self, subProcBeginMatch):
         super(H90toF90Converter, self).processProcBeginMatch(subProcBeginMatch)
-        subprocName = subProcBeginMatch.group(1)
-        routineNode = self.routineNodesByProcName.get(subprocName)
-        if not routineNode:
-            raise Exception("no definition found for routine '%s'" %(subprocName))
+        self.currRoutine = AnalyzableRoutine(
+            self.currSubprocName,
+            self.routineNodesByProcName.get(self.currSubprocName),
+            self.implementation
+        )
 
         #build list of additional subroutine parameters
         #(parameters that the user didn't specify but that are necessary based on the features of the underlying technology
@@ -543,9 +551,9 @@ This is not allowed for implementations using %s.\
         additionalImportsForOurSelves, additionalDeclarationsForOurselves, additionalDummies = self.implementation.getAdditionalKernelParameters(
             self.cgDoc,
             self.currArguments,
-            routineNode,
-            self.moduleNodesByName[routineNode.getAttribute('module')],
-            self.parallelRegionTemplatesByProcName.get(subprocName),
+            self.currRoutine.node,
+            self.currModule.node,
+            self.parallelRegionTemplatesByProcName.get(self.currRoutine.name),
             self.currSymbolsByName,
             self.symbolAnalysisByRoutineNameAndSymbolName
         )
@@ -556,7 +564,7 @@ This is not allowed for implementations using %s.\
         )
         compactedArrayList = []
         if len(toBeCompacted) > 0:
-            compactedArrayName = "hfimp_%s" %(subprocName)
+            compactedArrayName = "hfimp_%s" %(self.currRoutine.name)
             compactedArray = FrameworkArray(compactedArrayName, declarationPrefix, domains=[("hfauto", str(len(toBeCompacted)))], isOnDevice=True)
             compactedArrayList = [compactedArray]
         self.currAdditionalSubroutineParameters = sorted(otherImports + compactedArrayList)
@@ -564,18 +572,18 @@ This is not allowed for implementations using %s.\
         adjustedLine = self.processAdditionalSubroutineParametersAndGetAdjustedLine(additionalDummies)
 
         #print line
-        self.prepareLine(self.implementation.subroutinePrefix(routineNode) + " " + adjustedLine, self.tab_outsideSub)
+        self.prepareLine(self.implementation.subroutinePrefix(self.currRoutine.node) + " " + adjustedLine, self.tab_outsideSub)
 
         #analyse whether this routine is calling other routines that have a parallel region within
         #+ analyse the additional symbols that come up there
-        if not routineNode.getAttribute("parallelRegionPosition") == "inside":
+        if not self.currRoutine.node.getAttribute("parallelRegionPosition") == "inside":
             return
         callsLibraries = self.cgDoc.getElementsByTagName("calls")
         if not callsLibraries or len(callsLibraries) == 0:
             raise Exception("Caller library not found.")
         calls = callsLibraries[0].getElementsByTagName("call")
         for call in calls:
-            if call.getAttribute("caller") != self.currSubprocName:
+            if call.getAttribute("caller") != self.currRoutine.name:
                 continue
             calleeName = call.getAttribute("callee")
             callee = self.routineNodesByProcName.get(calleeName)
@@ -593,7 +601,7 @@ This is not allowed for implementations using %s.\
                 self.symbolAnalysisByRoutineNameAndSymbolName
             )
             for symbol in additionalImportsForDeviceCompatibility + additionalDeclarationsForDeviceCompatibility + additionalDummies:
-                symbol.resetScope(self.currSubprocName)
+                symbol.resetScope(self.currRoutine.name)
             if 'DEBUG_PRINT' in self.implementation.optionFlags:
                 tentativeAdditionalImports = getModuleArraysForCallee(
                     calleeName,
@@ -604,7 +612,7 @@ This is not allowed for implementations using %s.\
                 additionalImportsByName = {}
                 for symbol in additionalImports:
                     additionalImportsByName[symbol.name] = symbol
-                    symbol.resetScope(self.currSubprocName)
+                    symbol.resetScope(self.currRoutine.name)
                 self.additionalWrapperImportsByKernelName[calleeName] = additionalImportsByName.values()
             self.additionalParametersByKernelName[calleeName] = (additionalImportsForDeviceCompatibility, additionalDeclarationsForDeviceCompatibility + additionalDummies)
             if callee.getAttribute("parallelRegionPosition") != "within":
@@ -627,6 +635,7 @@ This is not allowed for implementations using %s.\
         self.currAdditionalSubroutineParameters = []
         self.currAdditionalCompactedSubroutineParameters = []
         self.currSubroutineImplementationNeedsToBeCommented = False
+        self.currRoutine = None
         super(H90toF90Converter, self).processProcEndMatch(subProcEndMatch)
 
     def processParallelRegionMatch(self, parallelRegionMatch):
@@ -635,11 +644,13 @@ This is not allowed for implementations using %s.\
             "...parallel region starts on line %i with active symbols %s" %(self.lineNo, str(self.currSymbolsByName.values())),
             extra={"hfLineNo":currLineNo, "hfFile":currFile}
         )
-        self.prepareActiveParallelRegion('parallelRegionBegin')
+        if self.prepareActiveParallelRegion('parallelRegionBegin'):
+            self.switchToNewRegion()
 
     def processParallelRegionEndMatch(self, parallelRegionEndMatch):
         super(H90toF90Converter, self).processParallelRegionEndMatch(parallelRegionEndMatch)
-        self.prepareActiveParallelRegion('parallelRegionEnd')
+        if self.prepareActiveParallelRegion('parallelRegionEnd'):
+            self.switchToNewRegion()
         self.currParallelIterators = []
         self.currParallelRegionTemplateNode = None
         self.currParallelRegionRelationNode = None
@@ -683,10 +694,12 @@ This is not allowed for implementations using %s.\
     def processInsideDeclarationsState(self, line):
         '''process everything that happens per h90 declaration line'''
         super(H90toF90Converter, self).processInsideDeclarationsState(line)
-        routineNode = self.routineNodesByProcName.get(self.currSubprocName)
+        routineNode = self.routineNodesByProcName.get(self.currRoutine.name)
 
         if self.state != "inside_declarations" and self.state != "inside_module" and self.state != "inside_subroutine_call" \
         and not (self.state in ["inside_branch", "inside_ignore"] and self.stateBeforeBranch in ["inside_declarations", "inside_module", "inside_subroutine_call"]):
+            self.switchToNewRegion()
+
             additionalDeclarationsStr = ""
 
             #TODO $$$: most of the following code should probably be handled within implementation classes
@@ -702,7 +715,7 @@ This is not allowed for implementations using %s.\
                 callsLibraries = self.cgDoc.getElementsByTagName("calls")
                 calls = callsLibraries[0].getElementsByTagName("call")
                 for call in calls:
-                    if call.getAttribute("caller") != self.currSubprocName:
+                    if call.getAttribute("caller") != self.currRoutine.name:
                         continue
                     calleeName = call.getAttribute("callee")
                     additionalImports += self.additionalWrapperImportsByKernelName.get(calleeName, [])
@@ -745,10 +758,10 @@ This is not allowed for implementations using %s.\
                         symbol.getDeclarationLineForAutomaticSymbol(purgeList).strip(),
                     [symbol],
                     self.currRoutineIsCallingParallelRegion,
-                    self.routineNodesByProcName[self.currSubprocName].getAttribute('parallelRegionPosition')
+                    self.currRoutine.node.getAttribute('parallelRegionPosition')
                 ).rstrip() + " ! type %i symbol added for this subroutine\n" %(symbol.declarationType)
                 logging.debug(
-                    "...In subroutine %s: Symbol %s additionally declared" %(self.currSubprocName, symbol),
+                    "...In subroutine %s: Symbol %s additionally declared" %(self.currRoutine.name, symbol),
                     extra={"hfLineNo":currLineNo, "hfFile":currFile}
                 )
 
@@ -783,10 +796,10 @@ This is not allowed for implementations using %s.\
                         symbol.getDeclarationLineForAutomaticSymbol(purgeList=['intent', 'public', 'parameter']).strip(),
                         [symbol],
                         self.currRoutineIsCallingParallelRegion,
-                        self.routineNodesByProcName[self.currSubprocName].getAttribute('parallelRegionPosition')
+                        self.currRoutine.node.getAttribute('parallelRegionPosition')
                     ).rstrip() + " ! type %i symbol added for callee %s\n" %(symbol.declarationType, calleeName)
                     logging.debug(
-                        "...In subroutine %s: Symbol %s additionally declared and passed to %s" %(self.currSubprocName, symbol, calleeName),
+                        "...In subroutine %s: Symbol %s additionally declared and passed to %s" %(self.currRoutine.name, symbol, calleeName),
                         extra={"hfLineNo":currLineNo, "hfFile":currFile}
                     )
                 #TODO: move this into implementation classes
@@ -804,18 +817,18 @@ This is not allowed for implementations using %s.\
                         compactedArray.getDeclarationLineForAutomaticSymbol().strip(),
                         [compactedArray],
                         self.currRoutineIsCallingParallelRegion,
-                        self.routineNodesByProcName[self.currSubprocName].getAttribute('parallelRegionPosition')
+                        self.currRoutine.node.getAttribute('parallelRegionPosition')
                     ).rstrip() + " ! compaction array added for callee %s\n" %(calleeName)
                     logging.debug(
-                        "...In subroutine %s: Symbols %s packed into array %s" %(self.currSubprocName, toBeCompacted, compactedArrayName),
+                        "...In subroutine %s: Symbols %s packed into array %s" %(self.currRoutine.name, toBeCompacted, compactedArrayName),
                         extra={"hfLineNo":currLineNo, "hfFile":currFile}
                     )
 
             additionalDeclarationsStr += self.implementation.declarationEnd(
                 self.currSymbolsByName.values() + additionalImports,
                 self.currRoutineIsCallingParallelRegion,
-                self.routineNodesByProcName[self.currSubprocName],
-                self.parallelRegionTemplatesByProcName.get(self.currSubprocName)
+                self.currRoutine.node,
+                self.parallelRegionTemplatesByProcName.get(self.currRoutine.name)
             )
 
             #########################################################################
@@ -834,7 +847,7 @@ This is not allowed for implementations using %s.\
             #TODO: move this into implementation classes
             for idx, symbol in enumerate(self.currAdditionalCompactedSubroutineParameters):
                 #$$$ clean this up, the hf_imp prefix should be decided within the symbol class
-                additionalDeclarationsStr += "%s = hfimp_%s(%i)" %(symbol.nameInScope(), self.currSubprocName, idx+1) + \
+                additionalDeclarationsStr += "%s = hfimp_%s(%i)" %(symbol.nameInScope(), self.currRoutine.name, idx+1) + \
                          " ! additional type %i symbol compaction\n" %(symbol.declarationType)
 
             #########################################################################
@@ -860,7 +873,7 @@ This is not allowed for implementations using %s.\
                 raise Exception("Symbol %s not found on a line where it has already been identified before. Current string to search: %s" \
                     %(symbol, adjustedLine))
             adjustedLine = symbol.getAdjustedDeclarationLine(match, \
-                self.parallelRegionTemplatesByProcName.get(self.currSubprocName), \
+                self.parallelRegionTemplatesByProcName.get(self.currRoutine.name), \
                 self.patterns.dimensionPattern \
             )
 
@@ -873,7 +886,7 @@ This is not allowed for implementations using %s.\
             adjustedLine = self.implementation.adjustDeclarationForDevice(adjustedLine, \
                 self.symbolsOnCurrentLine, \
                 self.currRoutineIsCallingParallelRegion, \
-                self.routineNodesByProcName[self.currSubprocName].getAttribute('parallelRegionPosition') \
+                self.currRoutine.node.getAttribute('parallelRegionPosition') \
             )
 
         for symbol in self.importsOnCurrentLine:
@@ -909,7 +922,6 @@ This is not allowed for implementations using %s.\
                 self.stateBeforeBranch = "inside_module"
             else:
                 self.state = 'inside_module'
-            self.currSubprocName = None
             return
 
         if (self.patterns.earlyReturnPattern.match(str(line))):
@@ -922,8 +934,8 @@ This is not allowed for implementations using %s.\
 
         parallelRegionMatch = self.patterns.parallelRegionPattern.match(str(line))
         if (parallelRegionMatch) \
-        and self.routineNodesByProcName[self.currSubprocName].getAttribute('parallelRegionPosition') == "within":
-            templateRelations = self.parallelRegionTemplateRelationsByProcName.get(self.currSubprocName)
+        and self.currRoutine.node.getAttribute('parallelRegionPosition') == "within":
+            templateRelations = self.parallelRegionTemplateRelationsByProcName.get(self.currRoutine.name)
             if templateRelations == None or len(templateRelations) == 0:
                 raise Exception("No parallel region template relation found for this region.")
             for templateRelation in templateRelations:
@@ -937,7 +949,7 @@ This is not allowed for implementations using %s.\
                     raise Exception("Invalid startLine definition for parallel region template relation: %s\n. All active template relations: %s\nRoutine node: %s" %(
                         templateRelation.toxml(),
                         [templateRelation.toxml() for templateRelation in templateRelations],
-                        self.routineNodesByProcName[self.currSubprocName].toprettyxml()
+                        self.currRoutine.node.toprettyxml()
                     ))
                 if startLineInt == self.lineNo:
                     self.currParallelRegionRelationNode = templateRelation
@@ -948,7 +960,7 @@ This is not allowed for implementations using %s.\
                 "parallel region detected on line %i with template relation %s" %(self.lineNo, self.currParallelRegionRelationNode.toxml()),
                 extra={"hfLineNo":currLineNo, "hfFile":currFile}
             )
-            templates = self.parallelRegionTemplatesByProcName.get(self.currSubprocName)
+            templates = self.parallelRegionTemplatesByProcName.get(self.currRoutine.name)
             if templates == None or len(templates) == 0:
                 raise Exception("No parallel region template found for this region.")
             activeTemplateID = self.currParallelRegionRelationNode.getAttribute("id")
@@ -1004,7 +1016,7 @@ This is not allowed for implementations using %s.\
         if subProcCallMatch:
             if subProcCallMatch.group(1) not in self.routineNodesByProcName.keys():
                 message = self.implementation.warningOnUnrecognizedSubroutineCallInParallelRegion(
-                    self.currSubprocName,
+                    self.currRoutine.name,
                     subProcCallMatch.group(1)
                 )
                 if message != "":

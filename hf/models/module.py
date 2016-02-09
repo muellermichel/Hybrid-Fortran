@@ -23,23 +23,28 @@ class Module(object):
 	def __init__(self, name, moduleNode):
 		self.name = name
 		self.node = moduleNode
+		self._lastRoutine = None
 		self._routinesByNameAndImplementationClass = {}
-		self._specificationText = ""
+		self._postTextByRoutine = {}
+		self._headerText = ""
+		self._footerText = ""
+		self._undecidedText = ""
 		self._firstRoutinesByName = {}
-
-	def _header(self):
-		return "module %s" %(self.nameInScope())
-
-	def _footer(self):
-		return "end module %s" %(self.nameInScope())
 
 	def nameInScope(self):
 		return self.name
 
-	def loadSpecificationLine(self, specificationLine):
-		self._specificationText += specificationLine
+	def loadLine(self, line):
+		if not self._lastRoutine:
+			self._headerText += line
+			return
+		self._undecidedText += line
 
 	def loadRoutine(self, routine):
+		if self._undecidedText != "":
+			self._postTextByRoutine[self._lastRoutine.name] = self._undecidedText
+			self._undecidedText = ""
+			self._lastRoutine = routine
 		routinesByImplementationClass = self._routinesByNameAndImplementationClass.get(routine.name, {})
 		if len(routinesByImplementationClass.keys()) == 0:
 			self._firstRoutinesByName[routine.name] = routine
@@ -47,12 +52,12 @@ class Module(object):
 			routine.sisterRoutine = self._firstRoutinesByName[routine.name]
 		routinesByImplementationClass[routine.implementation.__class__.__name__] = routine
 		self._routinesByNameAndImplementationClass[routine.name] = routinesByImplementationClass
-		for kernelRoutine in routine.synthesizedKernels():
-			self._routinesByNameAndImplementationClass[kernelRoutine.name] = {
-				kernelRoutine.implementation.__class__: kernelRoutine
-			}
+		self._postTextByRoutine[routine.name] = ""
 
 	def implemented(self):
+		self._footerText = self._undecidedText
+		self._undecidedText = ""
+
 		routines = []
 		for routine in sum([
 			v.values()
@@ -60,10 +65,9 @@ class Module(object):
 		], []):
 			routines += routine.implementation.splitIntoCompatibleRoutines(routine)
 
-		return self._header() \
-			+ self._specificationText \
+		return self._headerText \
 			+ '\n'.join([
-				routine.implemented()
+				routine.implemented() + self._postTextByRoutine[routine.name]
 				for routine in routines
 			]) \
-			+ self._footer()
+			+ self._footerText

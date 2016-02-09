@@ -47,26 +47,28 @@ class AnalyzableRoutine(Routine):
 		self.sisterRoutine = None
 		self.node = routineNode
 		self._headerText = ""
-		self._specificationText = ""
+		self._footerText = ""
 		self._regions = []
+		self._currRegion = None
 
 	def nameInScope(self):
 		if not self.sisterRoutine:
 			return self.name
 		return uniqueIdentifier(self.name, self.implementation.architecture[0])
 
-	def loadHeaderLine(self, headerLine):
-		self._headerText += headerLine
-
-	def loadSpecificationLine(self, specificationLine):
-		self._specificationText += specificationLine
+	def loadLine(self, line):
+		if not self._currRegion:
+			self._headerText += line
+			return
+		self._footerText += line
 
 	def loadRegion(self, region):
+		self._currRegion = region
 		self._regions.append(region)
 
 	def implemented(self):
 		return _headerText \
-			+ _specificationText \
 			+ "\n".join([
 				region.implemented() for region in self._regions
-			])
+			]) \
+			+ self._footerText

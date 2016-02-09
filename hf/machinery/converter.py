@@ -152,6 +152,9 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
         self.currRegion = Region()
         self.currRoutine.loadRegion(self.currRegion)
 
+    def endRegion(self):
+        self.currRegion = None
+
     def prepareActiveParallelRegion(self, implementationFunctionName):
         routineNode = self.routineNodesByProcName.get(self.currRoutine.name)
         if not routineNode:
@@ -533,6 +536,7 @@ This is not allowed for implementations using %s.\
         )
 
     def processModuleEndMatch(self, moduleEndMatch):
+        self.outputStream.write(self.currModule.implemented())
         self.currModule = None
         self.implementation.processModuleEnd()
         super(H90toF90Converter, self).processModuleEndMatch(moduleEndMatch)
@@ -544,6 +548,7 @@ This is not allowed for implementations using %s.\
             self.routineNodesByProcName.get(self.currSubprocName),
             self.implementation
         )
+        self.currModule.loadRoutine(self.currRoutine)
 
         #build list of additional subroutine parameters
         #(parameters that the user didn't specify but that are necessary based on the features of the underlying technology
@@ -636,6 +641,7 @@ This is not allowed for implementations using %s.\
         self.currAdditionalCompactedSubroutineParameters = []
         self.currSubroutineImplementationNeedsToBeCommented = False
         self.currRoutine = None
+        self.endRegion()
         super(H90toF90Converter, self).processProcEndMatch(subProcEndMatch)
 
     def processParallelRegionMatch(self, parallelRegionMatch):
@@ -1106,7 +1112,14 @@ This is not allowed for implementations using %s.\
     def processLine(self, line):
         self.currentLineNeedsPurge = False
         super(H90toF90Converter, self).processLine(line)
-        self.outputStream.write(self.currentLine)
+        if self.currRegion:
+            self.currRegion.loadLine(line)
+        elif self.currRoutine:
+            self.currRoutine.loadLine(line)
+        elif self.currModule:
+            self.currModule.loadLine(line)
+        else:
+            self.outputStream.write(line)
 
     def processFile(self, fileName):
         self.outputStream.write(self.implementation.filePreparation(fileName))

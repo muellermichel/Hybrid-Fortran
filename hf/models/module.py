@@ -44,7 +44,7 @@ class Module(object):
 		if self._undecidedText != "":
 			self._postTextByRoutine[self._lastRoutine.name] = self._undecidedText
 			self._undecidedText = ""
-			self._lastRoutine = routine
+		self._lastRoutine = routine
 		routinesByImplementationClass = self._routinesByNameAndImplementationClass.get(routine.name, {})
 		if len(routinesByImplementationClass.keys()) == 0:
 			self._firstRoutinesByName[routine.name] = routine

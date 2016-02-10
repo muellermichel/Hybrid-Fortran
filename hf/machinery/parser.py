@@ -138,14 +138,10 @@ class CallGraphParser(object):
     def processTemplateEndMatch(self, templateEndMatch):
         self.currTemplateName = None
 
-    def processNoMatch(self):
-        return
-
-    def processSpecificationBeginning(self):
+    def processNoMatch(self, line):
         return
 
     def processNoneState(self, line):
-        specificationsBeginHere = False
         moduleBeginMatch = self.patterns.moduleBeginPattern.match(str(line))
         subProcBeginMatch = self.patterns.subprocBeginPattern.match(str(line))
         templateMatch = self.patterns.templatePattern.match(str(line))
@@ -164,10 +160,7 @@ class CallGraphParser(object):
         elif subProcBeginMatch:
             raise UsageError("please put this Hybrid Fortran subroutine into a module")
         else:
-            self.processNoMatch()
-
-        if specificationsBeginHere:
-            self.processSpecificationBeginning()
+            self.processNoMatch(line)
 
     def processInsideBranch(self, line):
         return
@@ -216,9 +209,7 @@ class CallGraphParser(object):
         elif (self.patterns.subprocEndPattern.match(str(line))):
             raise UsageError("end subprocedure without matching begin subprocedure")
         else:
-            self.processNoMatch()
-        if specificationsBeginHere:
-            self.processSpecificationBeginning()
+            self.processNoMatch(line)
 
     def processSubprocStartPost(self):
         return
@@ -331,7 +322,7 @@ class CallGraphParser(object):
         elif templateEndMatch:
             raise UsageError("template directives are only allowed outside of subroutines")
         else:
-            self.processNoMatch()
+            self.processNoMatch(line)
         if newState == None:
             return
         if self.state == "inside_branch":

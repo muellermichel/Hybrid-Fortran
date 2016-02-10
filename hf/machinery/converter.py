@@ -108,7 +108,6 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
         self.additionalParametersByKernelName = {}
         self.additionalWrapperImportsByKernelName = {}
         self.currParallelIterators = []
-        self.currentLine = ""
         self.currRoutine = None
         self.currRegion = None
         self.currModule = None
@@ -247,7 +246,7 @@ This is not allowed for implementations using %s.\
             numOfIndependentDomains = len(symbol.domains) - symbol.numOfParallelDomains
             offsets = []
             if len(accessors) != numOfIndependentDomains and len(accessors) != len(symbol.domains) and len(accessors) != 0:
-                raise Exception("Unexpected array access for symbol %s (%s): Please use either %i (number of parallel independant dimensions) \
+                raise UsageError("Unexpected array access for symbol %s (%s): Please use either %i (number of parallel independant dimensions) \
     or %i (dimensions of loaded domain for this array) or zero accessors. Symbol Domains: %s; Symbol Init Level: %i; Parallel Region Position: %s; Parallel Active: %s; Symbol template:\n%s\n" %(
                     symbol.name,
                     str(accessors),
@@ -470,25 +469,25 @@ This is not allowed for implementations using %s.\
 
         self.prepareLine(callPreparationForSymbols + adjustedLine + callPostForSymbols, self.tab_insideSub)
 
-    def processAdditionalSubroutineParametersAndGetAdjustedLine(self, additionalDummies):
-        adjustedLine = str(self.currentLine)
+    def processAdditionalSubroutineParametersAndGetAdjustedLine(self, line, additionalDummies):
         if len(self.currAdditionalSubroutineParameters + additionalDummies) == 0:
-            return adjustedLine
+            return line
 
-        paramListMatch = self.patterns.subprocFirstLineParameterListPattern.match(adjustedLine)
+        paramListMatch = self.patterns.subprocFirstLineParameterListPattern.match(line)
+        adjustedLine = None
         if paramListMatch:
             adjustedLine = paramListMatch.group(1) + " &\n" + self.tab_outsideSub + "& "
             paramListStr = paramListMatch.group(2).strip()
         else:
-            adjustedLine = str(self.currentLine) + "( &\n" + self.tab_outsideSub + "& "
+            adjustedLine = line + "( &\n" + self.tab_outsideSub + "& "
             paramListStr = ")"
         #adjusted line now contains only prefix, including the opening bracket
         symbolNum = 0
         for symbol in sorted(self.currAdditionalSubroutineParameters + additionalDummies):
-            adjustedLine = adjustedLine + symbol.nameInScope()
+            adjustedLine += symbol.nameInScope()
             if symbolNum != len(self.currAdditionalSubroutineParameters) - 1 or len(paramListStr) > 1:
                 adjustedLine = adjustedLine + ","
-            adjustedLine = adjustedLine + " & !additional type %i symbol inserted by framework \n" %(symbol.declarationType) + self.tab_outsideSub + "& "
+            adjustedLine += " & !additional type %i symbol inserted by framework \n" %(symbol.declarationType) + self.tab_outsideSub + "& "
             symbolNum = symbolNum + 1
         return adjustedLine + paramListStr
 
@@ -535,8 +534,10 @@ This is not allowed for implementations using %s.\
             self.currModuleName,
             self.moduleNodesByName[self.currModuleName]
         )
+        self.prepareLine(moduleBeginMatch.group(0), self.tab_outsideSub)
 
     def processModuleEndMatch(self, moduleEndMatch):
+        self.prepareLine(moduleEndMatch.group(0), self.tab_outsideSub)
         self.outputStream.write(self.currModule.implemented())
         self.currModule = None
         self.implementation.processModuleEnd()
@@ -575,55 +576,83 @@ This is not allowed for implementations using %s.\
             compactedArrayList = [compactedArray]
         self.currAdditionalSubroutineParameters = sorted(otherImports + compactedArrayList)
         self.currAdditionalCompactedSubroutineParameters = sorted(toBeCompacted)
-        adjustedLine = self.processAdditionalSubroutineParametersAndGetAdjustedLine(additionalDummies)
-
-        #print line
-        self.prepareLine(self.implementation.subroutinePrefix(self.currRoutine.node) + " " + adjustedLine, self.tab_outsideSub)
+        adjustedLine = self.implementation.subroutinePrefix(self.currRoutine.node) \
+            + " " \
+            + self.processAdditionalSubroutineParametersAndGetAdjustedLine(
+                subProcBeginMatch.group(0),
+                additionalDummies
+            ) \
+            + '\n'
 
         #analyse whether this routine is calling other routines that have a parallel region within
         #+ analyse the additional symbols that come up there
-        if not self.currRoutine.node.getAttribute("parallelRegionPosition") == "inside":
-            return
-        callsLibraries = self.cgDoc.getElementsByTagName("calls")
-        if not callsLibraries or len(callsLibraries) == 0:
-            raise Exception("Caller library not found.")
-        calls = callsLibraries[0].getElementsByTagName("call")
-        for call in calls:
-            if call.getAttribute("caller") != self.currRoutine.name:
-                continue
-            calleeName = call.getAttribute("callee")
-            callee = self.routineNodesByProcName.get(calleeName)
-            if not callee:
-                continue
-            additionalImportsForDeviceCompatibility, \
-            additionalDeclarationsForDeviceCompatibility, \
-            additionalDummies = self.implementation.getAdditionalKernelParameters(
-                self.cgDoc,
-                getArguments(call),
-                callee,
-                self.moduleNodesByName[callee.getAttribute('module')],
-                self.parallelRegionTemplatesByProcName.get(calleeName),
-                self.currSymbolsByName,
-                self.symbolAnalysisByRoutineNameAndSymbolName
-            )
-            for symbol in additionalImportsForDeviceCompatibility + additionalDeclarationsForDeviceCompatibility + additionalDummies:
-                symbol.resetScope(self.currRoutine.name)
-            if 'DEBUG_PRINT' in self.implementation.optionFlags:
-                tentativeAdditionalImports = getModuleArraysForCallee(
-                    calleeName,
-                    self.symbolAnalysisByRoutineNameAndSymbolName,
-                    self.symbolsByModuleNameAndSymbolName
+        if self.currRoutine.node.getAttribute("parallelRegionPosition") == "inside":
+            callsLibraries = self.cgDoc.getElementsByTagName("calls")
+            if not callsLibraries or len(callsLibraries) == 0:
+                raise Exception("Caller library not found.")
+            calls = callsLibraries[0].getElementsByTagName("call")
+            for call in calls:
+                if call.getAttribute("caller") != self.currRoutine.name:
+                    continue
+                calleeName = call.getAttribute("callee")
+                callee = self.routineNodesByProcName.get(calleeName)
+                if not callee:
+                    continue
+                additionalImportsForDeviceCompatibility, \
+                additionalDeclarationsForDeviceCompatibility, \
+                additionalDummies = self.implementation.getAdditionalKernelParameters(
+                    self.cgDoc,
+                    getArguments(call),
+                    callee,
+                    self.moduleNodesByName[callee.getAttribute('module')],
+                    self.parallelRegionTemplatesByProcName.get(calleeName),
+                    self.currSymbolsByName,
+                    self.symbolAnalysisByRoutineNameAndSymbolName
                 )
-                additionalImports = self.filterOutSymbolsAlreadyAliveInCurrentScope(tentativeAdditionalImports)
-                additionalImportsByName = {}
-                for symbol in additionalImports:
-                    additionalImportsByName[symbol.name] = symbol
+                for symbol in additionalImportsForDeviceCompatibility + additionalDeclarationsForDeviceCompatibility + additionalDummies:
                     symbol.resetScope(self.currRoutine.name)
-                self.additionalWrapperImportsByKernelName[calleeName] = additionalImportsByName.values()
-            self.additionalParametersByKernelName[calleeName] = (additionalImportsForDeviceCompatibility, additionalDeclarationsForDeviceCompatibility + additionalDummies)
-            if callee.getAttribute("parallelRegionPosition") != "within":
+                if 'DEBUG_PRINT' in self.implementation.optionFlags:
+                    tentativeAdditionalImports = getModuleArraysForCallee(
+                        calleeName,
+                        self.symbolAnalysisByRoutineNameAndSymbolName,
+                        self.symbolsByModuleNameAndSymbolName
+                    )
+                    additionalImports = self.filterOutSymbolsAlreadyAliveInCurrentScope(tentativeAdditionalImports)
+                    additionalImportsByName = {}
+                    for symbol in additionalImports:
+                        additionalImportsByName[symbol.name] = symbol
+                        symbol.resetScope(self.currRoutine.name)
+                    self.additionalWrapperImportsByKernelName[calleeName] = additionalImportsByName.values()
+                self.additionalParametersByKernelName[calleeName] = (additionalImportsForDeviceCompatibility, additionalDeclarationsForDeviceCompatibility + additionalDummies)
+                if callee.getAttribute("parallelRegionPosition") != "within":
+                    continue
+                self.currRoutineIsCallingParallelRegion = True
+
+        additionalImports = self.filterOutSymbolsAlreadyAliveInCurrentScope(
+            sum(
+                [self.additionalParametersByKernelName[kernelName][0] for kernelName in self.additionalParametersByKernelName.keys()],
+                []
+            ) + sum(
+                [self.additionalWrapperImportsByKernelName[kernelName] for kernelName in self.additionalWrapperImportsByKernelName.keys()],
+                []
+            )
+        )
+        logging.debug(
+            "curr Module: %s; additional imports: %s" %(
+                self.currModuleName,
+                ["%s: %s from %s" %(symbol.name, symbol.declarationType, symbol.sourceModule) for symbol in additionalImports]
+            ),
+            extra={"hfLineNo":currLineNo, "hfFile":currFile}
+        )
+        for symbol in additionalImports:
+            if symbol.declarationType not in [DeclarationType.FOREIGN_MODULE_SCALAR, DeclarationType.LOCAL_ARRAY, DeclarationType.MODULE_ARRAY]:
                 continue
-            self.currRoutineIsCallingParallelRegion = True
+            adjustedLine += "use %s, only : %s => %s\n" %(
+                symbol.sourceModule,
+                symbol.nameInScope(),
+                symbol.sourceSymbol if symbol.sourceSymbol not in [None, ""] else symbol.name
+            )
+        self.prepareLine(adjustedLine + self.implementation.additionalIncludes(), self.tab_insideSub)
 
     def processProcExitPoint(self, line, is_subroutine_end):
         self.prepareLine(
@@ -634,6 +663,7 @@ This is not allowed for implementations using %s.\
         )
 
     def processProcEndMatch(self, subProcEndMatch):
+        self.endRegion()
         self.processProcExitPoint(subProcEndMatch.group(0), is_subroutine_end=True)
         self.currRoutineIsCallingParallelRegion = False
         self.additionalParametersByKernelName = {}
@@ -642,7 +672,6 @@ This is not allowed for implementations using %s.\
         self.currAdditionalCompactedSubroutineParameters = []
         self.currSubroutineImplementationNeedsToBeCommented = False
         self.currRoutine = None
-        self.endRegion()
         super(H90toF90Converter, self).processProcEndMatch(subProcEndMatch)
 
     def processParallelRegionMatch(self, parallelRegionMatch):
@@ -670,9 +699,9 @@ This is not allowed for implementations using %s.\
         super(H90toF90Converter, self).processDomainDependantEndMatch(domainDependantEndMatch)
         self.prepareLine("", "")
 
-    def processNoMatch(self):
-        super(H90toF90Converter, self).processNoMatch()
-        self.prepareLine(str(self.currentLine), "")
+    def processNoMatch(self, line):
+        super(H90toF90Converter, self).processNoMatch(line)
+        self.prepareLine(line, "")
 
     def listCompactedSymbolsAndDeclarationPrefixAndOtherSymbols(self, additionalImports):
         toBeCompacted = []
@@ -700,13 +729,49 @@ This is not allowed for implementations using %s.\
 
     def processInsideDeclarationsState(self, line):
         '''process everything that happens per h90 declaration line'''
-        super(H90toF90Converter, self).processInsideDeclarationsState(line)
+        subProcCallMatch = self.patterns.subprocCallPattern.match(str(line))
+        parallelRegionMatch = self.patterns.parallelRegionPattern.match(str(line))
+        domainDependantMatch = self.patterns.domainDependantPattern.match(str(line))
+        subProcEndMatch = self.patterns.subprocEndPattern.match(str(line))
+        templateMatch = self.patterns.templatePattern.match(str(line))
+        templateEndMatch = self.patterns.templateEndPattern.match(str(line))
+        branchMatch = self.patterns.branchPattern.match(str(line))
+
+        if branchMatch:
+            self.processBranchMatch(branchMatch)
+            return
+        if subProcCallMatch:
+            self.processCallMatch(subProcCallMatch)
+            if (self.state == "inside_branch" and self.stateBeforeBranch != 'inside_subroutine_call') or (self.state != "inside_branch" and self.state != 'inside_subroutine_call'):
+                self.processCallPost()
+            return
+        if subProcEndMatch:
+            self.processProcEndMatch(subProcEndMatch)
+            if self.state == "inside_branch":
+                self.stateBeforeBranch = 'inside_module'
+            else:
+                self.state = 'inside_module'
+            return
+        if parallelRegionMatch:
+            raise UsageError("parallel region without parallel dependants")
+        if self.patterns.subprocBeginPattern.match(str(line)):
+            raise UsageError("subprocedure within subprocedure not allowed")
+        if templateMatch:
+            raise UsageError("template directives are only allowed outside of subroutines")
+        if templateEndMatch:
+            raise UsageError("template directives are only allowed outside of subroutines")
+
+        if domainDependantMatch:
+            if self.state == "inside_branch":
+                self.stateBeforeBranch = 'inside_domainDependantRegion'
+            else:
+                self.state = 'inside_domainDependantRegion'
+            self.processDomainDependantMatch(domainDependantMatch)
+
         routineNode = self.routineNodesByProcName.get(self.currRoutine.name)
 
         if self.state != "inside_declarations" and self.state != "inside_module" and self.state != "inside_subroutine_call" \
         and not (self.state in ["inside_branch", "inside_ignore"] and self.stateBeforeBranch in ["inside_declarations", "inside_module", "inside_subroutine_call"]):
-            self.switchToNewRegion()
-
             additionalDeclarationsStr = ""
 
             #TODO $$$: most of the following code should probably be handled within implementation classes
@@ -863,11 +928,13 @@ This is not allowed for implementations using %s.\
             if numberOfAdditionalDeclarations > 0:
                 additionalDeclarationsStr += "! ****** end additional symbols\n\n"
 
-            self.prepareLine(additionalDeclarationsStr, self.tab_insideSub)
+            self.prepareAdditionalLine(additionalDeclarationsStr, self.tab_insideSub)
+            self.switchToNewRegion()
 
         if self.state != "inside_declarations" and not (self.state == "inside_branch" and self.stateBeforeBranch == "inside_declarations"):
             return
 
+        self.analyseSymbolInformationOnCurrentLine(line)
 
         baseline = line
         if self.currentLineNeedsPurge:
@@ -1060,82 +1127,76 @@ This is not allowed for implementations using %s.\
 
     def processInsideDomainDependantRegionState(self, line):
         super(H90toF90Converter, self).processInsideDomainDependantRegionState(line)
-        self.prepareLine("", "")
+        if self.state == "inside_domainDependantRegion":
+            self.prepareLine("", "")
 
     def processInsideModuleDomainDependantRegionState(self, line):
         super(H90toF90Converter, self).processInsideModuleDomainDependantRegionState(line)
-        self.prepareLine("", "")
-
-    def processSpecificationBeginning(self):
-        adjustedLine = self.currentLine
-        additionalImports = self.filterOutSymbolsAlreadyAliveInCurrentScope(
-            sum(
-                [self.additionalParametersByKernelName[kernelName][0] for kernelName in self.additionalParametersByKernelName.keys()],
-                []
-            ) + sum(
-                [self.additionalWrapperImportsByKernelName[kernelName] for kernelName in self.additionalWrapperImportsByKernelName.keys()],
-                []
-            )
-        )
-        logging.debug(
-            "curr Module: %s; additional imports: %s" %(
-                self.currModuleName,
-                ["%s: %s from %s" %(symbol.name, symbol.declarationType, symbol.sourceModule) for symbol in additionalImports]
-            ),
-            extra={"hfLineNo":currLineNo, "hfFile":currFile}
-        )
-        for symbol in additionalImports:
-            if symbol.declarationType not in [DeclarationType.FOREIGN_MODULE_SCALAR, DeclarationType.LOCAL_ARRAY, DeclarationType.MODULE_ARRAY]:
-                continue
-            adjustedLine = adjustedLine + "use %s, only : %s => %s\n" %(
-                symbol.sourceModule,
-                symbol.nameInScope(),
-                symbol.sourceSymbol if symbol.sourceSymbol not in [None, ""] else symbol.name
-            )
-        self.prepareLine(adjustedLine + self.implementation.additionalIncludes(), self.tab_insideSub)
+        if self.state == "inside_moduleDomainDependantRegion":
+            self.prepareLine("", "")
 
     def processInsideBranch(self, line):
         if self.patterns.branchEndPattern.match(str(line)):
             self.state = self.stateBeforeBranch
             self.stateBeforeBranch = None
-        else:
-            self.stateSwitch.get(self.stateBeforeBranch, self.processUndefinedState)(line)
-        if self.state != "inside_branch":
             self.prepareLine("", "")
             return
+        self.stateSwitch.get(self.stateBeforeBranch, self.processUndefinedState)(line)
 
     def processInsideIgnore(self, line):
         if self.patterns.branchEndPattern.match(str(line)):
             self.state = self.stateBeforeBranch
             self.stateBeforeBranch = None
-        self.prepareLine("", "")
+            self.prepareLine("", "")
+            return
+        if self.state == "inside_ignore":
+            self.prepareLine("", "")
 
     def processLine(self, line):
         self.currentLineNeedsPurge = False
         self.prepareLineCalledForCurrentLine = False
         super(H90toF90Converter, self).processLine(line)
         if not self.prepareLineCalledForCurrentLine:
-            raise Exception("Line has never been prepared - there is an error in the transpiler logic. Please contact the Hybrid Fortran maintainers.")
-        if self.currRegion:
-            self.currRegion.loadLine(self.currentLine)
-        elif self.currRoutine:
-            self.currRoutine.loadLine(self.currentLine)
-        elif self.currModule:
-            self.currModule.loadLine(self.currentLine)
-        else:
-            self.outputStream.write(self.currentLine)
+            raise Exception(
+                "Line has never been prepared - there is an error in the transpiler logic. Please contact the Hybrid Fortran maintainers. Parser state: %s; before branch: %s" %(
+                    self.state,
+                    self.stateBeforeBranch
+                )
+            )
 
     def processFile(self, fileName):
         self.outputStream.write(self.implementation.filePreparation(fileName))
         super(H90toF90Converter, self).processFile(fileName)
 
+    def putLine(self, line):
+        if self.currRegion:
+            self.currRegion.loadLine(line)
+        elif self.currRoutine:
+            self.currRoutine.loadLine(line)
+        elif self.currModule:
+            self.currModule.loadLine(line)
+        else:
+            self.outputStream.write(line)
+
     #TODO: remove tab argument everywhere
     def prepareLine(self, line, tab):
         if self.prepareLineCalledForCurrentLine:
-            raise Exception("Line has already been prepared - there is an error in the transpiler logic. Please contact the Hybrid Fortran maintainers.")
+            raise Exception(
+                "Line has already been prepared - there is an error in the transpiler logic. Please contact the Hybrid Fortran maintainers. Parser state: %s; before branch: %s" %(
+                    self.state,
+                    self.stateBeforeBranch
+                )
+            )
         self.prepareLineCalledForCurrentLine = True
-        self.currentLine = self.codeSanitizer.sanitizeLines(line)
-        logging.debug(
-            "[%s]:%i:%s" %(self.state,self.lineNo,self.currentLine),
-            extra={"hfLineNo":currLineNo, "hfFile":currFile}
-        )
+        self.putLine(self.codeSanitizer.sanitizeLines(line))
+
+    #TODO: remove tab argument everywhere
+    def prepareAdditionalLine(self, line, tab):
+        if not self.prepareLineCalledForCurrentLine:
+            raise Exception(
+                "Line has not yet been prepared - there is an error in the transpiler logic. Please contact the Hybrid Fortran maintainers. Parser state: %s; before branch: %s" %(
+                    self.state,
+                    self.stateBeforeBranch
+                )
+            )
+        self.putLine(self.codeSanitizer.sanitizeLines(line))

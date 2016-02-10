@@ -513,6 +513,8 @@ This is not allowed for implementations using %s.\
 
         self.stateBeforeBranch = self.state
         if branchSettingMatch.group(1) == "parallelRegion":
+            if not self.currRoutine:
+                raise UsageError("Cannot branch on parallelRegion outside a routine")
             if branchSettingMatch.group(2) == self.currRoutine.node.getAttribute('parallelRegionPosition').strip():
                 self.state = 'inside_branch'
             else:
@@ -699,6 +701,10 @@ This is not allowed for implementations using %s.\
         super(H90toF90Converter, self).processDomainDependantEndMatch(domainDependantEndMatch)
         self.prepareLine("", "")
 
+    def processContainsMatch(self, containsMatch):
+        super(H90toF90Converter, self).processContainsMatch(containsMatch)
+        self.prepareLine(containsMatch.group(0), self.tab_outsideSub)
+
     def processNoMatch(self, line):
         super(H90toF90Converter, self).processNoMatch(line)
         self.prepareLine(line, "")
@@ -748,9 +754,9 @@ This is not allowed for implementations using %s.\
         if subProcEndMatch:
             self.processProcEndMatch(subProcEndMatch)
             if self.state == "inside_branch":
-                self.stateBeforeBranch = 'inside_module'
+                self.stateBeforeBranch = 'inside_module_body'
             else:
-                self.state = 'inside_module'
+                self.state = 'inside_module_body'
             return
         if parallelRegionMatch:
             raise UsageError("parallel region without parallel dependants")
@@ -770,7 +776,7 @@ This is not allowed for implementations using %s.\
 
         routineNode = self.routineNodesByProcName.get(self.currRoutine.name)
 
-        if self.state != "inside_declarations" and self.state != "inside_module" and self.state != "inside_subroutine_call" \
+        if self.state != "inside_declarations" and self.state != "inside_module_body" and self.state != "inside_subroutine_call" \
         and not (self.state in ["inside_branch", "inside_ignore"] and self.stateBeforeBranch in ["inside_declarations", "inside_module", "inside_subroutine_call"]):
             additionalDeclarationsStr = ""
 
@@ -993,9 +999,9 @@ This is not allowed for implementations using %s.\
         if subProcEndMatch:
             self.processProcEndMatch(subProcEndMatch)
             if self.state == "inside_branch":
-                self.stateBeforeBranch = "inside_module"
+                self.stateBeforeBranch = "inside_module_body"
             else:
-                self.state = 'inside_module'
+                self.state = 'inside_module_body'
             return
 
         if self.patterns.earlyReturnPattern.match(str(line)):

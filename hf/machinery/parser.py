@@ -61,6 +61,7 @@ class CallGraphParser(object):
            'none': self.processNoneState,
            'inside_module': self.processInsideModuleState,
            'inside_moduleDomainDependantRegion': self.processInsideModuleDomainDependantRegionState,
+           'inside_module_body': self.processInsideModuleBodyState,
            'inside_declarations': self.processInsideDeclarationsState,
            'inside_parallelRegion': self.processInsideParallelRegionState,
            'inside_domainDependantRegion': self.processInsideDomainDependantRegionState,
@@ -138,6 +139,9 @@ class CallGraphParser(object):
     def processTemplateEndMatch(self, templateEndMatch):
         self.currTemplateName = None
 
+    def processContainsMatch(self, containsMatch):
+        return
+
     def processNoMatch(self, line):
         return
 
@@ -169,13 +173,12 @@ class CallGraphParser(object):
         return
 
     def processInsideModuleState(self, line):
-        specificationsBeginHere = False
-        subProcBeginMatch = self.patterns.subprocBeginPattern.match(str(line))
         moduleEndMatch = self.patterns.moduleEndPattern.match(str(line))
         domainDependantMatch = self.patterns.domainDependantPattern.match(str(line))
         templateMatch = self.patterns.templatePattern.match(str(line))
         templateEndMatch = self.patterns.templateEndPattern.match(str(line))
         branchMatch = self.patterns.branchPattern.match(str(line))
+        containsMatch = self.patterns.containsPattern.match(str(line))
 
         if branchMatch:
             self.processBranchMatch(branchMatch)
@@ -196,6 +199,36 @@ class CallGraphParser(object):
                 self.stateBeforeBranch = 'none'
             else:
                 self.state = 'none'
+        elif containsMatch:
+            self.processContainsMatch(containsMatch)
+            if self.state == "inside_branch":
+                self.stateBeforeBranch = 'inside_module_body'
+            else:
+                self.state = 'inside_module_body'
+        else:
+            self.processNoMatch(line)
+
+
+    def processInsideModuleBodyState(self, line):
+        subProcBeginMatch = self.patterns.subprocBeginPattern.match(str(line))
+        moduleEndMatch = self.patterns.moduleEndPattern.match(str(line))
+        templateMatch = self.patterns.templatePattern.match(str(line))
+        templateEndMatch = self.patterns.templateEndPattern.match(str(line))
+        branchMatch = self.patterns.branchPattern.match(str(line))
+
+        if branchMatch:
+            self.processBranchMatch(branchMatch)
+        elif templateMatch:
+            self.processTemplateMatch(templateMatch)
+        elif templateEndMatch:
+            self.processTemplateEndMatch(templateEndMatch)
+        elif moduleEndMatch:
+            self.processModuleEndMatch(moduleEndMatch)
+            self.currModuleName = None
+            if self.state == "inside_branch":
+                self.stateBeforeBranch = 'none'
+            else:
+                self.state = 'none'
         elif subProcBeginMatch:
             if (not subProcBeginMatch.group(1) or subProcBeginMatch.group(1) == ''):
                 raise UsageError("subprocedure begin without matching subprocedure name")
@@ -204,7 +237,6 @@ class CallGraphParser(object):
                 self.stateBeforeBranch = 'inside_declarations'
             else:
                 self.state = 'inside_declarations'
-            specificationsBeginHere = True
             self.processSubprocStartPost()
         elif (self.patterns.subprocEndPattern.match(str(line))):
             raise UsageError("end subprocedure without matching begin subprocedure")
@@ -238,9 +270,9 @@ class CallGraphParser(object):
         elif subProcEndMatch:
             self.processProcEndMatch(subProcEndMatch)
             if self.state == "inside_branch":
-                self.stateBeforeBranch = 'inside_module'
+                self.stateBeforeBranch = 'inside_module_body'
             else:
-                self.state = 'inside_module'
+                self.state = 'inside_module_body'
         elif parallelRegionMatch:
             raise UsageError("parallel region without parallel dependants")
         elif (self.patterns.subprocBeginPattern.match(str(line))):
@@ -279,9 +311,9 @@ class CallGraphParser(object):
         elif subProcEndMatch:
             self.processProcEndMatch(subProcEndMatch)
             if self.state == "inside_branch":
-                self.stateBeforeBranch = 'inside_module'
+                self.stateBeforeBranch = 'inside_module_body'
             else:
-                self.state = 'inside_module'
+                self.state = 'inside_module_body'
         elif parallelRegionMatch:
             self.processParallelRegionMatch(parallelRegionMatch)
             self.state = 'inside_parallelRegion'

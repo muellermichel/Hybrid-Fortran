@@ -55,7 +55,8 @@ class RegExPatterns:
         'argumentPattern': r'\s*(?:subroutine|call)?\s*(?:\w*)\s*\((.*)',
         'selectiveImportPattern': r'^\s*use\s*(\w*)[,\s]*only\s*\:\s*([=>,\s\w]*)(?:\s.*|$)',
         'singleMappedImportPattern': r'\s*(\w*)\s*=>\s*(\w*)\s*',
-        'callArgumentPattern': r'\s*(\w*)\s*(.*)'
+        'callArgumentPattern': r'\s*(\w*)\s*(.*)',
+        'containsPattern': r'\s*contains\s*'
     }
 
     def __init__(self):

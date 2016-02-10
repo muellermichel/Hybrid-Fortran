@@ -61,7 +61,7 @@ class Module(object):
 		routines = []
 		for routine in sum([
 			v.values()
-			for _, v in enumerate(self._routinesByNameAndImplementationClass)
+			for _, v in self._routinesByNameAndImplementationClass.iteritems()
 		], []):
 			routines += routine.implementation.splitIntoCompatibleRoutines(routine)
 

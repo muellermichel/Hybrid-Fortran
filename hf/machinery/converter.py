@@ -118,6 +118,7 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
         self.codeSanitizer = FortranCodeSanitizer()
         self.currParallelRegionRelationNode = None
         self.currParallelRegionTemplateNode = None
+        self.prepareLineCalledForCurrentLine = False
         try:
             if symbolAnalysisByRoutineNameAndSymbolName != None:
                 self.symbolAnalysisByRoutineNameAndSymbolName = symbolAnalysisByRoutineNameAndSymbolName
@@ -922,7 +923,7 @@ This is not allowed for implementations using %s.\
             return
 
         subProcEndMatch = self.patterns.subprocEndPattern.match(str(line))
-        if (subProcEndMatch):
+        if subProcEndMatch:
             self.processProcEndMatch(subProcEndMatch)
             if self.state == "inside_branch":
                 self.stateBeforeBranch = "inside_module"
@@ -930,7 +931,7 @@ This is not allowed for implementations using %s.\
                 self.state = 'inside_module'
             return
 
-        if (self.patterns.earlyReturnPattern.match(str(line))):
+        if self.patterns.earlyReturnPattern.match(str(line)):
             self.processProcExitPoint(line, is_subroutine_end=False)
             return
 
@@ -1111,15 +1112,18 @@ This is not allowed for implementations using %s.\
 
     def processLine(self, line):
         self.currentLineNeedsPurge = False
+        self.prepareLineCalledForCurrentLine = False
         super(H90toF90Converter, self).processLine(line)
+        if not self.prepareLineCalledForCurrentLine:
+            raise Exception("Line has never been prepared - there is an error in the transpiler logic. Please contact the Hybrid Fortran maintainers.")
         if self.currRegion:
-            self.currRegion.loadLine(line)
+            self.currRegion.loadLine(self.currentLine)
         elif self.currRoutine:
-            self.currRoutine.loadLine(line)
+            self.currRoutine.loadLine(self.currentLine)
         elif self.currModule:
-            self.currModule.loadLine(line)
+            self.currModule.loadLine(self.currentLine)
         else:
-            self.outputStream.write(line)
+            self.outputStream.write(self.currentLine)
 
     def processFile(self, fileName):
         self.outputStream.write(self.implementation.filePreparation(fileName))
@@ -1127,6 +1131,9 @@ This is not allowed for implementations using %s.\
 
     #TODO: remove tab argument everywhere
     def prepareLine(self, line, tab):
+        if self.prepareLineCalledForCurrentLine:
+            raise Exception("Line has already been prepared - there is an error in the transpiler logic. Please contact the Hybrid Fortran maintainers.")
+        self.prepareLineCalledForCurrentLine = True
         self.currentLine = self.codeSanitizer.sanitizeLines(line)
         logging.debug(
             "[%s]:%i:%s" %(self.state,self.lineNo,self.currentLine),

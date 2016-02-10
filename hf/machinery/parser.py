@@ -40,7 +40,6 @@ class CallGraphParser(object):
     currCalleeName = None
     currArguments = None
     patterns = None
-    currentLine = None
     branchAnalyzer = None
     currTemplateName = None
     stateSwitch = None
@@ -412,13 +411,12 @@ class CallGraphParser(object):
     def processLine(self, line):
         global currLineNo
         currLineNo = self.lineNo
-        self.currentLine = line
 
         #here we only load the current line into the branch analyzer for further use, we don't need the result of this method
-        self.branchAnalyzer.currLevelAfterString(str(line))
+        self.branchAnalyzer.currLevelAfterString(line)
 
         #analyse this line. handle the line according to current parser state.
-        self.stateSwitch.get(self.state, self.processUndefinedState)(self.currentLine)
+        self.stateSwitch.get(self.state, self.processUndefinedState)(line)
 
     def processFile(self, fileName):
         self.lineNo = 1

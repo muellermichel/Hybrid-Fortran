@@ -67,7 +67,7 @@ class AnalyzableRoutine(Routine):
 		self._regions.append(region)
 
 	def implemented(self):
-		return _headerText \
+		return self._headerText \
 			+ "\n".join([
 				region.implemented() for region in self._regions
 			]) \

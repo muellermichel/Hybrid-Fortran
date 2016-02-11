@@ -203,13 +203,6 @@ TEST_WITH_EVERY_BUILD=false
 #############################################################################
 # implementation settings                                                   #
 #############################################################################
-#default implementations
-CPU_IMPLEMENTATION_DEBUG=FortranImplementation
-CPU_IMPLEMENTATION_PRODUCTION=OpenMPFortranImplementation
-GPU_IMPLEMENTATION_EMULATION=PGIOpenACCFortranImplementation
-GPU_IMPLEMENTATION_DEBUG=PGIOpenACCFortranImplementation
-GPU_IMPLEMENTATION_PRODUCTION=PGIOpenACCFortranImplementation
-
 #implementations for 'separate_kernels' template
 CPU_IMPLEMENTATION_DEBUG_SEPARATE_KERNELS=FortranImplementation
 CPU_IMPLEMENTATION_PRODUCTION_SEPARATE_KERNELS=OpenMPFortranImplementation

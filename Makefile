@@ -69,6 +69,9 @@ example:
 	fi; \
 	if [ ! -e ${EXAMPLEDIR_SOURCE}storage_order.F90 ]; then \
 	    cp -f ${TEMPLATEDIR}example_storage_order.F90 ${EXAMPLEDIR_SOURCE}storage_order.F90; \
+	fi; \
+	if [ ! -e ${EXAMPLEDIR}configure ]; then \
+	    cp -f ${TEMPLATEDIR}configureForProject.sh ${EXAMPLEDIR}configure; \
 	fi
 
 test_example: example

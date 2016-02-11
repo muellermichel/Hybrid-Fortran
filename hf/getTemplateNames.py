@@ -49,7 +49,7 @@ cgDoc = parseString(data)
 cgFile.close()
 
 try:
-  templateNames = [templateNode.getAttribute("name") for templateNode in cgDoc.getElementsByTagName("implementationTemplate")]
+  templateNames = set([templateNode.getAttribute("name") for templateNode in cgDoc.getElementsByTagName("implementationTemplate")])
   print " ".join(templateNames)
 
 except Exception, e:

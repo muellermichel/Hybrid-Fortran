@@ -211,17 +211,3 @@ DEBUG_MODE=false
 # your Makefile will need to expose the tests-targets (see above)           #
 #############################################################################
 TEST_WITH_EVERY_BUILD=false
-
-#############################################################################
-# implementation settings                                                   #
-#############################################################################
-CPU_IMPLEMENTATION_DEBUG=TraceGeneratingFortranImplementation
-CPU_IMPLEMENTATION_PRODUCTION=OpenMPFortranImplementation
-GPU_IMPLEMENTATION_EMULATION=TraceCheckingOpenACCFortranImplementation
-GPU_IMPLEMENTATION_DEBUG=TraceCheckingOpenACCFortranImplementation
-GPU_IMPLEMENTATION_PRODUCTION=PGIOpenACCFortranImplementation
-
-#CUDA Fortran scheme
-GPU_IMPLEMENTATION_EMULATION_CUDA_FORTRAN=DebugEmulatedCUDAFortranImplementation
-GPU_IMPLEMENTATION_DEBUG_CUDA_FORTRAN=DebugCUDAFortranImplementation
-GPU_IMPLEMENTATION_PRODUCTION_CUDA_FORTRAN=CUDAFortranImplementation

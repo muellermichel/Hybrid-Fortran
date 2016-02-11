@@ -20,7 +20,7 @@
 #  Dependencies of your sources need to be specified here.                  #
 #                                                                           #
 #  Date             2013/02/01                                              #
-#  Author           Michel Müller (RIKEN)                                   #
+#  Author           Michel Müller (TITECH)                                  #
 #***************************************************************************#
 TOOLSDIR=${HF_DIR}/hf_processor/
 include ./MakesettingsGeneral

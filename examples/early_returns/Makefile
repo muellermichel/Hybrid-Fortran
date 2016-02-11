@@ -19,7 +19,7 @@
 #  Makefile for Hybrid Fortran Build Interface                              #
 #                                                                           #
 #  Date             2013/03/04                                              #
-#  Author           Michel Müller (RIKEN)                                   #
+#  Author           Michel Müller (TITECH)                                  #
 #                                                                           #
 #                                                                           #
 # USUALLY NOTHING HERE SHOULD BE CHANGED!                                   #

@@ -20,7 +20,7 @@
 #  Usually nothing needs to be changed here.                                #
 #                                                                           #
 #  Date             2013/02/01                                              #
-#  Author           Michel Müller (RIKEN)                                   #
+#  Author           Michel Müller (TITECH)                                  #
 #***************************************************************************#
 
 include ./MakesettingsGeneral

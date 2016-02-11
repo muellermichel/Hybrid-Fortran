@@ -41,8 +41,8 @@ class FortranRoutineArgumentParser:
 class FortranCodeSanitizer:
 
     def __init__(self):
-        self.tabIncreasingPattern = re.compile(r'\s*(?:(?:module|select|do|subroutine|function)\s|if\W.*?\Wthen).*', re.IGNORECASE)
-        self.tabDecreasingPattern = re.compile(r'\s*end\s*(?:module|select|do|subroutine|function|if).*', re.IGNORECASE)
+        self.tabIncreasingPattern = re.compile(r'\s*(?:(?:module|select|do|subroutine|function|program)\s|if\W.*?\Wthen).*', re.IGNORECASE)
+        self.tabDecreasingPattern = re.compile(r'\s*end\s*(?:module|select|do|subroutine|function|program|if).*', re.IGNORECASE)
         self.commentedPattern = re.compile(r'\s*\!', re.IGNORECASE)
         self.openMPLinePattern = re.compile(r'\s*\!\$OMP.*', re.IGNORECASE)
         self.openACCLinePattern = re.compile(r'\s*\!\$ACC.*', re.IGNORECASE)

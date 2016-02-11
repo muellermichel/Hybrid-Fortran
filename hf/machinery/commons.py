@@ -39,35 +39,26 @@ class FortranRoutineArgumentParser:
         self.arguments = arguments
 
 class FortranCodeSanitizer:
-    currNumOfTabs = 0
-    wasLastLineEmpty = False
-    tabIncreasingPattern = None
-    tabDecreasingPattern = None
-    endifOrModulePattern = None
-    endSubroutinePattern = None
-    commentedPattern = None
-    preprocessorPattern = None
 
     def __init__(self):
-        self.tabIncreasingPattern = re.compile(r'.*?(?:select|do|subroutine|function)\s.*', re.IGNORECASE)
-        self.endifOrModulePattern = re.compile(r'end\s*(if|module).*', re.IGNORECASE)
-        self.endSubroutinePattern = re.compile(r'end\s*subroutine.*', re.IGNORECASE)
-        self.tabDecreasingPattern = re.compile(r'(end\s|enddo).*', re.IGNORECASE)
+        self.tabIncreasingPattern = re.compile(r'\s*(?:(?:module|select|do|subroutine|function)\s|if\W.*?\Wthen).*', re.IGNORECASE)
+        self.tabDecreasingPattern = re.compile(r'\s*end\s*(?:module|select|do|subroutine|function|if).*', re.IGNORECASE)
         self.commentedPattern = re.compile(r'\s*\!', re.IGNORECASE)
         self.openMPLinePattern = re.compile(r'\s*\!\$OMP.*', re.IGNORECASE)
         self.openACCLinePattern = re.compile(r'\s*\!\$ACC.*', re.IGNORECASE)
         self.preprocessorPattern = re.compile(r'\s*\#', re.IGNORECASE)
         self.currNumOfTabs = 0
+        self.emptyLinesInARow = 0
 
     def sanitizeLines(self, line, toBeCommented=False, howManyCharsPerLine=132, commentChar="!"):
         strippedRawLine = line.strip()
-        if strippedRawLine == "" and self.wasLastLineEmpty:
+        if strippedRawLine == "" and self.emptyLinesInARow > 1:
             return ""
         if strippedRawLine == "":
-            self.wasLastLineEmpty = True
+            self.emptyLinesInARow += 1
             return "\n"
 
-        self.wasLastLineEmpty = False
+        self.emptyLinesInARow = 0
         codeLines = strippedRawLine.split("\n")
         sanitizedCodeLines = []
         lineSep = " &"
@@ -141,36 +132,25 @@ class FortranCodeSanitizer:
         tabbedCodeLines = []
         for codeLine in sanitizedCodeLines:
             strippedLine = codeLine.strip()
-            if strippedLine == "" and self.wasLastLineEmpty:
+            if strippedRawLine == "" and self.emptyLinesInARow > 1:
                 continue
             if strippedLine == "":
-                self.wasLastLineEmpty = True
+                self.emptyLinesInARow += 1
                 tabbedCodeLines.append("")
                 continue
-            self.wasLastLineEmpty = False
+            self.emptyLinesInARow = 0
             if self.commentedPattern.match(strippedLine):
                 tabbedCodeLines.append(strippedLine)
             elif self.preprocessorPattern.match(strippedLine):
                 #note: ifort's preprocessor can't handle preprocessor lines with leading whitespace -.-
                 #=> catch this case and strip any whitespace.
                 tabbedCodeLines.append(strippedLine)
-            elif self.endSubroutinePattern.match(strippedLine):
-                #note: this is being done in order to 'heal' the tabbing as soon as the subroutine
-                #is finished - otherwise there are some edge cases which may propagate.
-                self.currNumOfTabs = 0
-                tabbedCodeLines.append(strippedLine)
-            elif self.endifOrModulePattern.match(strippedLine):
-                tabbedCodeLines.append(self.currNumOfTabs * "\t" + strippedLine)
             elif self.tabDecreasingPattern.match(strippedLine):
-                if self.currNumOfTabs > 0:
-                    self.currNumOfTabs = self.currNumOfTabs - 1
-                else:
-                    self.currNumOfTabs = 0
+                self.currNumOfTabs = max(0, self.currNumOfTabs - 1)
                 tabbedCodeLines.append(self.currNumOfTabs * "\t" + strippedLine)
             elif self.tabIncreasingPattern.match(strippedLine):
                 tabbedCodeLines.append(self.currNumOfTabs * "\t" + strippedLine)
-                if self.currNumOfTabs < 5:
-                    self.currNumOfTabs = self.currNumOfTabs + 1
+                self.currNumOfTabs = min(5, self.currNumOfTabs + 1)
             else:
                 tabbedCodeLines.append(self.currNumOfTabs * "\t" + strippedLine)
 

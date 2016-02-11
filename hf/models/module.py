@@ -35,10 +35,13 @@ class Module(object):
 		return self.name
 
 	def loadLine(self, line):
-		if not self._lastRoutine:
-			self._headerText += line
+		stripped = line.strip()
+		if stripped == "":
 			return
-		self._undecidedText += line
+		if not self._lastRoutine:
+			self._headerText += stripped + "\n"
+			return
+		self._undecidedText += stripped + "\n"
 
 	def loadRoutine(self, routine):
 		if self._undecidedText != "":
@@ -65,9 +68,17 @@ class Module(object):
 		], []):
 			routines += routine.implementation.splitIntoCompatibleRoutines(routine)
 
-		return self._headerText \
-			+ '\n'.join([
-				routine.implemented() + self._postTextByRoutine[routine.name]
+		implementedModuleElements = \
+			[self._headerText.strip()] \
+			+ [
+				(
+					routine.implemented() + "\n" + self._postTextByRoutine[routine.name].strip()
+				).strip()
 				for routine in routines
-			]) \
-			+ self._footerText
+			] \
+			+ [self._footerText.strip()]
+		purgedModuleElements = [
+			text + "\n" for text in implementedModuleElements
+			if text != ""
+		]
+		return '\n'.join([text for text in purgedModuleElements])

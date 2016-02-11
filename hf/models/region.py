@@ -24,7 +24,10 @@ class Region(object):
 		self._text = ""
 
 	def loadLine(self, line):
-		self._text += line
+		stripped = line.strip()
+		if stripped == "":
+			return
+		self._text += stripped + "\n"
 
 	def implemented(self):
-		return self._text
+		return self._text.strip()

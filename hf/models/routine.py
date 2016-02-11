@@ -57,18 +57,27 @@ class AnalyzableRoutine(Routine):
 		return uniqueIdentifier(self.name, self.implementation.architecture[0])
 
 	def loadLine(self, line):
-		if not self._currRegion:
-			self._headerText += line
+		stripped = line.strip()
+		if stripped == "":
 			return
-		self._footerText += line
+		if not self._currRegion:
+			self._headerText += stripped + "\n"
+			return
+		self._footerText += stripped + "\n"
 
 	def loadRegion(self, region):
 		self._currRegion = region
 		self._regions.append(region)
 
 	def implemented(self):
-		return self._headerText \
-			+ "\n".join([
-				region.implemented() for region in self._regions
-			]) \
-			+ self._footerText
+		implementedRoutineElements = [self._headerText.strip() + "\n"] \
+			+ [region.implemented() for region in self._regions] \
+			+ [self._footerText.strip()]
+		purgedRoutineElements = [
+			(index, text) for index, text in enumerate(implementedRoutineElements)
+			if text != ""
+		]
+		return "\n".join([
+			text
+			for (index, text) in purgedRoutineElements
+		])

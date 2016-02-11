@@ -540,7 +540,7 @@ This is not allowed for implementations using %s.\
 
     def processModuleEndMatch(self, moduleEndMatch):
         self.prepareLine(moduleEndMatch.group(0), self.tab_outsideSub)
-        self.outputStream.write(self.currModule.implemented())
+        self.outputStream.write(self.codeSanitizer.sanitizeLines(self.currModule.implemented() + "\n\n"))
         self.currModule = None
         self.implementation.processModuleEnd()
         super(H90toF90Converter, self).processModuleEndMatch(moduleEndMatch)
@@ -1182,7 +1182,7 @@ This is not allowed for implementations using %s.\
         elif self.currModule:
             self.currModule.loadLine(line)
         else:
-            self.outputStream.write(line)
+            self.outputStream.write(self.codeSanitizer.sanitizeLines(line))
 
     #TODO: remove tab argument everywhere
     def prepareLine(self, line, tab):
@@ -1194,7 +1194,7 @@ This is not allowed for implementations using %s.\
                 )
             )
         self.prepareLineCalledForCurrentLine = True
-        self.putLine(self.codeSanitizer.sanitizeLines(line))
+        self.putLine(line)
 
     #TODO: remove tab argument everywhere
     def prepareAdditionalLine(self, line, tab):
@@ -1205,4 +1205,4 @@ This is not allowed for implementations using %s.\
                     self.stateBeforeBranch
                 )
             )
-        self.putLine(self.codeSanitizer.sanitizeLines(line))
+        self.putLine(line)

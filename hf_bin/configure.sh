@@ -54,16 +54,62 @@ fi
 # ===== respecting host system  ==================== #
 # ===== (this version of Hybrid Fortran ============ #
 # ====== requires PGI) ============================= #
-echo "configuring for ${acceleratorImplementation} implementation"
-mkdir -p ./config
-echo "FortranImplementation" > ./config/CPU_IMPLEMENTATION_DEBUG
-echo "OpenMPFortranImplementation" > ./config/CPU_IMPLEMENTATION_PRODUCTION
-if [ "${acceleratorImplementation}" = "openacc" ] ; then
-	echo "PGIOpenACCFortranImplementation" > ./config/GPU_IMPLEMENTATION_DEBUG
-	echo "PGIOpenACCFortranImplementation" > ./config/GPU_IMPLEMENTATION_PRODUCTION
-	echo "PGIOpenACCFortranImplementation" > ./config/GPU_IMPLEMENTATION_EMULATION
-else
-	echo "DebugCUDAFortranImplementation" > ./config/GPU_IMPLEMENTATION_DEBUG
-	echo "CUDAFortranImplementation" > ./config/GPU_IMPLEMENTATION_PRODUCTION
-	echo "DebugEmulatedCUDAFortranImplementation" > ./config/GPU_IMPLEMENTATION_EMULATION
-fi
+initFileWithContent() {
+	path="$1"
+	content="$2"
+
+	[ ! -f "${path}" ] && echo "${content}" > "${path}"
+	return 0
+}
+
+initFileFromTemplate() {
+	path="$1"
+	templatePath="$2"
+
+	[ ! -f "${path}" ] && echo "creating ${path}" && cp "${templatePath}" "${path}"
+	return 0
+}
+
+initImplementations() {
+	acceleratorImplementation="$1"
+	configDir="$2"
+
+	echo "configuring for ${acceleratorImplementation} implementation"
+	mkdir -p "${configDir}"
+	initFileWithContent "${configDir}/CPU_IMPLEMENTATION_DEBUG" "FortranImplementation"
+	initFileWithContent "${configDir}/CPU_IMPLEMENTATION_PRODUCTION" "OpenMPFortranImplementation"
+	if [ "${acceleratorImplementation}" = "openacc" ] ; then
+		initFileWithContent "${configDir}/GPU_IMPLEMENTATION_DEBUG" "PGIOpenACCFortranImplementation"
+		initFileWithContent "${configDir}/GPU_IMPLEMENTATION_PRODUCTION" "PGIOpenACCFortranImplementation"
+		initFileWithContent "${configDir}/GPU_IMPLEMENTATION_EMULATION" "PGIOpenACCFortranImplementation"
+	else
+		initFileWithContent "${configDir}/GPU_IMPLEMENTATION_DEBUG" "DebugCUDAFortranImplementation"
+		initFileWithContent "${configDir}/GPU_IMPLEMENTATION_PRODUCTION" "CUDAFortranImplementation"
+		initFileWithContent "${configDir}/GPU_IMPLEMENTATION_EMULATION" "DebugEmulatedCUDAFortranImplementation"
+	fi
+	return 0
+}
+
+initBuildConfig() {
+	projectDir="$1"
+	configDir="$2"
+	templateDir="$3"
+
+	echo "creating build files"
+	mkdir -p "${projectDir}"
+	mkdir -p "${configDir}"
+	initFileFromTemplate "${projectDir}/Makefile" "${templateDir}/MakefileForProjectTemplate"
+	initFileFromTemplate "${configDir}/MakesettingsGeneral" "${templateDir}/MakesettingsGeneralTemplate"
+	initFileFromTemplate "${configDir}/Makefile" "${templateDir}/MakefileForCompilationTemplate"
+	initFileFromTemplate "${configDir}/MakesettingsCPU" "${templateDir}/MakesettingsCPUTemplate"
+	initFileFromTemplate "${configDir}/MakesettingsGPU" "${templateDir}/MakesettingsGPUTemplate"
+	return 0
+}
+
+TEMPLATEDIR=${HF_DIR}/hf_template
+PROJECTDIR=.
+CONFIGDIR=${PROJECTDIR}/config
+
+initImplementations "${acceleratorImplementation}" "${CONFIGDIR}"
+initBuildConfig "${PROJECTDIR}" "${CONFIGDIR}" "${TEMPLATEDIR}"
+

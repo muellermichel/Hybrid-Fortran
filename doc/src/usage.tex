@@ -123,7 +123,8 @@ nx 2 ny 3
  \item \verb|cd| into the Hybrid Fortran directory you've now installed on your computer.
  \item Run \verb|make example|. This creates a new project directory named \verb|example|.
  \item Run \verb|cd example|.
- \item Run \verb|make; make install|. If everything worked you should now have a test subdirectory containing the example subdirectory containing two executables, one for CPU and one for GPU execution. Otherwise it is likely that some dependencies are missing, please reconsider section \ref{sec:dependencies}.
+ \item Run \verb|./configure|.
+ \item Run \verb|make && make install|. If everything worked you should now have a test subdirectory containing the example subdirectory containing two executables, one for CPU and one for GPU execution. Otherwise it is likely that some dependencies are missing, please reconsider section \ref{sec:dependencies}.
  \item Run \verb|./test/example/example_cpu; ./test/example/example_gpu|. This should execute and validate both versions.
  \item Review the example source files located in \verb|./source| and get a feel for the Hybrid Fortran directive syntax. Notice the \verb|storage_order.F90| file which is used as a central point for specifying the data storage orders. Please refer to the documentation for details.
  \item Review the preprocessed source files located in \verb|./build/cpu/source| and \verb|./build/gpu/source|. Notice the OpenMP and CUDA code that has been inserted into the example codebase. These files are important for debugging as well as when you want to do manual performance optimizations (but you should usually never change anything there, since it will get overwritten with the next preprocessor run).

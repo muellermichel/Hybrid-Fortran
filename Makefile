@@ -26,7 +26,6 @@ SHELL=/bin/bash
 TEMPLATEDIR=${HF_DIR}/hf_template/
 EXAMPLEDIR=${HF_DIR}/example/
 EXAMPLEDIR_SOURCE=${EXAMPLEDIR}source/
-EXAMPLEDIR_CONFIG=${EXAMPLEDIR}config/
 
 TEST_PROJECTS=examples/5D_parallel_vector examples/simple_stencil examples/stencil_with_local_array examples/stencil_with_passed_in_scalar_from_array examples/array_accessor_functions examples/early_returns examples/mixed_implementations examples/strides examples/simple_openACC examples/branches_with_openACC examples/module_data_with_openACC examples/openACC_hybrid_hostonly examples/poisson2d_fem_iterative examples/simple_weather examples/diffusion3d examples/particle examples/midaco_solver
 ADDITIONAL_TEST_PROJECTS=pp examples/tracing
@@ -46,25 +45,9 @@ clean: clean_example ${CLEAN_TARGETS}
 
 #note: cp -n does not exist in older GNU utils, so we emulate it here for compatibility
 example:
-	@mkdir -p ${HF_DIR}/example
-	@mkdir -p ${EXAMPLEDIR_CONFIG}
+	@mkdir -p ${EXAMPLEDIR}
 	@mkdir -p ${EXAMPLEDIR_SOURCE}
-	@if [ ! -e ${EXAMPLEDIR}Makefile ]; then \
-	    cp -f ${TEMPLATEDIR}MakefileForProjectTemplate ${EXAMPLEDIR}Makefile; \
-	fi; \
-	if [ ! -e ${EXAMPLEDIR_CONFIG}MakesettingsGeneral ]; then \
-	    cp -f ${TEMPLATEDIR}MakesettingsGeneralTemplate ${EXAMPLEDIR_CONFIG}MakesettingsGeneral; \
-	fi; \
-	if [ ! -e ${EXAMPLEDIR_CONFIG}Makefile ]; then \
-	    cp -f ${TEMPLATEDIR}MakefileForCompilationTemplate ${EXAMPLEDIR_CONFIG}Makefile; \
-	fi; \
-	if [ ! -e ${EXAMPLEDIR_CONFIG}MakesettingsCPU ]; then \
-	    cp -f ${TEMPLATEDIR}MakesettingsCPUTemplate ${EXAMPLEDIR_CONFIG}MakesettingsCPU; \
-	fi; \
-	if [ ! -e ${EXAMPLEDIR_CONFIG}MakesettingsGPU ]; then \
-	    cp -f ${TEMPLATEDIR}MakesettingsGPUTemplate ${EXAMPLEDIR_CONFIG}MakesettingsGPU; \
-	fi; \
-	if [ ! -e ${EXAMPLEDIR_SOURCE}example.h90 ]; then \
+	@if [ ! -e ${EXAMPLEDIR_SOURCE}example.h90 ]; then \
 	    cp -f ${TEMPLATEDIR}example_example.h90 ${EXAMPLEDIR_SOURCE}example.h90; \
 	fi; \
 	if [ ! -e ${EXAMPLEDIR_SOURCE}storage_order.F90 ]; then \
@@ -78,7 +61,7 @@ test_example: example
 	@echo "###########################################################################################"
 	@echo "########################## attempting to test example #####################################"
 	@echo "###########################################################################################"
-	@cd example && make clean
+	@cd example && ./configure && make clean
 	@cd example && make tests
 
 define test_rules
@@ -86,7 +69,7 @@ define test_rules
 	@echo "###########################################################################################"
 	@echo "########################## attempting to test $(1) ###############################"
 	@echo "###########################################################################################"
-	@cd $(1) && make clean
+	@cd $(1) && ./configure && make clean
 	@cd $(1) && make tests
 endef
 

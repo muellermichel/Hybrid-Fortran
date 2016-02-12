@@ -130,9 +130,9 @@ contains
     @end parallelRegion
   end subroutine
 
-  ! (9) Using the @scheme directive and defining the implementation in MakesettingsGeneral, as shown in this example, we can override the default implementation and mix different ones,
-  !     for example mixing different debugging implementations. Note that the template can span over multiple parts of your file, such as multiple subroutines or even modules.
-  !     in this case we use it to enable reduction support (which CUDA Fortran doesn't have), so we can configure the rest of the program to use CUDA as well.
+  ! (9) Using the @scheme directive and defining the implementation in MakesettingsGeneral, as shown in this example, we can override the default implementation and mix in different ones.
+  !     Note that the template can span over multiple parts of your file, such as multiple subroutines or even modules.
+  !     In this case we use it to enable reduction support (which CUDA Fortran doesn't have), so we can configure the rest of the program to use CUDA as well.
   @scheme{name(REDUCTION_SUPPORT)}
   subroutine reduce_to_sum(a, result)
     implicit none

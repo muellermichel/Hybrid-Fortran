@@ -211,3 +211,13 @@ DEBUG_MODE=false
 # your Makefile will need to expose the tests-targets (see above)           #
 #############################################################################
 TEST_WITH_EVERY_BUILD=false
+
+#############################################################################
+# implementation settings                                                   #
+# using the @scheme directive and defining the implementation here, we can  #
+# override the default implementation (defined using the configure script)  #
+# and mix in different ones.                                                #
+#############################################################################
+GPU_IMPLEMENTATION_EMULATION_REDUCTION_SUPPORT=PGIOpenACCFortranImplementation
+GPU_IMPLEMENTATION_DEBUG_REDUCTION_SUPPORT=PGIOpenACCFortranImplementation
+GPU_IMPLEMENTATION_PRODUCTION_REDUCTION_SUPPORT=PGIOpenACCFortranImplementation

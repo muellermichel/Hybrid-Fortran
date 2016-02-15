@@ -453,22 +453,26 @@ end subroutine
 		return super(PGIOpenACCFortranImplementation, self).additionalIncludes() + "use openacc\nuse cudafor\n"
 
 	def callPreparationForPassedSymbol(self, currRoutineNode, symbolInCaller, symbolInCallee):
-		if not currRoutineNode:
-			return ""
-		if currRoutineNode.getAttribute("parallelRegionPosition") != 'inside':
-			return ""
-		if symbolInCaller.declarationType != DeclarationType.LOCAL_ARRAY:
-			return ""
-		return "!$acc update device(%s)\n" %(symbolInCaller.name)
+		#$$$ may need to be replaced with CUDA Fortran style manual update
+		# if not currRoutineNode:
+		# 	return ""
+		# if currRoutineNode.getAttribute("parallelRegionPosition") != 'inside':
+		# 	return ""
+		# if symbolInCaller.declarationType != DeclarationType.LOCAL_ARRAY:
+		# 	return ""
+		# return "!$acc update device(%s)\n" %(symbolInCaller.name)
+		return ""
 
 	def callPostForPassedSymbol(self, currRoutineNode, symbolInCaller, symbolInCallee):
-		if not currRoutineNode:
-			return ""
-		if currRoutineNode.getAttribute("parallelRegionPosition") != 'inside':
-			return ""
-		if symbolInCaller.declarationType != DeclarationType.LOCAL_ARRAY:
-			return ""
-		return "!$acc update host(%s)\n" %(symbolInCaller.name)
+		#$$$ may need to be replaced with CUDA Fortran style manual update
+		# if not currRoutineNode:
+		# 	return ""
+		# if currRoutineNode.getAttribute("parallelRegionPosition") != 'inside':
+		# 	return ""
+		# if symbolInCaller.declarationType != DeclarationType.LOCAL_ARRAY:
+		# 	return ""
+		# return "!$acc update host(%s)\n" %(symbolInCaller.name)
+		return ""
 
 	def declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates):
 		self.currRoutineNode = currRoutineNode
@@ -497,9 +501,10 @@ end subroutine
 
 	def parallelRegionBegin(self, parallelRegionTemplate, outerBranchLevel=0):
 		regionStr = ""
-		for symbol in self.currDependantSymbols:
-			if symbol.declarationType == DeclarationType.LOCAL_ARRAY:
-				regionStr += "!$acc update device(%s)\n" %(symbol.name)
+		#$$$ may need to be replaced with CUDA Fortran style manual update
+		# for symbol in self.currDependantSymbols:
+		# 	if symbol.declarationType == DeclarationType.LOCAL_ARRAY:
+		# 		regionStr += "!$acc update device(%s)\n" %(symbol.name)
 		vectorSizePPNames = getVectorSizePPNames(parallelRegionTemplate)
 		regionStr += "!$acc kernels "
 		for symbol in self.currDependantSymbols:
@@ -525,9 +530,10 @@ end subroutine
 
 	def parallelRegionEnd(self, parallelRegionTemplate, outerBranchLevel=0):
 		additionalStatements = "\n!$acc end kernels\n"
-		for symbol in self.currDependantSymbols:
-			if symbol.declarationType == DeclarationType.LOCAL_ARRAY:
-				additionalStatements += "!$acc update host(%s)\n" %(symbol.name)
+		#$$$ may need to be replaced with CUDA Fortran style manual update
+		# for symbol in self.currDependantSymbols:
+		# 	if symbol.declarationType == DeclarationType.LOCAL_ARRAY:
+		# 		additionalStatements += "!$acc update host(%s)\n" %(symbol.name)
 		return super(PGIOpenACCFortranImplementation, self).parallelRegionEnd(parallelRegionTemplate) + additionalStatements
 
 	#MMU: we first need a branch analysis on the subroutine to do this

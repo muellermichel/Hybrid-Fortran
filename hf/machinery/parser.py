@@ -739,19 +739,31 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
         )
 
     def analyseSymbolInformationOnCurrentLine(self, line, analyseImports=True, isModuleSpecification=False):
-        # def loadAsAdditionalModuleSymbol(symbol): #$$$ remove this in case we never enable routine domain dependant specifications for module symbols (likely)
-        #     symbol.isModuleSymbol = True
-        #     symbol.loadModuleNodeAttributes(self.moduleNodesByName[self.currModuleName])
-        #     self.symbolsOnCurrentLine.append(symbol)
-        #     self.currSymbolsByName[symbol.name] = symbol
-
         selectiveImportMatch = self.patterns.selectiveImportPattern.match(str(line))
         if selectiveImportMatch:
             self.processImplicitForeignModuleSymbolMatch(selectiveImportMatch)
 
         symbolNames = self.currSymbolsByName.keys()
-        for symbolName in symbolNames:
-            symbol = self.currSymbolsByName[symbolName]
+        specifiedSymbolsByNameInScope = dict(
+            (symbol.nameInScope(useDeviceVersionIfAvailable=False), symbol)
+            for symbol in self.currSymbolsByName.values()
+        )
+        genericSymbolDeclMatch = self.patterns.symbolDeclPattern.match(line)
+        if genericSymbolDeclMatch:
+            symbolNames = genericSymbolDeclMatch.group(2).split(',')
+            for symbolName in symbolNames:
+                if symbolName in specifiedSymbolsByNameInScope:
+                    continue
+                symbol = Symbol(
+                    symbolName,
+                    scopeNode=self.routineNodesByProcName[self.currSubprocName],
+                    parallelRegionTemplates=self.parallelRegionTemplatesByProcName[self.currSubprocName]
+                )
+                specifiedSymbolsByNameInScope[symbolName] = symbol
+                self.currSymbolsByName[symbolName] = symbol
+
+        #$$$ this could be made more efficient by only going through symbols matched in the generic pattern
+        for symbol in specifiedSymbolsByNameInScope.values():
             declMatch = symbol.getDeclarationMatch(str(line))
             importMatch = None
             if analyseImports:
@@ -762,24 +774,6 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
             elif importMatch:
                 self.importsOnCurrentLine.append(symbol)
                 self.processSymbolImportMatch(importMatch, symbol)
-
-        #$$$ remove this in case we never enable routine domain dependant specifications for module symbols (likely)
-        # if isModuleSpecification:
-        #     symbolNames = self.tentativeModuleSymbolsByName.keys() if self.tentativeModuleSymbolsByName else []
-        #     for symbolName in symbolNames:
-        #         symbol = self.tentativeModuleSymbolsByName[symbolName]
-        #         declMatch = symbol.getDeclarationMatch(str(line))
-        #         importMatch = None
-        #         if analyseImports:
-        #             importMatch = symbol.symbolImportPattern.match(str(line))
-        #         if declMatch:
-        #             self.symbolsOnCurrentLine.append(symbol)
-        #             self.processSymbolDeclMatch(declMatch, symbol)
-        #             loadAsAdditionalModuleSymbol(symbol)
-        #         elif importMatch:
-        #             self.importsOnCurrentLine.append(symbol)
-        #             self.processSymbolImportMatch(importMatch, symbol)
-        #             loadAsAdditionalModuleSymbol(symbol)
 
         #validate the symbols on the current declaration line: Do they match the requirements for Hybrid Fortran?
         lineDeclarationType = DeclarationType.UNDEFINED

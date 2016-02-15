@@ -218,6 +218,6 @@ TEST_WITH_EVERY_BUILD=false
 # override the default implementation (defined using the configure script)  #
 # and mix in different ones.                                                #
 #############################################################################
-GPU_IMPLEMENTATION_EMULATION_REDUCTION_SUPPORT=PGIOpenACCFortranImplementation
-GPU_IMPLEMENTATION_DEBUG_REDUCTION_SUPPORT=PGIOpenACCFortranImplementation
-GPU_IMPLEMENTATION_PRODUCTION_REDUCTION_SUPPORT=PGIOpenACCFortranImplementation
+GPU_IMPLEMENTATION_EMULATION_SEPARATE_KERNELS=PGIOpenACCFortranImplementation
+GPU_IMPLEMENTATION_DEBUG_SEPARATE_KERNELS=PGIOpenACCFortranImplementation
+GPU_IMPLEMENTATION_PRODUCTION_SEPARATE_KERNELS=PGIOpenACCFortranImplementation

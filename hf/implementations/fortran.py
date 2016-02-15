@@ -375,7 +375,7 @@ Symbols vs host attributes:\n%s" %(str([(symbol.name, symbol.isHostSymbol) for s
 			if isOnHost == "yes":
 				for dependantSymbol in dependantSymbols:
 					dependantSymbol.isOnDevice = False
-			elif alreadyOnDevice == "yes" or intent in [None, "", "local"]:
+			elif alreadyOnDevice == "yes" or (intent in [None, "", "local"] and routineIsKernelCaller):
 				# we don't need copies of the dependants on cpu
 				adjustedLine = "%s, %s :: %s" %(declarationDirectives, deviceType, symbolDeclarationStr)
 				for dependantSymbol in dependantSymbols:

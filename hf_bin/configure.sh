@@ -44,7 +44,7 @@ for i in "$@" ; do
 	esac
 done
 if [ -z "${acceleratorImplementation+x}" ] ; then
-	acceleratorImplementation="openacc"
+	acceleratorImplementation="cuda"
 fi
 if [ "${acceleratorImplementation}" != "openacc" -a "${acceleratorImplementation}" != "cuda" ] ; then
 	echo "${USAGE}" ; exit 1

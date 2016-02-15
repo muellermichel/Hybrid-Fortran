@@ -110,21 +110,11 @@ DeclarationType = enum("UNDEFINED",
 def purgeFromDeclarationSettings(line, dependantSymbols, patterns, purgeList=['intent'], withAndWithoutIntent=True):
 	declarationDirectives = ""
 	symbolDeclarationStr = ""
-	if patterns.symbolDeclTestPattern.match(line):
-		match = patterns.symbolDeclPattern.match(line)
-		if not match:
-			raise Exception("When trying to extract a device declaration: This is not a valid declaration: %s" %(line))
-		declarationDirectives = match.group(1)
-		symbolDeclarationStr = match.group(2)
-	else:
-		#no :: is used in this declaration line -> we should only have one symbol defined on this line
-		if len(dependantSymbols) > 1:
-			raise Exception("Declaration line without :: has multiple matching dependant symbols.")
-		match = re.match(r"(\s*(?:double\s+precision|real|integer|character|logical)(?:.*?))\s*(" + re.escape(dependantSymbols[0].name) + r".*)", line, re.IGNORECASE)
-		if not match:
-			raise Exception("When trying to extract a device declaration: This is not a valid declaration: %s" %(line))
-		declarationDirectives = match.group(1)
-		symbolDeclarationStr = match.group(2)
+	match = patterns.symbolDeclPattern.match(line)
+	if not match:
+		raise Exception("When trying to extract a device declaration: This is not a valid declaration: %s" %(line))
+	declarationDirectives = match.group(1)
+	symbolDeclarationStr = match.group(2)
 
 	if not withAndWithoutIntent:
 		return declarationDirectives, symbolDeclarationStr

@@ -40,8 +40,15 @@ class RegExPatterns:
         'branchEndPattern': r'\s*@end\s*if.*',
         'intentPattern': r'.*?intent\s*\(\s*(in|out|inout)\s*\).*',
         'dimensionPattern': r'(.*?),?\s*dimension\s*\(\s*(.*?)\s*\)(.*)',
-        'symbolDeclTestPattern': r'.*?::.*',
-        'symbolDeclPattern': r"(\s*(?:double\s+precision|real|integer|character|logical)(?:.*?))\s*::(.*)",
+        'symbolDeclPattern': r"""
+            ^\s*(
+                (?:double\s+precision|real|integer|character|logical|complex)\s*    #intrinsic types
+                (?:\(\s*[\w\,\s=]*\s*\))?\s*                                        #type initialization expression (usually the byte length)
+                (?:\s*\,\s*\w*\s*(?:\(\s*[\w\,\s]*\s*\))?)*                         #additional attributes
+            )\s*(?:\:\:)?\s*(                                                       #double colon to specify multiple data objects on the same line
+                .*?                                                                 #the data object name(s)
+            )\s*$
+        """,
         'declarationKindPattern': r'(.*?)\s*kind\s*=\s*(\w*)\s*(.*)',
         'pointerAssignmentPattern': r"^\s*\w+\s*\=\>\s*\w+.*",
         'whileLoopPattern': r"\s*do\s*while\W.*",
@@ -62,11 +69,11 @@ class RegExPatterns:
     def __init__(self):
         self.dynamicPatternsByRegex = {}
         for patternName in self.staticRegexByPatternName:
-            setattr(self, patternName, re.compile(self.staticRegexByPatternName[patternName], re.IGNORECASE))
+            setattr(self, patternName, re.compile(self.staticRegexByPatternName[patternName], re.IGNORECASE | re.VERBOSE))
 
     def get(self, regex):
         pattern = self.dynamicPatternsByRegex.get(regex)
         if pattern == None:
-            pattern = re.compile(regex, re.IGNORECASE)
+            pattern = re.compile(regex, re.IGNORECASE | re.VERBOSE)
             self.dynamicPatternsByRegex[regex] = pattern
         return pattern

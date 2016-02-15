@@ -542,6 +542,7 @@ class H90XMLCallGraphGenerator(CallGraphParser):
         routine.setAttribute('name', self.currSubprocName)
         routine.setAttribute('source', os.path.basename(self.fileName).split('.')[0])
         routine.setAttribute('module', self.currModuleName)
+        routine.setAttribute('implementationTemplate', self.currTemplateName)
         self.routines.appendChild(routine)
         self.currSubprocNode = routine
 
@@ -707,7 +708,10 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
 
     @property
     def implementation(self):
-        implementation = self.implementationsByTemplateName.get(self.currTemplateName)
+        return self.implementationForTemplateName(self.currTemplateName)
+
+    def implementationForTemplateName(self, templateName):
+        implementation = self.implementationsByTemplateName.get(templateName)
         if implementation == None:
             implementation = self.implementationsByTemplateName.get('default')
         if implementation == None:

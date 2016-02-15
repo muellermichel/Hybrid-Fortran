@@ -29,6 +29,7 @@ def getReductionClause(parallelRegionTemplate):
 		for operator in reductionScalarsByOperator.keys()
 	])
 
+# $$$ This is currently unused
 def getDataDirectiveAndUpdateOnDeviceFlags(currRoutineNode, currParallelRegionTemplates, dependantSymbols, createDeclaration, routineIsKernelCaller, enterOrExit='enter'):
 	presentDeclaration = "present" # if currRoutineNode.getAttribute("parallelRegionPosition") == 'inside' else "deviceptr"
 	copyDeclaration = "copyin"
@@ -216,7 +217,7 @@ def getTracingStatements(currRoutineNode, currModuleName, tracingSymbols, traceH
 				)
 			)
 			if symbol.isOnDevice:
-				result += "!$acc update host(%s) if(hf_symbols_are_device_present)\n" %(symbol.name)
+				result += "!$acc update host(%s)\n" %(symbol.name)
 			result += getLoopOverSymbolValues(symbol, "%s_temp_%s" %(symbol.name, loop_name_postfix), innerTempArraySetterLoopFunc)
 			result += traceHandlingFunc(currRoutineNode, currModuleName, symbol)
 			if 'allocatable' in symbol.declarationPrefix:
@@ -439,7 +440,7 @@ def getRuntimeDebugPrintStatements(symbolsByName, calleeRoutineNode, parallelReg
 	]
 	if useOpenACC:
 		result += "#ifdef GPU\n"
-		result += "!$acc update if(hf_symbols_are_device_present) host(%s)\n" %(", ".join(symbolClauses)) if len(symbolsToPrint) > 0 else ""
+		result += "!$acc update host(%s)\n" %(", ".join(symbolClauses)) if len(symbolsToPrint) > 0 else ""
 		result += "#endif\n"
 	for symbol in symbolsToPrint:
 		result = result + "hf_output_temp = %s\n" %(symbol.accessRepresentation([], offsetsBySymbolName[symbol.name], parallelRegionNode))

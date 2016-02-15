@@ -341,6 +341,10 @@ class Symbol(object):
 	def isPresent(self):
 		return self._isPresent
 
+	@isPresent.setter
+	def isPresent(self, _isPresent):
+		self._isPresent = _isPresent
+
 	@property
 	def isArray(self):
 		if self.domains and len(self.domains) > 0:

@@ -194,12 +194,16 @@ This is not allowed for implementations using %s.\
             currBracketAnalyzer = BracketAnalyzer()
             return currBracketAnalyzer.getListOfArgumentsInOpenedBracketsAndRemainder(symbol_access_match.group(1))
 
+        implementation = self.implementation
+        if isInsideSubroutineCall and isinstance(self.currCallee, AnalyzableRoutine):
+            implementation = self.currCallee.implementation
+
         #match the symbol's postfix again in the current given line. (The prefix could have changed from the last match.)
         postfix = symbolMatch.group(3)
         postfixEscaped = re.escape(postfix)
         accessors, postfix = getAccessorsAndRemainder(postfix)
 
-        if not self.implementation.supportsArbitraryDataAccessesOutsideOfKernels \
+        if not implementation.supportsArbitraryDataAccessesOutsideOfKernels \
         and symbol.domains \
         and len(symbol.domains) > 0 \
         and not isInsideSubroutineCall \
@@ -211,7 +215,7 @@ This is not allowed for implementations using %s.\
         and self.currRoutine.node.getAttribute("parallelRegionPosition") != "outside" \
         and len(accessors) != 0 \
         and ( \
-            not self.implementation.supportsNativeMemsetsOutsideOfKernels \
+            not implementation.supportsNativeMemsetsOutsideOfKernels \
             or any([accessor.strip() != ":" for accessor in accessors]) \
         ):
             logging.warning(
@@ -347,7 +351,10 @@ This is not allowed for implementations using %s.\
         additionalModuleSymbols = self.additionalWrapperImportsByKernelName.get(self.currCalleeName, [])
         for symbol in additionalImportsAndDeclarations[1] + additionalModuleSymbols:
             allSymbolsPassedByName[symbol.name] = symbol
-        adjustedLine = line + "\n" + self.implementation.kernelCallPost(allSymbolsPassedByName, self.currCallee.node)
+        implementation = self.implementation
+        if isinstance(self.currCallee, AnalyzableRoutine):
+            implementation = self.currCallee.implementation
+        adjustedLine = line + "\n" + implementation.kernelCallPost(allSymbolsPassedByName, self.currCallee.node)
         return adjustedLine
 
     def processCallMatch(self, subProcCallMatch):
@@ -356,8 +363,8 @@ This is not allowed for implementations using %s.\
         if calleeNode:
             self.currCallee = AnalyzableRoutine(
                 self.currCalleeName,
-                self.routineNodesByProcName.get(self.currCalleeName),
-                self.implementation
+                calleeNode,
+                self.implementationForTemplateName(calleeNode.getAttribute('implementationTemplate'))
             )
         else:
             self.currCallee = Routine(self.currCalleeName)
@@ -376,8 +383,8 @@ This is not allowed for implementations using %s.\
             parallelRegionTemplates = self.parallelRegionTemplatesByProcName.get(self.currCalleeName)
             if parallelRegionTemplates == None or len(parallelRegionTemplates) == 0:
                 raise Exception("No parallel region templates found for subroutine %s" %(self.currCalleeName))
-            adjustedLine = self.implementation.kernelCallPreparation(parallelRegionTemplates[0], calleeNode=self.currCallee.node)
-            adjustedLine = adjustedLine + "call " + self.currCalleeName + " " + self.implementation.kernelCallConfig()
+            adjustedLine = self.currCallee.implementation.kernelCallPreparation(parallelRegionTemplates[0], calleeNode=self.currCallee.node)
+            adjustedLine = adjustedLine + "call " + self.currCalleeName + " " + self.currCallee.implementation.kernelCallConfig()
 
         # if isinstance(self.currCallee, AnalyzableRoutine) \
         # and getRoutineNodeInitStage(self.currCallee.node) == RoutineNodeInitStage.DIRECTIVES_WITHOUT_PARALLELREGION_POSITION:
@@ -450,12 +457,12 @@ This is not allowed for implementations using %s.\
                         symbolNameInCallee,
                         self.currCalleeName
                     ))
-                callPreparationForSymbols += self.implementation.callPreparationForPassedSymbol(
+                callPreparationForSymbols += self.currCallee.implementation.callPreparationForPassedSymbol(
                     currSubprocNode,
                     symbolInCaller=symbol,
                     symbolInCallee=symbolInCallee
                 )
-                callPostForSymbols += self.implementation.callPostForPassedSymbol(
+                callPostForSymbols += self.currCallee.implementation.callPostForPassedSymbol(
                     currSubprocNode,
                     symbolInCaller=symbol,
                     symbolInCallee=symbolInCallee
@@ -600,9 +607,10 @@ This is not allowed for implementations using %s.\
                 callee = self.routineNodesByProcName.get(calleeName)
                 if not callee:
                     continue
+                implementation = self.implementationForTemplateName(callee.getAttribute('implementationTemplate'))
                 additionalImportsForDeviceCompatibility, \
                 additionalDeclarationsForDeviceCompatibility, \
-                additionalDummies = self.implementation.getAdditionalKernelParameters(
+                additionalDummies = implementation.getAdditionalKernelParameters(
                     self.cgDoc,
                     getArguments(call),
                     callee,
@@ -613,7 +621,7 @@ This is not allowed for implementations using %s.\
                 )
                 for symbol in additionalImportsForDeviceCompatibility + additionalDeclarationsForDeviceCompatibility + additionalDummies:
                     symbol.resetScope(self.currRoutine.name)
-                if 'DEBUG_PRINT' in self.implementation.optionFlags:
+                if 'DEBUG_PRINT' in implementation.optionFlags:
                     tentativeAdditionalImports = getModuleArraysForCallee(
                         calleeName,
                         self.symbolAnalysisByRoutineNameAndSymbolName,
@@ -852,6 +860,9 @@ This is not allowed for implementations using %s.\
                 for symbol in additionalImports:
                     additionalImportSymbolsByName[symbol.name] = symbol
 
+                calleeNode = self.routineNodesByProcName.get(calleeName)
+                implementation = self.implementationForTemplateName(calleeNode.getAttribute('implementationTemplate'))
+
                 for symbol in self.filterOutSymbolsAlreadyAliveInCurrentScope(additionalDeclarations):
                     if symbol.declarationType not in [DeclarationType.LOCAL_ARRAY, DeclarationType.LOCAL_SCALAR]:
                         # only symbols that are local to the kernel actually need to be declared here.
@@ -870,7 +881,7 @@ This is not allowed for implementations using %s.\
                         adjustedDomains.append((domName, domSizeSymbol.nameInScope()))
                     symbol.domains = adjustedDomains
 
-                    additionalDeclarationsStr += self.implementation.adjustDeclarationForDevice(
+                    additionalDeclarationsStr += implementation.adjustDeclarationForDevice(
                         symbol.getDeclarationLineForAutomaticSymbol(purgeList=['intent', 'public', 'parameter']).strip(),
                         [symbol],
                         self.currRoutineIsCallingParallelRegion,
@@ -891,7 +902,7 @@ This is not allowed for implementations using %s.\
                         domains=[("hfauto", str(len(toBeCompacted)))],
                         isOnDevice=True
                     )
-                    additionalDeclarationsStr += self.implementation.adjustDeclarationForDevice(
+                    additionalDeclarationsStr += implementation.adjustDeclarationForDevice(
                         compactedArray.getDeclarationLineForAutomaticSymbol().strip(),
                         [compactedArray],
                         self.currRoutineIsCallingParallelRegion,

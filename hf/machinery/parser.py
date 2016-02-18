@@ -743,24 +743,37 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
         if selectiveImportMatch:
             self.processImplicitForeignModuleSymbolMatch(selectiveImportMatch)
 
-        symbolNames = self.currSymbolsByName.keys()
         specifiedSymbolsByNameInScope = dict(
             (symbol.nameInScope(useDeviceVersionIfAvailable=False), symbol)
             for symbol in self.currSymbolsByName.values()
         )
+
         genericSymbolDeclMatch = self.patterns.symbolDeclPattern.match(line)
         if genericSymbolDeclMatch:
-            symbolNames = genericSymbolDeclMatch.group(2).split(',')
-            for symbolName in symbolNames:
-                if symbolName in specifiedSymbolsByNameInScope:
-                    continue
-                symbol = Symbol(
-                    symbolName,
-                    scopeNode=self.routineNodesByProcName[self.currSubprocName],
-                    parallelRegionTemplates=self.parallelRegionTemplatesByProcName[self.currSubprocName]
+            symbolNamesWithoutDomainDependantSpecs = [
+                symbolName.strip()
+                for symbolName in [symbolSpec.split('(')[0] for symbolSpec in genericSymbolDeclMatch.group(2).split(",")]
+                if symbolName.strip() not in specifiedSymbolsByNameInScope
+            ]
+            if len(symbolNamesWithoutDomainDependantSpecs) > 0:
+                parent = self.routineNodesByProcName[self.currSubprocName]
+                _, template, entries = setDomainDependants(
+                    self.cgDoc,
+                    parent,
+                    specificationText="declarationPrefix(%s)" %(genericSymbolDeclMatch.group(1)),
+                    entryText=",".join(symbolNamesWithoutDomainDependantSpecs)
                 )
-                specifiedSymbolsByNameInScope[symbolName] = symbol
-                self.currSymbolsByName[symbolName] = symbol
+                for entry in entries:
+                    symbolName = entry.firstChild.nodeValue
+                    symbol = Symbol(
+                        symbolName,
+                        template=template,
+                        symbolEntry=entry,
+                        scopeNode=parent,
+                        parallelRegionTemplates=self.parallelRegionTemplatesByProcName.get(self.currSubprocName, [])
+                    )
+                    specifiedSymbolsByNameInScope[symbolName] = symbol
+                    self.currSymbolsByName[symbolName] = symbol
 
         #$$$ this could be made more efficient by only going through symbols matched in the generic pattern
         for symbol in specifiedSymbolsByNameInScope.values():
@@ -781,9 +794,10 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
         for symbol in self.symbolsOnCurrentLine:
             if symbol.isArray and arrayDeclarationLine == False or not symbol.isArray and arrayDeclarationLine == True:
                 raise UsageError(
-                    "Array symbols have been mixed with non-array symbols on the same line (%s has declaration type %i). This is invalid in Hybrid Fortran. Please move apart these declarations.\n" %(
+                    "Array symbols have been mixed with non-array symbols on the same line (%s has declaration type %i): %s. This is invalid in Hybrid Fortran. Please move apart these declarations.\n" %(
                         symbol.name,
-                        symbol.declarationType
+                        symbol.declarationType,
+                        self.symbolsOnCurrentLine
                     )
                 )
             arrayDeclarationLine = symbol.isArray

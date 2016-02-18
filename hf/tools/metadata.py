@@ -225,6 +225,19 @@ def appendSeparatedTextAsNodes(text, separator, doc, parent, nodeName):
 def addAndGetEntries(doc, parent, commaSeparatedEntries):
     return appendSeparatedTextAsNodes(commaSeparatedEntries, ",", doc, parent, "entry")
 
+def setDomainDependants(doc, parent, specificationText, entryText):
+    relationNode, template = setTemplateInfos(
+        doc,
+        parent=parent,
+        specText=specificationText,
+        templateParentNodeName="domainDependantTemplates",
+        templateNodeName="domainDependantTemplate",
+        referenceParentNodeName="domainDependants"
+    )
+    entries = addAndGetEntries(doc, relationNode, entryText)
+    return relationNode, template, entries
+
+
 def deduplicateRelations(parent):
     pass
 

@@ -295,16 +295,13 @@ class SymbolDependencyAnalyzer:
                     "unexpected error when constructing callgraph for symbol aliases"
                 )
             calleeName = call.getAttribute("callee")
-            try:
-                symbolAnalysis, symbolAnalysisByNameAndSource = self.getSymbolAnalysisFor(
-                    calleeName,
-                    symbolAnalysis=symbolAnalysis,
-                    symbolAnalysisByNameAndSource=symbolAnalysisByNameAndSource,
-                    call=call,
-                    analysisWarningsByCalleeName=analysisWarningsByCalleeName
-                )
-            except Exception as e:
-                raise Exception(str(e) + " Caught in analysis for caller %s." %(routineName))
+            symbolAnalysis, symbolAnalysisByNameAndSource = self.getSymbolAnalysisFor(
+                calleeName,
+                symbolAnalysis=symbolAnalysis,
+                symbolAnalysisByNameAndSource=symbolAnalysisByNameAndSource,
+                call=call,
+                analysisWarningsByCalleeName=analysisWarningsByCalleeName
+            )
         for argumentName in temporarilyStoredAnalysisByArgumentName.keys():
             symbolAnalysis[(routineName, argumentName)] = temporarilyStoredAnalysisByArgumentName[argumentName] + symbolAnalysis.get((routineName, argumentName), [])
 

@@ -634,6 +634,12 @@ This is not allowed for implementations using %s.\
                         symbol.resetScope(self.currRoutine.name)
                     self.additionalWrapperImportsByKernelName[calleeName] = additionalImportsByName.values()
                 self.additionalParametersByKernelName[calleeName] = (additionalImportsForDeviceCompatibility, additionalDeclarationsForDeviceCompatibility + additionalDummies)
+                logging.debug("call to %s; additional imports for device compatibility:" %(calleeName))
+                logging.debug("\n".join([str(symbol) for symbol in additionalImportsForDeviceCompatibility]))
+                logging.debug("call to %s; additional declarations for device compatibility:" %(calleeName))
+                logging.debug("\n".join([str(symbol) for symbol in additionalDeclarationsForDeviceCompatibility]))
+                logging.debug("call to %s; additinal dummy parameters:" %(calleeName))
+                logging.debug("\n".join([str(symbol) for symbol in additionalDummies]))
                 if callee.getAttribute("parallelRegionPosition") != "within":
                     continue
                 self.currRoutineIsCallingParallelRegion = True
@@ -870,6 +876,7 @@ This is not allowed for implementations using %s.\
                         # through module association (we assume the kernel and its wrapper reside in the same module)
                         continue
 
+                    logging.debug("...In subroutine %s: Symbol %s is required additionally for %s" %(self.currRoutine.name, symbol, calleeName))
                     #in case the array uses domain sizes in the declaration that are additional symbols themselves
                     #we need to fix them.
                     adjustedDomains = []
@@ -880,6 +887,7 @@ This is not allowed for implementations using %s.\
                             continue
                         adjustedDomains.append((domName, domSizeSymbol.nameInScope()))
                     symbol.domains = adjustedDomains
+                    logging.debug("...In subroutine %s: Domains of Symbol %s adjusted to %s" %(self.currRoutine.name, symbol, adjustedDomains))
 
                     additionalDeclarationsStr += implementation.adjustDeclarationForDevice(
                         symbol.getDeclarationLineForAutomaticSymbol(purgeList=['intent', 'public', 'parameter']).strip(),
@@ -887,10 +895,6 @@ This is not allowed for implementations using %s.\
                         self.currRoutineIsCallingParallelRegion,
                         self.currRoutine.node.getAttribute('parallelRegionPosition')
                     ).rstrip() + " ! type %i symbol added for callee %s\n" %(symbol.declarationType, calleeName)
-                    logging.debug(
-                        "...In subroutine %s: Symbol %s additionally declared and passed to %s" %(self.currRoutine.name, symbol, calleeName),
-                        extra={"hfLineNo":currLineNo, "hfFile":currFile}
-                    )
                 #TODO: move this into implementation classes
                 toBeCompacted = packedRealSymbolsByCalleeName.get(calleeName, [])
                 if len(toBeCompacted) > 0:

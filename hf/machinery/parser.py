@@ -774,6 +774,7 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
                     )
                     specifiedSymbolsByNameInScope[symbolName] = symbol
                     self.currSymbolsByName[symbolName] = symbol
+                    logging.debug("symbol %s added to current context because of declaration %s" %(symbol, line))
 
         #$$$ this could be made more efficient by only going through symbols matched in the generic pattern
         for symbol in specifiedSymbolsByNameInScope.values():
@@ -1042,6 +1043,7 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
             else:
                 symbol.isModuleSymbol = False
             self.currSymbolsByName[symbol.name] = symbol
+            logging.debug("symbol %s added to current context because of import %s" %(symbol, importMatch.group(0)))
 
     def processModuleEndMatch(self, moduleEndMatch):
         #get handles to currently active symbols -> temporarily save the handles

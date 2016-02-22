@@ -682,6 +682,7 @@ EXAMPLE:\n\
 			if not domainName in self.parallelActiveDims:
 				continue
 			parallelDomainSizesDict[domainSize] = None
+		logging.debug("domain integrity checked for symbol %s" %(self))
 
 	def loadTemplateAttributes(self, parallelRegionTemplates=[]):
 		if self.initLevel < Init.TEMPLATE_LOADED:
@@ -765,6 +766,9 @@ EXAMPLE:\n\
 			))
 
 		dimsBeforeReset = copy.deepcopy(self.domains)
+		domNameBySize = {}
+		for (dependantDomName, dependantDomSize) in dimsBeforeReset:
+			domNameBySize[dependantDomSize] = dependantDomName
 		self.domains = []
 		for (dependantDomName, dependantDomSize) in dependantDomNameAndSize:
 			if dependantDomName not in self.parallelActiveDims \
@@ -772,20 +776,22 @@ EXAMPLE:\n\
 				raise Exception("Symbol %s's dependant domain size %s is not declared as one of its dimensions." \
 					%(self.name, dependantDomSize))
 			self.domains.append((dependantDomName, dependantDomSize))
+			domNameBySize[dependantDomSize] = dependantDomName
 			logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] adding domain %s to symbol %s; Domains now: %s" %(
 				str((dependantDomName, dependantDomSize)), self.name, self.domains
 			))
 		if self.isAutoDom and not self.isPointer:
 			alreadyEstablishedDomSizes = [domSize for (domName, domSize) in self.domains]
-			logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] Symbol %s is an autoDom symbol: Checking already established domains %s against previous dimensions: %s. dependantDomNameAndSize: %s" %(
-				self.name, str(self.domains), str(dimsBeforeReset), str(dependantDomNameAndSize))
-			)
+			logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] Symbol %s is an autoDom symbol: Checking already established domains %s against previous dimensions: %s. parallelRegionDomNamesBySize: %s, alreadyEstablishedDomSizes: %s, domNameBySize: %s" %(
+				self.name, str(self.domains), str(dimsBeforeReset), str(parallelRegionDomNamesBySize), str(alreadyEstablishedDomSizes), str(domNameBySize)
+			))
 			for (domName, domSize) in dimsBeforeReset:
-				if domName in self.parallelActiveDims \
+				domNameAdjusted = domNameBySize.get(domSize, domName)
+				if domNameAdjusted in self.parallelActiveDims \
 				or parallelRegionDomNamesBySize.get(domSize) != None \
 				or (len(dimsBeforeReset) <= len(self.domains) and domSize in alreadyEstablishedDomSizes):
 					continue
-				self.domains.append((domName, domSize))
+				self.domains.append((domNameAdjusted, domSize))
 		self.checkIntegrityOfDomains()
 
 	def loadModuleNodeAttributes(self, moduleNode):

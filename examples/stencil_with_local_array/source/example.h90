@@ -19,8 +19,8 @@ contains
 
     ! This is a unit test used for Hybrid Fortran: Does it shape the local array like we told it to with the domainDependant directive?
     if (size(c, 1) .ne. n-1 .or. size(c, 2) .ne. m) then
-      write(6,*) "local array does not have the expected shape:", size(c, 1), "x", size(c, 2), "instead of", n-1, "x", m
-      stop 2
+      print *, "local array does not have the expected shape:", size(c, 1), "x", size(c, 2), "instead of", n-1, "x", m
+      return
     end if
 
     @parallelRegion{domName(i,j), domSize(n,m), endAt(n-1,m)}

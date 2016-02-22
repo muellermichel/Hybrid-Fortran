@@ -760,7 +760,7 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
                 _, template, entries = setDomainDependants(
                     self.cgDoc,
                     parent,
-                    specificationText="declarationPrefix(%s)" %(genericSymbolDeclMatch.group(1)),
+                    specificationText="attribute(autoDom)",
                     entryText=",".join(symbolNamesWithoutDomainDependantSpecs)
                 )
                 for entry in entries:

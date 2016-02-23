@@ -755,6 +755,14 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
                 for symbolName in [symbolSpec.split('(')[0] for symbolSpec in genericSymbolDeclMatch.group(2).split(",")]
                 if symbolName.strip() not in specifiedSymbolsByNameInScope
             ]
+            for symbolName in symbolNamesWithoutDomainDependantSpecs:
+                if symbolName in ["intent", "dimension", "__device", "type", "double precision", "real", "integer", "character", "logical", "complex"] \
+                or not re.match(r'\w', symbolName):
+                    raise Exception(
+                        "Either Hybrid Fortran's declaration parser is broken or you have used a Fortran intrinsic keyword as a symbol name: %s; Matched specification: %s; Matched symbol list: %s" %(
+                            symbolName, genericSymbolDeclMatch.group(1), genericSymbolDeclMatch.group(2)
+                        )
+                    )
             if len(symbolNamesWithoutDomainDependantSpecs) > 0:
                 parent = self.routineNodesByProcName[self.currSubprocName]
                 _, template, entries = setDomainDependants(

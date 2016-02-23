@@ -44,9 +44,9 @@ class RegExPatterns:
             ^\s*(
                 (?:double\s+precision|real|integer|character|logical|complex)\s*    #intrinsic types
                 (?:\(\s*[\w\,\s=]*\s*\))?\s*                                        #type initialization expression (usually the byte length)
-                (?:\s*\,\s*\w*\s*(?:\(\s*[\w\,\s]*\s*\))?)*                         #additional attributes
+                (?:\s*\,\s*\w*\s*(?:\(\s*[\w\,\s]*\s*(?:\(.*?\))?\s*\))?)*          #additional attributes
             )\s*(?:\:\:)?\s*(                                                       #double colon to specify multiple data objects on the same line
-                .*?                                                                 #the data object name(s)
+                .*                                                                  #the data object name(s)
             )\s*$
         """,
         'declarationKindPattern': r'(.*?)\s*kind\s*=\s*(\w*)\s*(.*)',

@@ -764,7 +764,13 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
                         )
                     )
             if len(symbolNamesWithoutDomainDependantSpecs) > 0:
-                parent = self.routineNodesByProcName[self.currSubprocName]
+                parent = None
+                if self.currSubprocName:
+                    parent = self.routineNodesByProcName[self.currSubprocName]
+                elif self.currModuleName:
+                    parent = self.moduleNodesByName[self.currModuleName]
+                else:
+                    raise Exception("symbol parsing called outside of a module scope")
                 _, template, entries = setDomainDependants(
                     self.cgDoc,
                     parent,

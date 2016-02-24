@@ -442,6 +442,8 @@ class CallGraphParser(object):
         #analyse this line. handle the line according to current parser state.
         self.stateSwitch.get(self.state, self.processUndefinedState)(line)
 
+        logging.debug("line processed. parser in '%s' state. active symbols: %s" %(self.state, self.currSymbolsByName.keys()), extra={"hfLineNo":currLineNo, "hfFile":currFile})
+
     def processFile(self, fileName):
         self.lineNo = 1
         self.fileName = fileName
@@ -954,6 +956,7 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
             if self.currSymbolsByName[dependant].isModuleSymbol:
                 continue
             if self.currSymbolsByName[dependant].isMatched or (routineNode and routineNode.getAttribute('parallelRegionPosition') in [None, '']):
+                logging.debug("removing %s from active symbols" %(dependant))
                 del self.currSymbolsByName[dependant]
                 continue
             if len(self.currSymbolsByName[dependant].domains) == 0:
@@ -961,6 +964,7 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
                 #$$$ this code can probably be left away now that we analyze additional module symbols that haven't been declared domain dependant specifically within the module
                 self.currSymbolsByName[dependant].sourceModule = "HF90_LOCAL_MODULE"
                 self.currSymbolsByName[dependant].isModuleSymbol = True
+                logging.debug("removing %s from active symbols" %(dependant))
                 del self.currSymbolsByName[dependant]
                 continue
             unmatched.append(dependant)
@@ -1103,8 +1107,9 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
                 symbol.isHostSymbol = True
             else:
                 symbol.isModuleSymbol = False
-            self.currSymbolsByName[symbol.name] = symbol
-            logging.debug("symbol %s added to current context because of import %s" %(symbol, importMatch.group(0)))
+            if not symbol.uniqueIdentifier in self.currSymbolsByName:
+                self.currSymbolsByName[symbol.uniqueIdentifier] = symbol
+            logging.debug("symbol %s added to current context because of import %s; currently active: %s" %(symbol, importMatch.group(0), self.currSymbolsByName.keys()))
 
     def processModuleEndMatch(self, moduleEndMatch):
         #get handles to currently active symbols -> temporarily save the handles

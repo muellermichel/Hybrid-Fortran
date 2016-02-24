@@ -20,21 +20,9 @@
 
 module example
   @if {architecture(GPU)}
-  real(8), dimension(NX_STRIDE_MAX, NY_STRIDE_MAX, NZ) :: a_stride, b_stride, c_stride, d_stride
+  real(8), dimension(NX_STRIDE_MAX, NY_STRIDE_MAX, NZ), device :: a_stride, b_stride, c_stride, d_stride
   @end if
 contains
-
-  subroutine initialize()
-    @if {architecture(GPU)}
-    !$acc enter data create(a_stride, b_stride, c_stride, d_stride)
-    @end if
-  end subroutine
-
-  subroutine cleanup()
-    @if {architecture(GPU)}
-    !$acc exit data delete(a_stride, b_stride, c_stride, d_stride)
-    @end if
-  end subroutine
 
   subroutine run(nx, ny, a, b, c, d)
     implicit none
@@ -42,7 +30,6 @@ contains
     integer, intent(in) :: nx, ny
     real(8), dimension(NZ), intent(in) :: a, b
     real(8), dimension(NZ), intent(out) :: c, d
-
 
     @domainDependant{domName(x,y,z), domSize(nx,ny,NZ), domPP(DOM), accPP(AT)}
     a, b, c, d
@@ -81,17 +68,13 @@ contains
       do stride_y = 0, num_strides_y - 1
         stride_x_offset = stride_x * stride_x_size
         stride_y_offset = stride_y * stride_y_size
-        !$acc host_data use_device(a_stride, b_stride, c_stride, d_stride, a, b, c, d)
         GET_SLICE_3D(a_stride, a)
         GET_SLICE_3D(b_stride, b)
         GET_SLICE_3D(c_stride, c)
         GET_SLICE_3D(d_stride, d)
-        !$acc end host_data
         call kernel_wrapper(stride_x_size, stride_y_size, a_stride, b_stride, c_stride, d_stride)
-        !$acc host_data use_device(c_stride, d_stride, c, d)
         STORE_SLICE_3D(c, c_stride)
         STORE_SLICE_3D(d, d_stride)
-        !$acc end host_data
       end do
     end do
     @end if
@@ -186,9 +169,7 @@ program main
   c(:,:,:) = 0.0d0
   d(:,:,:) = 0.0d0
 
-  call initialize
   call run(nx, ny, a, b, c, d)
-  call cleanup
   write(6,*) "calculation complete"
 
   test = .TRUE.

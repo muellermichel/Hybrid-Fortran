@@ -44,6 +44,7 @@ class CallGraphParser(object):
     currTemplateName = None
     stateSwitch = None
     currSymbolsByName = None
+    stateBeforeBranch = None
 
     def __init__(self):
         self.patterns = RegExPatterns.Instance()
@@ -819,6 +820,7 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
 
     def processSymbolDeclMatch(self, paramDeclMatch, symbol):
         '''process everything that happens per h90 declaration symbol'''
+        logging.debug("processing symbol declaration for %s" %(symbol))
         symbol.isMatched = True
         symbol.loadDeclaration(
             paramDeclMatch,
@@ -827,19 +829,64 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
         )
 
     def processSymbolImportMatch(self, importMatch, symbol):
+        logging.debug("processing symbol import for %s" %(symbol))
         symbol.isMatched = True
         moduleName = importMatch.group(1)
         moduleNode = self.moduleNodesByName.get(moduleName)
         symbol.loadImportInformation(importMatch, self.cgDoc, moduleNode)
 
+    def processBranchMatch(self, branchMatch):
+        super(H90CallGraphAndSymbolDeclarationsParser, self).processBranchMatch(branchMatch)
+        branchSettingText = branchMatch.group(1).strip()
+        branchSettings = branchSettingText.split(",")
+        if len(branchSettings) != 1:
+            raise Exception("Invalid number of branch settings.")
+        branchSettingMatch = re.match(r'(\w*)\s*\(\s*(\w*)\s*\)', branchSettings[0].strip(), re.IGNORECASE)
+        if not branchSettingMatch:
+            raise Exception("Invalid branch setting definition.")
+        if self.state == "inside_branch":
+            raise Exception("Nested @if branches are not allowed in Hybrid Fortran")
+
+        self.stateBeforeBranch = self.state
+        if branchSettingMatch.group(1) == "parallelRegion":
+            if not self.currSubprocName:
+                raise UsageError("Cannot branch on parallelRegion outside a routine")
+            if branchSettingMatch.group(2) == self.routineNodesByProcName[self.currSubprocName].getAttribute('parallelRegionPosition').strip():
+                self.state = 'inside_branch'
+            else:
+                self.state = 'inside_ignore'
+        elif branchSettingMatch.group(1) == "architecture":
+            if branchSettingMatch.group(2).lower() in self.implementation.architecture:
+                self.state = 'inside_branch'
+            else:
+                self.state = 'inside_ignore'
+        else:
+            raise Exception("Invalid branch setting definition: Currently only parallelRegion and architecture setting accepted.")
+
+    def processInsideBranch(self, line):
+        super(H90CallGraphAndSymbolDeclarationsParser, self).processInsideBranch(line)
+        if self.patterns.branchEndPattern.match(str(line)):
+            self.state = self.stateBeforeBranch
+            self.stateBeforeBranch = None
+            return
+        self.stateSwitch.get(self.stateBeforeBranch, self.processUndefinedState)(line)
+
+    def processInsideIgnore(self, line):
+        super(H90CallGraphAndSymbolDeclarationsParser, self).processInsideIgnore(line)
+        if self.patterns.branchEndPattern.match(str(line)):
+            self.state = self.stateBeforeBranch
+            self.stateBeforeBranch = None
+
     def processInsideModuleState(self, line):
         super(H90CallGraphAndSymbolDeclarationsParser, self).processInsideModuleState(line)
+        if self.state not in ['inside_module', 'inside_branch'] or (self.state == 'inside_branch' and self.stateBeforeBranch != 'inside_module'):
+            return
         self.analyseSymbolInformationOnCurrentLine(line, isModuleSpecification=True)
 
     def processInsideDeclarationsState(self, line):
         '''process everything that happens per h90 declaration line'''
         super(H90CallGraphAndSymbolDeclarationsParser, self).processInsideDeclarationsState(line)
-        if (self.state != 'inside_branch' and self.state != 'inside_declarations') or (self.state == "inside_branch" and self.stateBeforeBranch != "inside_declarations"):
+        if self.state not in ['inside_declarations', 'inside_branch'] or (self.state == "inside_branch" and self.stateBeforeBranch != "inside_declarations"):
             return
         self.analyseSymbolInformationOnCurrentLine(line)
 

@@ -79,7 +79,6 @@ def getSymbolsByRoutineNameAndSymbolName(cgDoc, routineNodesByProcName, parallel
     return symbolsByRoutineNameAndSymbolName
 
 class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
-    stateBeforeBranch = None
     currentLineNeedsPurge = False
     tab_insideSub = "\t\t"
     tab_outsideSub = "\t"
@@ -508,31 +507,6 @@ This is not allowed for implementations using %s.\
 
     def processBranchMatch(self, branchMatch):
         super(H90toF90Converter, self).processBranchMatch(branchMatch)
-        branchSettingText = branchMatch.group(1).strip()
-        branchSettings = branchSettingText.split(",")
-        if len(branchSettings) != 1:
-            raise Exception("Invalid number of branch settings.")
-        branchSettingMatch = re.match(r'(\w*)\s*\(\s*(\w*)\s*\)', branchSettings[0].strip(), re.IGNORECASE)
-        if not branchSettingMatch:
-            raise Exception("Invalid branch setting definition.")
-        if self.state == "inside_branch":
-            raise Exception("Nested @if branches are not allowed in Hybrid Fortran")
-
-        self.stateBeforeBranch = self.state
-        if branchSettingMatch.group(1) == "parallelRegion":
-            if not self.currRoutine:
-                raise UsageError("Cannot branch on parallelRegion outside a routine")
-            if branchSettingMatch.group(2) == self.currRoutine.node.getAttribute('parallelRegionPosition').strip():
-                self.state = 'inside_branch'
-            else:
-                self.state = 'inside_ignore'
-        elif branchSettingMatch.group(1) == "architecture":
-            if branchSettingMatch.group(2).lower() in self.implementation.architecture:
-                self.state = 'inside_branch'
-            else:
-                self.state = 'inside_ignore'
-        else:
-            raise Exception("Invalid branch setting definition: Currently only parallelRegion and architecture setting accepted.")
         self.prepareLine("","")
         self.currentLineNeedsPurge = True
 
@@ -1157,21 +1131,13 @@ This is not allowed for implementations using %s.\
             self.prepareLine("", "")
 
     def processInsideBranch(self, line):
-        if self.patterns.branchEndPattern.match(str(line)):
-            self.state = self.stateBeforeBranch
-            self.stateBeforeBranch = None
+        super(H90toF90Converter, self).processInsideBranch(line)
+        if self.state != "inside_branch":
             self.prepareLine("", "")
-            return
-        self.stateSwitch.get(self.stateBeforeBranch, self.processUndefinedState)(line)
 
     def processInsideIgnore(self, line):
-        if self.patterns.branchEndPattern.match(str(line)):
-            self.state = self.stateBeforeBranch
-            self.stateBeforeBranch = None
-            self.prepareLine("", "")
-            return
-        if self.state == "inside_ignore":
-            self.prepareLine("", "")
+        super(H90toF90Converter, self).processInsideIgnore(line)
+        self.prepareLine("", "")
 
     def processLine(self, line):
         self.currentLineNeedsPurge = False

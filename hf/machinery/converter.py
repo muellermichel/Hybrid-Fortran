@@ -148,8 +148,7 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
             sys.exit(1)
 
     def switchToNewRegion(self):
-        self.currRegion = Region()
-        self.currRoutine.loadRegion(self.currRegion)
+        self.currRegion = self.currRoutine.createRegion()
 
     def endRegion(self):
         self.currRegion = None

@@ -18,6 +18,8 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
+from models.region import Region
+
 def containsKernels(routineNode):
 	return False
 
@@ -56,6 +58,11 @@ class AnalyzableRoutine(Routine):
 			return self.name
 		return uniqueIdentifier(self.name, self.implementation.architecture[0])
 
+	def createRegion(self):
+		self._currRegion = Region(self)
+		self._regions.append(self._currRegion)
+		return self._currRegion
+
 	def loadLine(self, line):
 		stripped = line.strip()
 		if stripped == "":
@@ -64,10 +71,6 @@ class AnalyzableRoutine(Routine):
 			self._headerText += stripped + "\n"
 			return
 		self._footerText += stripped + "\n"
-
-	def loadRegion(self, region):
-		self._currRegion = region
-		self._regions.append(region)
 
 	def implemented(self):
 		implementedRoutineElements = [self._headerText.strip() + "\n"] \

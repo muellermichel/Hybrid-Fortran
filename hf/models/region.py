@@ -18,10 +18,13 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
+import weakref
+
 class Region(object):
 
-	def __init__(self):
+	def __init__(self, parentRoutine):
 		self._text = ""
+		self._routine = weakref.ref(parentRoutine)
 
 	def loadLine(self, line):
 		stripped = line.strip()

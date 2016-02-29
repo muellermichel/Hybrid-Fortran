@@ -46,11 +46,7 @@ class Module(object):
 		self._undecidedText += stripped + "\n"
 
 	def createRoutine(self, name, routineNode, implementation):
-		routine = AnalyzableRoutine(
-            self.currSubprocName,
-            self.routineNodesByProcName.get(self.currSubprocName),
-            self.implementation
-        )
+		routine = AnalyzableRoutine(name, routineNode, implementation)
 		if self._undecidedText != "":
 			self._postTextByRoutine[self._lastRoutine.name] = self._undecidedText
 			self._undecidedText = ""

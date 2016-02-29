@@ -1021,23 +1021,10 @@ Parallel region position: %s"
 		self.initLevel = max(self.initLevel, Init.DECLARATION_LOADED)
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] declaration loaded for symbol %s. Domains at this point: %s" %(self.name, str(self.domains)))
 
-	def loadImportInformation(self, importMatch, cgDoc, moduleNode):
-		if self.initLevel < Init.TEMPLATE_LOADED:
-			raise Exception(
-				"Cannot load import information for %s at init level %s" %(
-					str(self),
-					self.initLevel
-				)
-			)
-		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] +++++++++ LOADING IMPORT INFORMATION ++++++++++ ")
+	def getModuleNameAndSourceSymbolNameFromImportMatch(self, importMatch):
 		sourceModuleName = importMatch.group(1)
-		self.sourceModule = sourceModuleName
-		if type(self.sourceModule) != str or self.sourceModule == "":
+		if sourceModuleName == "":
 			raise Exception("Invalid module in use statement for symbol %s" %(symbol.name))
-
-		#   The name used in the import pattern is just self.name - so store this as the scoped name for now
-		self._nameInScope = self.name
-
 		mapMatch = self.symbolImportMapPattern.match(importMatch.group(0))
 		sourceSymbolName = ""
 		if mapMatch:
@@ -1046,6 +1033,21 @@ Parallel region position: %s"
 				raise Exception("Invalid source symbol in use statement for symbol %s" %(symbol.name))
 		if sourceSymbolName == "":
 			sourceSymbolName = self.name
+		return sourceModuleName, sourceSymbolName
+
+	def loadImportInformation(self, sourceSymbolName, cgDoc, moduleNode):
+		if self.initLevel < Init.TEMPLATE_LOADED:
+			raise Exception(
+				"Cannot load import information for %s at init level %s" %(
+					str(self),
+					self.initLevel
+				)
+			)
+		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] +++++++++ LOADING IMPORT INFORMATION ++++++++++ ")
+		self.sourceModule = moduleNode.getAttribute('name')
+
+		#   The name used in the import pattern is just self.name - so store this as the scoped name for now
+		self._nameInScope = self.name
 		self.sourceSymbol = sourceSymbolName
 		if not moduleNode:
 			return
@@ -1069,9 +1071,9 @@ Parallel region position: %s"
 			# raise Exception("Symbol %s not found in module information available to Hybrid Fortran. Please use an appropriate @domainDependant specification." %(self.name))
 		informationLoadedFromModule = True
 		logging.debug(
-				"[" + str(self) + ".init " + str(self.initLevel) + "] Loading symbol information for %s imported from %s (import line: '%s')\n\
+				"[" + str(self) + ".init " + str(self.initLevel) + "] Loading symbol information for %s imported from %s\n\
 Current Domains: %s\n" %(
-					self.name, self.sourceModule, importMatch.group(0), str(self.domains)
+					self.name, self.sourceModule, str(self.domains)
 				)
 			)
 		attributes, domains, declarationPrefix, accPP, domPP = getAttributesDomainsDeclarationPrefixAndMacroNames(moduleTemplate, routineTemplate)

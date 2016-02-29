@@ -833,9 +833,9 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
     def processSymbolImportMatch(self, importMatch, symbol):
         logging.debug("processing symbol import for %s" %(symbol))
         symbol.isMatched = True
-        moduleName = importMatch.group(1)
+        moduleName, sourceName = getModuleNameAndSourceSymbolNameFromImportMatch(importMatch)
         moduleNode = self.moduleNodesByName.get(moduleName)
-        symbol.loadImportInformation(importMatch, self.cgDoc, moduleNode)
+        symbol.loadImportInformation(sourceName, self.cgDoc, moduleNode)
 
     def processBranchMatch(self, branchMatch):
         super(H90CallGraphAndSymbolDeclarationsParser, self).processBranchMatch(branchMatch)

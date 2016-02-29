@@ -181,8 +181,8 @@ def purgeDimensionAndGetAdjustedLine(line, patterns):
 	else:
 		return match.group(1) + match.group(3)
 
-def uniqueIdentifier(symbolName, nameOfScope):
-	return (symbolName + "_hfauto_" + nameOfScope).strip()
+def uniqueIdentifier(symbolName, suffix):
+	return (symbolName + "_hfauto_" + suffix).strip()
 
 MERGEABLE_DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES = {
 	"isPointer": False,
@@ -449,7 +449,9 @@ EXAMPLE:\n\
 
 	@property
 	def uniqueIdentifier(self):
-		return uniqueIdentifier(self.name, self.nameOfScope)
+		if not self.routineNode:
+			raise Exception("routine node needs to be loaded at this point")
+		return uniqueIdentifier(self.name, self.routineNode.getAttribute("name"))
 
 	def nameInScope(self, useDeviceVersionIfAvailable=True):
 		#Give a symbol representation that is guaranteed to *not* collide with any local namespace (as long as programmer doesn't use any 'hfXXX' pre- or postfixes)
@@ -1035,7 +1037,7 @@ Parallel region position: %s"
 			sourceSymbolName = self.name
 		return sourceModuleName, sourceSymbolName
 
-	def loadImportInformation(self, sourceSymbolName, cgDoc, moduleNode):
+	def loadImportInformation(self, cgDoc, moduleNode, sourceSymbolName=None):
 		if self.initLevel < Init.TEMPLATE_LOADED:
 			raise Exception(
 				"Cannot load import information for %s at init level %s" %(
@@ -1048,7 +1050,10 @@ Parallel region position: %s"
 
 		#   The name used in the import pattern is just self.name - so store this as the scoped name for now
 		self._nameInScope = self.name
-		self.sourceSymbol = sourceSymbolName
+		if sourceSymbolName != None:
+			self.sourceSymbol = sourceSymbolName
+		if self.sourceSymbol in [None, ""]:
+			raise Exception("no source symbol name defined for %s" %(self))
 		if not moduleNode:
 			return
 
@@ -1058,9 +1063,7 @@ Parallel region position: %s"
 		moduleTemplate = None
 		for template, entry in templatesAndEntries:
 			dependantName = entry.firstChild.nodeValue
-			if sourceSymbolName != "" and dependantName != sourceSymbolName:
-				continue
-			elif sourceSymbolName == "" and dependantName != self.name:
+			if dependantName != self.sourceSymbol:
 				continue
 			self.loadDomainDependantEntryNodeAttributes(entry, warnOnOverwrite=False)
 			moduleTemplate = template

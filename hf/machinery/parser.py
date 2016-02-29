@@ -833,9 +833,9 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
     def processSymbolImportMatch(self, importMatch, symbol):
         logging.debug("processing symbol import for %s" %(symbol))
         symbol.isMatched = True
-        moduleName, sourceName = getModuleNameAndSourceSymbolNameFromImportMatch(importMatch)
+        moduleName, sourceName = symbol.getModuleNameAndSourceSymbolNameFromImportMatch(importMatch)
         moduleNode = self.moduleNodesByName.get(moduleName)
-        symbol.loadImportInformation(sourceName, self.cgDoc, moduleNode)
+        symbol.loadImportInformation(self.cgDoc, moduleNode, sourceName)
 
     def processBranchMatch(self, branchMatch):
         super(H90CallGraphAndSymbolDeclarationsParser, self).processBranchMatch(branchMatch)
@@ -1064,6 +1064,9 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
         symbolList = importMatch.group(2).split(',')
         for entry in symbolList:
             stripped = entry.strip()
+            uid = uniqueIdentifier(stripped, parentNode.getAttribute("name"))
+            if self.currSymbolsByName.get(uid) != None:
+                continue
             mappedImportMatch = self.patterns.singleMappedImportPattern.match(stripped)
             sourceSymbol = None
             symbolInScope = None
@@ -1073,7 +1076,7 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
             else:
                 symbolInScope = stripped
                 sourceSymbol = symbolInScope
-            moduleSymbol = moduleSymbolsByName.get(uniqueIdentifier(sourceSymbol, moduleName))
+            moduleSymbol = moduleSymbolsByName.get(uid)
             if not moduleSymbol and moduleSymbolParsingRequired:
                 raise UsageError(
                     "No symbol information for symbol %s in module %s. Please make Hybrid Fortran aware of this symbol by declaring it in a @domainDependant{attribute(host)} directive in the module specification part." %(
@@ -1107,6 +1110,8 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
                 symbol.isHostSymbol = True
             else:
                 symbol.isModuleSymbol = False
+            if uid != symbol.uniqueIdentifier:
+                raise Exception("unique identifier does not match expectation")
             if not symbol.uniqueIdentifier in self.currSymbolsByName:
                 self.currSymbolsByName[symbol.uniqueIdentifier] = symbol
             logging.debug("symbol %s added to current context because of import %s; currently active: %s" %(symbol, importMatch.group(0), self.currSymbolsByName.keys()))

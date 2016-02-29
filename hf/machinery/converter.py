@@ -541,9 +541,15 @@ This is not allowed for implementations using %s.\
             self.currRoutine.node,
             self.currModule.node,
             self.parallelRegionTemplatesByProcName.get(self.currRoutine.name),
+            self.moduleNodesByName,
             self.currSymbolsByName,
             self.symbolAnalysisByRoutineNameAndSymbolName
         )
+        logging.debug("additional symbols for ourselves;\nimports: %s\ndeclarations: %s\ndummies: %s" %(
+            additionalImportsForOurSelves,
+            additionalDeclarationsForOurselves,
+            additionalDummies
+        ), extra={"hfLineNo":currLineNo, "hfFile":currFile})
         for symbol in additionalImportsForOurSelves + additionalDeclarationsForOurselves:
             symbol.isEmulatingSymbolThatWasActiveInCurrentScope = True
         toBeCompacted, declarationPrefix, otherImports = self.listCompactedSymbolsAndDeclarationPrefixAndOtherSymbols(
@@ -587,6 +593,7 @@ This is not allowed for implementations using %s.\
                     callee,
                     self.moduleNodesByName[callee.getAttribute('module')],
                     self.parallelRegionTemplatesByProcName.get(calleeName),
+                    self.moduleNodesByName,
                     self.currSymbolsByName,
                     self.symbolAnalysisByRoutineNameAndSymbolName
                 )
@@ -605,12 +612,12 @@ This is not allowed for implementations using %s.\
                         symbol.resetScope(self.currRoutine.name)
                     self.additionalWrapperImportsByKernelName[calleeName] = additionalImportsByName.values()
                 self.additionalParametersByKernelName[calleeName] = (additionalImportsForDeviceCompatibility, additionalDeclarationsForDeviceCompatibility + additionalDummies)
-                logging.debug("call to %s; additional imports for device compatibility:" %(calleeName))
-                logging.debug("\n".join([str(symbol) for symbol in additionalImportsForDeviceCompatibility]))
-                logging.debug("call to %s; additional declarations for device compatibility:" %(calleeName))
-                logging.debug("\n".join([str(symbol) for symbol in additionalDeclarationsForDeviceCompatibility]))
-                logging.debug("call to %s; additinal dummy parameters:" %(calleeName))
-                logging.debug("\n".join([str(symbol) for symbol in additionalDummies]))
+                logging.debug("call to %s; additional imports for device compatibility:" %(calleeName), extra={"hfLineNo":currLineNo, "hfFile":currFile})
+                logging.debug("\n".join([str(symbol) for symbol in additionalImportsForDeviceCompatibility]), extra={"hfLineNo":currLineNo, "hfFile":currFile})
+                logging.debug("call to %s; additional declarations for device compatibility:" %(calleeName), extra={"hfLineNo":currLineNo, "hfFile":currFile})
+                logging.debug("\n".join([str(symbol) for symbol in additionalDeclarationsForDeviceCompatibility]), extra={"hfLineNo":currLineNo, "hfFile":currFile})
+                logging.debug("call to %s; additinal dummy parameters:" %(calleeName), extra={"hfLineNo":currLineNo, "hfFile":currFile})
+                logging.debug("\n".join([str(symbol) for symbol in additionalDummies]), extra={"hfLineNo":currLineNo, "hfFile":currFile})
                 if callee.getAttribute("parallelRegionPosition") != "within":
                     continue
                 self.currRoutineIsCallingParallelRegion = True

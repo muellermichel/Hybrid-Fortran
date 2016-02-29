@@ -106,6 +106,7 @@ class FortranImplementation(object):
 		routineNode,
 		moduleNode,
 		parallelRegionTemplates,
+		moduleNodesByName,
 		currSymbolsByName={},
 		symbolAnalysisByRoutineNameAndSymbolName={}
 	):
@@ -723,8 +724,10 @@ end if\n" %(calleeNode.getAttribute('name'))
 		routineNode,
 		moduleNode,
 		parallelRegionTemplates,
+		moduleNodesByName,
 		currSymbolsByName={},
-		symbolAnalysisByRoutineNameAndSymbolName={}
+		symbolAnalysisByRoutineNameAndSymbolName={},
+
 	):
 		def getAdditionalImportsAndDeclarationsForParentScope(parentNode, argumentSymbolNames):
 			additionalImports = []
@@ -737,27 +740,35 @@ end if\n" %(calleeNode.getAttribute('name'))
 					continue #in case user is working with slices and passing them to different symbols inside the kernel, he has to manage that stuff manually
 				symbol = currSymbolsByName.get(dependantName)
 				if symbol == None:
-					logging.debug("while analyzing additional kernel parameters: symbol %s was not available yet for parent %s, so it was loaded freshly" %(
+					logging.debug("while analyzing additional kernel parameters: symbol %s was not available yet for parent %s, so it was loaded freshly;\nCurrent symbols:%s\n" %(
 						dependantName,
-						parentNode.getAttribute('name')
+						parentNode.getAttribute('name'),
+						currSymbolsByName.keys()
 					))
 					symbol = Symbol(
-			            dependantName,
-			            template,
-			            symbolEntry=entry,
-			            scopeNode=parentNode,
-			            analysis=getAnalysisForSymbol(symbolAnalysisByRoutineNameAndSymbolName, parentNode.getAttribute('name'), dependantName),
-			            parallelRegionTemplates=parallelRegionTemplates
-			        )
+						dependantName,
+						template,
+						symbolEntry=entry,
+						scopeNode=parentNode,
+						analysis=getAnalysisForSymbol(symbolAnalysisByRoutineNameAndSymbolName, parentNode.getAttribute('name'), dependantName),
+						parallelRegionTemplates=parallelRegionTemplates
+					)
 				symbol.loadRoutineNodeAttributes(parentNode, parallelRegionTemplates)
 				if symbol.isDummySymbolForRoutine(routineName=parentNode.getAttribute('name')):
 					continue #already passed manually
 				if symbol.declarationType == DeclarationType.LOCAL_MODULE_SCALAR \
 				and routineNode.getAttribute('module') == moduleNode.getAttribute('name'):
+					logging.debug("decl added for %s" %(symbol))
 					additionalDeclarations.append(symbol)
-				elif (symbol.analysis and symbol.analysis.isModuleSymbol) or symbol.declarationType == DeclarationType.FOREIGN_MODULE_SCALAR:
+				elif (symbol.analysis and symbol.analysis.isModuleSymbol) \
+				or symbol.declarationType == DeclarationType.FOREIGN_MODULE_SCALAR:
+					if symbol.sourceModule != moduleNode.getAttribute('name'):
+						foreignModuleNode = moduleNodesByName[symbol.sourceModule]
+						symbol.loadImportInformation(cgDoc, foreignModuleNode)
+					logging.debug("import added for %s" %(symbol))
 					additionalImports.append(symbol)
 				elif symbol.declarationType == DeclarationType.LOCAL_ARRAY:
+					logging.debug("dummy added for %s" %(symbol))
 					additionalDummies.append(symbol)
 			return additionalImports, additionalDeclarations, additionalDummies
 
@@ -769,9 +780,11 @@ end if\n" %(calleeNode.getAttribute('name'))
 			if not argumentMatch:
 				raise UsageError("illegal argument: %s" %(argument))
 			argumentSymbolNames.append(argumentMatch.group(1))
+		logging.debug("============ loading additional symbols for module %s ===============" %(moduleNode.getAttribute("name")))
 		moduleImports, moduleDeclarations, additionalDummies = getAdditionalImportsAndDeclarationsForParentScope(moduleNode, argumentSymbolNames)
 		if len(additionalDummies) != 0:
 			raise Exception("dummies are supposed to be added for module scope symbols")
+		logging.debug("============ loading additional symbols for routine %s ==============" %(routineNode.getAttribute("name")))
 		routineImports, routineDeclarations, additionalDummies = getAdditionalImportsAndDeclarationsForParentScope(routineNode, argumentSymbolNames)
 		return sorted(routineImports + moduleImports), sorted(routineDeclarations + moduleDeclarations), sorted(additionalDummies)
 

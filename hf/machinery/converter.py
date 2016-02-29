@@ -406,22 +406,22 @@ This is not allowed for implementations using %s.\
             compactedArrayList = [compactedArray]
         additionalSymbols = sorted(notToBeCompacted + compactedArrayList)
         if len(additionalSymbols) > 0:
-            adjustedLine = adjustedLine + "( &\n"
+            adjustedLine += "( &\n"
         else:
-            adjustedLine = adjustedLine + "("
-        symbolNum = 0
-        bridgeStr1 = ", & !additional parameter"
+            adjustedLine += "("
+        bridgeStr1 = "& !additional parameter"
         bridgeStr2 = "inserted by framework\n" + self.tab_insideSub + "& "
-        for symbol in additionalSymbols:
+        for symbolNum, symbol in enumerate(additionalSymbols):
             hostName = symbol.nameInScope()
-            adjustedLine = adjustedLine + hostName
+            adjustedLine += hostName
+            if symbolNum < len(additionalSymbols) - 1:
+                adjustedLine += ", "
             if symbolNum < len(additionalSymbols) - 1 or paramListMatch:
-                adjustedLine = adjustedLine + "%s (type %i) %s" %(bridgeStr1, symbol.declarationType, bridgeStr2)
-            symbolNum = symbolNum + 1
+                adjustedLine += "%s (type %i) %s" %(bridgeStr1, symbol.declarationType, bridgeStr2)
         if paramListMatch:
-            adjustedLine = adjustedLine + self.processSymbolsAndGetAdjustedLine(paramListMatch.group(2), isInsideSubroutineCall=True)
+            adjustedLine += self.processSymbolsAndGetAdjustedLine(paramListMatch.group(2), isInsideSubroutineCall=True)
         else:
-            adjustedLine = adjustedLine + ")\n"
+            adjustedLine += ")\n"
 
         callPreparationForSymbols = ""
         callPostForSymbols = ""
@@ -816,13 +816,14 @@ This is not allowed for implementations using %s.\
                 additionalDeclarationsStr = "\n" + self.tab_insideSub + \
                  "! ****** additional symbols inserted by framework to emulate device support of language features\n"
 
+            defaultPurgeList = ['intent', 'public', 'parameter', 'allocatable']
             #########################################################################
             # create declaration lines for symbols for ourself                      #
             #########################################################################
             for symbol in ourSymbolsToAdd:
-                purgeList=['public', 'parameter']
-                if symbol.isCompacted:
-                    purgeList=['intent', 'public', 'parameter']
+                purgeList = defaultPurgeList
+                if not symbol.isCompacted:
+                    purgeList=['public', 'parameter', 'allocatable']
                 additionalDeclarationsStr += self.tab_insideSub + self.implementation.adjustDeclarationForDevice(
                     self.tab_insideSub +
                         symbol.getDeclarationLineForAutomaticSymbol(purgeList).strip(),
@@ -868,7 +869,7 @@ This is not allowed for implementations using %s.\
                     logging.debug("...In subroutine %s: Domains of Symbol %s adjusted to %s" %(self.currRoutine.name, symbol, adjustedDomains))
 
                     additionalDeclarationsStr += implementation.adjustDeclarationForDevice(
-                        symbol.getDeclarationLineForAutomaticSymbol(purgeList=['intent', 'public', 'parameter']).strip(),
+                        symbol.getDeclarationLineForAutomaticSymbol(defaultPurgeList).strip(),
                         [symbol],
                         self.currRoutineIsCallingParallelRegion,
                         self.currRoutine.node.getAttribute('parallelRegionPosition')

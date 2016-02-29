@@ -18,6 +18,8 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
+from models.routine import AnalyzableRoutine
+
 class Module(object):
 
 	def __init__(self, name, moduleNode):
@@ -43,7 +45,12 @@ class Module(object):
 			return
 		self._undecidedText += stripped + "\n"
 
-	def loadRoutine(self, routine):
+	def createRoutine(self, name, routineNode, implementation):
+		routine = AnalyzableRoutine(
+            self.currSubprocName,
+            self.routineNodesByProcName.get(self.currSubprocName),
+            self.implementation
+        )
 		if self._undecidedText != "":
 			self._postTextByRoutine[self._lastRoutine.name] = self._undecidedText
 			self._undecidedText = ""
@@ -56,6 +63,7 @@ class Module(object):
 		routinesByImplementationClass[routine.implementation.__class__.__name__] = routine
 		self._routinesByNameAndImplementationClass[routine.name] = routinesByImplementationClass
 		self._postTextByRoutine[routine.name] = ""
+		return routine
 
 	def implemented(self):
 		self._footerText = self._undecidedText

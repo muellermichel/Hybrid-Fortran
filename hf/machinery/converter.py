@@ -20,7 +20,6 @@
 
 import os, sys, re, traceback, logging
 from models.symbol import *
-from models.region import Region
 from models.routine import Routine, AnalyzableRoutine
 from models.module import Module
 from tools.metadata import *
@@ -527,12 +526,11 @@ This is not allowed for implementations using %s.\
 
     def processProcBeginMatch(self, subProcBeginMatch):
         super(H90toF90Converter, self).processProcBeginMatch(subProcBeginMatch)
-        self.currRoutine = AnalyzableRoutine(
+        self.currRoutine = self.currModule.createRoutine(
             self.currSubprocName,
             self.routineNodesByProcName.get(self.currSubprocName),
             self.implementation
         )
-        self.currModule.loadRoutine(self.currRoutine)
 
         #build list of additional subroutine parameters
         #(parameters that the user didn't specify but that are necessary based on the features of the underlying technology

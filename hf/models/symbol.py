@@ -21,13 +21,15 @@
 import re, sys, copy
 import logging
 import pdb
+from models.region import RegionType
 from tools.metadata import *
 from tools.commons import enum, BracketAnalyzer
 from tools.patterns import RegExPatterns
 from tools.commons import Singleton, UsageError
 from tools.analysis import SymbolDependencyAnalyzer, SymbolType
 
-Init = enum("NOTHING_LOADED",
+Init = enum(
+	"NOTHING_LOADED",
 	"TEMPLATE_LOADED",
 	"DEPENDANT_ENTRYNODE_ATTRIBUTES_LOADED",
 	"ROUTINENODE_ATTRIBUTES_LOADED",
@@ -94,7 +96,8 @@ Init = enum("NOTHING_LOADED",
 #Set of declaration types that are mutually exlusive for
 #declaration lines in Hybrid Fortran.
 #-> You cannot mix and match declarations of different types
-DeclarationType = enum("UNDEFINED",
+DeclarationType = enum(
+	"UNDEFINED",
 	"LOCAL_ARRAY",
 	"LOCAL_MODULE_SCALAR",
 	"MODULE_ARRAY",
@@ -869,10 +872,7 @@ EXAMPLE:\n\
 
 		#   look at declaration of symbol and get its                 #
 		#   dimensions.                                               #
-		dimensionStr, remainder = self.getDimensionStringAndRemainderFromDeclMatch(
-			paramDeclMatch,
-			patterns.dimensionPattern
-		)
+		dimensionStr, remainder = self.getDimensionStringAndRemainderFromDeclMatch(paramDeclMatch)
 		dimensionSizes = [sizeStr.strip() for sizeStr in dimensionStr.split(',') if sizeStr.strip() != ""]
 		if self.isAutoDom:
 			logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] reordering domains for symbol %s with autoDom option." %(self.name))
@@ -1096,12 +1096,12 @@ Current Domains: %s\n" %(
 				)
 			)
 
-	def getDimensionStringAndRemainderFromDeclMatch(self, paramDeclMatch, dimensionPattern):
+	def getDimensionStringAndRemainderFromDeclMatch(self, paramDeclMatch):
 		prefix = paramDeclMatch.group(1)
 		postfix = paramDeclMatch.group(2)
 		dimensionStr = ""
 		remainder = ""
-		dimensionMatch = dimensionPattern.match(prefix, re.IGNORECASE)
+		dimensionMatch = self.patterns.dimensionPattern.match(prefix, re.IGNORECASE)
 		if dimensionMatch:
 			dimensionStr = dimensionMatch.group(2)
 		else:
@@ -1117,12 +1117,15 @@ Current Domains: %s\n" %(
 		#         %(self.name, dimensionStr))
 		return dimensionStr, postfix
 
-	def getAdjustedDeclarationLine(self, paramDeclMatch, parallelRegionTemplates, dimensionPattern):
+	def getAdjustedDeclarationLine(self, paramDeclMatch, declarationRegionType):
 		'''process everything that happens per h90 declaration symbol'''
+		if declarationRegionType == RegionType.MODULE_DECLARATION:
+			return paramDeclMatch.group(0)
+
 		prefix = paramDeclMatch.group(1)
 		postfix = paramDeclMatch.group(2)
 
-		dimensionStr, postfix = self.getDimensionStringAndRemainderFromDeclMatch(paramDeclMatch, dimensionPattern)
+		_, postfix = self.getDimensionStringAndRemainderFromDeclMatch(paramDeclMatch)
 		return prefix + str(self) + postfix
 
 	def getSanitizedDeclarationPrefix(self, purgeList=[]):

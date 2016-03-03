@@ -22,6 +22,7 @@ import os, sys, re, traceback, logging
 from models.symbol import *
 from models.routine import Routine, AnalyzableRoutine
 from models.module import Module
+from models.region import RegionType
 from tools.metadata import *
 from tools.commons import UsageError, BracketAnalyzer
 from tools.analysis import SymbolDependencyAnalyzer, getAnalysisForSymbol, getArguments
@@ -336,9 +337,9 @@ This is not allowed for implementations using %s.\
                 self.symbolsPassedInCurrentCallByName[symbolName] = symbol
         return adjustedLine.rstrip() + "\n"
 
-    def processSymbolImportAndGetAdjustedLine(self, importMatch):
+    def processSymbolImportAndGetAdjustedLine(self, line):
         return self.implementation.adjustImportForDevice(\
-            importMatch.group(0), \
+            line, \
             self.currRoutine.node.getAttribute('parallelRegionPosition')
         )
 
@@ -494,6 +495,49 @@ This is not allowed for implementations using %s.\
             adjustedLine += " & !additional type %i symbol inserted by framework \n" %(symbol.declarationType) + self.tab_outsideSub + "& "
             symbolNum = symbolNum + 1
         return adjustedLine + paramListStr
+
+    def processDeclarationLineAndGetAdjustedLine(self, line):
+        baseline = line
+        if self.currentLineNeedsPurge:
+            baseline = ""
+        adjustedLine = baseline
+
+        declarationRegionType = RegionType.OTHER
+        if self.currRoutine and self.currRoutineIsCallingParallelRegion:
+            declarationRegionType = RegionType.KERNEL_CALLER_DECLARATION
+        elif not self.currRoutine:
+            declarationRegionType = RegionType.MODULE_DECLARATION
+
+        for symbol in self.symbolsOnCurrentLine:
+            match = symbol.getDeclarationMatch(str(adjustedLine))
+            if not match:
+                raise Exception("Symbol %s not found on a line where it has already been identified before. Current string to search: %s" \
+                    %(symbol, adjustedLine))
+            adjustedLine = symbol.getAdjustedDeclarationLine(match, declarationRegionType)
+
+        if adjustedLine != baseline and declarationRegionType != RegionType.MODULE_DECLARATION:
+            #$$$ this is scary. isn't there a better state test for this?
+            adjustedLine = purgeFromDeclarationSettings(
+                adjustedLine,
+                self.symbolsOnCurrentLine,
+                self.patterns,
+                purgeList=['intent', 'allocatable', 'dimension'],
+                withAndWithoutIntent=True
+            )
+            purgeDimensionAndGetAdjustedLine(adjustedLine, self.patterns)
+            adjustedLine = str(adjustedLine).rstrip() + "\n"
+
+        if len(self.symbolsOnCurrentLine) > 0:
+            adjustedLine = self.implementation.adjustDeclarationForDevice(adjustedLine,
+                self.symbolsOnCurrentLine,
+                declarationRegionType,
+                self.currRoutine.node.getAttribute('parallelRegionPosition') if self.currRoutine else "inside"
+            )
+
+        for symbol in self.importsOnCurrentLine:
+            adjustedLine = self.processSymbolImportAndGetAdjustedLine(line)
+
+        return adjustedLine
 
     def processTemplateMatch(self, templateMatch):
         super(H90toF90Converter, self).processTemplateMatch(templateMatch)
@@ -725,6 +769,12 @@ This is not allowed for implementations using %s.\
                 otherImports.append(symbol)
         return toBeCompacted, declarationPrefix, otherImports
 
+    def processInsideModuleState(self, line):
+        super(H90toF90Converter, self).processInsideModuleState(line)
+        if self.state not in ['inside_module', 'inside_branch'] or (self.state == 'inside_branch' and self.stateBeforeBranch != 'inside_module'):
+            return
+        self.prepareLine(self.processDeclarationLineAndGetAdjustedLine(line), self.tab_outsideSub)
+
     def processInsideDeclarationsState(self, line):
         '''process everything that happens per h90 declaration line'''
         subProcCallMatch = self.patterns.subprocCallPattern.match(str(line))
@@ -935,41 +985,7 @@ This is not allowed for implementations using %s.\
             return
 
         self.analyseSymbolInformationOnCurrentLine(line)
-
-        baseline = line
-        if self.currentLineNeedsPurge:
-            baseline = ""
-        adjustedLine = baseline
-
-        for symbol in self.symbolsOnCurrentLine:
-            match = symbol.getDeclarationMatch(str(adjustedLine))
-            if not match:
-                raise Exception("Symbol %s not found on a line where it has already been identified before. Current string to search: %s" \
-                    %(symbol, adjustedLine))
-            adjustedLine = symbol.getAdjustedDeclarationLine(match, \
-                self.parallelRegionTemplatesByProcName.get(self.currRoutine.name), \
-                self.patterns.dimensionPattern \
-            )
-
-        if adjustedLine != baseline:
-            #$$$ this is scary. isn't there a better state test for this?
-            adjustedLine = purgeDimensionAndGetAdjustedLine(adjustedLine, self.patterns)
-            adjustedLine = str(adjustedLine).rstrip() + "\n"
-
-        if len(self.symbolsOnCurrentLine) > 0:
-            adjustedLine = self.implementation.adjustDeclarationForDevice(adjustedLine, \
-                self.symbolsOnCurrentLine, \
-                self.currRoutineIsCallingParallelRegion, \
-                self.currRoutine.node.getAttribute('parallelRegionPosition') \
-            )
-
-        for symbol in self.importsOnCurrentLine:
-            match = symbol.symbolImportPattern.match(str(adjustedLine))
-            if not match:
-                continue #$$$ when does this happen?
-            adjustedLine = self.processSymbolImportAndGetAdjustedLine(match)
-
-        self.prepareLine(adjustedLine, self.tab_insideSub)
+        self.prepareLine(self.processDeclarationLineAndGetAdjustedLine(line), self.tab_insideSub)
 
     def processInsideSubroutineBodyState(self, line):
         '''process everything that happens per h90 subroutine body line'''

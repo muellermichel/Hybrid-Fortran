@@ -19,6 +19,7 @@
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
 from models.symbol import Symbol, DeclarationType, purgeFromDeclarationSettings
+from models.region import RegionType
 from tools.analysis import getAnalysisForSymbol
 from tools.patterns import RegExPatterns
 from tools.commons import UsageError
@@ -93,7 +94,7 @@ class FortranImplementation(object):
 	def adjustImportForDevice(self, line, parallelRegionPosition):
 		return line
 
-	def adjustDeclarationForDevice(self, line, dependantSymbols, routineIsKernelCaller, parallelRegionPosition):
+	def adjustDeclarationForDevice(self, line, dependantSymbols, declarationRegionType, parallelRegionPosition):
 		return line
 
 	def additionalIncludes(self):
@@ -280,7 +281,7 @@ class OpenMPFortranImplementation(FortranImplementation):
 		return FortranImplementation.subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, is_subroutine_end)
 
 class DeviceDataFortranImplementation(FortranImplementation):
-	def adjustDeclarationForDevice(self, line, dependantSymbols, routineIsKernelCaller, parallelRegionPosition):
+	def adjustDeclarationForDevice(self, line, dependantSymbols, declarationRegionType, parallelRegionPosition):
 		if not dependantSymbols or len(dependantSymbols) == 0:
 			raise Exception("no symbols to adjust")
 
@@ -293,11 +294,12 @@ class DeviceDataFortranImplementation(FortranImplementation):
 				symbol.isPresent = True
 
 		#$$$ generalize this using using symbol.getSanitizedDeclarationPrefix with a new 'intent' parameter
-		declarationDirectivesWithoutIntent, declarationDirectives,  symbolDeclarationStr = purgeFromDeclarationSettings( \
-			line, \
-			dependantSymbols, \
-			self.patterns, \
-			withAndWithoutIntent=True \
+		declarationDirectivesWithoutIntent, declarationDirectives,  symbolDeclarationStr = purgeFromDeclarationSettings(
+			line,
+			dependantSymbols,
+			self.patterns,
+			purgeList=['intent', 'allocatable', 'dimension'],
+			withAndWithoutIntent=True
 		)
 
 		#analyse state of symbols - already declared as on device or not?
@@ -376,12 +378,12 @@ Symbols vs host attributes:\n%s" %(str([(symbol.name, symbol.isHostSymbol) for s
 			if isOnHost == "yes":
 				for dependantSymbol in dependantSymbols:
 					dependantSymbol.isOnDevice = False
-			elif alreadyOnDevice == "yes" or (intent in [None, "", "local"] and routineIsKernelCaller):
+			elif alreadyOnDevice == "yes" or (intent in [None, "", "local"] and declarationRegionType == RegionType.KERNEL_CALLER_DECLARATION):
 				# we don't need copies of the dependants on cpu
 				adjustedLine = "%s, %s :: %s" %(declarationDirectives, deviceType, symbolDeclarationStr)
 				for dependantSymbol in dependantSymbols:
 					dependantSymbol.isOnDevice = True
-			elif copyHere == "yes" or routineIsKernelCaller:
+			elif copyHere == "yes" or declarationRegionType in [RegionType.KERNEL_CALLER_DECLARATION, RegionType.MODULE_DECLARATION]:
 				for dependantSymbol in dependantSymbols:
 					dependantSymbol.isUsingDevicePostfix = True
 					dependantSymbol.isOnDevice = True

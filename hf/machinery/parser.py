@@ -207,7 +207,8 @@ class CallGraphParser(object):
             else:
                 self.state = 'inside_module_body'
         else:
-            self.processNoMatch(line)
+            #let the child implementation decide what to do here.
+            pass
 
 
     def processInsideModuleBodyState(self, line):

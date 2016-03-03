@@ -19,6 +19,13 @@
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
 import weakref
+from tools.commons import enum
+
+RegionType = enum(
+	"MODULE_DECLARATION",
+	"KERNEL_CALLER_DECLARATION",
+	"OTHER"
+)
 
 class Region(object):
 

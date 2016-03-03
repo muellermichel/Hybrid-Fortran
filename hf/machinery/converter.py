@@ -517,15 +517,7 @@ This is not allowed for implementations using %s.\
 
         if adjustedLine != baseline and declarationRegionType != RegionType.MODULE_DECLARATION:
             #$$$ this is scary. isn't there a better state test for this?
-            adjustedLine = purgeFromDeclarationSettings(
-                adjustedLine,
-                self.symbolsOnCurrentLine,
-                self.patterns,
-                purgeList=['intent', 'allocatable', 'dimension'],
-                withAndWithoutIntent=True
-            )
-            purgeDimensionAndGetAdjustedLine(adjustedLine, self.patterns)
-            adjustedLine = str(adjustedLine).rstrip() + "\n"
+            adjustedLine = purgeDimensionAndGetAdjustedLine(adjustedLine, self.patterns).rstrip() + "\n"
 
         if len(self.symbolsOnCurrentLine) > 0:
             adjustedLine = self.implementation.adjustDeclarationForDevice(adjustedLine,

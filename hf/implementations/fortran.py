@@ -399,7 +399,7 @@ Symbols vs host attributes:\n%s" %(str([(symbol.name, symbol.isHostSymbol) for s
 				continue
 			if symbol.isPresent:
 				continue
-			if (symbol.intent == "in" or symbol.intent == "inout") \
+			if symbol.intent in ["in", "inout"] \
 			and (routineIsKernelCaller or symbol.isToBeTransfered):
 				symbol.isUsingDevicePostfix = False
 				originalStr = symbol.selectAllRepresentation()
@@ -419,7 +419,7 @@ Symbols vs host attributes:\n%s" %(str([(symbol.name, symbol.isHostSymbol) for s
 				continue
 			if symbol.isPresent:
 				continue
-			if (symbol.intent == "out" or symbol.intent == "inout") \
+			if symbol.intent in ["out", "inout"] \
 			and (routineIsKernelCaller or symbol.isToBeTransfered):
 				symbol.isUsingDevicePostfix = False
 				originalStr = symbol.selectAllRepresentation()

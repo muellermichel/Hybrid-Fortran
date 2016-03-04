@@ -658,28 +658,32 @@ This is not allowed for implementations using %s.\
                     continue
                 self.currRoutineIsCallingParallelRegion = True
 
-        additionalImports = self.filterOutSymbolsAlreadyAliveInCurrentScope(
-            sum(
-                [self.additionalParametersByKernelName[kernelName][0] for kernelName in self.additionalParametersByKernelName.keys()],
-                []
-            ) + sum(
-                [self.additionalWrapperImportsByKernelName[kernelName] for kernelName in self.additionalWrapperImportsByKernelName.keys()],
-                []
+        additionalImportsByScopedName = dict(
+            (symbol.nameInScope(), symbol)
+            for symbol in self.filterOutSymbolsAlreadyAliveInCurrentScope(
+                sum(
+                    [self.additionalParametersByKernelName[kernelName][0] for kernelName in self.additionalParametersByKernelName.keys()],
+                    []
+                ) + sum(
+                    [self.additionalWrapperImportsByKernelName[kernelName] for kernelName in self.additionalWrapperImportsByKernelName.keys()],
+                    []
+                )
             )
         )
         logging.debug(
             "curr Module: %s; additional imports: %s" %(
                 self.currModuleName,
-                ["%s: %s from %s" %(symbol.name, symbol.declarationType, symbol.sourceModule) for symbol in additionalImports]
+                ["%s: %s from %s" %(symbol.name, symbol.declarationType, symbol.sourceModule) for symbol in additionalImportsByScopedName.values()]
             ),
             extra={"hfLineNo":currLineNo, "hfFile":currFile}
         )
-        for symbol in additionalImports:
+        for symbolNameInScope in additionalImportsByScopedName:
+            symbol = additionalImportsByScopedName[symbolNameInScope]
             if symbol.declarationType not in [DeclarationType.FOREIGN_MODULE_SCALAR, DeclarationType.LOCAL_ARRAY, DeclarationType.MODULE_ARRAY]:
                 continue
             adjustedLine += "use %s, only : %s => %s\n" %(
                 symbol.sourceModule,
-                symbol.nameInScope(),
+                symbolNameInScope,
                 symbol.sourceSymbol if symbol.sourceSymbol not in [None, ""] else symbol.name
             )
         self.prepareLine(adjustedLine + self.implementation.additionalIncludes(), self.tab_insideSub)
@@ -881,7 +885,7 @@ This is not allowed for implementations using %s.\
             #########################################################################
             # create declaration lines for called kernels                           #
             #########################################################################
-            for calleeName in self.additionalParametersByKernelName.keys():
+            for calleeName in self.additionalParametersByKernelName:
                 additionalImports, additionalDeclarations = self.additionalParametersByKernelName[calleeName]
                 additionalImportSymbolsByName = {}
                 for symbol in additionalImports:

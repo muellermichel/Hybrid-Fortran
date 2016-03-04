@@ -465,7 +465,16 @@ EXAMPLE:\n\
 					return aliasName
 			if symbol.nameIsGuaranteedUniqueInScope:
 				return symbol.name
-			referencingName = symbol.uniqueIdentifier
+			referencingName = None
+			if symbol.declarationType in [
+				DeclarationType.LOCAL_MODULE_SCALAR,
+				DeclarationType.MODULE_ARRAY,
+				DeclarationType.FOREIGN_MODULE_SCALAR,
+				DeclarationType.MODULE_ARRAY_PASSED_IN_AS_ARGUMENT
+			] and symbol.sourceModule not in [None, ""]:
+				referencingName = uniqueIdentifier(self.name, self.sourceModule)
+			else:
+				referencingName = symbol.uniqueIdentifier
 			return referencingName[:min(len(referencingName), 31)] #cut after 31 chars because of Fortran 90 limitation
 
 		if self.isEmulatingSymbolThatWasActiveInCurrentScope:

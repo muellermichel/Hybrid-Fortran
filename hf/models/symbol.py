@@ -192,7 +192,7 @@ MERGEABLE_DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES = {
 	"isMatched": False,
 	"declarationPrefix": None,
 	"sourceModule": None,
-	"sourceSymbol": None,
+	"_sourceSymbol": None,
 	"parallelRegionTemplates": None,
 	"declaredDimensionSizes": None,
 	"_isPresent": False,
@@ -290,13 +290,13 @@ class Symbol(object):
 		return False
 
 	@property
-	def isArgument(self):
-		return self._isArgumentOverride or (self.analysis and self.analysis.symbolType in [SymbolType.ARGUMENT_WITH_DOMAIN_DEPENDANT_SPEC, SymbolType.ARGUMENT])
-
-	@property
 	def namePattern(self):
 		symbolName = self._nameInScope if self._nameInScope != None else self.name
 		return self.patterns.get(r'((?:[^\"\']|(?:\".*\")|(?:\'.*\'))*?(?:\W|^))(' + re.escape(symbolName) + r'(?:_d)?)((?:\W.*)|\Z)')
+
+	@property
+	def isArgument(self):
+		return self._isArgumentOverride or (self.analysis and self.analysis.symbolType in [SymbolType.ARGUMENT_WITH_DOMAIN_DEPENDANT_SPEC, SymbolType.ARGUMENT])
 
 	@isArgument.setter
 	def isArgument(self, _isArgumentOverride):
@@ -323,6 +323,18 @@ class Symbol(object):
 		self._nameOfScopeOverride = _nameOfScopeOverride
 
 	@property
+	def sourceSymbol(self):
+		if not self._sourceSymbol:
+			return None
+		if self.isUsingDevicePostfix:
+			return self._sourceSymbol + "_d"
+		return self._sourceSymbol
+
+	@sourceSymbol.setter
+	def sourceSymbol(self, _sourceSymbol):
+		self._sourceSymbol = _sourceSymbol
+
+	@property
 	def isHostSymbol(self):
 		return self._isHostSymbol and not self._isPresent and not self._isToBeTransfered
 
@@ -332,6 +344,8 @@ class Symbol(object):
 
 	@property
 	def isPresent(self):
+		if self.parallelRegionPosition == "within":
+			return True #as a general rule in HF, if we have a kernel in our subroutine, all symbols are to be already present on the device
 		return self._isPresent
 
 	@isPresent.setter
@@ -352,6 +366,8 @@ class Symbol(object):
 
 	@property
 	def isToBeTransfered(self):
+		if self.parallelRegionPosition == "within":
+			return False
 		return self._isToBeTransfered
 
 	@property
@@ -648,6 +664,7 @@ EXAMPLE:\n\
 			domainDependantEntryNode.setAttribute("sourceModule", self.sourceModule)
 		if self.sourceSymbol:
 			domainDependantEntryNode.setAttribute("sourceSymbol", self.sourceSymbol)
+		domainDependantEntryNode.setAttribute("isUsingDevicePostfix", "yes" if self.isUsingDevicePostfix else "no")
 		domainDependantEntryNode.setAttribute("isPointer", "yes" if self.isPointer else "no")
 		if self.domains and len(self.domains) > 0:
 			domainDependantEntryNode.setAttribute(
@@ -668,7 +685,8 @@ EXAMPLE:\n\
 		self.sourceSymbol = domainDependantEntryNode.getAttribute("sourceSymbol") if self.sourceSymbol in [None, ''] else self.sourceSymbol
 		if self.isModuleSymbol:
 			self.sourceModule = "HF90_LOCAL_MODULE" if self.sourceModule in [None, ''] else self.sourceModule
-		self.isPointer = domainDependantEntryNode.getAttribute("isPointer") == "yes" if not self.isPointer else self.isPointer
+		self.isPointer = domainDependantEntryNode.getAttribute("isPointer") == "yes"
+		self.isUsingDevicePostfix = domainDependantEntryNode.getAttribute("isUsingDevicePostfix") == "yes"
 		declaredDimensionSizes = domainDependantEntryNode.getAttribute("declaredDimensionSizes")
 		self.declaredDimensionSizes = declaredDimensionSizes.split(",") if declaredDimensionSizes \
 			and declaredDimensionSizes != "" \

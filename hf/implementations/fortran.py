@@ -91,10 +91,10 @@ class FortranImplementation(object):
 	def subroutineCallInvocationPrefix(self, subroutineName, parallelRegionTemplate):
 		return 'call %s' %(subroutineName)
 
-	def adjustImportForDevice(self, line, parallelRegionPosition):
+	def adjustImportForDevice(self, line, symbol, parallelRegionPosition, parallelRegionTemplates):
 		return line
 
-	def adjustDeclarationForDevice(self, line, dependantSymbols, declarationRegionType, parallelRegionPosition):
+	def adjustDeclarationForDevice(self, line, dependantSymbols, regionType, parallelRegionPosition):
 		return line
 
 	def additionalIncludes(self):
@@ -280,18 +280,133 @@ class OpenMPFortranImplementation(FortranImplementation):
 			self.currDependantSymbols = None
 		return FortranImplementation.subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, is_subroutine_end)
 
+def _updateSymbolDeviceState(symbol, regionType, parallelRegionPosition):
+	#assume that the data is already on the device for parallel within/outside position
+	if parallelRegionPosition in ["within", "outside"]:
+		symbol.isPresent = True
+
+	#packed symbols -> leave them alone
+	if symbol.isCompacted:
+		return
+
+	#passed in scalars in kernels and inside kernels
+	if parallelRegionPosition in ["within", "outside"] \
+	and len(symbol.domains) == 0 \
+	and symbol.intent not in ["out", "inout", "local"]:
+		symbol.isOnDevice = True
+
+	#arrays..
+	elif len(symbol.domains) > 0:
+
+		#.. marked as host symbol
+		if symbol.isHostSymbol:
+			symbol.isOnDevice = False
+
+		#.. marked to be transferred or in a kernel caller
+		elif symbol.isToBeTransfered \
+		or regionType == RegionType.KERNEL_CALLER_DECLARATION:
+			symbol.isUsingDevicePostfix = True
+			symbol.isOnDevice = True
+
+		#.. in module scope
+		elif symbol.declarationType == DeclarationType.MODULE_ARRAY:
+			symbol.isUsingDevicePostfix = True
+
+		#.. marked as present or locals in kernel callers
+		elif symbol.isPresent \
+		or (symbol.intent in [None, "", "local"] and regionType == RegionType.KERNEL_CALLER_DECLARATION):
+			symbol.isOnDevice = True
+
+def _checkDeclarationConformity(dependantSymbols):
+	#analyse state of symbols - already declared as on device or not?
+	alreadyOnDevice = "undefined"
+	for symbol in dependantSymbols:
+		if not symbol.domains or len(symbol.domains) == 0:
+			continue
+		elif symbol.isPresent and alreadyOnDevice == "undefined":
+			alreadyOnDevice = "yes"
+		elif not symbol.isPresent and alreadyOnDevice == "undefined":
+			alreadyOnDevice = "no"
+		elif (symbol.isPresent and alreadyOnDevice == "no") \
+		or (not symbol.isPresent and alreadyOnDevice == "yes"):
+			raise UsageError("Declaration line contains a mix of device present, non-device-present arrays. \
+Symbols vs present attributes:\n%s" %(str([(symbol.name, symbol.isPresent) for symbol in dependantSymbols])) \
+			)
+	copyHere = "undefined"
+	for symbol in dependantSymbols:
+		if not symbol.domains or len(symbol.domains) == 0:
+			continue
+		elif symbol.isToBeTransfered and copyHere == "undefined":
+			copyHere = "yes"
+		elif not symbol.isToBeTransfered and copyHere == "undefined":
+			copyHere = "no"
+		elif (symbol.isToBeTransfered and copyHere == "no") or (not symbol.isToBeTransfered and copyHere == "yes"):
+			raise UsageError("Declaration line contains a mix of transferHere / non transferHere arrays. \
+Symbols vs transferHere attributes:\n%s" %(str([(symbol.name, symbol.transferHere) for symbol in dependantSymbols])) \
+			)
+	isOnHost = "undefined"
+	for symbol in dependantSymbols:
+		if not symbol.domains or len(symbol.domains) == 0:
+			continue
+		elif symbol.isHostSymbol and isOnHost == "undefined":
+			isOnHost = "yes"
+		elif not symbol.isHostSymbol and isOnHost == "undefined":
+			isOnHost = "no"
+		elif (symbol.isHostSymbol and symbol.isHostSymbol == "no") or (not symbol.isHostSymbol and symbol.isHostSymbol == "yes"):
+			raise UsageError("Declaration line contains a mix of host / non host arrays. \
+Symbols vs host attributes:\n%s" %(str([(symbol.name, symbol.isHostSymbol) for symbol in dependantSymbols])) \
+			)
+	if copyHere == "yes" and alreadyOnDevice == "yes":
+		raise UsageError("Symbols with 'present' attribute cannot appear on the same specification line as symbols with 'transferHere' attribute.")
+	if copyHere == "yes" and isOnHost == "yes":
+		raise UsageError("Symbols with 'transferHere' attribute cannot appear on the same specification line as symbols with 'host' attribute.")
+	if alreadyOnDevice == "yes" and isOnHost == "yes":
+		raise UsageError("Symbols with 'present' attribute cannot appear on the same specification line as symbols with 'host' attribute.")
+
+	return alreadyOnDevice, copyHere, isOnHost
+
 class DeviceDataFortranImplementation(FortranImplementation):
-	def adjustDeclarationForDevice(self, line, dependantSymbols, declarationRegionType, parallelRegionPosition):
-		if not dependantSymbols or len(dependantSymbols) == 0:
-			raise Exception("no symbols to adjust")
+	def adjustImportForDevice(self, line, dependantSymbols, regionType, parallelRegionPosition, parallelRegionTemplates):
+		def importStatement(symbol):
+			return "use %s, only : %s => %s\n" %(
+				symbol.sourceModule,
+				symbol.nameInScope(),
+				symbol.sourceSymbol if symbol.sourceSymbol not in [None, ""] else symbol.name
+			)
+
+		if len(dependantSymbols) == 0:
+			raise Exception("unexpected empty list of symbols")
+		_, _, _ = _checkDeclarationConformity(dependantSymbols)
+		for symbol in dependantSymbols:
+			if not line and not symbol.isPresent:
+				raise UsageError("symbol %s needs to be already present on the device in this context" %(symbol))
+
+		for symbol in dependantSymbols:
+			_updateSymbolDeviceState(symbol, RegionType.OTHER, parallelRegionPosition)
+		if parallelRegionPosition in ["within", "outside"]:
+			return ""
 
 		adjustedLine = line
-		adjustedLine = adjustedLine.rstrip()
-
-		#assume that the data is already on the device for parallel within/outside position
-		if parallelRegionPosition in ["within", "outside"]:
+		if not adjustedLine:
+			adjustedLine = ""
 			for symbol in dependantSymbols:
-				symbol.isPresent = True
+				adjustedLine += importStatement(symbol)
+
+		if dependantSymbols[0].isPresent or symbol.isHostSymbol:
+			return adjustedLine
+
+		if dependantSymbols[0].isToBeTransfered or regionType == RegionType.KERNEL_CALLER_DECLARATION:
+			for symbol in dependantSymbols:
+				adjustedLine += importStatement(symbol)
+		return adjustedLine
+
+	def adjustDeclarationForDevice(self, line, dependantSymbols, regionType, parallelRegionPosition):
+		if not dependantSymbols or len(dependantSymbols) == 0:
+			raise Exception("no symbols to adjust")
+		for symbol in dependantSymbols:
+			_updateSymbolDeviceState(symbol, regionType, parallelRegionPosition)
+		alreadyOnDevice, copyHere, _ = _checkDeclarationConformity(dependantSymbols)
+		adjustedLine = line.rstrip()
 
 		#$$$ generalize this using using symbol.getSanitizedDeclarationPrefix with a new 'intent' parameter
 		declarationDirectivesWithoutIntent, declarationDirectives,  symbolDeclarationStr = purgeFromDeclarationSettings(
@@ -302,62 +417,16 @@ class DeviceDataFortranImplementation(FortranImplementation):
 			withAndWithoutIntent=True
 		)
 
-		#analyse state of symbols - already declared as on device or not?
-		alreadyOnDevice = "undefined"
-		for symbol in dependantSymbols:
-			if not symbol.domains or len(symbol.domains) == 0:
-				continue
-			elif symbol.isPresent and alreadyOnDevice == "undefined":
-				alreadyOnDevice = "yes"
-			elif not symbol.isPresent and alreadyOnDevice == "undefined":
-				alreadyOnDevice = "no"
-			elif (symbol.isPresent and alreadyOnDevice == "no") \
-			or (not symbol.isPresent and alreadyOnDevice == "yes"):
-				raise UsageError("Declaration line contains a mix of device present, non-device-present arrays. \
-Symbols vs present attributes:\n%s" %(str([(symbol.name, symbol.isPresent) for symbol in dependantSymbols])) \
-				)
-		copyHere = "undefined"
-		for symbol in dependantSymbols:
-			if not symbol.domains or len(symbol.domains) == 0:
-				continue
-			elif symbol.isToBeTransfered and copyHere == "undefined":
-				copyHere = "yes"
-			elif not symbol.isToBeTransfered and copyHere == "undefined":
-				copyHere = "no"
-			elif (symbol.isToBeTransfered and copyHere == "no") or (not symbol.isToBeTransfered and copyHere == "yes"):
-				raise UsageError("Declaration line contains a mix of transferHere / non transferHere arrays. \
-Symbols vs transferHere attributes:\n%s" %(str([(symbol.name, symbol.transferHere) for symbol in dependantSymbols])) \
-				)
-		isOnHost = "undefined"
-		for symbol in dependantSymbols:
-			if not symbol.domains or len(symbol.domains) == 0:
-				continue
-			elif symbol.isHostSymbol and isOnHost == "undefined":
-				isOnHost = "yes"
-			elif not symbol.isHostSymbol and isOnHost == "undefined":
-				isOnHost = "no"
-			elif (symbol.isHostSymbol and symbol.isHostSymbol == "no") or (not symbol.isHostSymbol and symbol.isHostSymbol == "yes"):
-				raise UsageError("Declaration line contains a mix of host / non host arrays. \
-Symbols vs host attributes:\n%s" %(str([(symbol.name, symbol.isHostSymbol) for symbol in dependantSymbols])) \
-				)
-		if copyHere == "yes" and alreadyOnDevice == "yes":
-			raise UsageError("Symbols with 'present' attribute cannot appear on the same specification line as symbols with 'transferHere' attribute.")
-		if copyHere == "yes" and isOnHost == "yes":
-			raise UsageError("Symbols with 'transferHere' attribute cannot appear on the same specification line as symbols with 'host' attribute.")
-		if alreadyOnDevice == "yes" and isOnHost == "yes":
-			raise UsageError("Symbols with 'present' attribute cannot appear on the same specification line as symbols with 'host' attribute.")
-
-		#analyse the intent of the symbols. Since one line can only have one intent declaration, we can simply assume the intent of the
-		#first symbol
-		intent = dependantSymbols[0].intent
-		#note: intent == None or "" -> is local array
-
-		declarationType = dependantSymbols[0].declarationType
 		#packed symbols -> leave them alone
 		if dependantSymbols[0].isCompacted:
 			return adjustedLine + "\n"
 
 		deviceType = "device"
+		declarationType = dependantSymbols[0].declarationType
+		#analyse the intent of the symbols. Since one line can only have one intent declaration, we can simply assume the intent of the
+		#first symbol
+		intent = dependantSymbols[0].intent
+		#note: intent == None or "" -> is local array
 
 		#module scalars in kernels
 		if parallelRegionPosition == "within" \
@@ -370,24 +439,14 @@ Symbols vs host attributes:\n%s" %(str([(symbol.name, symbol.isHostSymbol) for s
 		and intent not in ["out", "inout", "local"]:
 			#handle scalars (passed by value)
 			adjustedLine = declarationDirectives + " ,value ::" + symbolDeclarationStr
-			for dependantSymbol in dependantSymbols:
-				dependantSymbol.isOnDevice = True
-
 		#arrays outside of kernels
 		elif len(dependantSymbols[0].domains) > 0:
-			if isOnHost == "yes":
+			if copyHere == "yes" or regionType in [RegionType.KERNEL_CALLER_DECLARATION, RegionType.MODULE_DECLARATION]:
 				for dependantSymbol in dependantSymbols:
-					dependantSymbol.isOnDevice = False
-			elif alreadyOnDevice == "yes" or (intent in [None, "", "local"] and declarationRegionType == RegionType.KERNEL_CALLER_DECLARATION):
-				# we don't need copies of the dependants on cpu
-				adjustedLine = "%s, %s :: %s" %(declarationDirectives, deviceType, symbolDeclarationStr)
-				for dependantSymbol in dependantSymbols:
-					dependantSymbol.isOnDevice = True
-			elif copyHere == "yes" or declarationRegionType in [RegionType.KERNEL_CALLER_DECLARATION, RegionType.MODULE_DECLARATION]:
-				for dependantSymbol in dependantSymbols:
-					dependantSymbol.isUsingDevicePostfix = True
-					dependantSymbol.isOnDevice = True
 					adjustedLine += "\n" + "%s, %s :: %s" %(declarationDirectivesWithoutIntent, deviceType, str(dependantSymbol))
+			elif alreadyOnDevice == "yes" or (intent in [None, "", "local"] and regionType == RegionType.KERNEL_CALLER_DECLARATION):
+				adjustedLine = "%s, %s :: %s" %(declarationDirectives, deviceType, symbolDeclarationStr)
+
 		return adjustedLine + "\n"
 
 	def declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates):
@@ -399,7 +458,7 @@ Symbols vs host attributes:\n%s" %(str([(symbol.name, symbol.isHostSymbol) for s
 				continue
 			if symbol.isPresent:
 				continue
-			if symbol.intent in ["in", "inout"] \
+			if (symbol.intent in ["in", "inout"] or symbol.declarationType == DeclarationType.MODULE_ARRAY) \
 			and (routineIsKernelCaller or symbol.isToBeTransfered):
 				symbol.isUsingDevicePostfix = False
 				originalStr = symbol.selectAllRepresentation()
@@ -419,7 +478,7 @@ Symbols vs host attributes:\n%s" %(str([(symbol.name, symbol.isHostSymbol) for s
 				continue
 			if symbol.isPresent:
 				continue
-			if symbol.intent in ["out", "inout"] \
+			if (symbol.intent in ["out", "inout"] or symbol.declarationType == DeclarationType.MODULE_ARRAY) \
 			and (routineIsKernelCaller or symbol.isToBeTransfered):
 				symbol.isUsingDevicePostfix = False
 				originalStr = symbol.selectAllRepresentation()
@@ -813,12 +872,6 @@ end if\n" %(calleeNode.getAttribute('name'))
 		if is_subroutine_end:
 			self.currRoutineNode = None
 		return super(CUDAFortranImplementation, self).subroutineExitPoint( dependantSymbols, routineIsKernelCaller, is_subroutine_end)
-
-	def adjustImportForDevice(self, line, parallelRegionPosition):
-		if parallelRegionPosition in ["within", "outside"]:
-			return ""
-		else:
-			return line
 
 	def iteratorDefinitionBeforeParallelRegion(self, domains):
 		if len(domains) > 3:

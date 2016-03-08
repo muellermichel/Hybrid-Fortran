@@ -337,10 +337,15 @@ This is not allowed for implementations using %s.\
                 self.symbolsPassedInCurrentCallByName[symbolName] = symbol
         return adjustedLine.rstrip() + "\n"
 
-    def processSymbolImportAndGetAdjustedLine(self, line):
-        return self.implementation.adjustImportForDevice(\
-            line, \
-            self.currRoutine.node.getAttribute('parallelRegionPosition')
+    def processSymbolImportAndGetAdjustedLine(self, line, symbols):
+        if len(symbols) == 0:
+            return line
+        return self.implementation.adjustImportForDevice(
+            line,
+            symbols,
+            RegionType.KERNEL_CALLER_DECLARATION if self.currRoutineIsCallingParallelRegion else RegionType.OTHER,
+            self.currRoutine.node.getAttribute('parallelRegionPosition'),
+            self.parallelRegionTemplatesByProcName.get(self.currRoutine.name)
         )
 
     def processCallPostAndGetAdjustedLine(self, line):
@@ -496,17 +501,11 @@ This is not allowed for implementations using %s.\
             symbolNum = symbolNum + 1
         return adjustedLine + paramListStr
 
-    def processDeclarationLineAndGetAdjustedLine(self, line):
+    def processDeclarationLineAndGetAdjustedLine(self, line, declarationRegionType):
         baseline = line
         if self.currentLineNeedsPurge:
             baseline = ""
         adjustedLine = baseline
-
-        declarationRegionType = RegionType.OTHER
-        if self.currRoutine and self.currRoutineIsCallingParallelRegion:
-            declarationRegionType = RegionType.KERNEL_CALLER_DECLARATION
-        elif not self.currRoutine:
-            declarationRegionType = RegionType.MODULE_DECLARATION
 
         for symbol in self.symbolsOnCurrentLine:
             match = symbol.getDeclarationMatch(str(adjustedLine))
@@ -519,15 +518,14 @@ This is not allowed for implementations using %s.\
             #$$$ this is scary. isn't there a better state test for this?
             adjustedLine = purgeDimensionAndGetAdjustedLine(adjustedLine, self.patterns).rstrip() + "\n"
 
+        adjustedLine = self.processSymbolImportAndGetAdjustedLine(adjustedLine, self.importsOnCurrentLine)
+
         if len(self.symbolsOnCurrentLine) > 0:
             adjustedLine = self.implementation.adjustDeclarationForDevice(adjustedLine,
                 self.symbolsOnCurrentLine,
                 declarationRegionType,
                 self.currRoutine.node.getAttribute('parallelRegionPosition') if self.currRoutine else "inside"
             )
-
-        for symbol in self.importsOnCurrentLine:
-            adjustedLine = self.processSymbolImportAndGetAdjustedLine(line)
 
         return adjustedLine
 
@@ -677,14 +675,17 @@ This is not allowed for implementations using %s.\
             ),
             extra={"hfLineNo":currLineNo, "hfFile":currFile}
         )
-        for symbolNameInScope in additionalImportsByScopedName:
-            symbol = additionalImportsByScopedName[symbolNameInScope]
+        allAdditionalImports = additionalImportsByScopedName.values()
+        for symbol in allAdditionalImports:
             if symbol.declarationType not in [DeclarationType.FOREIGN_MODULE_SCALAR, DeclarationType.LOCAL_ARRAY, DeclarationType.MODULE_ARRAY]:
                 continue
-            adjustedLine += "use %s, only : %s => %s\n" %(
-                symbol.sourceModule,
-                symbolNameInScope,
-                symbol.sourceSymbol if symbol.sourceSymbol not in [None, ""] else symbol.name
+        if len(allAdditionalImports) > 0:
+            adjustedLine += self.implementation.adjustImportForDevice(
+                None,
+                allAdditionalImports,
+                RegionType.KERNEL_CALLER_DECLARATION if self.currRoutineIsCallingParallelRegion else RegionType.OTHER,
+                self.currRoutine.node.getAttribute('parallelRegionPosition'),
+                self.parallelRegionTemplatesByProcName.get(self.currRoutine.name)
             )
         self.prepareLine(adjustedLine + self.implementation.additionalIncludes(), self.tab_insideSub)
 
@@ -769,7 +770,7 @@ This is not allowed for implementations using %s.\
         super(H90toF90Converter, self).processInsideModuleState(line)
         if self.state not in ['inside_module', 'inside_branch'] or (self.state == 'inside_branch' and self.stateBeforeBranch != 'inside_module'):
             return
-        self.prepareLine(self.processDeclarationLineAndGetAdjustedLine(line), self.tab_outsideSub)
+        self.prepareLine(self.processDeclarationLineAndGetAdjustedLine(line, RegionType.MODULE_DECLARATION), self.tab_outsideSub)
 
     def processInsideDeclarationsState(self, line):
         '''process everything that happens per h90 declaration line'''
@@ -813,6 +814,10 @@ This is not allowed for implementations using %s.\
             self.processDomainDependantMatch(domainDependantMatch)
 
         routineNode = self.routineNodesByProcName.get(self.currRoutine.name)
+
+        declarationRegionType = RegionType.OTHER
+        if self.currRoutineIsCallingParallelRegion:
+            declarationRegionType = RegionType.KERNEL_CALLER_DECLARATION
 
         if self.state != "inside_declarations" and self.state != "inside_module_body" and self.state != "inside_subroutine_call" \
         and not (self.state in ["inside_branch", "inside_ignore"] and self.stateBeforeBranch in ["inside_declarations", "inside_module", "inside_subroutine_call"]):
@@ -874,7 +879,7 @@ This is not allowed for implementations using %s.\
                     self.tab_insideSub +
                         symbol.getDeclarationLineForAutomaticSymbol(purgeList).strip(),
                     [symbol],
-                    self.currRoutineIsCallingParallelRegion,
+                    declarationRegionType,
                     self.currRoutine.node.getAttribute('parallelRegionPosition')
                 ).rstrip() + " ! type %i symbol added for this subroutine\n" %(symbol.declarationType)
                 logging.debug(
@@ -917,7 +922,7 @@ This is not allowed for implementations using %s.\
                     additionalDeclarationsStr += implementation.adjustDeclarationForDevice(
                         symbol.getDeclarationLineForAutomaticSymbol(defaultPurgeList).strip(),
                         [symbol],
-                        self.currRoutineIsCallingParallelRegion,
+                        declarationRegionType,
                         self.currRoutine.node.getAttribute('parallelRegionPosition')
                     ).rstrip() + " ! type %i symbol added for callee %s\n" %(symbol.declarationType, calleeName)
                 #TODO: move this into implementation classes
@@ -934,7 +939,7 @@ This is not allowed for implementations using %s.\
                     additionalDeclarationsStr += implementation.adjustDeclarationForDevice(
                         compactedArray.getDeclarationLineForAutomaticSymbol().strip(),
                         [compactedArray],
-                        self.currRoutineIsCallingParallelRegion,
+                        declarationRegionType,
                         self.currRoutine.node.getAttribute('parallelRegionPosition')
                     ).rstrip() + " ! compaction array added for callee %s\n" %(calleeName)
                     logging.debug(
@@ -981,7 +986,7 @@ This is not allowed for implementations using %s.\
             return
 
         self.analyseSymbolInformationOnCurrentLine(line)
-        self.prepareLine(self.processDeclarationLineAndGetAdjustedLine(line), self.tab_insideSub)
+        self.prepareLine(self.processDeclarationLineAndGetAdjustedLine(line, declarationRegionType), self.tab_insideSub)
 
     def processInsideSubroutineBodyState(self, line):
         '''process everything that happens per h90 subroutine body line'''

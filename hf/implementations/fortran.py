@@ -91,7 +91,7 @@ class FortranImplementation(object):
 	def subroutineCallInvocationPrefix(self, subroutineName, parallelRegionTemplate):
 		return 'call %s' %(subroutineName)
 
-	def adjustImportForDevice(self, line, symbol, parallelRegionPosition, parallelRegionTemplates):
+	def adjustImportForDevice(self, line, dependantSymbols, regionType, parallelRegionPosition, parallelRegionTemplates):
 		return line
 
 	def adjustDeclarationForDevice(self, line, dependantSymbols, regionType, parallelRegionPosition):

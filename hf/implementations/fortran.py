@@ -280,7 +280,13 @@ class OpenMPFortranImplementation(FortranImplementation):
 			self.currDependantSymbols = None
 		return FortranImplementation.subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, is_subroutine_end)
 
-def _updateSymbolDeviceState(symbol, regionType, parallelRegionPosition):
+def updateSymbolDeviceState(symbol, regionType, parallelRegionPosition):
+	logging.debug("device state of symbol %s BEFORE update:\nisOnDevice: %s; isUsingDevicePostfix: %s" %(
+		symbol.name,
+		symbol.isOnDevice,
+		symbol.isUsingDevicePostfix
+	))
+
 	#assume that the data is already on the device for parallel within/outside position
 	if parallelRegionPosition in ["within", "outside"]:
 		symbol.isPresent = True
@@ -309,13 +315,20 @@ def _updateSymbolDeviceState(symbol, regionType, parallelRegionPosition):
 			symbol.isOnDevice = True
 
 		#.. in module scope
-		elif symbol.declarationType == DeclarationType.MODULE_ARRAY:
+		elif parallelRegionPosition == "inside" \
+		and symbol.declarationType == DeclarationType.MODULE_ARRAY:
 			symbol.isUsingDevicePostfix = True
 
 		#.. marked as present or locals in kernel callers
 		elif symbol.isPresent \
 		or (symbol.intent in [None, "", "local"] and regionType == RegionType.KERNEL_CALLER_DECLARATION):
 			symbol.isOnDevice = True
+
+	logging.debug("device state of symbol %s AFTER update:\nisOnDevice: %s; isUsingDevicePostfix: %s" %(
+		symbol.name,
+		symbol.isOnDevice,
+		symbol.isUsingDevicePostfix
+	))
 
 def _checkDeclarationConformity(dependantSymbols):
 	#analyse state of symbols - already declared as on device or not?
@@ -382,7 +395,7 @@ class DeviceDataFortranImplementation(FortranImplementation):
 				raise UsageError("symbol %s needs to be already present on the device in this context" %(symbol))
 
 		for symbol in dependantSymbols:
-			_updateSymbolDeviceState(symbol, RegionType.OTHER, parallelRegionPosition)
+			updateSymbolDeviceState(symbol, RegionType.OTHER, parallelRegionPosition)
 		if parallelRegionPosition in ["within", "outside"]:
 			return ""
 
@@ -404,7 +417,7 @@ class DeviceDataFortranImplementation(FortranImplementation):
 		if not dependantSymbols or len(dependantSymbols) == 0:
 			raise Exception("no symbols to adjust")
 		for symbol in dependantSymbols:
-			_updateSymbolDeviceState(symbol, regionType, parallelRegionPosition)
+			updateSymbolDeviceState(symbol, regionType, parallelRegionPosition)
 		alreadyOnDevice, copyHere, _ = _checkDeclarationConformity(dependantSymbols)
 		adjustedLine = line.rstrip()
 

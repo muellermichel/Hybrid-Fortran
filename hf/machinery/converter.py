@@ -29,6 +29,7 @@ from tools.analysis import SymbolDependencyAnalyzer, getAnalysisForSymbol, getAr
 from tools.patterns import RegExPatterns
 from machinery.parser import H90CallGraphAndSymbolDeclarationsParser, getSymbolsByName, currFile, currLineNo
 from machinery.commons import FortranCodeSanitizer
+from implementations.fortran import updateSymbolDeviceState
 
 def getModuleArraysForCallee(calleeName, symbolAnalysisByRoutineNameAndSymbolName, symbolsByModuleNameAndSymbolName):
     moduleSymbols = []
@@ -566,6 +567,8 @@ This is not allowed for implementations using %s.\
             self.implementation
         )
 
+        regionType = RegionType.KERNEL_CALLER_DECLARATION if self.currRoutineIsCallingParallelRegion else RegionType.OTHER
+
         #build list of additional subroutine parameters
         #(parameters that the user didn't specify but that are necessary based on the features of the underlying technology
         # and the symbols declared by the user, such us temporary arrays and imported symbols)
@@ -584,6 +587,8 @@ This is not allowed for implementations using %s.\
             additionalDeclarationsForOurselves,
             additionalDummies
         ), extra={"hfLineNo":currLineNo, "hfFile":currFile})
+        for symbol in additionalImportsForOurSelves:
+            updateSymbolDeviceState(symbol, regionType, self.currRoutine.node.getAttribute("parallelRegionPosition"))
         for symbol in additionalImportsForOurSelves + additionalDeclarationsForOurselves:
             symbol.isEmulatingSymbolThatWasActiveInCurrentScope = True
         toBeCompacted, declarationPrefix, otherImports = self.listCompactedSymbolsAndDeclarationPrefixAndOtherSymbols(
@@ -633,6 +638,8 @@ This is not allowed for implementations using %s.\
                 )
                 for symbol in additionalImportsForDeviceCompatibility + additionalDeclarationsForDeviceCompatibility + additionalDummies:
                     symbol.resetScope(self.currRoutine.name)
+                for symbol in additionalImportsForDeviceCompatibility:
+                    updateSymbolDeviceState(symbol, regionType, self.currRoutine.node.getAttribute("parallelRegionPosition"))
                 if 'DEBUG_PRINT' in implementation.optionFlags:
                     tentativeAdditionalImports = getModuleArraysForCallee(
                         calleeName,

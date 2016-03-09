@@ -306,6 +306,8 @@ def updateSymbolDeviceState(symbol, regionType, parallelRegionPosition):
 
 		#.. marked as host symbol
 		if symbol.isHostSymbol:
+			#this might look confusing. We want to declare a device version but note that the data is not yet residing there
+			symbol.isUsingDevicePostfix = True
 			symbol.isOnDevice = False
 
 		#.. imports / module scope

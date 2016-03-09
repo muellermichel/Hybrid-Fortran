@@ -400,7 +400,8 @@ class DeviceDataFortranImplementation(FortranImplementation):
 			return ""
 
 		adjustedLine = line
-		if not adjustedLine:
+		if not adjustedLine or dependantSymbols[0].isPresent:
+			#amend import or convert to device symbol version for already present symbols
 			adjustedLine = ""
 			for symbol in dependantSymbols:
 				adjustedLine += importStatement(symbol)

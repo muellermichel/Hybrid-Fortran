@@ -522,7 +522,8 @@ This is not allowed for implementations using %s.\
         adjustedLine = self.processSymbolImportAndGetAdjustedLine(adjustedLine, self.importsOnCurrentLine)
 
         if len(self.symbolsOnCurrentLine) > 0:
-            adjustedLine = self.implementation.adjustDeclarationForDevice(adjustedLine,
+            adjustedLine = self.implementation.adjustDeclarationForDevice(
+                adjustedLine,
                 self.symbolsOnCurrentLine,
                 declarationRegionType,
                 self.currRoutine.node.getAttribute('parallelRegionPosition') if self.currRoutine else "inside"

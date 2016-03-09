@@ -308,20 +308,19 @@ def updateSymbolDeviceState(symbol, regionType, parallelRegionPosition):
 		if symbol.isHostSymbol:
 			symbol.isOnDevice = False
 
-		#.. marked to be transferred or in a kernel caller
-		elif symbol.isToBeTransfered \
-		or regionType == RegionType.KERNEL_CALLER_DECLARATION:
-			symbol.isUsingDevicePostfix = True
-			symbol.isOnDevice = True
-
-		#.. in module scope
-		elif parallelRegionPosition == "inside" \
-		and symbol.declarationType == DeclarationType.MODULE_ARRAY:
+		#.. imports / module scope
+		elif symbol.declarationType == DeclarationType.MODULE_ARRAY:
 			symbol.isUsingDevicePostfix = True
 
 		#.. marked as present or locals in kernel callers
 		elif symbol.isPresent \
 		or (symbol.intent in [None, "", "local"] and regionType == RegionType.KERNEL_CALLER_DECLARATION):
+			symbol.isOnDevice = True
+
+		#.. marked to be transferred or in a kernel caller
+		elif symbol.isToBeTransfered \
+		or regionType == RegionType.KERNEL_CALLER_DECLARATION:
+			symbol.isUsingDevicePostfix = True
 			symbol.isOnDevice = True
 
 	logging.debug("device state of symbol %s AFTER update:\nisOnDevice: %s; isUsingDevicePostfix: %s" %(
@@ -380,11 +379,14 @@ Symbols vs host attributes:\n%s" %(str([(symbol.name, symbol.isHostSymbol) for s
 
 class DeviceDataFortranImplementation(FortranImplementation):
 	def adjustImportForDevice(self, line, dependantSymbols, regionType, parallelRegionPosition, parallelRegionTemplates):
-		def importStatement(symbol):
-			return "use %s, only : %s => %s\n" %(
-				symbol.sourceModule,
-				symbol.nameInScope(),
-				symbol.sourceSymbol if symbol.sourceSymbol not in [None, ""] else symbol.name
+		def importStatements(symbols):
+			return "\n".join(
+				"use %s, only : %s => %s\n" %(
+					symbol.sourceModule,
+					symbol.nameInScope(),
+					symbol.sourceSymbol if symbol.sourceSymbol not in [None, ""] else symbol.name
+				)
+				for symbol in symbols
 			)
 
 		if len(dependantSymbols) == 0:
@@ -402,19 +404,22 @@ class DeviceDataFortranImplementation(FortranImplementation):
 		adjustedLine = line
 		if not adjustedLine or dependantSymbols[0].isPresent:
 			#amend import or convert to device symbol version for already present symbols
-			adjustedLine = ""
-			for symbol in dependantSymbols:
-				adjustedLine += importStatement(symbol)
+			adjustedLine = importStatements(dependantSymbols)
 
 		if dependantSymbols[0].isPresent or symbol.isHostSymbol:
 			return adjustedLine
 
 		if dependantSymbols[0].isToBeTransfered or regionType == RegionType.KERNEL_CALLER_DECLARATION:
-			for symbol in dependantSymbols:
-				adjustedLine += importStatement(symbol)
+			adjustedLine += importStatements(dependantSymbols)
 		return adjustedLine
 
 	def adjustDeclarationForDevice(self, line, dependantSymbols, regionType, parallelRegionPosition):
+		def declarationStatements(dependantSymbols, declarationDirectives, deviceType):
+			return "\n".join(
+				"%s, %s :: %s" %(declarationDirectives, deviceType, str(symbol))
+				for symbol in dependantSymbols
+			)
+
 		if not dependantSymbols or len(dependantSymbols) == 0:
 			raise Exception("no symbols to adjust")
 		for symbol in dependantSymbols:
@@ -453,13 +458,13 @@ class DeviceDataFortranImplementation(FortranImplementation):
 		and intent not in ["out", "inout", "local"]:
 			#handle scalars (passed by value)
 			adjustedLine = declarationDirectives + " ,value ::" + symbolDeclarationStr
+
 		#arrays outside of kernels
 		elif len(dependantSymbols[0].domains) > 0:
-			if copyHere == "yes" or regionType in [RegionType.KERNEL_CALLER_DECLARATION, RegionType.MODULE_DECLARATION]:
-				for dependantSymbol in dependantSymbols:
-					adjustedLine += "\n" + "%s, %s :: %s" %(declarationDirectivesWithoutIntent, deviceType, str(dependantSymbol))
-			elif alreadyOnDevice == "yes" or (intent in [None, "", "local"] and regionType == RegionType.KERNEL_CALLER_DECLARATION):
-				adjustedLine = "%s, %s :: %s" %(declarationDirectives, deviceType, symbolDeclarationStr)
+			if alreadyOnDevice == "yes" or (intent in [None, "", "local"] and regionType == RegionType.KERNEL_CALLER_DECLARATION):
+				adjustedLine = declarationStatements(dependantSymbols, declarationDirectives, deviceType)
+			elif copyHere == "yes" or regionType in [RegionType.KERNEL_CALLER_DECLARATION, RegionType.MODULE_DECLARATION]:
+				adjustedLine += "\n" + declarationStatements(dependantSymbols, declarationDirectivesWithoutIntent, deviceType)
 
 		return adjustedLine + "\n"
 

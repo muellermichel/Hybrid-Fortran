@@ -416,19 +416,21 @@ This is not allowed for implementations using %s.\
             adjustedLine += "( &\n"
         else:
             adjustedLine += "("
-        bridgeStr1 = "& !additional parameter"
+        bridgeStr1 = " & !additional parameter"
         bridgeStr2 = "inserted by framework\n" + self.tab_insideSub + "& "
+        remainingCall = self.processSymbolsAndGetAdjustedLine(
+            paramListMatch.group(2),
+            isInsideSubroutineCall=True
+        ) if paramListMatch else ")\n"
+        numOfProgrammerSpecifiedArguments = len(self.symbolsPassedInCurrentCallByName.keys())
         for symbolNum, symbol in enumerate(additionalSymbols):
             hostName = symbol.nameInScope()
             adjustedLine += hostName
-            if symbolNum < len(additionalSymbols) - 1:
+            if symbolNum < len(additionalSymbols) - 1 or numOfProgrammerSpecifiedArguments > 0:
                 adjustedLine += ", "
             if symbolNum < len(additionalSymbols) - 1 or paramListMatch:
                 adjustedLine += "%s (type %i) %s" %(bridgeStr1, symbol.declarationType, bridgeStr2)
-        if paramListMatch:
-            adjustedLine += self.processSymbolsAndGetAdjustedLine(paramListMatch.group(2), isInsideSubroutineCall=True)
-        else:
-            adjustedLine += ")\n"
+        adjustedLine += remainingCall
 
         callPreparationForSymbols = ""
         callPostForSymbols = ""

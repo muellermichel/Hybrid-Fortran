@@ -16,7 +16,6 @@
 ! along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.'
 
 module kernels5
-
     real, dimension(:,:,:), allocatable :: used_in_acc_routine
 
     @domainDependant{attribute(host), domName(x,y,z), domSize(NX,NY,NZ), domPP(DOM), accPP(AT)}

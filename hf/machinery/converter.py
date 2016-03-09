@@ -783,54 +783,7 @@ This is not allowed for implementations using %s.\
         self.prepareLine(self.processDeclarationLineAndGetAdjustedLine(line, RegionType.MODULE_DECLARATION), self.tab_outsideSub)
 
     def processInsideDeclarationsState(self, line):
-        '''process everything that happens per h90 declaration line'''
-        subProcCallMatch = self.patterns.subprocCallPattern.match(str(line))
-        parallelRegionMatch = self.patterns.parallelRegionPattern.match(str(line))
-        domainDependantMatch = self.patterns.domainDependantPattern.match(str(line))
-        subProcEndMatch = self.patterns.subprocEndPattern.match(str(line))
-        templateMatch = self.patterns.templatePattern.match(str(line))
-        templateEndMatch = self.patterns.templateEndPattern.match(str(line))
-        branchMatch = self.patterns.branchPattern.match(str(line))
-
-        if branchMatch:
-            self.processBranchMatch(branchMatch)
-            return
-        if subProcCallMatch:
-            self.processCallMatch(subProcCallMatch)
-            if (self.state == "inside_branch" and self.stateBeforeBranch != 'inside_subroutine_call') or (self.state != "inside_branch" and self.state != 'inside_subroutine_call'):
-                self.processCallPost()
-            return
-        if subProcEndMatch:
-            self.processProcEndMatch(subProcEndMatch)
-            if self.state == "inside_branch":
-                self.stateBeforeBranch = 'inside_module_body'
-            else:
-                self.state = 'inside_module_body'
-            return
-        if parallelRegionMatch:
-            raise UsageError("parallel region without parallel dependants")
-        if self.patterns.subprocBeginPattern.match(str(line)):
-            raise UsageError("subprocedure within subprocedure not allowed")
-        if templateMatch:
-            raise UsageError("template directives are only allowed outside of subroutines")
-        if templateEndMatch:
-            raise UsageError("template directives are only allowed outside of subroutines")
-
-        if domainDependantMatch:
-            if self.state == "inside_branch":
-                self.stateBeforeBranch = 'inside_domainDependantRegion'
-            else:
-                self.state = 'inside_domainDependantRegion'
-            self.processDomainDependantMatch(domainDependantMatch)
-
-        routineNode = self.routineNodesByProcName.get(self.currRoutine.name)
-
-        declarationRegionType = RegionType.OTHER
-        if self.currRoutineIsCallingParallelRegion:
-            declarationRegionType = RegionType.KERNEL_CALLER_DECLARATION
-
-        if self.state != "inside_declarations" and self.state != "inside_module_body" and self.state != "inside_subroutine_call" \
-        and not (self.state in ["inside_branch", "inside_ignore"] and self.stateBeforeBranch in ["inside_declarations", "inside_module", "inside_subroutine_call"]):
+        def declarationEndStatements(declarationRegionType, isInsertedBeforeCurrentLine):
             additionalDeclarationsStr = ""
 
             #TODO $$$: most of the following code should probably be handled within implementation classes
@@ -989,10 +942,75 @@ This is not allowed for implementations using %s.\
             if numberOfAdditionalDeclarations > 0:
                 additionalDeclarationsStr += "! ****** end additional symbols\n\n"
 
-            self.prepareAdditionalLine(additionalDeclarationsStr, self.tab_insideSub)
+            self.prepareAdditionalLine(additionalDeclarationsStr, self.tab_insideSub, isInsertedBeforeCurrentLine)
             self.switchToNewRegion()
 
-        if self.state != "inside_declarations" and not (self.state == "inside_branch" and self.stateBeforeBranch == "inside_declarations"):
+        '''process everything that happens per h90 declaration line'''
+        subProcCallMatch = self.patterns.subprocCallPattern.match(str(line))
+        parallelRegionMatch = self.patterns.parallelRegionPattern.match(str(line))
+        domainDependantMatch = self.patterns.domainDependantPattern.match(str(line))
+        subProcEndMatch = self.patterns.subprocEndPattern.match(str(line))
+        templateMatch = self.patterns.templatePattern.match(str(line))
+        templateEndMatch = self.patterns.templateEndPattern.match(str(line))
+        branchMatch = self.patterns.branchPattern.match(str(line))
+
+        declarationRegionType = RegionType.OTHER
+        if self.currRoutineIsCallingParallelRegion:
+            declarationRegionType = RegionType.KERNEL_CALLER_DECLARATION
+
+        if branchMatch:
+            declarationEndStatements(declarationRegionType, isInsertedBeforeCurrentLine=True)
+            self.processBranchMatch(branchMatch)
+            return
+        if subProcCallMatch:
+            declarationEndStatements(declarationRegionType, isInsertedBeforeCurrentLine=True)
+            self.processCallMatch(subProcCallMatch)
+            if (self.state == "inside_branch" and self.stateBeforeBranch != 'inside_subroutine_call') or (self.state != "inside_branch" and self.state != 'inside_subroutine_call'):
+                self.processCallPost()
+            return
+        if subProcEndMatch:
+            declarationEndStatements(declarationRegionType, isInsertedBeforeCurrentLine=True)
+            self.processProcEndMatch(subProcEndMatch)
+            if self.state == "inside_branch":
+                self.stateBeforeBranch = 'inside_module_body'
+            else:
+                self.state = 'inside_module_body'
+            return
+        if parallelRegionMatch:
+            raise UsageError("parallel region without parallel dependants")
+        if self.patterns.subprocBeginPattern.match(str(line)):
+            raise UsageError("subprocedure within subprocedure not allowed")
+        if templateMatch:
+            raise UsageError("template directives are only allowed outside of subroutines")
+        if templateEndMatch:
+            raise UsageError("template directives are only allowed outside of subroutines")
+
+        if domainDependantMatch:
+            if self.state == "inside_branch":
+                self.stateBeforeBranch = 'inside_domainDependantRegion'
+            else:
+                self.state = 'inside_domainDependantRegion'
+            declarationEndStatements(declarationRegionType, isInsertedBeforeCurrentLine=True)
+            self.processDomainDependantMatch(domainDependantMatch)
+            return
+
+        importMatch1 = self.patterns.selectiveImportPattern.match(line)
+        importMatch2 = self.patterns.singleMappedImportPattern.match(line)
+        declarationMatch = self.patterns.symbolDeclPattern.match(line)
+        specificationStatementMatch = self.patterns.specificationStatementPattern.match(line)
+        if not ( \
+            line.strip() == "" \
+            or importMatch1 \
+            or importMatch2 \
+            or declarationMatch \
+            or specificationStatementMatch \
+        ):
+            if self.state == "inside_branch":
+                self.stateBeforeBranch = "inside_subroutine_body"
+            else:
+                self.state = "inside_subroutine_body"
+            declarationEndStatements(declarationRegionType, isInsertedBeforeCurrentLine=True)
+            self.processInsideSubroutineBodyState(line)
             return
 
         self.analyseSymbolInformationOnCurrentLine(line)
@@ -1210,8 +1228,8 @@ This is not allowed for implementations using %s.\
         self.putLine(line)
 
     #TODO: remove tab argument everywhere
-    def prepareAdditionalLine(self, line, tab):
-        if not self.prepareLineCalledForCurrentLine:
+    def prepareAdditionalLine(self, line, tab, isInsertedBeforeCurrentLine=False):
+        if not isInsertedBeforeCurrentLine and not self.prepareLineCalledForCurrentLine:
             raise Exception(
                 "Line has not yet been prepared - there is an error in the transpiler logic. Please contact the Hybrid Fortran maintainers. Parser state: %s; before branch: %s" %(
                     self.state,

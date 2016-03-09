@@ -283,6 +283,25 @@ class CallGraphParser(object):
             raise UsageError("template directives are only allowed outside of subroutines")
         elif templateEndMatch:
             raise UsageError("template directives are only allowed outside of subroutines")
+        else:
+            importMatch1 = self.patterns.selectiveImportPattern.match(line)
+            importMatch2 = self.patterns.singleMappedImportPattern.match(line)
+            declarationMatch = self.patterns.symbolDeclPattern.match(line)
+            specificationStatementMatch = self.patterns.specificationStatementPattern.match(line)
+            if not ( \
+                line.strip() == "" \
+                or importMatch1 or importMatch2 \
+                or declarationMatch
+                or specificationStatementMatch
+            ):
+                if self.state == "inside_branch":
+                    self.stateBeforeBranch = "inside_subroutine_body"
+                else:
+                    self.state = "inside_subroutine_body"
+                self.processInsideSubroutineBodyState(line)
+            else:
+                self.processNoMatch(line)
+
         if self.state != "inside_declarations" and not (self.state == "inside_branch" and self.stateBeforeBranch == "inside_declarations"):
             self.currArgumentParser = None
             self.currArguments = None

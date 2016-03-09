@@ -63,7 +63,17 @@ class RegExPatterns:
         'selectiveImportPattern': r'^\s*use\s*(\w*)[,\s]*only\s*\:\s*([=>,\s\w]*)(?:\s.*|$)',
         'singleMappedImportPattern': r'\s*(\w*)\s*=>\s*(\w*)\s*',
         'callArgumentPattern': r'\s*(\w*)\s*(.*)',
-        'containsPattern': r'\s*contains\s*'
+        'containsPattern': r'\s*contains\s*',
+        'specificationStatementPattern': r"""
+            ^\s*(
+                procedure|external|intrinsic
+                |public|private|allocatable|asynchronous
+                |bind|data|dimension|intent|optional|parameter
+                |pointer|protected|save
+                |target|value|volatile|implicit
+                |namelist|equivalence|common
+            )\s+(.*)\s*$
+        """
     }
 
     def __init__(self):

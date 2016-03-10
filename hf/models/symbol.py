@@ -820,7 +820,7 @@ EXAMPLE:\n\
 			for (domName, domSize) in dimsBeforeReset:
 				domNameAdjusted = domNameBySize.get(domSize, domName)
 				if domNameAdjusted in self.parallelActiveDims \
-				or parallelRegionDomNamesBySize.get(domSize) != None \
+				or (self.parallelRegionPosition == "outside" and parallelRegionDomNamesBySize.get(domSize) != None) \
 				or (len(dimsBeforeReset) <= len(self.domains) and domSize in alreadyEstablishedDomSizes):
 					continue
 				self.domains.append((domNameAdjusted, domSize))

@@ -395,7 +395,7 @@ class DeviceDataFortranImplementation(FortranImplementation):
 	def adjustImportForDevice(self, line, dependantSymbols, regionType, parallelRegionPosition, parallelRegionTemplates):
 		def importStatements(symbols):
 			return "\n".join(
-				"use %s, only : %s => %s\n" %(
+				"use %s, only : %s => %s" %(
 					symbol.sourceModule,
 					symbol.nameInScope(),
 					symbol.sourceSymbol if symbol.sourceSymbol not in [None, ""] else symbol.name
@@ -421,11 +421,11 @@ class DeviceDataFortranImplementation(FortranImplementation):
 			adjustedLine = importStatements(dependantSymbols)
 
 		if dependantSymbols[0].isPresent or symbol.isHostSymbol:
-			return adjustedLine
+			return adjustedLine + "\n"
 
 		if dependantSymbols[0].isToBeTransfered or regionType == RegionType.KERNEL_CALLER_DECLARATION:
 			adjustedLine += importStatements(dependantSymbols)
-		return adjustedLine
+		return adjustedLine + "\n"
 
 	def adjustDeclarationForDevice(self, line, dependantSymbols, regionType, parallelRegionPosition):
 		def declarationStatements(dependantSymbols, declarationDirectives, deviceType):

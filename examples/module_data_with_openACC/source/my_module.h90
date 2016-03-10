@@ -18,7 +18,7 @@
 module my_module
 real, dimension(:, :, :), allocatable :: a, b, c, d, a2, b2, c2, d2, used_in_acc_routine
 real, parameter :: some_const = 1.0d0
-@domainDependant{domName(x,y,z), domSize(NX,NY,NZ)}
+@domainDependant{attribute(host), domName(x,y,z), domSize(NX,NY,NZ)}
 a, b, c, d, a2, b2, c2, d2, used_in_acc_routine
 @end domainDependant
 end module

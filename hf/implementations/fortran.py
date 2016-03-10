@@ -334,7 +334,7 @@ Symbols vs host attributes:\n%s" %(str([(symbol.name, symbol.isHostSymbol) for s
 
 class DeviceDataFortranImplementation(FortranImplementation):
 	@staticmethod
-	def updateSymbolDeviceState(symbol, regionType, parallelRegionPosition):
+	def updateSymbolDeviceState(symbol, regionType, parallelRegionPosition, postTransfer=False):
 		logging.debug("device state of symbol %s BEFORE update:\nisOnDevice: %s; isUsingDevicePostfix: %s" %(
 			symbol.name,
 			symbol.isOnDevice,
@@ -383,8 +383,8 @@ class DeviceDataFortranImplementation(FortranImplementation):
 			#.. marked to be transferred or in a kernel caller
 			elif symbol.isToBeTransfered \
 			or regionType == RegionType.KERNEL_CALLER_DECLARATION:
-				symbol.isUsingDevicePostfix = True
-				symbol.isOnDevice = True
+				symbol.isUsingDevicePostfix = postTransfer
+				symbol.isOnDevice = postTransfer
 
 		logging.debug("device state of symbol %s AFTER update:\nisOnDevice: %s; isUsingDevicePostfix: %s" %(
 			symbol.name,
@@ -411,7 +411,7 @@ class DeviceDataFortranImplementation(FortranImplementation):
 				raise UsageError("symbol %s needs to be already present on the device in this context" %(symbol))
 
 		for symbol in dependantSymbols:
-			self.updateSymbolDeviceState(symbol, RegionType.OTHER, parallelRegionPosition)
+			self.updateSymbolDeviceState(symbol, RegionType.OTHER, parallelRegionPosition, postTransfer=True)
 		if parallelRegionPosition in ["within", "outside"]:
 			return ""
 
@@ -437,9 +437,13 @@ class DeviceDataFortranImplementation(FortranImplementation):
 		if not dependantSymbols or len(dependantSymbols) == 0:
 			raise Exception("no symbols to adjust")
 		for symbol in dependantSymbols:
-			self.updateSymbolDeviceState(symbol, regionType, parallelRegionPosition)
+			self.updateSymbolDeviceState(symbol, regionType, parallelRegionPosition, postTransfer=True)
 		alreadyOnDevice, copyHere, _ = _checkDeclarationConformity(dependantSymbols)
 		adjustedLine = line.rstrip()
+
+		#packed symbols -> leave them alone
+		if dependantSymbols[0].isCompacted:
+			return adjustedLine + "\n"
 
 		#$$$ generalize this using using symbol.getSanitizedDeclarationPrefix with a new 'intent' parameter
 		declarationDirectivesWithoutIntent, declarationDirectives,  symbolDeclarationStr = purgeFromDeclarationSettings(
@@ -449,10 +453,6 @@ class DeviceDataFortranImplementation(FortranImplementation):
 			purgeList=['intent', 'allocatable', 'dimension'],
 			withAndWithoutIntent=True
 		)
-
-		#packed symbols -> leave them alone
-		if dependantSymbols[0].isCompacted:
-			return adjustedLine + "\n"
 
 		deviceType = "device"
 		declarationType = dependantSymbols[0].declarationType

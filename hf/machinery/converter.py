@@ -29,7 +29,6 @@ from tools.analysis import SymbolDependencyAnalyzer, getAnalysisForSymbol, getAr
 from tools.patterns import RegExPatterns
 from machinery.parser import H90CallGraphAndSymbolDeclarationsParser, getSymbolsByName, currFile, currLineNo
 from machinery.commons import FortranCodeSanitizer
-from implementations.fortran import updateSymbolDeviceState
 
 def getModuleArraysForCallee(calleeName, symbolAnalysisByRoutineNameAndSymbolName, symbolsByModuleNameAndSymbolName):
     moduleSymbols = []
@@ -571,6 +570,7 @@ This is not allowed for implementations using %s.\
         )
 
         regionType = RegionType.KERNEL_CALLER_DECLARATION if self.currRoutineIsCallingParallelRegion else RegionType.OTHER
+        symbolsByUniqueNameToBeUpdated = {}
 
         #build list of additional subroutine parameters
         #(parameters that the user didn't specify but that are necessary based on the features of the underlying technology
@@ -590,10 +590,10 @@ This is not allowed for implementations using %s.\
             additionalDeclarationsForOurselves,
             additionalDummies
         ), extra={"hfLineNo":currLineNo, "hfFile":currFile})
-        for symbol in additionalImportsForOurSelves:
-            updateSymbolDeviceState(symbol, regionType, self.currRoutine.node.getAttribute("parallelRegionPosition"))
         for symbol in additionalImportsForOurSelves + additionalDeclarationsForOurselves:
             symbol.isEmulatingSymbolThatWasActiveInCurrentScope = True
+        for symbol in additionalImportsForOurSelves + additionalDeclarationsForOurselves + additionalDummies:
+            symbolsByUniqueNameToBeUpdated[symbol.uniqueIdentifier] = symbol
         toBeCompacted, declarationPrefix, otherImports = self.listCompactedSymbolsAndDeclarationPrefixAndOtherSymbols(
             additionalImportsForOurSelves + additionalDeclarationsForOurselves
         )
@@ -604,13 +604,6 @@ This is not allowed for implementations using %s.\
             compactedArrayList = [compactedArray]
         self.currAdditionalSubroutineParameters = sorted(otherImports + compactedArrayList)
         self.currAdditionalCompactedSubroutineParameters = sorted(toBeCompacted)
-        adjustedLine = self.implementation.subroutinePrefix(self.currRoutine.node) \
-            + " " \
-            + self.processAdditionalSubroutineParametersAndGetAdjustedLine(
-                subProcBeginMatch.group(0),
-                additionalDummies
-            ) \
-            + '\n'
 
         #analyse whether this routine is calling other routines that have a parallel region within
         #+ analyse the additional symbols that come up there
@@ -641,8 +634,7 @@ This is not allowed for implementations using %s.\
                 )
                 for symbol in additionalImportsForDeviceCompatibility + additionalDeclarationsForDeviceCompatibility + additionalDummies:
                     symbol.resetScope(self.currRoutine.name)
-                for symbol in additionalImportsForDeviceCompatibility:
-                    updateSymbolDeviceState(symbol, regionType, self.currRoutine.node.getAttribute("parallelRegionPosition"))
+                    symbolsByUniqueNameToBeUpdated[symbol.uniqueIdentifier] = symbol
                 if 'DEBUG_PRINT' in implementation.optionFlags:
                     tentativeAdditionalImports = getModuleArraysForCallee(
                         calleeName,
@@ -666,6 +658,16 @@ This is not allowed for implementations using %s.\
                     continue
                 self.currRoutineIsCallingParallelRegion = True
 
+        for symbolName in self.currSymbolsByName:
+            symbol = self.currSymbolsByName[symbolName]
+            if not symbol.uniqueIdentifier in symbolsByUniqueNameToBeUpdated:
+                symbolsByUniqueNameToBeUpdated[symbol.uniqueIdentifier] = symbol
+        for symbolName in symbolsByUniqueNameToBeUpdated:
+            self.implementation.updateSymbolDeviceState(
+                symbolsByUniqueNameToBeUpdated[symbolName],
+                regionType,
+                self.currRoutine.node.getAttribute("parallelRegionPosition")
+            )
         additionalImportsByScopedName = dict(
             (symbol.nameInScope(), symbol)
             for symbol in self.filterOutSymbolsAlreadyAliveInCurrentScope(
@@ -689,6 +691,13 @@ This is not allowed for implementations using %s.\
         for symbol in allAdditionalImports:
             if symbol.declarationType not in [DeclarationType.FOREIGN_MODULE_SCALAR, DeclarationType.LOCAL_ARRAY, DeclarationType.MODULE_ARRAY]:
                 continue
+        adjustedLine = self.implementation.subroutinePrefix(self.currRoutine.node) \
+            + " " \
+            + self.processAdditionalSubroutineParametersAndGetAdjustedLine(
+                subProcBeginMatch.group(0),
+                additionalDummies
+            ) \
+            + '\n'
         if len(allAdditionalImports) > 0:
             adjustedLine += self.implementation.adjustImportForDevice(
                 None,

@@ -49,6 +49,10 @@ class FortranImplementation(object):
 		if type(optionFlags) == list:
 			self.optionFlags = optionFlags
 
+	@staticmethod
+	def updateSymbolDeviceState(symbol, regionType, parallelRegionPosition):
+		return
+
 	def splitIntoCompatibleRoutines(self, routine):
 		return [routine]
 
@@ -280,57 +284,6 @@ class OpenMPFortranImplementation(FortranImplementation):
 			self.currDependantSymbols = None
 		return FortranImplementation.subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, is_subroutine_end)
 
-def updateSymbolDeviceState(symbol, regionType, parallelRegionPosition):
-	logging.debug("device state of symbol %s BEFORE update:\nisOnDevice: %s; isUsingDevicePostfix: %s" %(
-		symbol.name,
-		symbol.isOnDevice,
-		symbol.isUsingDevicePostfix
-	))
-
-	#assume that the data is already on the device for parallel within/outside position
-	if parallelRegionPosition in ["within", "outside"]:
-		symbol.isPresent = True
-
-	#packed symbols -> leave them alone
-	if symbol.isCompacted:
-		return
-
-	#passed in scalars in kernels and inside kernels
-	if parallelRegionPosition in ["within", "outside"] \
-	and len(symbol.domains) == 0 \
-	and symbol.intent not in ["out", "inout", "local"]:
-		symbol.isOnDevice = True
-
-	#arrays..
-	elif len(symbol.domains) > 0:
-
-		#.. marked as host symbol
-		if symbol.isHostSymbol:
-			#this might look confusing. We want to declare a device version but note that the data is not yet residing there
-			symbol.isUsingDevicePostfix = True
-			symbol.isOnDevice = False
-
-		#.. imports / module scope
-		elif symbol.declarationType == DeclarationType.MODULE_ARRAY:
-			symbol.isUsingDevicePostfix = True
-
-		#.. marked as present or locals in kernel callers
-		elif symbol.isPresent \
-		or (symbol.intent in [None, "", "local"] and regionType == RegionType.KERNEL_CALLER_DECLARATION):
-			symbol.isOnDevice = True
-
-		#.. marked to be transferred or in a kernel caller
-		elif symbol.isToBeTransfered \
-		or regionType == RegionType.KERNEL_CALLER_DECLARATION:
-			symbol.isUsingDevicePostfix = True
-			symbol.isOnDevice = True
-
-	logging.debug("device state of symbol %s AFTER update:\nisOnDevice: %s; isUsingDevicePostfix: %s" %(
-		symbol.name,
-		symbol.isOnDevice,
-		symbol.isUsingDevicePostfix
-	))
-
 def _checkDeclarationConformity(dependantSymbols):
 	#analyse state of symbols - already declared as on device or not?
 	alreadyOnDevice = "undefined"
@@ -380,6 +333,65 @@ Symbols vs host attributes:\n%s" %(str([(symbol.name, symbol.isHostSymbol) for s
 	return alreadyOnDevice, copyHere, isOnHost
 
 class DeviceDataFortranImplementation(FortranImplementation):
+	@staticmethod
+	def updateSymbolDeviceState(symbol, regionType, parallelRegionPosition):
+		logging.debug("device state of symbol %s BEFORE update:\nisOnDevice: %s; isUsingDevicePostfix: %s" %(
+			symbol.name,
+			symbol.isOnDevice,
+			symbol.isUsingDevicePostfix
+		))
+
+		#assume that the data is already on the device for parallel within/outside position
+		if parallelRegionPosition in ["within", "outside"]:
+			symbol.isPresent = True
+
+		#packed symbols -> leave them alone
+		if symbol.isCompacted:
+			return
+
+		#passed in scalars in kernels and inside kernels
+		if parallelRegionPosition in ["within", "outside"] \
+		and len(symbol.domains) == 0 \
+		and symbol.intent not in ["out", "inout", "local"]:
+			symbol.isOnDevice = True
+
+		#arrays..
+		elif len(symbol.domains) > 0:
+
+			#.. marked as host symbol
+			if symbol.isHostSymbol and regionType == RegionType.MODULE_DECLARATION:
+				#this might look confusing. We want to declare a device version but note that the data is not yet residing there
+				symbol.isUsingDevicePostfix = True
+				symbol.isOnDevice = False
+
+			elif symbol.isHostSymbol:
+				symbol.isUsingDevicePostfix = False
+				symbol.isOnDevice = False
+
+			#.. imports / module scope
+			elif symbol.declarationType == DeclarationType.MODULE_ARRAY \
+			and parallelRegionPosition not in ["", None]:
+				symbol.isUsingDevicePostfix = True
+				symbol.isOnDevice = True
+
+			#.. marked as present or locals in kernel callers
+			elif symbol.isPresent \
+			or (symbol.intent in [None, "", "local"] and regionType == RegionType.KERNEL_CALLER_DECLARATION):
+				symbol.isUsingDevicePostfix = False
+				symbol.isOnDevice = True
+
+			#.. marked to be transferred or in a kernel caller
+			elif symbol.isToBeTransfered \
+			or regionType == RegionType.KERNEL_CALLER_DECLARATION:
+				symbol.isUsingDevicePostfix = True
+				symbol.isOnDevice = True
+
+		logging.debug("device state of symbol %s AFTER update:\nisOnDevice: %s; isUsingDevicePostfix: %s" %(
+			symbol.name,
+			symbol.isOnDevice,
+			symbol.isUsingDevicePostfix
+		))
+
 	def adjustImportForDevice(self, line, dependantSymbols, regionType, parallelRegionPosition, parallelRegionTemplates):
 		def importStatements(symbols):
 			return "\n".join(
@@ -399,7 +411,7 @@ class DeviceDataFortranImplementation(FortranImplementation):
 				raise UsageError("symbol %s needs to be already present on the device in this context" %(symbol))
 
 		for symbol in dependantSymbols:
-			updateSymbolDeviceState(symbol, RegionType.OTHER, parallelRegionPosition)
+			self.updateSymbolDeviceState(symbol, RegionType.OTHER, parallelRegionPosition)
 		if parallelRegionPosition in ["within", "outside"]:
 			return ""
 
@@ -425,7 +437,7 @@ class DeviceDataFortranImplementation(FortranImplementation):
 		if not dependantSymbols or len(dependantSymbols) == 0:
 			raise Exception("no symbols to adjust")
 		for symbol in dependantSymbols:
-			updateSymbolDeviceState(symbol, regionType, parallelRegionPosition)
+			self.updateSymbolDeviceState(symbol, regionType, parallelRegionPosition)
 		alreadyOnDevice, copyHere, _ = _checkDeclarationConformity(dependantSymbols)
 		adjustedLine = line.rstrip()
 

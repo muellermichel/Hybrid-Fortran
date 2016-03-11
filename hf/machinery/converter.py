@@ -575,7 +575,7 @@ This is not allowed for implementations using %s.\
         #build list of additional subroutine parameters
         #(parameters that the user didn't specify but that are necessary based on the features of the underlying technology
         # and the symbols declared by the user, such us temporary arrays and imported symbols)
-        additionalImportsForOurSelves, additionalDeclarationsForOurselves, additionalDummies = self.implementation.getAdditionalKernelParameters(
+        additionalImportsForOurSelves, additionalDeclarationsForOurselves, additionalDummiesForOurselves = self.implementation.getAdditionalKernelParameters(
             self.cgDoc,
             self.currArguments,
             self.currRoutine.node,
@@ -588,11 +588,11 @@ This is not allowed for implementations using %s.\
         logging.debug("additional symbols for ourselves;\nimports: %s\ndeclarations: %s\ndummies: %s" %(
             additionalImportsForOurSelves,
             additionalDeclarationsForOurselves,
-            additionalDummies
+            additionalDummiesForOurselves
         ), extra={"hfLineNo":currLineNo, "hfFile":currFile})
         for symbol in additionalImportsForOurSelves + additionalDeclarationsForOurselves:
             symbol.isEmulatingSymbolThatWasActiveInCurrentScope = True
-        for symbol in additionalImportsForOurSelves + additionalDeclarationsForOurselves + additionalDummies:
+        for symbol in additionalImportsForOurSelves + additionalDeclarationsForOurselves + additionalDummiesForOurselves:
             symbolsByUniqueNameToBeUpdated[symbol.uniqueIdentifier] = symbol
         toBeCompacted, declarationPrefix, otherImports = self.listCompactedSymbolsAndDeclarationPrefixAndOtherSymbols(
             additionalImportsForOurSelves + additionalDeclarationsForOurselves
@@ -695,7 +695,7 @@ This is not allowed for implementations using %s.\
             + " " \
             + self.processAdditionalSubroutineParametersAndGetAdjustedLine(
                 subProcBeginMatch.group(0),
-                additionalDummies
+                additionalDummiesForOurselves
             ) \
             + '\n'
         if len(allAdditionalImports) > 0:

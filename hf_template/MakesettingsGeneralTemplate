@@ -217,6 +217,12 @@ TEST_WITH_EVERY_BUILD=false
 # using the @scheme directive and defining the implementation here, we can  #
 # override the default implementation (defined using the configure script)  #
 # and mix in different ones.                                                #
+# The 'SEPARATE_KERNELS' scheme is used as an example here.                 #
+# Wrap your subroutine(s) in                                                #
+# @scheme{name(SEPARATE_KERNELS)}                                           #
+# ....                                                                      #
+# @end scheme                                                               #
+# directives.                                                               #
 #############################################################################
 GPU_IMPLEMENTATION_EMULATION_SEPARATE_KERNELS=PGIOpenACCFortranImplementation
 GPU_IMPLEMENTATION_DEBUG_SEPARATE_KERNELS=PGIOpenACCFortranImplementation

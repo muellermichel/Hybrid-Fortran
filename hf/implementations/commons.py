@@ -438,10 +438,11 @@ def getRuntimeDebugPrintStatements(symbolsByName, calleeRoutineNode, parallelReg
 		for symbol in symbolsToPrint
 		if len(symbol.domains) > 0
 	]
-	if useOpenACC:
-		result += "#ifdef GPU\n"
-		result += "!$acc update host(%s)\n" %(", ".join(symbolClauses)) if len(symbolsToPrint) > 0 else ""
-		result += "#endif\n"
+	#michel 2016-3-11: we've switched to device pointers
+	# if useOpenACC:
+	# 	result += "#ifdef GPU\n"
+	# 	result += "!$acc update host(%s)\n" %(", ".join(symbolClauses)) if len(symbolsToPrint) > 0 else ""
+	# 	result += "#endif\n"
 	for symbol in symbolsToPrint:
 		result = result + "hf_output_temp = %s\n" %(symbol.accessRepresentation([], offsetsBySymbolName[symbol.name], parallelRegionNode))
 		#michel 2013-4-18: the Fortran-style memcopy as used right now in the above line creates a runtime error immediately

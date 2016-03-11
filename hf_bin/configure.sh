@@ -70,23 +70,51 @@ initFileFromTemplate() {
 	return 0
 }
 
+initCPUImplementation() {
+	suffix=${1:-}
+	extension=""
+	if [ ! -z ${suffix} ]; then
+		extension="_${suffix}"
+	fi
+	initFileWithContent "${configDir}/CPU_IMPLEMENTATION_DEBUG${extension}" "FortranImplementation"
+	initFileWithContent "${configDir}/CPU_IMPLEMENTATION_PRODUCTION${extension}" "OpenMPFortranImplementation"
+}
+
+initOpenACCImplementation() {
+	suffix=${1:-}
+	extension=""
+	if [ ! -z ${suffix} ]; then
+		extension="_${suffix}"
+	fi
+	initFileWithContent "${configDir}/GPU_IMPLEMENTATION_DEBUG${extension}" "PGIOpenACCFortranImplementation"
+	initFileWithContent "${configDir}/GPU_IMPLEMENTATION_PRODUCTION${extension}" "PGIOpenACCFortranImplementation"
+	initFileWithContent "${configDir}/GPU_IMPLEMENTATION_EMULATION${extension}" "PGIOpenACCFortranImplementation"
+}
+
+initCUDAImplementation() {
+	suffix=${1:-}
+	extension=""
+	if [ ! -z ${suffix} ]; then
+		extension="_${suffix}"
+	fi
+	initFileWithContent "${configDir}/GPU_IMPLEMENTATION_DEBUG${extension}" "DebugCUDAFortranImplementation"
+	initFileWithContent "${configDir}/GPU_IMPLEMENTATION_PRODUCTION${extension}" "CUDAFortranImplementation"
+	initFileWithContent "${configDir}/GPU_IMPLEMENTATION_EMULATION${extension}" "DebugEmulatedCUDAFortranImplementation"
+}
+
 initImplementations() {
 	acceleratorImplementation="$1"
 	configDir="$2"
 
 	echo "configuring for ${acceleratorImplementation} implementation"
 	mkdir -p "${configDir}"
-	initFileWithContent "${configDir}/CPU_IMPLEMENTATION_DEBUG" "FortranImplementation"
-	initFileWithContent "${configDir}/CPU_IMPLEMENTATION_PRODUCTION" "OpenMPFortranImplementation"
+	initCPUImplementation
 	if [ "${acceleratorImplementation}" = "openacc" ] ; then
-		initFileWithContent "${configDir}/GPU_IMPLEMENTATION_DEBUG" "PGIOpenACCFortranImplementation"
-		initFileWithContent "${configDir}/GPU_IMPLEMENTATION_PRODUCTION" "PGIOpenACCFortranImplementation"
-		initFileWithContent "${configDir}/GPU_IMPLEMENTATION_EMULATION" "PGIOpenACCFortranImplementation"
+		initOpenACCImplementation
 	else
-		initFileWithContent "${configDir}/GPU_IMPLEMENTATION_DEBUG" "DebugCUDAFortranImplementation"
-		initFileWithContent "${configDir}/GPU_IMPLEMENTATION_PRODUCTION" "CUDAFortranImplementation"
-		initFileWithContent "${configDir}/GPU_IMPLEMENTATION_EMULATION" "DebugEmulatedCUDAFortranImplementation"
+		initCUDAImplementation
 	fi
+	initOpenACCImplementation "REDUCTION_SUPPORT"
 	return 0
 }
 

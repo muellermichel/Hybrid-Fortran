@@ -1013,11 +1013,25 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
         super(H90XMLSymbolDeclarationExtractor, self).__init__(cgDoc, implementationsByTemplateName=implementationsByTemplateName)
         self.symbolsByModuleNameAndSymbolName = symbolsByModuleNameAndSymbolName
 
-    def processSymbolAttributes(self, isModule=False):
+    def cleanupSymbolsOnScopeEnd(self, isModule=False):
         currSymbolNames = self.currSymbolsByName.keys()
         self.currSymbols = []
         if len(currSymbolNames) == 0:
             return
+        for symbolName in self.currSymbolsByName:
+            symbol = self.currSymbolsByName[symbolName]
+            if not isModule \
+            and symbol.nameOfScope != self.currSubprocName \
+            and symbol.declarationType not in [
+                DeclarationType.LOCAL_MODULE_SCALAR,
+                DeclarationType.MODULE_ARRAY,
+                DeclarationType.MODULE_ARRAY_PASSED_IN_AS_ARGUMENT
+            ]:
+                raise Exception("symbol %s from scope %s is active in scope %s - something went wrong" %(
+                    symbol.name,
+                    symbol.nameOfScope,
+                    self.currSubprocName
+                ))
         self.currSymbols = [
             self.currSymbolsByName[symbolName]
             for symbolName in currSymbolNames
@@ -1138,7 +1152,7 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
 
     def processModuleEndMatch(self, moduleEndMatch):
         #get handles to currently active symbols -> temporarily save the handles
-        self.processSymbolAttributes(isModule=True)
+        self.cleanupSymbolsOnScopeEnd(isModule=True)
         logging.debug("exiting module %s. Storing informations for symbols %s" %(self.currModuleName, str(self.currSymbols)), extra={"hfLineNo":currLineNo, "hfFile":currFile})
         #finish parsing -> superclass destroys handles
         super(H90XMLSymbolDeclarationExtractor, self).processModuleEndMatch(moduleEndMatch)
@@ -1151,7 +1165,7 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
 
     def processProcEndMatch(self, subProcEndMatch):
         #get handles to currently active symbols -> temporarily save the handles
-        self.processSymbolAttributes()
+        self.cleanupSymbolsOnScopeEnd()
         logging.debug("exiting procedure %s. Storing informations for symbols %s" %(self.currSubprocName, str(self.currSymbols)), extra={"hfLineNo":currLineNo, "hfFile":currFile})
         #finish parsing -> superclass destroys handles
         super(H90XMLSymbolDeclarationExtractor, self).processProcEndMatch(subProcEndMatch)

@@ -1005,12 +1005,14 @@ This is not allowed for implementations using %s.\
 
         importMatch1 = self.patterns.selectiveImportPattern.match(line)
         importMatch2 = self.patterns.singleMappedImportPattern.match(line)
+        importMatch3 = self.patterns.importAllPattern.match(line)
         declarationMatch = self.patterns.symbolDeclPattern.match(line)
         specificationStatementMatch = self.patterns.specificationStatementPattern.match(line)
         if not ( \
             line.strip() == "" \
             or importMatch1 \
             or importMatch2 \
+            or importMatch3 \
             or declarationMatch \
             or specificationStatementMatch \
         ):

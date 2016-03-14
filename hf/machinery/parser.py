@@ -1027,9 +1027,10 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
                 DeclarationType.MODULE_ARRAY,
                 DeclarationType.MODULE_ARRAY_PASSED_IN_AS_ARGUMENT
             ]:
-                raise Exception("symbol %s from scope %s is active in scope %s - something went wrong" %(
+                raise Exception("symbol %s from scope %s, created by %s is active in scope %s - something went wrong" %(
                     symbol.name,
                     symbol.nameOfScope,
+                    symbol.createdBy,
                     self.currSubprocName
                 ))
         self.currSymbols = [

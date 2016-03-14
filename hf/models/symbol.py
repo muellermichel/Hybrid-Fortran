@@ -250,6 +250,9 @@ class Symbol(object):
 				self.loadModuleNodeAttributes(scopeNode)
 			else:
 				self.loadRoutineNodeAttributes(scopeNode, parallelRegionTemplates)
+
+		import inspect
+		self.createdBy = inspect.getouterframes(inspect.currentframe(), 2)[1][3]
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] initialized")
 
 	def __repr__(self):

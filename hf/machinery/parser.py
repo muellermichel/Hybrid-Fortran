@@ -968,8 +968,8 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
         self.loadSymbolsFromTemplate(routineNode, parallelRegionTemplates)
 
     def processProcEndMatch(self, subProcEndMatch):
-        super(H90CallGraphAndSymbolDeclarationsParser, self).processProcEndMatch(subProcEndMatch)
         routineNode = self.routineNodesByProcName.get(self.currSubprocName)
+        super(H90CallGraphAndSymbolDeclarationsParser, self).processProcEndMatch(subProcEndMatch)
         dependants = self.currSymbolsByName.keys()
         unmatched = []
         for dependant in dependants:
@@ -996,7 +996,7 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
         if len(unmatched) != 0:
             raise Exception("The following non-scalar domain dependant declarations could not be found within subroutine %s: %s;\n\
                 domains of first unmatched: %s"
-                %(self.currSubprocName, unmatched, str(self.currSymbolsByName[unmatched[0]].domains))
+                %(routineNode.getAttribute('name'), unmatched, str(self.currSymbolsByName[unmatched[0]].domains))
             )
 
     def processLine(self, line):
@@ -1013,26 +1013,11 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
         super(H90XMLSymbolDeclarationExtractor, self).__init__(cgDoc, implementationsByTemplateName=implementationsByTemplateName)
         self.symbolsByModuleNameAndSymbolName = symbolsByModuleNameAndSymbolName
 
-    def cleanupSymbolsOnScopeEnd(self, isModule=False):
+    def udpateActiveSymbols(self, isModule=False):
         currSymbolNames = self.currSymbolsByName.keys()
         self.currSymbols = []
         if len(currSymbolNames) == 0:
             return
-        for symbolName in self.currSymbolsByName:
-            symbol = self.currSymbolsByName[symbolName]
-            if not isModule \
-            and symbol.nameOfScope != self.currSubprocName \
-            and symbol.declarationType not in [
-                DeclarationType.LOCAL_MODULE_SCALAR,
-                DeclarationType.MODULE_ARRAY,
-                DeclarationType.MODULE_ARRAY_PASSED_IN_AS_ARGUMENT
-            ]:
-                raise Exception("symbol %s from scope %s, created by %s is active in scope %s - something went wrong" %(
-                    symbol.name,
-                    symbol.nameOfScope,
-                    symbol.createdBy,
-                    self.currSubprocName
-                ))
         self.currSymbols = [
             self.currSymbolsByName[symbolName]
             for symbolName in currSymbolNames
@@ -1056,6 +1041,23 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
         self.entryNodesBySymbolName = {}
         for domainDependantEntryNode in domainDependantEntryNodes:
             self.entryNodesBySymbolName[domainDependantEntryNode.firstChild.nodeValue.strip()] = domainDependantEntryNode
+
+    def checkScope(self, isModule=False):
+        for symbolName in self.currSymbolsByName:
+            symbol = self.currSymbolsByName[symbolName]
+            if not isModule \
+            and symbol.nameOfScope != self.currSubprocName \
+            and symbol.declarationType not in [
+                DeclarationType.LOCAL_MODULE_SCALAR,
+                DeclarationType.MODULE_ARRAY,
+                DeclarationType.MODULE_ARRAY_PASSED_IN_AS_ARGUMENT
+            ]:
+                raise Exception("symbol %s from scope %s, created by %s is active in scope %s - something went wrong" %(
+                    symbol.name,
+                    symbol.nameOfScope,
+                    symbol.createdBy,
+                    self.currSubprocName
+                ))
         for symbol in self.currSymbols:
             entryNode = self.entryNodesBySymbolName.get(symbol.name)
             if entryNode:
@@ -1153,10 +1155,11 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
 
     def processModuleEndMatch(self, moduleEndMatch):
         #get handles to currently active symbols -> temporarily save the handles
-        self.cleanupSymbolsOnScopeEnd(isModule=True)
+        self.udpateActiveSymbols(isModule=True)
         logging.debug("exiting module %s. Storing informations for symbols %s" %(self.currModuleName, str(self.currSymbols)), extra={"hfLineNo":currLineNo, "hfFile":currFile})
         #finish parsing -> superclass destroys handles
         super(H90XMLSymbolDeclarationExtractor, self).processModuleEndMatch(moduleEndMatch)
+        self.checkScope(isModule=True)
         #store our symbol informations to the xml
         self.storeCurrentSymbolAttributes(isModule=True)
         #throw away our handles
@@ -1166,10 +1169,11 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
 
     def processProcEndMatch(self, subProcEndMatch):
         #get handles to currently active symbols -> temporarily save the handles
-        self.cleanupSymbolsOnScopeEnd()
+        self.udpateActiveSymbols()
         logging.debug("exiting procedure %s. Storing informations for symbols %s" %(self.currSubprocName, str(self.currSymbols)), extra={"hfLineNo":currLineNo, "hfFile":currFile})
         #finish parsing -> superclass destroys handles
         super(H90XMLSymbolDeclarationExtractor, self).processProcEndMatch(subProcEndMatch)
+        self.checkScope()
         #store our symbol informations to the xml
         self.storeCurrentSymbolAttributes()
         #throw away our handles

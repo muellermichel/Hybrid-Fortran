@@ -117,6 +117,7 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
         self.currParallelRegionRelationNode = None
         self.currParallelRegionTemplateNode = None
         self.prepareLineCalledForCurrentLine = False
+        self.preparedBy = None
         try:
             if symbolAnalysisByRoutineNameAndSymbolName != None:
                 self.symbolAnalysisByRoutineNameAndSymbolName = symbolAnalysisByRoutineNameAndSymbolName
@@ -787,9 +788,11 @@ This is not allowed for implementations using %s.\
 
     def processInsideModuleState(self, line):
         super(H90toF90Converter, self).processInsideModuleState(line)
-        if self.state not in ['inside_module', 'inside_branch'] or (self.state == 'inside_branch' and self.stateBeforeBranch != 'inside_module'):
+        if self.state not in ['inside_module', 'inside_branch'] \
+        or (self.state == 'inside_branch' and self.stateBeforeBranch != 'inside_module'):
             return
-        self.prepareLine(self.processDeclarationLineAndGetAdjustedLine(line, RegionType.MODULE_DECLARATION), self.tab_outsideSub)
+        if not self.prepareLineCalledForCurrentLine:
+            self.prepareLine(self.processDeclarationLineAndGetAdjustedLine(line, RegionType.MODULE_DECLARATION), self.tab_outsideSub)
 
     def processInsideDeclarationsState(self, line):
         def declarationEndStatements(declarationRegionType, isInsertedBeforeCurrentLine):
@@ -1025,6 +1028,8 @@ This is not allowed for implementations using %s.\
             return
 
         self.analyseSymbolInformationOnCurrentLine(line)
+        #we are never calling super and every match that would have prepared a line, would already have been covered
+        #with a return -> safe to call prepareLine here.
         self.prepareLine(self.processDeclarationLineAndGetAdjustedLine(line, declarationRegionType), self.tab_insideSub)
 
     def processInsideSubroutineBodyState(self, line):
@@ -1230,11 +1235,14 @@ This is not allowed for implementations using %s.\
     def prepareLine(self, line, tab):
         if self.prepareLineCalledForCurrentLine:
             raise Exception(
-                "Line has already been prepared - there is an error in the transpiler logic. Please contact the Hybrid Fortran maintainers. Parser state: %s; before branch: %s" %(
+                "Line has already been prepared by %s - there is an error in the transpiler logic. Please contact the Hybrid Fortran maintainers. Parser state: %s; before branch: %s" %(
+                    self.preparedBy,
                     self.state,
                     self.stateBeforeBranch
                 )
             )
+        import inspect
+        self.preparedBy = inspect.getouterframes(inspect.currentframe(), 2)[1][3]
         self.prepareLineCalledForCurrentLine = True
         self.putLine(line)
 

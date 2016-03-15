@@ -21,7 +21,6 @@
 from models.routine import AnalyzableRoutine
 
 class Module(object):
-
 	def __init__(self, name, moduleNode):
 		self.name = name
 		self.node = moduleNode

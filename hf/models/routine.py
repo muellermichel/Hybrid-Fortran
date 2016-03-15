@@ -18,7 +18,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
-from models.region import Region
+from models.region import Region, ParallelRegion
 
 def containsKernels(routineNode):
 	return False
@@ -27,7 +27,6 @@ def uniqueIdentifier(routineName, implementationName):
 	return (routineName + "_hfauto_" + implementationName).strip()
 
 class Routine(object):
-
 	def __init__(self, name):
 		if not type(name) in [str, unicode] or name.strip() == "":
 			raise Exception("no valid name passed when trying to initialize routine")
@@ -37,7 +36,6 @@ class Routine(object):
 		return self.name
 
 class AnalyzableRoutine(Routine):
-
 	def __init__(self, name, routineNode, implementation):
 		super(AnalyzableRoutine, self).__init__(name)
 		if not routineNode:
@@ -58,8 +56,11 @@ class AnalyzableRoutine(Routine):
 			return self.name
 		return uniqueIdentifier(self.name, self.implementation.architecture[0])
 
-	def createRegion(self):
-		self._currRegion = Region(self)
+	def createRegion(self, isParallelRegion=False):
+		if isParallelRegion:
+			self._currRegion = ParallelRegion()
+		else:
+			self._currRegion = Region()
 		self._regions.append(self._currRegion)
 		return self._currRegion
 

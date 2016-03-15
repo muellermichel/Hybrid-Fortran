@@ -148,8 +148,8 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
             logging.info(traceback.format_exc())
             sys.exit(1)
 
-    def switchToNewRegion(self):
-        self.currRegion = self.currRoutine.createRegion()
+    def switchToNewRegion(self, isParallelRegion=False):
+        self.currRegion = self.currRoutine.createRegion(isParallelRegion)
 
     def endRegion(self):
         self.currRegion = None
@@ -741,7 +741,7 @@ This is not allowed for implementations using %s.\
             extra={"hfLineNo":currLineNo, "hfFile":currFile}
         )
         if self.prepareActiveParallelRegion('parallelRegionBegin'):
-            self.switchToNewRegion()
+            self.switchToNewRegion(isParallelRegion=True)
 
     def processParallelRegionEndMatch(self, parallelRegionEndMatch):
         super(H90toF90Converter, self).processParallelRegionEndMatch(parallelRegionEndMatch)

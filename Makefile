@@ -27,8 +27,8 @@ TEMPLATEDIR=${HF_DIR}/hf_template/
 EXAMPLEDIR=${HF_DIR}/example/
 EXAMPLEDIR_SOURCE=${EXAMPLEDIR}source/
 
-TEST_PROJECTS=examples/5D_parallel_vector examples/simple_stencil examples/stencil_with_local_array examples/stencil_with_passed_in_scalar_from_array examples/module_data_with_openACC examples/array_accessor_functions examples/early_returns examples/mixed_implementations examples/strides examples/poisson2d_fem_iterative examples/diffusion3d examples/particle examples/midaco_solver
-ADDITIONAL_TEST_PROJECTS=pp examples/tracing examples/simple_openACC examples/branches_with_openACC examples/openACC_hybrid_hostonly examples/simple_weather
+TEST_PROJECTS=examples/5D_parallel_vector examples/simple_stencil examples/stencil_with_local_array examples/stencil_with_passed_in_scalar_from_array examples/module_data_with_openACC examples/simple_openACC examples/branches_with_openACC examples/openACC_hybrid_hostonly examples/simple_weather examples/array_accessor_functions examples/early_returns examples/mixed_implementations examples/strides examples/poisson2d_fem_iterative examples/diffusion3d examples/particle examples/midaco_solver
+ADDITIONAL_TEST_PROJECTS=pp examples/tracing
 
 TEST_TARGETS=$(addprefix test_,$(TEST_PROJECTS))
 CLEAN_TARGETS=$(addprefix clean_,$(TEST_PROJECTS))

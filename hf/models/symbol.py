@@ -191,7 +191,7 @@ MERGEABLE_DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES = {
 	"isPointer": False,
 	"isMatched": False,
 	"declarationPrefix": None,
-	"sourceModule": None,
+	"_sourceModuleIdentifier": None,
 	"_sourceSymbol": None,
 	"parallelRegionTemplates": None,
 	"declaredDimensionSizes": None,
@@ -298,6 +298,21 @@ class Symbol(object):
 		return self.patterns.get(r'((?:[^\"\']|(?:\".*\")|(?:\'.*\'))*?(?:\W|^))(' + re.escape(symbolName) + r'(?:_d)?)((?:\W.*)|\Z)')
 
 	@property
+	def sourceModule(self):
+		if self._sourceModuleIdentifier not in ['', None, 'HF90_LOCAL_MODULE']:
+			return self._sourceModuleIdentifier
+		if not self.routineNode:
+			raise Exception("node needs to be loaded at this point")
+		sourceModule = self.routineNode.getAttribute('module')
+		if sourceModule in ['', None]:
+			sourceModule = self.routineNode.getAttribute('name') #looks like a module node is loaded for this symbol instead
+		return sourceModule
+
+	@sourceModule.setter
+	def sourceModule(self, _sourceModuleIdentifier):
+		self._sourceModuleIdentifier = _sourceModuleIdentifier
+
+	@property
 	def isArgument(self):
 		return self._isArgumentOverride or (self.analysis and self.analysis.symbolType in [SymbolType.ARGUMENT_WITH_DOMAIN_DEPENDANT_SPEC, SymbolType.ARGUMENT])
 
@@ -400,12 +415,17 @@ class Symbol(object):
 	@property
 	def declarationType(self):
 		def hasSourceModule(symbol, onlyLocal=False):
-			if symbol.sourceModule == "HF90_LOCAL_MODULE" \
-			or (symbol.sourceModule not in [None, ""] and symbol.sourceModule == self.routineNode.getAttribute('module')):
+			if symbol._sourceModuleIdentifier == "HF90_LOCAL_MODULE" \
+			or (
+				symbol._sourceModuleIdentifier not in [None, ""] \
+				and (symbol._sourceModuleIdentifier == self.routineNode.getAttribute('module') \
+					or symbol._sourceModuleIdentifier == self.routineNode.getAttribute('name')\
+				) \
+			):
 				return True
 			if onlyLocal:
 				return False
-			if symbol.sourceModule not in [None, ""]:
+			if symbol._sourceModuleIdentifier not in [None, ""]:
 				return True
 			return False
 
@@ -490,8 +510,8 @@ EXAMPLE:\n\
 				DeclarationType.MODULE_ARRAY,
 				DeclarationType.FOREIGN_MODULE_SCALAR,
 				DeclarationType.MODULE_ARRAY_PASSED_IN_AS_ARGUMENT
-			] and symbol.sourceModule not in [None, ""]:
-				referencingName = uniqueIdentifier(self.name, self.sourceModule)
+			] and symbol._sourceModuleIdentifier not in [None, ""]:
+				referencingName = uniqueIdentifier(self.name, self._sourceModuleIdentifier)
 			else:
 				referencingName = symbol.uniqueIdentifier
 			return referencingName[:min(len(referencingName), 31)] #cut after 31 chars because of Fortran 90 limitation
@@ -663,8 +683,8 @@ EXAMPLE:\n\
 			domainDependantEntryNode.setAttribute("intent", self.intent)
 		if self.declarationPrefix:
 			domainDependantEntryNode.setAttribute("declarationPrefix", self.declarationPrefix)
-		if self.sourceModule:
-			domainDependantEntryNode.setAttribute("sourceModule", self.sourceModule)
+		if self._sourceModuleIdentifier:
+			domainDependantEntryNode.setAttribute("_sourceModuleIdentifier", self._sourceModuleIdentifier)
 		if self.sourceSymbol:
 			domainDependantEntryNode.setAttribute("sourceSymbol", self.sourceSymbol)
 		domainDependantEntryNode.setAttribute("isUsingDevicePostfix", "yes" if self.isUsingDevicePostfix else "no")
@@ -684,10 +704,10 @@ EXAMPLE:\n\
 
 		self.intent = domainDependantEntryNode.getAttribute("intent") if self.intent in [None, ''] else self.intent
 		self.declarationPrefix = domainDependantEntryNode.getAttribute("declarationPrefix") if self.declarationPrefix in [None, ''] else self.declarationPrefix
-		self.sourceModule = domainDependantEntryNode.getAttribute("sourceModule") if self.sourceModule in [None, ''] else self.sourceModule
+		self._sourceModuleIdentifier = domainDependantEntryNode.getAttribute("_sourceModuleIdentifier") if self._sourceModuleIdentifier in [None, ''] else self._sourceModuleIdentifier
 		self.sourceSymbol = domainDependantEntryNode.getAttribute("sourceSymbol") if self.sourceSymbol in [None, ''] else self.sourceSymbol
 		if self.isModuleSymbol:
-			self.sourceModule = "HF90_LOCAL_MODULE" if self.sourceModule in [None, ''] else self.sourceModule
+			self._sourceModuleIdentifier = "HF90_LOCAL_MODULE" if self._sourceModuleIdentifier in [None, ''] else self._sourceModuleIdentifier
 		self.isPointer = domainDependantEntryNode.getAttribute("isPointer") == "yes"
 		self.isUsingDevicePostfix = domainDependantEntryNode.getAttribute("isUsingDevicePostfix") == "yes"
 		declaredDimensionSizes = domainDependantEntryNode.getAttribute("declaredDimensionSizes")
@@ -1076,7 +1096,7 @@ Parallel region position: %s"
 				)
 			)
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] +++++++++ LOADING IMPORT INFORMATION ++++++++++ ")
-		self.sourceModule = moduleNode.getAttribute('name')
+		self._sourceModuleIdentifier = moduleNode.getAttribute('name')
 
 		#   The name used in the import pattern is just self.name - so store this as the scoped name for now
 		self._nameInScope = self.name
@@ -1106,7 +1126,7 @@ Parallel region position: %s"
 		logging.debug(
 				"[" + str(self) + ".init " + str(self.initLevel) + "] Loading symbol information for %s imported from %s\n\
 Current Domains: %s\n" %(
-					self.name, self.sourceModule, str(self.domains)
+					self.name, self._sourceModuleIdentifier, str(self.domains)
 				)
 			)
 		attributes, domains, declarationPrefix, accPP, domPP = getAttributesDomainsDeclarationPrefixAndMacroNames(moduleTemplate, routineTemplate)
@@ -1439,10 +1459,10 @@ Currently loaded template: %s\n" %(
 			return "", False
 
 class ImplicitForeignModuleSymbol(Symbol):
-	def __init__(self, sourceModule, nameInScope, sourceSymbol, template=None):
+	def __init__(self, _sourceModuleIdentifier, nameInScope, sourceSymbol, template=None):
 		Symbol.__init__(self, nameInScope, template)
 		self._nameInScope = nameInScope
-		self.sourceModule = sourceModule
+		self._sourceModuleIdentifier = _sourceModuleIdentifier
 		self.sourceSymbol = sourceSymbol
 
 class FrameworkArray(Symbol):

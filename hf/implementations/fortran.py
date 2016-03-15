@@ -108,7 +108,8 @@ class FortranImplementation(object):
 		self,
 		cgDoc,
 		currArguments,
-		routineNode,
+		currRoutineNode,
+		calleeNode,
 		moduleNode,
 		parallelRegionTemplates,
 		moduleNodesByName,
@@ -407,6 +408,8 @@ class DeviceDataFortranImplementation(FortranImplementation):
 			raise Exception("unexpected empty list of symbols")
 		_, _, _ = _checkDeclarationConformity(dependantSymbols)
 		for symbol in dependantSymbols:
+			if len(symbol.domains) == 0:
+				continue
 			if not line and not symbol.isPresent:
 				raise UsageError("symbol %s needs to be already present on the device in this context" %(symbol))
 
@@ -419,6 +422,7 @@ class DeviceDataFortranImplementation(FortranImplementation):
 		if not adjustedLine or dependantSymbols[0].isPresent:
 			#amend import or convert to device symbol version for already present symbols
 			adjustedLine = importStatements(dependantSymbols)
+			return adjustedLine + "\n"
 
 		if dependantSymbols[0].isPresent or symbol.isHostSymbol:
 			return adjustedLine + "\n"
@@ -815,7 +819,8 @@ end if\n" %(calleeNode.getAttribute('name'))
 		self,
 		cgDoc,
 		currArguments,
-		routineNode,
+		currRoutineNode,
+		calleeNode,
 		moduleNode,
 		parallelRegionTemplates,
 		moduleNodesByName,
@@ -851,10 +856,16 @@ end if\n" %(calleeNode.getAttribute('name'))
 				if symbol.isDummySymbolForRoutine(routineName=parentNode.getAttribute('name')):
 					continue #already passed manually
 				if symbol.declarationType == DeclarationType.LOCAL_MODULE_SCALAR \
-				and routineNode.getAttribute('module') == moduleNode.getAttribute('name'):
+				and (currRoutineNode.getAttribute('module') == symbol.sourceModule):
 					logging.debug("decl added for %s" %(symbol))
 					additionalDeclarations.append(symbol)
 				elif (symbol.analysis and symbol.analysis.isModuleSymbol) \
+				or (symbol.declarationType in [
+						DeclarationType.LOCAL_MODULE_SCALAR,
+						DeclarationType.MODULE_ARRAY,
+						DeclarationType.MODULE_ARRAY_PASSED_IN_AS_ARGUMENT
+					] and currRoutineNode.getAttribute('module') != symbol.sourceModule \
+				) \
 				or symbol.declarationType == DeclarationType.FOREIGN_MODULE_SCALAR:
 					if symbol.sourceModule != moduleNode.getAttribute('name'):
 						foreignModuleNode = moduleNodesByName[symbol.sourceModule]
@@ -866,7 +877,7 @@ end if\n" %(calleeNode.getAttribute('name'))
 					additionalDummies.append(symbol)
 			return additionalImports, additionalDeclarations, additionalDummies
 
-		if routineNode.getAttribute("parallelRegionPosition") != "within" or not parallelRegionTemplates:
+		if calleeNode.getAttribute("parallelRegionPosition") != "within" or not parallelRegionTemplates:
 			return [], [], []
 		argumentSymbolNames = []
 		for argument in currArguments:
@@ -878,8 +889,8 @@ end if\n" %(calleeNode.getAttribute('name'))
 		moduleImports, moduleDeclarations, additionalDummies = getAdditionalImportsAndDeclarationsForParentScope(moduleNode, argumentSymbolNames)
 		if len(additionalDummies) != 0:
 			raise Exception("dummies are supposed to be added for module scope symbols")
-		logging.debug("============ loading additional symbols for routine %s ==============" %(routineNode.getAttribute("name")))
-		routineImports, routineDeclarations, additionalDummies = getAdditionalImportsAndDeclarationsForParentScope(routineNode, argumentSymbolNames)
+		logging.debug("============ loading additional symbols for routine %s ==============" %(calleeNode.getAttribute("name")))
+		routineImports, routineDeclarations, additionalDummies = getAdditionalImportsAndDeclarationsForParentScope(calleeNode, argumentSymbolNames)
 		return sorted(routineImports + moduleImports), sorted(routineDeclarations + moduleDeclarations), sorted(additionalDummies)
 
 	def getIterators(self, parallelRegionTemplate):

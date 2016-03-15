@@ -580,6 +580,7 @@ This is not allowed for implementations using %s.\
             self.cgDoc,
             self.currArguments,
             self.currRoutine.node,
+            self.currRoutine.node,
             self.currModule.node,
             self.parallelRegionTemplatesByProcName.get(self.currRoutine.name),
             self.moduleNodesByName,
@@ -626,6 +627,7 @@ This is not allowed for implementations using %s.\
                 additionalDummies = implementation.getAdditionalKernelParameters(
                     self.cgDoc,
                     getArguments(call),
+                    self.currRoutine.node,
                     callee,
                     self.moduleNodesByName[callee.getAttribute('module')],
                     self.parallelRegionTemplatesByProcName.get(calleeName),
@@ -757,6 +759,14 @@ This is not allowed for implementations using %s.\
     def processContainsMatch(self, containsMatch):
         super(H90toF90Converter, self).processContainsMatch(containsMatch)
         self.prepareLine(containsMatch.group(0), self.tab_outsideSub)
+
+    def processInterfaceMatch(self, interfaceMatch):
+        super(H90toF90Converter, self).processInterfaceMatch(interfaceMatch)
+        self.prepareLine(interfaceMatch.group(0), self.tab_outsideSub)
+
+    def processInterfaceEndMatch(self, interfaceEndMatch):
+        super(H90toF90Converter, self).processContainsMatch(interfaceEndMatch)
+        self.prepareLine(interfaceEndMatch.group(0), self.tab_outsideSub)
 
     def processNoMatch(self, line):
         super(H90toF90Converter, self).processNoMatch(line)
@@ -958,13 +968,13 @@ This is not allowed for implementations using %s.\
             self.switchToNewRegion()
 
         '''process everything that happens per h90 declaration line'''
-        subProcCallMatch = self.patterns.subprocCallPattern.match(str(line))
-        parallelRegionMatch = self.patterns.parallelRegionPattern.match(str(line))
-        domainDependantMatch = self.patterns.domainDependantPattern.match(str(line))
-        subProcEndMatch = self.patterns.subprocEndPattern.match(str(line))
-        templateMatch = self.patterns.templatePattern.match(str(line))
-        templateEndMatch = self.patterns.templateEndPattern.match(str(line))
-        branchMatch = self.patterns.branchPattern.match(str(line))
+        subProcCallMatch = self.patterns.subprocCallPattern.match(line)
+        parallelRegionMatch = self.patterns.parallelRegionPattern.match(line)
+        domainDependantMatch = self.patterns.domainDependantPattern.match(line)
+        subProcEndMatch = self.patterns.subprocEndPattern.match(line)
+        templateMatch = self.patterns.templatePattern.match(line)
+        templateEndMatch = self.patterns.templateEndPattern.match(line)
+        branchMatch = self.patterns.branchPattern.match(line)
 
         declarationRegionType = RegionType.OTHER
         if self.currRoutineIsCallingParallelRegion:
@@ -990,7 +1000,7 @@ This is not allowed for implementations using %s.\
             return
         if parallelRegionMatch:
             raise UsageError("parallel region without parallel dependants")
-        if self.patterns.subprocBeginPattern.match(str(line)):
+        if self.patterns.subprocBeginPattern.match(line):
             raise UsageError("subprocedure within subprocedure not allowed")
         if templateMatch:
             raise UsageError("template directives are only allowed outside of subroutines")
@@ -1034,23 +1044,23 @@ This is not allowed for implementations using %s.\
 
     def processInsideSubroutineBodyState(self, line):
         '''process everything that happens per h90 subroutine body line'''
-        branchMatch = self.patterns.branchPattern.match(str(line))
+        branchMatch = self.patterns.branchPattern.match(line)
         if branchMatch:
             self.processBranchMatch(branchMatch)
             return
 
-        if self.patterns.branchEndPattern.match(str(line)):
+        if self.patterns.branchEndPattern.match(line):
             self.prepareLine("","")
             return
 
-        subProcCallMatch = self.patterns.subprocCallPattern.match(str(line))
+        subProcCallMatch = self.patterns.subprocCallPattern.match(line)
         if subProcCallMatch:
             self.processCallMatch(subProcCallMatch)
             if self.state != 'inside_subroutine_call' and not (self.state == "inside_branch" and self.stateBeforeBranch == "inside_subroutine_call"):
                 self.processCallPost()
             return
 
-        subProcEndMatch = self.patterns.subprocEndPattern.match(str(line))
+        subProcEndMatch = self.patterns.subprocEndPattern.match(line)
         if subProcEndMatch:
             self.processProcEndMatch(subProcEndMatch)
             if self.state == "inside_branch":
@@ -1059,7 +1069,7 @@ This is not allowed for implementations using %s.\
                 self.state = 'inside_module_body'
             return
 
-        if self.patterns.earlyReturnPattern.match(str(line)):
+        if self.patterns.earlyReturnPattern.match(line):
             self.processProcExitPoint(line, is_subroutine_end=False)
             return
 
@@ -1067,7 +1077,7 @@ This is not allowed for implementations using %s.\
             self.prepareLine("! " + line, "")
             return
 
-        parallelRegionMatch = self.patterns.parallelRegionPattern.match(str(line))
+        parallelRegionMatch = self.patterns.parallelRegionPattern.match(line)
         if (parallelRegionMatch) \
         and self.currRoutine.node.getAttribute('parallelRegionPosition') == "within":
             templateRelations = self.parallelRegionTemplateRelationsByProcName.get(self.currRoutine.name)
@@ -1120,13 +1130,13 @@ This is not allowed for implementations using %s.\
             self.prepareLine("","")
             return
 
-        if (self.patterns.parallelRegionEndPattern.match(str(line))):
+        if (self.patterns.parallelRegionEndPattern.match(line)):
             #note: this may occur when a parallel region is discarded because it doesn't apply
             #-> state stays within body and the region end line will trap here
             self.prepareLine("","")
             return
 
-        domainDependantMatch = self.patterns.domainDependantPattern.match(str(line))
+        domainDependantMatch = self.patterns.domainDependantPattern.match(line)
         if (domainDependantMatch):
             if self.state == "inside_branch":
                 self.stateBeforeBranch = "inside_domainDependantRegion"
@@ -1135,19 +1145,19 @@ This is not allowed for implementations using %s.\
             self.processDomainDependantMatch(domainDependantMatch)
             return
 
-        if (self.patterns.subprocBeginPattern.match(str(line))):
+        if (self.patterns.subprocBeginPattern.match(line)):
             raise Exception("subprocedure within subprocedure not allowed")
 
         adjustedLine = self.processSymbolsAndGetAdjustedLine(line, False)
         self.prepareLine(adjustedLine, self.tab_insideSub)
 
     def processInsideParallelRegionState(self, line):
-        branchMatch = self.patterns.branchPattern.match(str(line))
+        branchMatch = self.patterns.branchPattern.match(line)
         if branchMatch:
             self.processBranchMatch(branchMatch)
             return
 
-        subProcCallMatch = self.patterns.subprocCallPattern.match(str(line))
+        subProcCallMatch = self.patterns.subprocCallPattern.match(line)
         if subProcCallMatch:
             if subProcCallMatch.group(1) not in self.routineNodesByProcName.keys():
                 message = self.implementation.warningOnUnrecognizedSubroutineCallInParallelRegion(
@@ -1161,7 +1171,7 @@ This is not allowed for implementations using %s.\
                 self.processCallPost()
             return
 
-        parallelRegionEndMatch = self.patterns.parallelRegionEndPattern.match(str(line))
+        parallelRegionEndMatch = self.patterns.parallelRegionEndPattern.match(line)
         if (parallelRegionEndMatch):
             self.processParallelRegionEndMatch(parallelRegionEndMatch)
             self.state = "inside_subroutine_body"
@@ -1171,16 +1181,16 @@ This is not allowed for implementations using %s.\
                 self.state = 'inside_subroutine_body'
             return
 
-        if (self.patterns.parallelRegionPattern.match(str(line))):
+        if (self.patterns.parallelRegionPattern.match(line)):
             raise Exception("parallelRegion within parallelRegion not allowed")
-        if (self.patterns.subprocEndPattern.match(str(line))):
+        if (self.patterns.subprocEndPattern.match(line)):
             raise Exception("subprocedure end before @end parallelRegion")
-        if (self.patterns.subprocBeginPattern.match(str(line))):
+        if (self.patterns.subprocBeginPattern.match(line)):
             raise Exception("subprocedure within subprocedure not allowed")
 
         adjustedLine = ""
-        whileLoopMatch = self.patterns.whileLoopPattern.match(str(line))
-        loopMatch = self.patterns.loopPattern.match(str(line))
+        whileLoopMatch = self.patterns.whileLoopPattern.match(line)
+        loopMatch = self.patterns.loopPattern.match(line)
         if whileLoopMatch == None and loopMatch != None:
             adjustedLine += self.implementation.loopPreparation().strip() + '\n'
         adjustedLine += self.processSymbolsAndGetAdjustedLine(line, isInsideSubroutineCall=False)

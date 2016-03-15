@@ -61,6 +61,7 @@ class CallGraphParser(object):
         self.stateSwitch = {
            'none': self.processNoneState,
            'inside_module': self.processInsideModuleState,
+           'inside_interface': self.processInsideInterface,
            'inside_moduleDomainDependantRegion': self.processInsideModuleDomainDependantRegionState,
            'inside_module_body': self.processInsideModuleBodyState,
            'inside_declarations': self.processInsideDeclarationsState,
@@ -143,15 +144,21 @@ class CallGraphParser(object):
     def processContainsMatch(self, containsMatch):
         return
 
+    def processInterfaceMatch(self, interfaceMatch):
+        return
+
+    def processInterfaceEndMatch(self, interfaceEndMatch):
+        return
+
     def processNoMatch(self, line):
         return
 
     def processNoneState(self, line):
-        moduleBeginMatch = self.patterns.moduleBeginPattern.match(str(line))
-        subProcBeginMatch = self.patterns.subprocBeginPattern.match(str(line))
-        templateMatch = self.patterns.templatePattern.match(str(line))
-        templateEndMatch = self.patterns.templateEndPattern.match(str(line))
-        branchMatch = self.patterns.branchPattern.match(str(line))
+        moduleBeginMatch = self.patterns.moduleBeginPattern.match(line)
+        subProcBeginMatch = self.patterns.subprocBeginPattern.match(line)
+        templateMatch = self.patterns.templatePattern.match(line)
+        templateEndMatch = self.patterns.templateEndPattern.match(line)
+        branchMatch = self.patterns.branchPattern.match(line)
         if branchMatch:
             self.processBranchMatch(branchMatch)
         elif templateMatch:
@@ -174,15 +181,22 @@ class CallGraphParser(object):
         return
 
     def processInsideModuleState(self, line):
-        moduleEndMatch = self.patterns.moduleEndPattern.match(str(line))
-        domainDependantMatch = self.patterns.domainDependantPattern.match(str(line))
-        templateMatch = self.patterns.templatePattern.match(str(line))
-        templateEndMatch = self.patterns.templateEndPattern.match(str(line))
-        branchMatch = self.patterns.branchPattern.match(str(line))
-        containsMatch = self.patterns.containsPattern.match(str(line))
+        moduleEndMatch = self.patterns.moduleEndPattern.match(line)
+        domainDependantMatch = self.patterns.domainDependantPattern.match(line)
+        templateMatch = self.patterns.templatePattern.match(line)
+        templateEndMatch = self.patterns.templateEndPattern.match(line)
+        branchMatch = self.patterns.branchPattern.match(line)
+        containsMatch = self.patterns.containsPattern.match(line)
+        interfaceMatch = self.patterns.interfacePattern.match(line)
 
         if branchMatch:
             self.processBranchMatch(branchMatch)
+        elif interfaceMatch:
+            self.processInterfaceMatch(interfaceMatch)
+            if self.state == "inside_branch":
+                self.stateBeforeBranch = 'inside_interface'
+            else:
+                self.state = 'inside_interface'
         elif templateMatch:
             self.processTemplateMatch(templateMatch)
         elif templateEndMatch:
@@ -210,13 +224,23 @@ class CallGraphParser(object):
             #let the child implementation decide what to do here.
             pass
 
+    def processInsideInterface(self, line):
+        interfaceEndMatch = self.patterns.interfaceEndPattern.match(line)
+        if interfaceEndMatch:
+            self.processInterfaceEndMatch(interfaceEndMatch)
+            if self.state == "inside_branch":
+                self.stateBeforeBranch = 'inside_module'
+            else:
+                self.state = 'inside_module'
+        else:
+            self.processNoMatch(line)
 
     def processInsideModuleBodyState(self, line):
-        subProcBeginMatch = self.patterns.subprocBeginPattern.match(str(line))
-        moduleEndMatch = self.patterns.moduleEndPattern.match(str(line))
-        templateMatch = self.patterns.templatePattern.match(str(line))
-        templateEndMatch = self.patterns.templateEndPattern.match(str(line))
-        branchMatch = self.patterns.branchPattern.match(str(line))
+        subProcBeginMatch = self.patterns.subprocBeginPattern.match(line)
+        moduleEndMatch = self.patterns.moduleEndPattern.match(line)
+        templateMatch = self.patterns.templatePattern.match(line)
+        templateEndMatch = self.patterns.templateEndPattern.match(line)
+        branchMatch = self.patterns.branchPattern.match(line)
 
         if branchMatch:
             self.processBranchMatch(branchMatch)
@@ -240,7 +264,7 @@ class CallGraphParser(object):
             else:
                 self.state = 'inside_declarations'
             self.processSubprocStartPost()
-        elif (self.patterns.subprocEndPattern.match(str(line))):
+        elif (self.patterns.subprocEndPattern.match(line)):
             raise UsageError("end subprocedure without matching begin subprocedure")
         else:
             self.processNoMatch(line)
@@ -249,13 +273,13 @@ class CallGraphParser(object):
         return
 
     def processInsideDeclarationsState(self, line):
-        subProcCallMatch = self.patterns.subprocCallPattern.match(str(line))
-        parallelRegionMatch = self.patterns.parallelRegionPattern.match(str(line))
-        domainDependantMatch = self.patterns.domainDependantPattern.match(str(line))
-        subProcEndMatch = self.patterns.subprocEndPattern.match(str(line))
-        templateMatch = self.patterns.templatePattern.match(str(line))
-        templateEndMatch = self.patterns.templateEndPattern.match(str(line))
-        branchMatch = self.patterns.branchPattern.match(str(line))
+        subProcCallMatch = self.patterns.subprocCallPattern.match(line)
+        parallelRegionMatch = self.patterns.parallelRegionPattern.match(line)
+        domainDependantMatch = self.patterns.domainDependantPattern.match(line)
+        subProcEndMatch = self.patterns.subprocEndPattern.match(line)
+        templateMatch = self.patterns.templatePattern.match(line)
+        templateEndMatch = self.patterns.templateEndPattern.match(line)
+        branchMatch = self.patterns.branchPattern.match(line)
 
         if branchMatch:
             self.processBranchMatch(branchMatch)
@@ -277,7 +301,7 @@ class CallGraphParser(object):
                 self.state = 'inside_module_body'
         elif parallelRegionMatch:
             raise UsageError("parallel region without parallel dependants")
-        elif (self.patterns.subprocBeginPattern.match(str(line))):
+        elif (self.patterns.subprocBeginPattern.match(line)):
             raise UsageError("subprocedure within subprocedure not allowed")
         elif templateMatch:
             raise UsageError("template directives are only allowed outside of subroutines")
@@ -309,14 +333,14 @@ class CallGraphParser(object):
 
     def processInsideSubroutineBodyState(self, line):
         #note: Branches (@if statements) are ignored here, we want to keep analyzing their statements for callgraphs.
-        domainDependantMatch = self.patterns.domainDependantPattern.match(str(line))
-        subProcCallMatch = self.patterns.subprocCallPattern.match(str(line))
-        parallelRegionMatch = self.patterns.parallelRegionPattern.match(str(line))
-        domainDependantMatch = self.patterns.domainDependantPattern.match(str(line))
-        subProcEndMatch = self.patterns.subprocEndPattern.match(str(line))
-        templateMatch = self.patterns.templatePattern.match(str(line))
-        templateEndMatch = self.patterns.templateEndPattern.match(str(line))
-        branchMatch = self.patterns.branchPattern.match(str(line))
+        domainDependantMatch = self.patterns.domainDependantPattern.match(line)
+        subProcCallMatch = self.patterns.subprocCallPattern.match(line)
+        parallelRegionMatch = self.patterns.parallelRegionPattern.match(line)
+        domainDependantMatch = self.patterns.domainDependantPattern.match(line)
+        subProcEndMatch = self.patterns.subprocEndPattern.match(line)
+        templateMatch = self.patterns.templatePattern.match(line)
+        templateEndMatch = self.patterns.templateEndPattern.match(line)
+        branchMatch = self.patterns.branchPattern.match(line)
 
         if branchMatch:
             self.processBranchMatch(branchMatch)
@@ -339,7 +363,7 @@ class CallGraphParser(object):
         elif parallelRegionMatch:
             self.processParallelRegionMatch(parallelRegionMatch)
             self.state = 'inside_parallelRegion'
-        elif self.patterns.subprocBeginPattern.match(str(line)):
+        elif self.patterns.subprocBeginPattern.match(line):
             raise UsageError("subprocedure within subprocedure not allowed")
         elif templateMatch:
             raise UsageError("template directives are only allowed outside of subroutines")
@@ -347,11 +371,11 @@ class CallGraphParser(object):
             raise UsageError("template directives are only allowed outside of subroutines")
 
     def processInsideParallelRegionState(self, line):
-        subProcCallMatch = self.patterns.subprocCallPattern.match(str(line))
-        parallelRegionEndMatch = self.patterns.parallelRegionEndPattern.match(str(line))
-        templateMatch = self.patterns.templatePattern.match(str(line))
-        templateEndMatch = self.patterns.templateEndPattern.match(str(line))
-        branchMatch = self.patterns.branchPattern.match(str(line))
+        subProcCallMatch = self.patterns.subprocCallPattern.match(line)
+        parallelRegionEndMatch = self.patterns.parallelRegionEndPattern.match(line)
+        templateMatch = self.patterns.templatePattern.match(line)
+        templateEndMatch = self.patterns.templateEndPattern.match(line)
+        branchMatch = self.patterns.branchPattern.match(line)
 
         newState = None
         if branchMatch:
@@ -363,13 +387,13 @@ class CallGraphParser(object):
         elif (parallelRegionEndMatch):
             self.processParallelRegionEndMatch(parallelRegionEndMatch)
             newState = "inside_subroutine_body"
-        # elif (self.patterns.earlyReturnPattern.match(str(line))):
+        # elif (self.patterns.earlyReturnPattern.match(line)):
         #     raise UsageError("early return in the same subroutine within parallelRegion not allowed")
-        elif (self.patterns.parallelRegionPattern.match(str(line))):
+        elif (self.patterns.parallelRegionPattern.match(line)):
             raise UsageError("parallelRegion within parallelRegion not allowed")
-        elif (self.patterns.subprocEndPattern.match(str(line))):
+        elif (self.patterns.subprocEndPattern.match(line)):
             raise UsageError("subprocedure end before @end parallelRegion")
-        elif (self.patterns.subprocBeginPattern.match(str(line))):
+        elif (self.patterns.subprocBeginPattern.match(line)):
             raise UsageError("subprocedure within subprocedure not allowed")
         elif templateMatch:
             raise UsageError("template directives are only allowed outside of subroutines")
@@ -385,10 +409,10 @@ class CallGraphParser(object):
             self.state = newState
 
     def processInsideModuleDomainDependantRegionState(self, line):
-        domainDependantEndMatch = self.patterns.domainDependantEndPattern.match(str(line))
-        templateMatch = self.patterns.templatePattern.match(str(line))
-        templateEndMatch = self.patterns.templateEndPattern.match(str(line))
-        branchMatch = self.patterns.branchPattern.match(str(line))
+        domainDependantEndMatch = self.patterns.domainDependantEndPattern.match(line)
+        templateMatch = self.patterns.templatePattern.match(line)
+        templateEndMatch = self.patterns.templateEndPattern.match(line)
+        branchMatch = self.patterns.branchPattern.match(line)
 
         newState = None
         if branchMatch:
@@ -396,15 +420,15 @@ class CallGraphParser(object):
         elif domainDependantEndMatch:
             self.processDomainDependantEndMatch(domainDependantEndMatch)
             newState = "inside_module"
-        elif (self.patterns.earlyReturnPattern.match(str(line))):
+        elif (self.patterns.earlyReturnPattern.match(line)):
             raise UsageError("early return not allowed here")
-        elif self.patterns.subprocCallPattern.match(str(line)):
+        elif self.patterns.subprocCallPattern.match(line):
             raise UsageError("subprocedure call within domainDependants not allowed")
-        elif (self.patterns.parallelRegionEndPattern.match(str(line)) or self.patterns.parallelRegionPattern.match(str(line))):
+        elif (self.patterns.parallelRegionEndPattern.match(line) or self.patterns.parallelRegionPattern.match(line)):
             raise UsageError("parallelRegion within domainDependants not allowed")
-        elif (self.patterns.subprocEndPattern.match(str(line))):
+        elif (self.patterns.subprocEndPattern.match(line)):
             raise UsageError("subprocedure end before @end domainDependant")
-        elif (self.patterns.subprocBeginPattern.match(str(line))):
+        elif (self.patterns.subprocBeginPattern.match(line)):
             raise UsageError("subprocedure within subprocedure not allowed")
         elif templateMatch:
             raise UsageError("template directives not allowed here")
@@ -418,10 +442,10 @@ class CallGraphParser(object):
             self.state = newState
 
     def processInsideDomainDependantRegionState(self, line):
-        domainDependantEndMatch = self.patterns.domainDependantEndPattern.match(str(line))
-        templateMatch = self.patterns.templatePattern.match(str(line))
-        templateEndMatch = self.patterns.templateEndPattern.match(str(line))
-        branchMatch = self.patterns.branchPattern.match(str(line))
+        domainDependantEndMatch = self.patterns.domainDependantEndPattern.match(line)
+        templateMatch = self.patterns.templatePattern.match(line)
+        templateEndMatch = self.patterns.templateEndPattern.match(line)
+        branchMatch = self.patterns.branchPattern.match(line)
 
         newState = None
         if branchMatch:
@@ -429,15 +453,15 @@ class CallGraphParser(object):
         elif domainDependantEndMatch:
             self.processDomainDependantEndMatch(domainDependantEndMatch)
             newState = "inside_subroutine_body"
-        elif (self.patterns.earlyReturnPattern.match(str(line))):
+        elif (self.patterns.earlyReturnPattern.match(line)):
             raise UsageError("early return not allowed here")
-        elif self.patterns.subprocCallPattern.match(str(line)):
+        elif self.patterns.subprocCallPattern.match(line):
             raise UsageError("subprocedure call within domainDependants not allowed")
-        elif (self.patterns.parallelRegionEndPattern.match(str(line)) or self.patterns.parallelRegionPattern.match(str(line))):
+        elif (self.patterns.parallelRegionEndPattern.match(line) or self.patterns.parallelRegionPattern.match(line)):
             raise UsageError("parallelRegion within domainDependants not allowed")
-        elif (self.patterns.subprocEndPattern.match(str(line))):
+        elif (self.patterns.subprocEndPattern.match(line)):
             raise UsageError("subprocedure end before @end domainDependant")
-        elif (self.patterns.subprocBeginPattern.match(str(line))):
+        elif (self.patterns.subprocBeginPattern.match(line)):
             raise UsageError("subprocedure within subprocedure not allowed")
         elif templateMatch:
             raise UsageError("template directives not allowed here")
@@ -481,7 +505,7 @@ class CallGraphParser(object):
                 fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
                 logging.critical(
                     'Error when parsing file %s on line %i: %s; Print of line:%s\n' %(
-                        str(fileName), self.lineNo, str(e), str(line).strip()
+                        str(fileName), self.lineNo, str(e), line.strip()
                     ),
                     extra={"hfLineNo":currLineNo, "hfFile":currFile}
                 )
@@ -763,7 +787,7 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
         )
 
     def analyseSymbolInformationOnCurrentLine(self, line, analyseImports=True, isModuleSpecification=False):
-        selectiveImportMatch = self.patterns.selectiveImportPattern.match(str(line))
+        selectiveImportMatch = self.patterns.selectiveImportPattern.match(line)
         if selectiveImportMatch:
             self.processImplicitForeignModuleSymbolMatch(selectiveImportMatch)
 
@@ -817,10 +841,10 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
 
         #$$$ this could be made more efficient by only going through symbols matched in the generic pattern
         for symbol in specifiedSymbolsByNameInScope.values():
-            declMatch = symbol.getDeclarationMatch(str(line))
+            declMatch = symbol.getDeclarationMatch(line)
             importMatch = None
             if analyseImports:
-                importMatch = symbol.symbolImportPattern.match(str(line))
+                importMatch = symbol.symbolImportPattern.match(line)
             if declMatch:
                 self.symbolsOnCurrentLine.append(symbol)
                 self.processSymbolDeclMatch(declMatch, symbol)
@@ -890,7 +914,7 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
 
     def processInsideBranch(self, line):
         super(H90CallGraphAndSymbolDeclarationsParser, self).processInsideBranch(line)
-        if self.patterns.branchEndPattern.match(str(line)):
+        if self.patterns.branchEndPattern.match(line):
             self.state = self.stateBeforeBranch
             self.stateBeforeBranch = None
             return
@@ -898,7 +922,7 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
 
     def processInsideIgnore(self, line):
         super(H90CallGraphAndSymbolDeclarationsParser, self).processInsideIgnore(line)
-        if self.patterns.branchEndPattern.match(str(line)):
+        if self.patterns.branchEndPattern.match(line):
             self.state = self.stateBeforeBranch
             self.stateBeforeBranch = None
 

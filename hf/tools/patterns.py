@@ -53,6 +53,8 @@ class RegExPatterns:
         'pointerAssignmentPattern': r"^\s*\w+\s*\=\>\s*\w+.*",
         'whileLoopPattern': r"\s*do\s*while\W.*",
         'loopPattern': r"\s*do\W.*",
+        'interfacePattern': r"\s*interface\s*",
+        'interfaceEndPattern': r"\s*end\s*interface\s*",
         'moduleBeginPattern': r'\s*module\s*(\w*).*',
         'moduleEndPattern': r'\s*end\s*module.*',
         'earlyReturnPattern': r'^\s*return(?:\s.*|$)',

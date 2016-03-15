@@ -62,7 +62,7 @@ def getDataDirectiveAndUpdateOnDeviceFlags(currRoutineNode, currParallelRegionTe
 		if symbol.isHostSymbol:
 			continue
 		if currRoutineNode.getAttribute('parallelRegionPosition') == 'within'\
-		and (symbol.intent in ["in", "inout", "out", "unspecified"] or not symbol.sourceModule in [None,""]):
+		and (symbol.intent in ["in", "inout", "out", "unspecified"] or not symbol.sourceModule in [None,""]): #$$$ sourceModule logic has changed! this probably needs to be rethought if reactivate
 			symbol.isOnDevice = True
 			continue
 		if currRoutineNode.getAttribute('parallelRegionPosition') != 'inside'\
@@ -72,7 +72,7 @@ def getDataDirectiveAndUpdateOnDeviceFlags(currRoutineNode, currParallelRegionTe
 		#Rules for kernel wrapper routines and symbols declared to be transfered
 		newDataDeclarations = ""
 		if symbol.isPresent:
-			if symbol.intent in ["in", "out", "inout", "unspecified"] or not symbol.sourceModule in [None,""]:
+			if symbol.intent in ["in", "out", "inout", "unspecified"] or not symbol.sourceModule in [None,""]: #$$$ sourceModule logic has changed! this probably needs to be rethought if reactivate
 				#all we can do is marking the symbol correctly - OpenACC enter data doesn't support present check sadly
 				#please note: unspecified intent is a symbol that is a dummy variable with no intent specified.
 				if enterOrExit == 'enter':
@@ -98,7 +98,7 @@ def getDataDirectiveAndUpdateOnDeviceFlags(currRoutineNode, currParallelRegionTe
 				else:
 					newDataDeclarations += "delete(%s)" %(symbol.name)
 					symbol.isOnDevice = False
-			elif symbol.intent == "inout" or not symbol.sourceModule in [None,""]:
+			elif symbol.intent == "inout" or not symbol.sourceModule in [None,""]: #$$$ sourceModule logic has changed! this probably needs to be rethought if reactivate
 				newDataDeclarations += "%s(%s)" %(copyDeclaration, symbol.name)
 				if enterOrExit == 'enter':
 					symbol.isOnDevice = True

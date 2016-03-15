@@ -200,7 +200,9 @@ This is not allowed for implementations using %s.\
         #match the symbol's postfix again in the current given line. (The prefix could have changed from the last match.)
         postfix = symbolMatch.group(3)
         postfixEscaped = re.escape(postfix)
-        accessors, postfix = getAccessorsAndRemainder(postfix)
+        accessors = []
+        if len(symbol.domains) > 0: #0 domains could be an external function - need to retain postfix
+            accessors, postfix = getAccessorsAndRemainder(postfix)
 
         if not implementation.supportsArbitraryDataAccessesOutsideOfKernels \
         and symbol.domains \
@@ -229,13 +231,14 @@ This is not allowed for implementations using %s.\
             )
 
         #$$$ why are we checking for a present statement?
+        #$$$ this should be replaced with generic access pattern matching
         accessPatternChangeRequired = False
         presentPattern = r"(.*?present\s*\(\s*)" + re.escape(symbol.nameInScope()) + postfixEscaped + r"\s*"
         currMatch = self.patterns.get(presentPattern).match(line)
         if not currMatch:
             pattern1 = r"(.*?(?:\W|^))" + re.escape(symbol.nameInScope()) + postfixEscaped + r"\s*"
             currMatch = self.patterns.get(pattern1).match(line)
-            accessPatternChangeRequired = True
+            accessPatternChangeRequired = len(symbol.domains) > 0 #0 domains could be an external function call which we cannot touch
             if not currMatch:
                 pattern2 = r"(.*?(?:\W|^))" + re.escape(symbol.name) + postfixEscaped + r"\s*"
                 currMatch = self.patterns.get(pattern2).match(line)

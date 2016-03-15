@@ -773,14 +773,15 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
         )
 
         genericSymbolDeclMatch = self.patterns.symbolDeclPattern.match(line)
-        if genericSymbolDeclMatch:
+        if genericSymbolDeclMatch and not "device" in genericSymbolDeclMatch.group(1):
+            #if symbol is declared device type, let user handle it
             symbolNamesWithoutDomainDependantSpecs = [
                 symbolName.strip()
                 for symbolName in [symbolSpec.split('(')[0] for symbolSpec in genericSymbolDeclMatch.group(2).split(",")]
                 if symbolName.strip() not in specifiedSymbolsByNameInScope
             ]
             for symbolName in symbolNamesWithoutDomainDependantSpecs:
-                if symbolName in ["intent", "dimension", "__device", "type", "double precision", "real", "integer", "character", "logical", "complex"] \
+                if symbolName in ["intent", "dimension", "__device", "device", "type", "double precision", "real", "integer", "character", "logical", "complex"] \
                 or not re.match(r'\w', symbolName):
                     raise Exception(
                         "Either Hybrid Fortran's declaration parser is broken or you have used a Fortran intrinsic keyword as a symbol name: %s; Matched specification: %s; Matched symbol list: %s" %(
@@ -860,6 +861,7 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
 
     def processBranchMatch(self, branchMatch):
         super(H90CallGraphAndSymbolDeclarationsParser, self).processBranchMatch(branchMatch)
+        #we cannot do this parsing in super since super doesn't know about implementation / parallel region position yet.
         branchSettingText = branchMatch.group(1).strip()
         branchSettings = branchSettingText.split(",")
         if len(branchSettings) != 1:

@@ -42,12 +42,12 @@ class RegExPatterns:
         'dimensionPattern': r'(.*?),?\s*dimension\s*\(\s*(.*?)\s*\)(.*)',
         'symbolDeclPattern': r"""
             ^\s*(
-                (?:double\s+precision|real|integer|character|logical|complex)\s*    #intrinsic types
-                (?:\(\s*[\w\,\s=]*\s*\))?\s*                                        #type initialization expression (usually the byte length)
-                (?:\s*\,\s*\w*\s*(?:\(\s*[\w\,\s\:]*\s*(?:\(.*?\))?\s*\))?)*        #arbitrarily many additional attributes; Also handle macro calls by allowing brackets within brackets
-            )\s*(?:\:\:)?\s*(                                                       #double colon to specify multiple data objects on the same line
-                (?:\w*\s*\,?\s*)+                                                   #the data object name(s)
-            ).*$                                                                    #everything that comes after the data object names, such as parameter definitions (my_param = 19)
+                (?:double\s+precision|real|integer|character|logical|complex)\s*        #intrinsic types
+                (?:\(\s*[\w\,\s=]*\s*\))?\s*                                            #type initialization expression (usually the byte length)
+                (?:\s*\,\s*\w*\s*(?:\(\s*[\w\,\s\:\+\-\*\/]*\s*(?:\(.*?\))?\s*\))?)*    #arbitrarily many additional attributes; Also handle macro calls by allowing brackets within brackets
+            )\s*(?:\:\:)?\s*(                                                           #double colon to specify multiple data objects on the same line
+                (?:\w*\s*\,?\s*)+                                                       #the data object name(s)
+            ).*$                                                                        #everything that comes after the data object names, such as parameter definitions (my_param = 19)
         """,
         'declarationKindPattern': r'(.*?)\s*kind\s*=\s*(\w*)\s*(.*)',
         'pointerAssignmentPattern': r"^\s*\w+\s*\=\>\s*\w+.*",

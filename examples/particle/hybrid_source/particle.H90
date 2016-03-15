@@ -101,13 +101,12 @@ subroutine initial(x,y)
 	real(FLOAT_BYTE_LENGTH), intent(out), dimension(:) :: x, y
 	real(FLOAT_BYTE_LENGTH) :: xs, ys
 	integer :: j
-	double precision :: rand
 
 	call srand(12131)
 	do j=1,size(x)
 		do
-			xs = rand(0)
-			ys = rand(0)
+			xs = drand(0)
+			ys = drand(0)
 			if ( (xs - 0.5)*(xs - 0.5) + (ys - 0.25)*(ys - 0.25) > 0.24*0.24 ) exit
 		end do
 		x(j) = xs

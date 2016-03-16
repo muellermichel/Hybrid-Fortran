@@ -56,8 +56,9 @@ class AnalyzableRoutine(Routine):
 
 	def _implementHeader(self):
 		parameterList = ""
-		if self._additionalArguments:
-			parameterList = "&, ".join([
+		if self._additionalArguments and len(self._additionalArguments) > 0:
+			parameterList += "&\n&"
+			parameterList += "&, ".join([
 				"%s & !additional type %i symbol inserted by framework \n" %(
 					symbol.nameInScope(),
 					symbol.declarationType
@@ -67,6 +68,8 @@ class AnalyzableRoutine(Routine):
 		if self._additionalArguments and len(self._additionalArguments) > 0 \
 		and self._programmerArguments and len(self._programmerArguments) > 0:
 			parameterList += "&, "
+		elif self._additionalArguments and len(self._additionalArguments) > 0:
+			parameterList += "& "
 		if self._programmerArguments:
 			parameterList += ", ".join(self._programmerArguments)
 		return "%s subroutine %s(%s)\n" %(

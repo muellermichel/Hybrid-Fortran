@@ -577,7 +577,6 @@ This is not allowed for implementations using %s.\
             symbol.isEmulatingSymbolThatWasActiveInCurrentScope = True
         for symbol in additionalImportsForOurSelves + additionalDeclarationsForOurselves + additionalDummiesForOurselves:
             symbolsByUniqueNameToBeUpdated[symbol.uniqueIdentifier] = symbol
-        self.currRoutine.loadAdditionalArgumentSymbols(additionalDummiesForOurselves)
         toBeCompacted, declarationPrefix, otherImports = self.listCompactedSymbolsAndDeclarationPrefixAndOtherSymbols(
             additionalImportsForOurSelves + additionalDeclarationsForOurselves
         )
@@ -587,6 +586,7 @@ This is not allowed for implementations using %s.\
             compactedArray = FrameworkArray(compactedArrayName, declarationPrefix, domains=[("hfauto", str(len(toBeCompacted)))], isOnDevice=True)
             compactedArrayList = [compactedArray]
         self.currAdditionalSubroutineParameters = sorted(otherImports + compactedArrayList)
+        self.currRoutine.loadAdditionalArgumentSymbols(self.currAdditionalSubroutineParameters + additionalDummiesForOurselves)
         self.currAdditionalCompactedSubroutineParameters = sorted(toBeCompacted)
 
         #analyse whether this routine is calling other routines that have a parallel region within

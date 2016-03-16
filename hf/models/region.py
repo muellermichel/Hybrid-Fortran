@@ -51,3 +51,6 @@ class Region(object):
 
 class ParallelRegion(Region):
 	pass
+
+class RoutineSpecificationRegion(Region):
+	pass

@@ -19,7 +19,7 @@
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
 import copy
-from models.region import Region, ParallelRegion, RegionType
+from models.region import Region, ParallelRegion, RoutineSpecificationRegion, RegionType
 from machinery.commons import ConversionOptions
 
 def uniqueIdentifier(routineName, implementationName):
@@ -49,9 +49,8 @@ class AnalyzableRoutine(Routine):
 		self.symbolsByName = None
 		self.callsByCalleeName = {}
 		self.isCallingKernel = False
-		self._specificationPart = ""
-		self._regions = []
-		self._currRegion = None
+		self._currRegion = RoutineSpecificationRegion()
+		self._regions = [self._currRegion]
 		self._programmerArguments = None
 		self._additionalArguments = None
 		self._additionalImports = None
@@ -129,23 +128,10 @@ class AnalyzableRoutine(Routine):
 			self.isCallingKernel = True
 
 	def loadLine(self, line):
-		stripped = line.strip()
-		if stripped == "":
-			return
-		if not self._currRegion:
-			self._specificationPart += stripped + "\n"
-			return
-		raise Exception("line cannot be loaded at this point. Must be loaded into the current region instead.")
+		self._currRegion.loadLine(line)
 
 	def implemented(self):
 		implementedRoutineElements = [self._implementHeader(), self._implementAdditionalImports()]
-		if ConversionOptions.Instance().debugPrint:
-			implementedRoutineElements += ["!<--- %s:header\n%s\n!--->\n" %(
-				self.name,
-				self._specificationPart.strip()
-			)]
-		else:
-			implementedRoutineElements += [self._specificationPart.strip() + "\n"]
 		implementedRoutineElements += [region.implemented() for region in self._regions]
 		implementedRoutineElements += [self._implementFooter()]
 		purgedRoutineElements = [

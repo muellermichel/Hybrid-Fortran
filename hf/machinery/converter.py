@@ -101,7 +101,6 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
             implementationsByTemplateName=implementationsByTemplateName
         )
         self.outputStream = outputStream
-        self.currRoutineIsCallingParallelRegion = False
         self.currSubroutineImplementationNeedsToBeCommented = False
         self.symbolsPassedInCurrentCallByName = {}
         self.additionalParametersByKernelName = {}
@@ -347,7 +346,7 @@ This is not allowed for implementations using %s.\
         return self.implementation.adjustImportForDevice(
             line,
             symbols,
-            RegionType.KERNEL_CALLER_DECLARATION if self.currRoutineIsCallingParallelRegion else RegionType.OTHER,
+            RegionType.KERNEL_CALLER_DECLARATION if self.currRoutine.isCallingKernel else RegionType.OTHER,
             self.currRoutine.node.getAttribute('parallelRegionPosition'),
             self.parallelRegionTemplatesByProcName.get(self.currRoutine.name)
         )
@@ -485,28 +484,6 @@ This is not allowed for implementations using %s.\
 
         self.prepareLine(callPreparationForSymbols + adjustedLine + callPostForSymbols, self.tab_insideSub)
 
-    def processAdditionalSubroutineParametersAndGetAdjustedLine(self, line, additionalDummies):
-        if len(self.currAdditionalSubroutineParameters + additionalDummies) == 0:
-            return line
-
-        paramListMatch = self.patterns.subprocFirstLineParameterListPattern.match(line)
-        adjustedLine = None
-        if paramListMatch:
-            adjustedLine = paramListMatch.group(1) + " &\n" + self.tab_outsideSub + "& "
-            paramListStr = paramListMatch.group(2).strip()
-        else:
-            adjustedLine = line + "( &\n" + self.tab_outsideSub + "& "
-            paramListStr = ")"
-        #adjusted line now contains only prefix, including the opening bracket
-        symbolNum = 0
-        for symbol in sorted(self.currAdditionalSubroutineParameters + additionalDummies):
-            adjustedLine += symbol.nameInScope()
-            if symbolNum != len(self.currAdditionalSubroutineParameters) - 1 or len(paramListStr) > 1:
-                adjustedLine = adjustedLine + ","
-            adjustedLine += " & !additional type %i symbol inserted by framework \n" %(symbol.declarationType) + self.tab_outsideSub + "& "
-            symbolNum = symbolNum + 1
-        return adjustedLine + paramListStr
-
     def processDeclarationLineAndGetAdjustedLine(self, line, declarationRegionType):
         baseline = line
         if self.currentLineNeedsPurge:
@@ -572,8 +549,9 @@ This is not allowed for implementations using %s.\
             self.routineNodesByProcName.get(self.currSubprocName),
             self.implementation
         )
+        self.currRoutine.loadSymbolsByName(self.currSymbolsByName)
+        self.currRoutine.loadArguments(self.currArguments)
 
-        regionType = RegionType.KERNEL_CALLER_DECLARATION if self.currRoutineIsCallingParallelRegion else RegionType.OTHER
         symbolsByUniqueNameToBeUpdated = {}
 
         #build list of additional subroutine parameters
@@ -599,6 +577,7 @@ This is not allowed for implementations using %s.\
             symbol.isEmulatingSymbolThatWasActiveInCurrentScope = True
         for symbol in additionalImportsForOurSelves + additionalDeclarationsForOurselves + additionalDummiesForOurselves:
             symbolsByUniqueNameToBeUpdated[symbol.uniqueIdentifier] = symbol
+        self.currRoutine.loadAdditionalArgumentSymbols(additionalDummiesForOurselves)
         toBeCompacted, declarationPrefix, otherImports = self.listCompactedSymbolsAndDeclarationPrefixAndOtherSymbols(
             additionalImportsForOurSelves + additionalDeclarationsForOurselves
         )
@@ -624,6 +603,7 @@ This is not allowed for implementations using %s.\
                 callee = self.routineNodesByProcName.get(calleeName)
                 if not callee:
                     continue
+                self.currRoutine.loadCall(callee)
                 implementation = self.implementationForTemplateName(callee.getAttribute('implementationTemplate'))
                 additionalImportsForDeviceCompatibility, \
                 additionalDeclarationsForDeviceCompatibility, \
@@ -660,10 +640,8 @@ This is not allowed for implementations using %s.\
                 logging.debug("\n".join([str(symbol) for symbol in additionalDeclarationsForDeviceCompatibility]), extra={"hfLineNo":currLineNo, "hfFile":currFile})
                 logging.debug("call to %s; additinal dummy parameters:" %(calleeName), extra={"hfLineNo":currLineNo, "hfFile":currFile})
                 logging.debug("\n".join([str(symbol) for symbol in additionalDummies]), extra={"hfLineNo":currLineNo, "hfFile":currFile})
-                if callee.getAttribute("parallelRegionPosition") != "within":
-                    continue
-                self.currRoutineIsCallingParallelRegion = True
 
+        regionType = RegionType.KERNEL_CALLER_DECLARATION if self.currRoutine.isCallingKernel else RegionType.OTHER
         for symbolName in self.currSymbolsByName:
             symbol = self.currSymbolsByName[symbolName]
             if not symbol.uniqueIdentifier in symbolsByUniqueNameToBeUpdated:
@@ -697,35 +675,33 @@ This is not allowed for implementations using %s.\
         for symbol in allAdditionalImports:
             if symbol.declarationType not in [DeclarationType.FOREIGN_MODULE_SCALAR, DeclarationType.LOCAL_ARRAY, DeclarationType.MODULE_ARRAY]:
                 continue
-        adjustedLine = self.implementation.subroutinePrefix(self.currRoutine.node) \
-            + " " \
-            + self.processAdditionalSubroutineParametersAndGetAdjustedLine(
-                subProcBeginMatch.group(0),
-                additionalDummiesForOurselves
-            ) \
-            + '\n'
+        adjustedLine = ""
         if len(allAdditionalImports) > 0:
             adjustedLine += self.implementation.adjustImportForDevice(
                 None,
                 allAdditionalImports,
-                RegionType.KERNEL_CALLER_DECLARATION if self.currRoutineIsCallingParallelRegion else RegionType.OTHER,
+                RegionType.KERNEL_CALLER_DECLARATION if self.currRoutine.isCallingKernel else RegionType.OTHER,
                 self.currRoutine.node.getAttribute('parallelRegionPosition'),
                 self.parallelRegionTemplatesByProcName.get(self.currRoutine.name)
             )
         self.prepareLine(adjustedLine + self.implementation.additionalIncludes(), self.tab_insideSub)
 
-    def processProcExitPoint(self, line, is_subroutine_end):
-        self.prepareLine(
-            self.implementation.subroutineExitPoint(
-                self.currSymbolsByName.values(), self.currRoutineIsCallingParallelRegion, is_subroutine_end
-            ) + line,
-            self.tab_outsideSub
-        )
+    def processProcExitPoint(self, line, isSubroutineEnd):
+        if isSubroutineEnd:
+            self.prepareLine("", self.tab_outsideSub)
+        else:
+            self.prepareLine(
+                self.implementation.subroutineExitPoint(
+                    self.currSymbolsByName.values(),
+                    self.currRoutine.isCallingKernel,
+                    isSubroutineEnd
+                ) + line,
+                self.tab_insideSub
+            )
 
     def processProcEndMatch(self, subProcEndMatch):
         self.endRegion()
-        self.processProcExitPoint(subProcEndMatch.group(0), is_subroutine_end=True)
-        self.currRoutineIsCallingParallelRegion = False
+        self.processProcExitPoint(subProcEndMatch.group(0), isSubroutineEnd=True)
         self.additionalParametersByKernelName = {}
         self.additionalWrapperImportsByKernelName = {}
         self.currAdditionalSubroutineParameters = []
@@ -937,7 +913,7 @@ This is not allowed for implementations using %s.\
 
             additionalDeclarationsStr += self.implementation.declarationEnd(
                 self.currSymbolsByName.values() + additionalImports,
-                self.currRoutineIsCallingParallelRegion,
+                self.currRoutine.isCallingKernel,
                 self.currRoutine.node,
                 self.parallelRegionTemplatesByProcName.get(self.currRoutine.name)
             )
@@ -980,7 +956,7 @@ This is not allowed for implementations using %s.\
         branchMatch = self.patterns.branchPattern.match(line)
 
         declarationRegionType = RegionType.OTHER
-        if self.currRoutineIsCallingParallelRegion:
+        if self.currRoutine.isCallingKernel:
             declarationRegionType = RegionType.KERNEL_CALLER_DECLARATION
 
         if branchMatch:
@@ -1073,7 +1049,7 @@ This is not allowed for implementations using %s.\
             return
 
         if self.patterns.earlyReturnPattern.match(line):
-            self.processProcExitPoint(line, is_subroutine_end=False)
+            self.processProcExitPoint(line, isSubroutineEnd=False)
             return
 
         if self.currSubroutineImplementationNeedsToBeCommented:
@@ -1235,6 +1211,8 @@ This is not allowed for implementations using %s.\
         super(H90toF90Converter, self).processFile(fileName)
 
     def putLine(self, line):
+        if line == "":
+            return
         if self.currRegion:
             self.currRegion.loadLine(line)
         elif self.currRoutine:

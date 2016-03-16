@@ -19,6 +19,7 @@
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
 from tools.commons import enum
+from machinery.commons import ConversionOptions
 
 RegionType = enum(
 	"MODULE_DECLARATION",
@@ -37,7 +38,16 @@ class Region(object):
 		self._text += stripped + "\n"
 
 	def implemented(self):
-		return self._text.strip()
+		stripped = self._text.strip()
+		if stripped == "":
+			return ""
+		result = ""
+		if ConversionOptions.Instance().debugPrint:
+			result += "!<--- %s\n" %(type(self))
+		result += stripped + "\n"
+		if ConversionOptions.Instance().debugPrint:
+			result += "!--->\n"
+		return result
 
 class ParallelRegion(Region):
 	pass

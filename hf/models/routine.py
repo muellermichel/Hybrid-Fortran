@@ -19,9 +19,7 @@
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
 from models.region import Region, ParallelRegion
-
-def containsKernels(routineNode):
-	return False
+from machinery.commons import ConversionOptions
 
 def uniqueIdentifier(routineName, implementationName):
 	return (routineName + "_hfauto_" + implementationName).strip()
@@ -46,10 +44,42 @@ class AnalyzableRoutine(Routine):
 		self.implementation = implementation
 		self.sisterRoutine = None
 		self.node = routineNode
-		self._headerText = ""
-		self._footerText = ""
+		self.symbolsByName = None
+		self.callsByCalleeName = {}
+		self.isCallingKernel = False
+		self._specificationPart = ""
 		self._regions = []
 		self._currRegion = None
+		self._programmerArguments = None
+		self._additionalArguments = None
+
+	def _implementHeader(self):
+		parameterList = ""
+		if self._additionalArguments:
+			parameterList = "&, ".join([
+				"%s & !additional type %i symbol inserted by framework \n" %(
+					symbol.nameInScope(),
+					symbol.declarationType
+				)
+				for symbol in self._additionalArguments
+			])
+		if self._additionalArguments and len(self._additionalArguments) > 0 \
+		and self._programmerArguments and len(self._programmerArguments) > 0:
+			parameterList += "&, "
+		if self._programmerArguments:
+			parameterList += ", ".join(self._programmerArguments)
+		return "%s subroutine %s(%s)\n" %(
+			self.implementation.subroutinePrefix(self.node),
+			self.name,
+			parameterList
+		)
+
+	def _implementFooter(self):
+		return self.implementation.subroutineExitPoint(
+            self.symbolsByName.values(),
+            self.isCallingKernel,
+            isSubroutineEnd=True
+        ) + "end subroutine\n"
 
 	def nameInScope(self):
 		if not self.sisterRoutine:
@@ -64,19 +94,40 @@ class AnalyzableRoutine(Routine):
 		self._regions.append(self._currRegion)
 		return self._currRegion
 
+	def loadArguments(self, arguments):
+		self._programmerArguments = arguments
+
+	def loadAdditionalArgumentSymbols(self, argumentSymbols):
+		self._additionalArguments = argumentSymbols
+
+	def loadSymbolsByName(self, symbolsByName):
+		self.symbolsByName = symbolsByName
+
+	def loadCall(self, callNode):
+		self.callsByCalleeName[callNode.getAttribute("callee")] = callNode
+		if callNode.getAttribute("parallelRegionPosition") == "within":
+			self.isCallingKernel = True
+
 	def loadLine(self, line):
 		stripped = line.strip()
 		if stripped == "":
 			return
 		if not self._currRegion:
-			self._headerText += stripped + "\n"
+			self._specificationPart += stripped + "\n"
 			return
-		self._footerText += stripped + "\n"
+		raise Exception("line cannot be loaded at this point. Must be loaded into the current region instead.")
 
 	def implemented(self):
-		implementedRoutineElements = [self._headerText.strip() + "\n"] \
-			+ [region.implemented() for region in self._regions] \
-			+ [self._footerText.strip()]
+		implementedRoutineElements = [self._implementHeader()]
+		if ConversionOptions.Instance().debugPrint:
+			implementedRoutineElements += ["!<--- %s:header\n%s\n!--->\n" %(
+				self.name,
+				self._specificationPart.strip()
+			)]
+		else:
+			implementedRoutineElements += [self._specificationPart.strip() + "\n"]
+		implementedRoutineElements += [region.implemented() for region in self._regions]
+		implementedRoutineElements += [self._implementFooter()]
 		purgedRoutineElements = [
 			(index, text) for index, text in enumerate(implementedRoutineElements)
 			if text != ""

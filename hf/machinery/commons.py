@@ -19,7 +19,11 @@
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
 import re, logging
-from tools.commons import BracketAnalyzer, findRightMostOccurrenceNotInsideQuotes
+from tools.commons import BracketAnalyzer, findRightMostOccurrenceNotInsideQuotes, Singleton
+
+@Singleton
+class ConversionOptions:
+    debugPrint = False
 
 class FortranRoutineArgumentParser:
     arguments = None
@@ -39,10 +43,9 @@ class FortranRoutineArgumentParser:
         self.arguments = arguments
 
 class FortranCodeSanitizer:
-
     def __init__(self):
-        self.tabIncreasingPattern = re.compile(r'\s*(?:(?:module|select|do|subroutine|function|program)\s|if\W.*?\Wthen).*', re.IGNORECASE)
-        self.tabDecreasingPattern = re.compile(r'\s*end\s*(?:module|select|do|subroutine|function|program|if).*', re.IGNORECASE)
+        self.tabIncreasingPattern = re.compile(r'\s*(?:(?:module|select|do|subroutine|function|program|attributes)|if\W.*?\Wthen)(?:\W|$).*', re.IGNORECASE)
+        self.tabDecreasingPattern = re.compile(r'\s*end\s*(?:module|select|do|subroutine|function|program|if)(?:\W|$).*', re.IGNORECASE)
         self.commentedPattern = re.compile(r'\s*\!', re.IGNORECASE)
         self.openMPLinePattern = re.compile(r'\s*\!\$OMP.*', re.IGNORECASE)
         self.openACCLinePattern = re.compile(r'\s*\!\$ACC.*', re.IGNORECASE)

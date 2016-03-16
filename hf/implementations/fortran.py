@@ -178,13 +178,13 @@ class FortranImplementation(object):
 			#     result += "#endif\n"
 		return result + getIteratorDeclaration(currRoutineNode, currParallelRegionTemplates, ["CPU", ""])
 
-	def subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, is_subroutine_end):
+	def subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, isSubroutineEnd):
 		result = ""
 		if 'DEBUG_PRINT' in self.optionFlags and self.debugPrintIteratorDeclared:
 			result += "#ifndef GPU\n"
 			result += "hf_debug_print_iterator = hf_debug_print_iterator + 1\n"
 			result += "#endif\n"
-		if is_subroutine_end:
+		if isSubroutineEnd:
 			self.currRoutineNode = None
 			self.debugPrintIteratorDeclared = False
 		return result
@@ -239,8 +239,8 @@ class TraceGeneratingFortranImplementation(FortranImplementation):
 			loop_name_postfix='start'
 		)
 
-	def subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, is_subroutine_end):
-		if not is_subroutine_end:
+	def subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, isSubroutineEnd):
+		if not isSubroutineEnd:
 			self.earlyReturnCounter += 1
 		result = getTracingStatements(
 			self.currRoutineNode,
@@ -248,17 +248,17 @@ class TraceGeneratingFortranImplementation(FortranImplementation):
 			[symbol for symbol in self.currentTracedSymbols if symbol.intent in ['out', 'inout', '', None]],
 			getWriteTraceFunc('end'),
 			increment_tracing_counter=len(self.currentTracedSymbols) > 0,
-			loop_name_postfix='end' if is_subroutine_end else 'exit%i' %(self.earlyReturnCounter)
+			loop_name_postfix='end' if isSubroutineEnd else 'exit%i' %(self.earlyReturnCounter)
 		)
 		logging.info("...In subroutine %s: Symbols %s used for tracing" %(
 				self.currRoutineNode.getAttribute('name'),
 				[symbol.name for symbol in self.currentTracedSymbols]
 			)
 		)
-		if is_subroutine_end:
+		if isSubroutineEnd:
 			self.earlyReturnCounter = 0
 			self.currentTracedSymbols = []
-		return result + FortranImplementation.subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, is_subroutine_end)
+		return result + FortranImplementation.subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, isSubroutineEnd)
 
 class OpenMPFortranImplementation(FortranImplementation):
 	def __init__(self, optionFlags):
@@ -280,10 +280,10 @@ class OpenMPFortranImplementation(FortranImplementation):
 		openMPLines = "\n!$OMP END PARALLEL DO\n"
 		return FortranImplementation.parallelRegionEnd(self, parallelRegionTemplate) + openMPLines
 
-	def subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, is_subroutine_end):
-		if is_subroutine_end:
+	def subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, isSubroutineEnd):
+		if isSubroutineEnd:
 			self.currDependantSymbols = None
-		return FortranImplementation.subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, is_subroutine_end)
+		return FortranImplementation.subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, isSubroutineEnd)
 
 def _checkDeclarationConformity(dependantSymbols):
 	#analyse state of symbols - already declared as on device or not?
@@ -508,7 +508,7 @@ class DeviceDataFortranImplementation(FortranImplementation):
 				deviceInitStatements += symbol.selectAllRepresentation() + " = 0\n"
 		return deviceInitStatements
 
-	def subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, is_subroutine_end):
+	def subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, isSubroutineEnd):
 		deviceInitStatements = ""
 		for symbol in dependantSymbols:
 			if not symbol.isOnDevice:
@@ -524,7 +524,7 @@ class DeviceDataFortranImplementation(FortranImplementation):
 				deviceInitStatements += originalStr + " = " + deviceStr + "\n"
 				if symbol.isPointer:
 					deviceInitStatements += "deallocate(%s)\n" %(symbol.nameInScope())
-		return deviceInitStatements + FortranImplementation.subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, is_subroutine_end)
+		return deviceInitStatements + FortranImplementation.subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, isSubroutineEnd)
 
 class PGIOpenACCFortranImplementation(DeviceDataFortranImplementation):
 	architecture = ["openacc", "gpu", "nvd", "nvidia"]
@@ -642,8 +642,8 @@ end subroutine
 	#         return "!$acc routine seq\n"
 	#     return ""
 
-	def subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, is_subroutine_end):
-		if is_subroutine_end:
+	def subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, isSubroutineEnd):
+		if isSubroutineEnd:
 			self.currRoutineNode = None
 			self.currDependantSymbols = None
 			self.currRoutineHasDataDeclarations = False
@@ -651,7 +651,7 @@ end subroutine
 		return super(PGIOpenACCFortranImplementation, self).subroutineExitPoint(
 			dependantSymbols,
 			routineIsKernelCaller,
-			is_subroutine_end
+			isSubroutineEnd
 		)
 
 class DebugPGIOpenACCFortranImplementation(PGIOpenACCFortranImplementation):
@@ -727,8 +727,8 @@ class TraceCheckingOpenACCFortranImplementation(DebugPGIOpenACCFortranImplementa
 
 		return getIteratorDeclaration(currRoutineNode, currParallelRegionTemplates, ["GPU"]) + result
 
-	def subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, is_subroutine_end):
-		if not is_subroutine_end:
+	def subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, isSubroutineEnd):
+		if not isSubroutineEnd:
 			self.earlyReturnCounter += 1
 		result = getTracingStatements(
 			self.currRoutineNode,
@@ -736,18 +736,18 @@ class TraceCheckingOpenACCFortranImplementation(DebugPGIOpenACCFortranImplementa
 			[symbol for symbol in self.currentTracedSymbols if symbol.intent in ['out', 'inout', '', None]],
 			getCompareToTraceFunc(
 				abortSubroutineOnError=False,
-				loop_name_postfix='end' if is_subroutine_end else 'exit%i' %(self.earlyReturnCounter),
+				loop_name_postfix='end' if isSubroutineEnd else 'exit%i' %(self.earlyReturnCounter),
 				begin_or_end='end'
 			),
 			increment_tracing_counter=len(self.currentTracedSymbols) > 0,
-			loop_name_postfix='end' if is_subroutine_end else 'exit%i' %(self.earlyReturnCounter)
+			loop_name_postfix='end' if isSubroutineEnd else 'exit%i' %(self.earlyReturnCounter)
 		)
 		# if len(self.currentTracedSymbols) > 0:
 		#     result += "if (hf_tracing_error_found) then\n"
 		#     result += "stop 2\n"
 		#     result += "end if\n"
-		result += DebugPGIOpenACCFortranImplementation.subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, is_subroutine_end)
-		if is_subroutine_end:
+		result += DebugPGIOpenACCFortranImplementation.subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, isSubroutineEnd)
+		if isSubroutineEnd:
 			self.earlyReturnCounter = 0
 			self.currRoutineNode = None
 			self.currentTracedSymbols = []
@@ -912,10 +912,10 @@ end if\n" %(calleeNode.getAttribute('name'))
 	def subroutineCallInvocationPrefix(self, subroutineName, parallelRegionTemplate):
 		return 'call %s' %(subroutineName)
 
-	def subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, is_subroutine_end):
-		if is_subroutine_end:
+	def subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, isSubroutineEnd):
+		if isSubroutineEnd:
 			self.currRoutineNode = None
-		return super(CUDAFortranImplementation, self).subroutineExitPoint( dependantSymbols, routineIsKernelCaller, is_subroutine_end)
+		return super(CUDAFortranImplementation, self).subroutineExitPoint( dependantSymbols, routineIsKernelCaller, isSubroutineEnd)
 
 	def iteratorDefinitionBeforeParallelRegion(self, domains):
 		if len(domains) > 3:
@@ -1059,7 +1059,7 @@ class DebugEmulatedCUDAFortranImplementation(DebugCUDAFortranImplementation):
 		regionStr += self.safetyOutsideRegion(domains)
 		return regionStr
 
-	def subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, is_subroutine_end):
-		if is_subroutine_end:
+	def subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, isSubroutineEnd):
+		if isSubroutineEnd:
 			self.currDependantSymbols = None
-		return DebugCUDAFortranImplementation.subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, is_subroutine_end)
+		return DebugCUDAFortranImplementation.subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, isSubroutineEnd)

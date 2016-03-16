@@ -18,6 +18,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
+import copy
 from models.region import Region, ParallelRegion
 from machinery.commons import ConversionOptions
 
@@ -101,7 +102,7 @@ class AnalyzableRoutine(Routine):
 		self._additionalArguments = argumentSymbols
 
 	def loadSymbolsByName(self, symbolsByName):
-		self.symbolsByName = symbolsByName
+		self.symbolsByName = copy.copy(symbolsByName)
 
 	def loadCall(self, callNode):
 		self.callsByCalleeName[callNode.getAttribute("callee")] = callNode

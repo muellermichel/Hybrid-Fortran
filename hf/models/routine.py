@@ -19,7 +19,7 @@
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
 import copy
-from models.region import Region, ParallelRegion
+from models.region import Region, ParallelRegion, RegionType
 from machinery.commons import ConversionOptions
 
 def uniqueIdentifier(routineName, implementationName):
@@ -35,7 +35,7 @@ class Routine(object):
 		return self.name
 
 class AnalyzableRoutine(Routine):
-	def __init__(self, name, routineNode, implementation):
+	def __init__(self, name, routineNode, parallelRegionTemplates, implementation):
 		super(AnalyzableRoutine, self).__init__(name)
 		if not routineNode:
 			raise Exception("no definition passed when trying to initialize routine '%s'" %(name))
@@ -45,6 +45,7 @@ class AnalyzableRoutine(Routine):
 		self.implementation = implementation
 		self.sisterRoutine = None
 		self.node = routineNode
+		self.parallelRegionTemplates = parallelRegionTemplates
 		self.symbolsByName = None
 		self.callsByCalleeName = {}
 		self.isCallingKernel = False
@@ -53,6 +54,7 @@ class AnalyzableRoutine(Routine):
 		self._currRegion = None
 		self._programmerArguments = None
 		self._additionalArguments = None
+		self._additionalImports = None
 
 	def _implementHeader(self):
 		parameterList = ""
@@ -78,6 +80,17 @@ class AnalyzableRoutine(Routine):
 			parameterList
 		)
 
+	def _implementAdditionalImports(self):
+		if not self._additionalImports or len(self._additionalImports) == 0:
+			return self.implementation.additionalIncludes()
+		return self.implementation.adjustImportForDevice(
+            None,
+            self._additionalImports,
+            RegionType.KERNEL_CALLER_DECLARATION if self.isCallingKernel else RegionType.OTHER,
+            self.node.getAttribute('parallelRegionPosition'),
+            self.parallelRegionTemplates
+        ) + self.implementation.additionalIncludes()
+
 	def _implementFooter(self):
 		return self.implementation.subroutineExitPoint(
             self.symbolsByName.values(),
@@ -99,10 +112,13 @@ class AnalyzableRoutine(Routine):
 		return self._currRegion
 
 	def loadArguments(self, arguments):
-		self._programmerArguments = arguments
+		self._programmerArguments = copy.copy(arguments)
 
 	def loadAdditionalArgumentSymbols(self, argumentSymbols):
-		self._additionalArguments = argumentSymbols
+		self._additionalArguments = copy.copy(argumentSymbols)
+
+	def loadAdditionalImportSymbols(self, importSymbols):
+		self._additionalImports = copy.copy(importSymbols)
 
 	def loadSymbolsByName(self, symbolsByName):
 		self.symbolsByName = copy.copy(symbolsByName)
@@ -122,7 +138,7 @@ class AnalyzableRoutine(Routine):
 		raise Exception("line cannot be loaded at this point. Must be loaded into the current region instead.")
 
 	def implemented(self):
-		implementedRoutineElements = [self._implementHeader()]
+		implementedRoutineElements = [self._implementHeader(), self._implementAdditionalImports()]
 		if ConversionOptions.Instance().debugPrint:
 			implementedRoutineElements += ["!<--- %s:header\n%s\n!--->\n" %(
 				self.name,

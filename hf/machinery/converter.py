@@ -370,6 +370,7 @@ This is not allowed for implementations using %s.\
             self.currCallee = AnalyzableRoutine(
                 self.currCalleeName,
                 calleeNode,
+                self.parallelRegionTemplatesByProcName.get(self.currCalleeName),
                 self.implementationForTemplateName(calleeNode.getAttribute('implementationTemplate'))
             )
         else:
@@ -547,6 +548,7 @@ This is not allowed for implementations using %s.\
         self.currRoutine = self.currModule.createRoutine(
             self.currSubprocName,
             self.routineNodesByProcName.get(self.currSubprocName),
+            self.parallelRegionTemplatesByProcName.get(self.currSubprocName),
             self.implementation
         )
         self.currRoutine.loadSymbolsByName(self.currSymbolsByName)
@@ -671,20 +673,8 @@ This is not allowed for implementations using %s.\
             ),
             extra={"hfLineNo":currLineNo, "hfFile":currFile}
         )
-        allAdditionalImports = additionalImportsByScopedName.values()
-        for symbol in allAdditionalImports:
-            if symbol.declarationType not in [DeclarationType.FOREIGN_MODULE_SCALAR, DeclarationType.LOCAL_ARRAY, DeclarationType.MODULE_ARRAY]:
-                continue
-        adjustedLine = ""
-        if len(allAdditionalImports) > 0:
-            adjustedLine += self.implementation.adjustImportForDevice(
-                None,
-                allAdditionalImports,
-                RegionType.KERNEL_CALLER_DECLARATION if self.currRoutine.isCallingKernel else RegionType.OTHER,
-                self.currRoutine.node.getAttribute('parallelRegionPosition'),
-                self.parallelRegionTemplatesByProcName.get(self.currRoutine.name)
-            )
-        self.prepareLine(adjustedLine + self.implementation.additionalIncludes(), self.tab_insideSub)
+        self.currRoutine.loadAdditionalImportSymbols(additionalImportsByScopedName.values())
+        self.prepareLine("", self.tab_insideSub)
 
     def processProcExitPoint(self, line, isSubroutineEnd):
         if isSubroutineEnd:

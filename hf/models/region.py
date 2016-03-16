@@ -29,28 +29,31 @@ RegionType = enum(
 
 class Region(object):
 	def __init__(self):
-		self._text = ""
+		self._linesAndSymbols = []
 
-	def loadLine(self, line):
+	def loadLine(self, line, symbolsOnCurrentLine=None):
 		stripped = line.strip()
 		if stripped == "":
 			return
-		self._text += stripped + "\n"
+		self._linesAndSymbols.append((
+			stripped,
+			symbolsOnCurrentLine
+		))
 
 	def implemented(self):
-		stripped = self._text.strip()
-		if stripped == "":
+		text = "\n".join([line for (line, symbols) in self._linesAndSymbols])
+		if text == "":
 			return ""
 		result = ""
 		if ConversionOptions.Instance().debugPrint:
 			result += "!<--- %s\n" %(type(self))
-		result += stripped + "\n"
+		result += text + "\n"
 		if ConversionOptions.Instance().debugPrint:
 			result += "!--->\n"
 		return result
 
-class ParallelRegion(Region):
+class RoutineSpecificationRegion(Region):
 	pass
 
-class RoutineSpecificationRegion(Region):
+class ParallelRegion(Region):
 	pass

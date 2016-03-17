@@ -19,7 +19,7 @@
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
 import copy
-from models.region import RegionType, RoutineSpecificationRegion
+from models.region import RegionType, RoutineSpecificationRegion, ParallelRegion
 from machinery.commons import ConversionOptions
 
 def uniqueIdentifier(routineName, implementationName):
@@ -72,7 +72,9 @@ class AnalyzableRoutine(Routine):
 		elif self._additionalArguments and len(self._additionalArguments) > 0:
 			parameterList += "& "
 		if self._programmerArguments:
-			parameterList += ", ".join(self._programmerArguments)
+			parameterList += ", ".join([
+				symbol.nameInScope() for symbol in  self._programmerArguments
+			])
 		return "%s subroutine %s(%s)\n" %(
 			self.implementation.subroutinePrefix(self.node),
 			self.name,
@@ -102,15 +104,20 @@ class AnalyzableRoutine(Routine):
 			return self.name
 		return uniqueIdentifier(self.name, self.implementation.architecture[0])
 
-	def createRegion(self, regionClassName="Region"):
+	def createRegion(self, regionClassName="Region", oldRegion=None):
 		import models.region
 		regionClass = getattr(models.region, regionClassName)
-		self._currRegion = regionClass()
-		self._regions.append(self._currRegion)
-		return self._currRegion
+		region = regionClass(self)
+		if isinstance(self._currRegion, ParallelRegion) \
+		and not isinstance(oldRegion, ParallelRegion):
+			self._currRegion.switchToRegion(region)
+		else:
+			self._regions.append(region)
+			self._currRegion = region
+		return region
 
-	def loadArguments(self, arguments):
-		self._programmerArguments = copy.copy(arguments)
+	def loadArguments(self, argumentSymbols):
+		self._programmerArguments = copy.copy(argumentSymbols)
 
 	def loadAdditionalArgumentSymbols(self, argumentSymbols):
 		self._additionalArguments = copy.copy(argumentSymbols)

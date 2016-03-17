@@ -108,6 +108,7 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
         self.currParallelIterators = []
         self.currRoutine = None
         self.currRegion = None
+        self.currParallelRegion = None
         self.currModule = None
         self.currCallee = None
         self.currAdditionalSubroutineParameters = []
@@ -170,11 +171,13 @@ This is not allowed for implementations using %s.\
             )
         if implementationFunctionName == "parallelRegionBegin":
             self.switchToNewRegion("ParallelRegion")
+            self.currParallelRegion = self.currRegion
         implementationAttr = getattr(self, 'implementation')
         functionAttr = getattr(implementationAttr, implementationFunctionName)
         self.prepareLine(functionAttr(self.currParallelRegionTemplateNode, self.branchAnalyzer.level), self.tab_insideSub)
         if implementationFunctionName == "parallelRegionEnd":
-            self.switchToNewRegion()
+            self.switchToNewRegion(oldRegion=self.currParallelRegion)
+            self.currParallelRegion = None
         return True
 
     def filterOutSymbolsAlreadyAliveInCurrentScope(self, symbolList):
@@ -354,18 +357,6 @@ This is not allowed for implementations using %s.\
             self.parallelRegionTemplatesByProcName.get(self.currRoutine.name)
         )
 
-    def processCallPostAndGetAdjustedLine(self, line):
-        allSymbolsPassedByName = self.symbolsPassedInCurrentCallByName.copy()
-        additionalImportsAndDeclarations = self.additionalParametersByKernelName.get(self.currCalleeName, ([],[]))
-        additionalModuleSymbols = self.additionalWrapperImportsByKernelName.get(self.currCalleeName, [])
-        for symbol in additionalImportsAndDeclarations[1] + additionalModuleSymbols:
-            allSymbolsPassedByName[symbol.name] = symbol
-        implementation = self.implementation
-        if isinstance(self.currCallee, AnalyzableRoutine):
-            implementation = self.currCallee.implementation
-        adjustedLine = line + "\n" + implementation.kernelCallPost(allSymbolsPassedByName, self.currCallee.node)
-        return adjustedLine
-
     def processCallMatch(self, subProcCallMatch):
         super(H90toF90Converter, self).processCallMatch(subProcCallMatch)
         calleeNode = self.routineNodesByProcName.get(self.currCalleeName)
@@ -378,31 +369,7 @@ This is not allowed for implementations using %s.\
             )
         else:
             self.currCallee = Routine(self.currCalleeName)
-        self.currRoutine.loadCall(self.currCallee)
-
-        adjustedLine = "call " + self.currCalleeName
-
-        parallelRegionPosition = None
-        if isinstance(self.currCallee, AnalyzableRoutine):
-            parallelRegionPosition = self.currCallee.node.getAttribute("parallelRegionPosition")
-        logging.debug(
-            "In subroutine %s: Processing subroutine call to %s, parallel region position: %s" %(self.currRoutine.name, self.currCalleeName, parallelRegionPosition),
-            extra={"hfLineNo":currLineNo, "hfFile":currFile}
-        )
-        if isinstance(self.currCallee, AnalyzableRoutine) and parallelRegionPosition == "within":
-            parallelRegionTemplates = self.parallelRegionTemplatesByProcName.get(self.currCalleeName)
-            if parallelRegionTemplates == None or len(parallelRegionTemplates) == 0:
-                raise Exception("No parallel region templates found for subroutine %s" %(self.currCalleeName))
-            adjustedLine = self.currCallee.implementation.kernelCallPreparation(parallelRegionTemplates[0], calleeNode=self.currCallee.node)
-            adjustedLine = adjustedLine + "call " + self.currCalleeName + " " + self.currCallee.implementation.kernelCallConfig()
-
-        # if isinstance(self.currCallee, AnalyzableRoutine) \
-        # and getRoutineNodeInitStage(self.currCallee.node) == RoutineNodeInitStage.DIRECTIVES_WITHOUT_PARALLELREGION_POSITION:
-        #     #special case. see also processBeginMatch.
-        #     self.prepareLine("! " + subProcCallMatch.group(0), "")
-        #     self.symbolsPassedInCurrentCallByName = {}
-        #     self.currCallee = None
-        #     return
+        self.currRoutine.loadCallee(self.currCallee)
 
         arguments = subProcCallMatch.group(2)
         paramListMatch = self.patterns.subprocFirstLineParameterListPattern.match(arguments)
@@ -417,26 +384,14 @@ This is not allowed for implementations using %s.\
             compactedArrayName = "hfimp_%s" %(self.currCalleeName)
             compactedArray = FrameworkArray(compactedArrayName, declarationPrefix, domains=[("hfauto", str(len(toBeCompacted)))], isOnDevice=True)
             compactedArrayList = [compactedArray]
-        additionalSymbols = sorted(notToBeCompacted + compactedArrayList)
-        if len(additionalSymbols) > 0:
-            adjustedLine += "( &\n"
-        else:
-            adjustedLine += "("
-        bridgeStr1 = " & !additional parameter"
-        bridgeStr2 = "inserted by framework\n" + self.tab_insideSub + "& "
+
+        self.currCallee.loadAdditionalArgumentSymbols(sorted(notToBeCompacted + compactedArrayList))
         remainingCall = self.processSymbolsAndGetAdjustedLine(
             paramListMatch.group(2),
             isInsideSubroutineCall=True
         ) if paramListMatch else ")\n"
-        numOfProgrammerSpecifiedArguments = len(self.symbolsPassedInCurrentCallByName.keys())
-        for symbolNum, symbol in enumerate(additionalSymbols):
-            hostName = symbol.nameInScope()
-            adjustedLine += hostName
-            if symbolNum < len(additionalSymbols) - 1 or numOfProgrammerSpecifiedArguments > 0:
-                adjustedLine += ", "
-            if symbolNum < len(additionalSymbols) - 1 or paramListMatch:
-                adjustedLine += "%s (type %i) %s" %(bridgeStr1, symbol.declarationType, bridgeStr2)
-        adjustedLine += remainingCall
+
+        self.prepareLine(remainingCall, self.tab_insideSub)
 
         callPreparationForSymbols = ""
         callPostForSymbols = ""
@@ -479,13 +434,12 @@ This is not allowed for implementations using %s.\
                     symbolInCaller=symbol,
                     symbolInCallee=symbolInCallee
                 )
-            adjustedLine = self.processCallPostAndGetAdjustedLine(adjustedLine)
 
         if self.state != "inside_subroutine_call" and not (self.state == "inside_branch" and self.stateBeforeBranch == "inside_subroutine_call"):
             self.symbolsPassedInCurrentCallByName = {}
             self.currCallee = None
 
-        self.prepareLine(callPreparationForSymbols + adjustedLine + callPostForSymbols, self.tab_insideSub)
+
 
     def processDeclarationLineAndGetAdjustedLine(self, line, declarationRegionType):
         baseline = line
@@ -554,7 +508,10 @@ This is not allowed for implementations using %s.\
             self.implementation
         )
         self.currRoutine.loadSymbolsByName(self.currSymbolsByName)
-        self.currRoutine.loadArguments(self.currArguments)
+        self.currRoutine.loadArguments([
+            self.currSymbolsByName[symbolName]
+            for symbolName in self.currArguments
+        ])
 
         symbolsByUniqueNameToBeUpdated = {}
 

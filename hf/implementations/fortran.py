@@ -62,10 +62,10 @@ class FortranImplementation(object):
 	def warningOnUnrecognizedSubroutineCallInParallelRegion(self, callerName, calleeName):
 		return ""
 
-	def callPreparationForPassedSymbol(self, currRoutineNode, symbolInCaller, symbolInCallee):
+	def callPreparationForPassedSymbol(self, currRoutineNode, symbolInCaller):
 		return ""
 
-	def callPostForPassedSymbol(self, currRoutineNode, symbolInCaller, symbolInCallee):
+	def callPostForPassedSymbol(self, currRoutineNode, symbolInCaller):
 		return ""
 
 	def kernelCallConfig(self):
@@ -551,7 +551,9 @@ end subroutine
 	def additionalIncludes(self):
 		return super(PGIOpenACCFortranImplementation, self).additionalIncludes() + "use openacc\nuse cudafor\n"
 
-	def callPreparationForPassedSymbol(self, currRoutineNode, symbolInCaller, symbolInCallee):
+	def callPreparationForPassedSymbol(self, currRoutineNode, symbolInCaller):
+		if symbolInCaller.isHostSymbol:
+			return ""
 		#$$$ may need to be replaced with CUDA Fortran style manual update
 		# if not currRoutineNode:
 		# 	return ""
@@ -562,7 +564,9 @@ end subroutine
 		# return "!$acc update device(%s)\n" %(symbolInCaller.name)
 		return ""
 
-	def callPostForPassedSymbol(self, currRoutineNode, symbolInCaller, symbolInCallee):
+	def callPostForPassedSymbol(self, currRoutineNode, symbolInCaller):
+		if symbolInCaller.isHostSymbol:
+			return ""
 		#$$$ may need to be replaced with CUDA Fortran style manual update
 		# if not currRoutineNode:
 		# 	return ""

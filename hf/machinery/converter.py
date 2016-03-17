@@ -147,8 +147,8 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
             logging.info(traceback.format_exc())
             sys.exit(1)
 
-    def switchToNewRegion(self, isParallelRegion=False):
-        self.currRegion = self.currRoutine.createRegion(isParallelRegion)
+    def switchToNewRegion(self, regionClassName="Region"):
+        self.currRegion = self.currRoutine.createRegion(regionClassName)
 
     def endRegion(self):
         self.currRegion = None
@@ -169,7 +169,7 @@ This is not allowed for implementations using %s.\
                 " %(self.currRoutine.name, type(self.implementation).__name__)
             )
         if implementationFunctionName == "parallelRegionBegin":
-            self.switchToNewRegion(isParallelRegion=True)
+            self.switchToNewRegion("ParallelRegion")
         implementationAttr = getattr(self, 'implementation')
         functionAttr = getattr(implementationAttr, implementationFunctionName)
         self.prepareLine(functionAttr(self.currParallelRegionTemplateNode, self.branchAnalyzer.level), self.tab_insideSub)
@@ -378,7 +378,7 @@ This is not allowed for implementations using %s.\
             )
         else:
             self.currCallee = Routine(self.currCalleeName)
-        self.switchToNewRegion()
+        self.currRoutine.loadCall(self.currCallee)
 
         adjustedLine = "call " + self.currCalleeName
 
@@ -486,9 +486,6 @@ This is not allowed for implementations using %s.\
             self.currCallee = None
 
         self.prepareLine(callPreparationForSymbols + adjustedLine + callPostForSymbols, self.tab_insideSub)
-
-        if self.state != "inside_subroutine_call" and not (self.state == "inside_branch" and self.stateBeforeBranch == "inside_subroutine_call"):
-            self.switchToNewRegion()
 
     def processDeclarationLineAndGetAdjustedLine(self, line, declarationRegionType):
         baseline = line
@@ -610,7 +607,6 @@ This is not allowed for implementations using %s.\
                 callee = self.routineNodesByProcName.get(calleeName)
                 if not callee:
                     continue
-                self.currRoutine.loadCall(callee)
                 implementation = self.implementationForTemplateName(callee.getAttribute('implementationTemplate'))
                 additionalImportsForDeviceCompatibility, \
                 additionalDeclarationsForDeviceCompatibility, \
@@ -958,9 +954,11 @@ This is not allowed for implementations using %s.\
             return
         if subProcCallMatch:
             declarationEndStatements(declarationRegionType, isInsertedBeforeCurrentLine=True)
+            self.switchToNewRegion()
             self.processCallMatch(subProcCallMatch)
             if (self.state == "inside_branch" and self.stateBeforeBranch != 'inside_subroutine_call') or (self.state != "inside_branch" and self.state != 'inside_subroutine_call'):
                 self.processCallPost()
+            self.switchToNewRegion()
             return
         if subProcEndMatch:
             declarationEndStatements(declarationRegionType, isInsertedBeforeCurrentLine=True)
@@ -1027,9 +1025,11 @@ This is not allowed for implementations using %s.\
 
         subProcCallMatch = self.patterns.subprocCallPattern.match(line)
         if subProcCallMatch:
+            self.switchToNewRegion()
             self.processCallMatch(subProcCallMatch)
             if self.state != 'inside_subroutine_call' and not (self.state == "inside_branch" and self.stateBeforeBranch == "inside_subroutine_call"):
                 self.processCallPost()
+            self.switchToNewRegion()
             return
 
         subProcEndMatch = self.patterns.subprocEndPattern.match(line)

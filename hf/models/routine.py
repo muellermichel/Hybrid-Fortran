@@ -49,7 +49,7 @@ class AnalyzableRoutine(Routine):
 		self.symbolsByName = None
 		self.callsByCalleeName = {}
 		self.isCallingKernel = False
-		self._currRegion = RoutineSpecificationRegion()
+		self._currRegion = RoutineSpecificationRegion(self)
 		self._regions = [self._currRegion]
 		self._programmerArguments = None
 		self._additionalArguments = None
@@ -72,9 +72,7 @@ class AnalyzableRoutine(Routine):
 		elif self._additionalArguments and len(self._additionalArguments) > 0:
 			parameterList += "& "
 		if self._programmerArguments:
-			parameterList += ", ".join([
-				symbol.nameInScope() for symbol in  self._programmerArguments
-			])
+			parameterList += ", ".join(self._programmerArguments)
 		return "%s subroutine %s(%s)\n" %(
 			self.implementation.subroutinePrefix(self.node),
 			self.name,
@@ -116,8 +114,8 @@ class AnalyzableRoutine(Routine):
 			self._currRegion = region
 		return region
 
-	def loadArguments(self, argumentSymbols):
-		self._programmerArguments = copy.copy(argumentSymbols)
+	def loadArguments(self, arguments):
+		self._programmerArguments = copy.copy(arguments)
 
 	def loadAdditionalArgumentSymbols(self, argumentSymbols):
 		self._additionalArguments = copy.copy(argumentSymbols)

@@ -19,7 +19,7 @@
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
 from xml.dom.minidom import Document
-from tools.metadata import addCallers, addCallees, createOrGetFirstNodeWithName, getDomainDependantTemplatesAndEntries
+from tools.metadata import addCallers, addCallees, createOrGetFirstNodeWithName, getDomainDependantTemplatesAndEntries, getArguments
 from tools.commons import enum, prettyprint, UsageError
 import sys
 import logging
@@ -51,12 +51,6 @@ def getAnalysisForSymbol(symbolAnalysisByRoutineNameAndSymbolName, parentName, s
     if len(symbolAnalysisPerCallee) > 0:
         return symbolAnalysisPerCallee[0]
     return None
-
-def getArguments(parentNode):
-    return [
-        argument.getAttribute("symbolName")
-        for argument in parentNode.getElementsByTagName("argument")
-    ]
 
 class SymbolAnalysis:
     def __init__(self):

@@ -18,8 +18,9 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
-import weakref
+import weakref, copy
 from tools.commons import enum
+from tools.metadata import getArguments
 from machinery.commons import ConversionOptions
 
 RegionType = enum(
@@ -58,26 +59,35 @@ class CallRegion(Region):
 	def __init__(self, routine):
 		super(CallRegion, self).__init__(routine)
 		self._callee = None
+		self._passedInSymbolsByName = None
 
 	def loadCallee(self, callee):
 		self._callee = callee
 
+	def loadPassedInSymbolsByName(self, symbolsByName):
+		self._passedInSymbolsByName = copy.copy(symbolsByName)
+
 	def implemented(self):
 		if not self._callee:
 			raise Exception("call needs to be loaded at this point")
+		if hasattr(self._callee, "_programmerArguments") \
+		and (not self._callee._additionalArguments or not self._callee._programmerArguments):
+			raise Exception("callee arguments need to be loaded at this point")
 
 		text = ""
-		argumentSymbols = self._callee._additionalArguments + self._callee._programmerArguments
-		for symbol in argumentSymbols:
-			text += self._callee.implementation.callPreparationForPassedSymbol(
-				self._routineRef().node,
-				symbolInCaller=symbol
-			)
+		argumentSymbols = None
+		if hasattr(self._callee, "_programmerArguments"):
+			argumentSymbols = self._callee._additionalArguments + self._passedInSymbolsByName.values()
+			for symbol in argumentSymbols:
+				text += self._callee.implementation.callPreparationForPassedSymbol(
+					self._routineRef().node,
+					symbolInCaller=symbol
+				)
 
 		parallelRegionPosition = None
-		if isinstance(self._callee, AnalyzableRoutine):
+		if hasattr(self._callee, "_programmerArguments"):
 			parallelRegionPosition = self._callee.node.getAttribute("parallelRegionPosition")
-		if isinstance(self._callee, AnalyzableRoutine) and parallelRegionPosition == "within":
+		if hasattr(self._callee, "_programmerArguments") and parallelRegionPosition == "within":
 			if not self._callee.parallelRegionTemplates \
 			or len(self._callee.parallelRegionTemplates) == 0:
 				raise Exception("No parallel region templates found for subroutine %s" %(
@@ -111,7 +121,7 @@ class CallRegion(Region):
 
 		text += super(CallRegion, self).implemented()
 
-		if isinstance(self._callee, AnalyzableRoutine):
+		if hasattr(self._callee, "_programmerArguments"):
 			allSymbolsPassedByName = dict(
 				(symbol.name, symbol)
 				for symbol in argumentSymbols
@@ -120,17 +130,17 @@ class CallRegion(Region):
 				allSymbolsPassedByName,
 				self._callee.node
 			)
-		for symbol in argumentSymbols:
-			text += self._callee.implementation.callPostForPassedSymbol(
-				self._routineRef().node,
-				symbolInCaller=symbol
-			)
+			for symbol in argumentSymbols:
+				text += self._callee.implementation.callPostForPassedSymbol(
+					self._routineRef().node,
+					symbolInCaller=symbol
+				)
 		return text
 
 class ParallelRegion(Region):
 	def __init__(self, routine):
-		super(CallRegion, self).__init__(routine)
-		self._currRegion = Region()
+		super(ParallelRegion, self).__init__(routine)
+		self._currRegion = Region(routine)
 		self._subRegions = [self._currRegion]
 
 	def switchToRegion(self, region):
@@ -138,7 +148,7 @@ class ParallelRegion(Region):
 		self._subRegions.append(region)
 
 	def loadLine(self, line, symbolsOnCurrentLine=None):
-		self._currRegion.loadLine(self, line, symbolsOnCurrentLine)
+		self._currRegion.loadLine(line, symbolsOnCurrentLine)
 
 	def implemented(self):
 		return "\n".join([region.implemented() for region in self._subRegions])

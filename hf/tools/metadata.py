@@ -630,3 +630,9 @@ def getReductionScalarsByOperator(parallelRegionTemplate):
         else:
             result[operator] = [scalar]
     return result
+
+def getArguments(parentNode):
+    return [
+        argument.getAttribute("symbolName")
+        for argument in parentNode.getElementsByTagName("argument")
+    ]

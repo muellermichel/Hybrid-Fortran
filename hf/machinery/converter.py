@@ -148,8 +148,8 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
             logging.info(traceback.format_exc())
             sys.exit(1)
 
-    def switchToNewRegion(self, regionClassName="Region"):
-        self.currRegion = self.currRoutine.createRegion(regionClassName)
+    def switchToNewRegion(self, regionClassName="Region", oldRegion=None):
+        self.currRegion = self.currRoutine.createRegion(regionClassName, oldRegion)
 
     def endRegion(self):
         self.currRegion = None
@@ -367,79 +367,35 @@ This is not allowed for implementations using %s.\
                 self.parallelRegionTemplatesByProcName.get(self.currCalleeName),
                 self.implementationForTemplateName(calleeNode.getAttribute('implementationTemplate'))
             )
+            self.currCallee.loadArguments(getArguments(calleeNode))
         else:
             self.currCallee = Routine(self.currCalleeName)
-        self.currRoutine.loadCallee(self.currCallee)
+        self.currRegion.loadCallee(self.currCallee)
 
-        arguments = subProcCallMatch.group(2)
-        paramListMatch = self.patterns.subprocFirstLineParameterListPattern.match(arguments)
-        if not paramListMatch and len(arguments.strip()) > 0:
-            raise Exception("Subprocedure arguments without enclosing brackets. This is invalid in Hybrid Fortran")
+        if isinstance(self.currCallee, AnalyzableRoutine):
+            arguments = subProcCallMatch.group(2)
+            paramListMatch = self.patterns.subprocFirstLineParameterListPattern.match(arguments)
+            if not paramListMatch and len(arguments.strip()) > 0:
+                raise Exception("Subprocedure arguments without enclosing brackets. This is invalid in Hybrid Fortran")
+            additionalImports, additionalDeclarations = self.additionalParametersByKernelName.get(self.currCalleeName, ([], []))
+            toBeCompacted = []
+            toBeCompacted, declarationPrefix, notToBeCompacted = self.listCompactedSymbolsAndDeclarationPrefixAndOtherSymbols(additionalImports + additionalDeclarations)
+            compactedArrayList = []
+            if len(toBeCompacted) > 0:
+                compactedArrayName = "hfimp_%s" %(self.currCalleeName)
+                compactedArray = FrameworkArray(compactedArrayName, declarationPrefix, domains=[("hfauto", str(len(toBeCompacted)))], isOnDevice=True)
+                compactedArrayList = [compactedArray]
+            self.currCallee.loadAdditionalArgumentSymbols(sorted(notToBeCompacted + compactedArrayList))
 
-        additionalImports, additionalDeclarations = self.additionalParametersByKernelName.get(self.currCalleeName, ([], []))
-        toBeCompacted = []
-        toBeCompacted, declarationPrefix, notToBeCompacted = self.listCompactedSymbolsAndDeclarationPrefixAndOtherSymbols(additionalImports + additionalDeclarations)
-        compactedArrayList = []
-        if len(toBeCompacted) > 0:
-            compactedArrayName = "hfimp_%s" %(self.currCalleeName)
-            compactedArray = FrameworkArray(compactedArrayName, declarationPrefix, domains=[("hfauto", str(len(toBeCompacted)))], isOnDevice=True)
-            compactedArrayList = [compactedArray]
-
-        self.currCallee.loadAdditionalArgumentSymbols(sorted(notToBeCompacted + compactedArrayList))
         remainingCall = self.processSymbolsAndGetAdjustedLine(
             paramListMatch.group(2),
             isInsideSubroutineCall=True
         ) if paramListMatch else ")\n"
-
+        self.currRegion.loadPassedInSymbolsByName(self.symbolsPassedInCurrentCallByName)
         self.prepareLine(remainingCall, self.tab_insideSub)
-
-        callPreparationForSymbols = ""
-        callPostForSymbols = ""
-        if isinstance(self.currCallee, AnalyzableRoutine) \
-        and self.state != "inside_subroutine_call" \
-        and not (self.state == "inside_branch" and self.stateBeforeBranch == "inside_subroutine_call"):
-            currSubprocNode = self.routineNodesByProcName.get(self.currRoutine.name)
-            callPreparationForSymbols = ""
-            callPostForSymbols = ""
-            for symbol in self.symbolsPassedInCurrentCallByName.values():
-                if symbol.isHostSymbol:
-                    continue
-                symbolsInCalleeByName = dict(
-                    (symbol.name, symbol)
-                    for symbol in self.symbolsByRoutineNameAndSymbolName.get(self.currCalleeName, {}).values()
-                )
-                symbolNameInCallee = None
-                for symbolName in symbolsInCalleeByName:
-                    analysis = getAnalysisForSymbol(self.symbolAnalysisByRoutineNameAndSymbolName, self.currCalleeName, symbolName)
-                    if not analysis:
-                        continue
-                    if analysis.aliasNamesByRoutineName.get(self.currRoutine.name) == symbol.name:
-                        symbolNameInCallee = symbolName
-                        break
-                if symbolNameInCallee == None:
-                    continue #this symbol isn't passed in to the callee
-                symbolInCallee = symbolsInCalleeByName.get(symbolNameInCallee)
-                if symbolInCallee == None:
-                    raise Exception("Symbol %s's data expected for callee %s, but could not be found" %(
-                        symbolNameInCallee,
-                        self.currCalleeName
-                    ))
-                callPreparationForSymbols += self.currCallee.implementation.callPreparationForPassedSymbol(
-                    currSubprocNode,
-                    symbolInCaller=symbol,
-                    symbolInCallee=symbolInCallee
-                )
-                callPostForSymbols += self.currCallee.implementation.callPostForPassedSymbol(
-                    currSubprocNode,
-                    symbolInCaller=symbol,
-                    symbolInCallee=symbolInCallee
-                )
-
         if self.state != "inside_subroutine_call" and not (self.state == "inside_branch" and self.stateBeforeBranch == "inside_subroutine_call"):
             self.symbolsPassedInCurrentCallByName = {}
             self.currCallee = None
-
-
 
     def processDeclarationLineAndGetAdjustedLine(self, line, declarationRegionType):
         baseline = line
@@ -508,10 +464,7 @@ This is not allowed for implementations using %s.\
             self.implementation
         )
         self.currRoutine.loadSymbolsByName(self.currSymbolsByName)
-        self.currRoutine.loadArguments([
-            self.currSymbolsByName[symbolName]
-            for symbolName in self.currArguments
-        ])
+        self.currRoutine.loadArguments(self.currArguments)
 
         symbolsByUniqueNameToBeUpdated = {}
 
@@ -911,7 +864,7 @@ This is not allowed for implementations using %s.\
             return
         if subProcCallMatch:
             declarationEndStatements(declarationRegionType, isInsertedBeforeCurrentLine=True)
-            self.switchToNewRegion()
+            self.switchToNewRegion("CallRegion")
             self.processCallMatch(subProcCallMatch)
             if (self.state == "inside_branch" and self.stateBeforeBranch != 'inside_subroutine_call') or (self.state != "inside_branch" and self.state != 'inside_subroutine_call'):
                 self.processCallPost()
@@ -982,7 +935,7 @@ This is not allowed for implementations using %s.\
 
         subProcCallMatch = self.patterns.subprocCallPattern.match(line)
         if subProcCallMatch:
-            self.switchToNewRegion()
+            self.switchToNewRegion("CallRegion")
             self.processCallMatch(subProcCallMatch)
             if self.state != 'inside_subroutine_call' and not (self.state == "inside_branch" and self.stateBeforeBranch == "inside_subroutine_call"):
                 self.processCallPost()
@@ -1095,9 +1048,11 @@ This is not allowed for implementations using %s.\
                 )
                 if message != "":
                     logging.warning(message, extra={"hfLineNo":currLineNo, "hfFile":currFile})
+            self.switchToNewRegion("CallRegion")
             self.processCallMatch(subProcCallMatch)
             if self.state != 'inside_subroutine_call' and not (self.state == "inside_branch" and self.stateBeforeBranch == "inside_subroutine_call"):
                 self.processCallPost()
+            self.switchToNewRegion()
             return
 
         parallelRegionEndMatch = self.patterns.parallelRegionEndPattern.match(line)

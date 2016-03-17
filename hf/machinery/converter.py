@@ -168,10 +168,13 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
 This is not allowed for implementations using %s.\
                 " %(self.currRoutine.name, type(self.implementation).__name__)
             )
-
+        if implementationFunctionName == "parallelRegionBegin":
+            self.switchToNewRegion(isParallelRegion=True)
         implementationAttr = getattr(self, 'implementation')
         functionAttr = getattr(implementationAttr, implementationFunctionName)
         self.prepareLine(functionAttr(self.currParallelRegionTemplateNode, self.branchAnalyzer.level), self.tab_insideSub)
+        if implementationFunctionName == "parallelRegionEnd":
+            self.switchToNewRegion()
         return True
 
     def filterOutSymbolsAlreadyAliveInCurrentScope(self, symbolList):
@@ -481,9 +484,11 @@ This is not allowed for implementations using %s.\
         if self.state != "inside_subroutine_call" and not (self.state == "inside_branch" and self.stateBeforeBranch == "inside_subroutine_call"):
             self.symbolsPassedInCurrentCallByName = {}
             self.currCallee = None
-            self.switchToNewRegion()
 
         self.prepareLine(callPreparationForSymbols + adjustedLine + callPostForSymbols, self.tab_insideSub)
+
+        if self.state != "inside_subroutine_call" and not (self.state == "inside_branch" and self.stateBeforeBranch == "inside_subroutine_call"):
+            self.switchToNewRegion()
 
     def processDeclarationLineAndGetAdjustedLine(self, line, declarationRegionType):
         baseline = line
@@ -706,13 +711,11 @@ This is not allowed for implementations using %s.\
             "...parallel region starts on line %i with active symbols %s" %(self.lineNo, str(self.currSymbolsByName.values())),
             extra={"hfLineNo":currLineNo, "hfFile":currFile}
         )
-        if self.prepareActiveParallelRegion('parallelRegionBegin'):
-            self.switchToNewRegion(isParallelRegion=True)
+        self.prepareActiveParallelRegion('parallelRegionBegin')
 
     def processParallelRegionEndMatch(self, parallelRegionEndMatch):
         super(H90toF90Converter, self).processParallelRegionEndMatch(parallelRegionEndMatch)
-        if self.prepareActiveParallelRegion('parallelRegionEnd'):
-            self.switchToNewRegion()
+        self.prepareActiveParallelRegion('parallelRegionEnd')
         self.currParallelIterators = []
         self.currParallelRegionTemplateNode = None
         self.currParallelRegionRelationNode = None

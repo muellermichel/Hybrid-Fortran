@@ -114,11 +114,9 @@ class CallRegion(Region):
 		numOfProgrammerSpecifiedArguments = len(self._callee.programmerArgumentNames)
 		for symbolNum, symbol in enumerate(self._callee.additionalArgumentSymbols):
 			hostName = symbol.nameInScope()
-			adjustedLine += hostName
+			text += hostName
 			if symbolNum < len(self._callee.additionalArgumentSymbols) - 1 or numOfProgrammerSpecifiedArguments > 0:
-				adjustedLine += ", "
-			if symbolNum < len(self._callee.additionalArgumentSymbols) - 1 or paramListMatch:
-				adjustedLine += "%s (type %i) %s" %(bridgeStr1, symbol.declarationType, bridgeStr2)
+				text += ", %s (type %i) %s" %(bridgeStr1, symbol.declarationType, bridgeStr2)
 
 		text += super(CallRegion, self).implemented(skipDebugPrint=True)
 

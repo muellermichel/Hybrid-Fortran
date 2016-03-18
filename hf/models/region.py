@@ -34,6 +34,15 @@ class Region(object):
 		self._linesAndSymbols = []
 		self._routineRef = weakref.ref(routine)
 
+	def _wrapInDebugPrint(self, text):
+		if not ConversionOptions.Instance().debugPrint:
+			return text.strip() + "\n"
+		return "!<--- %s\n%s\n!--->\n" %(
+			type(self),
+			text.strip()
+		)
+
+
 	def loadLine(self, line, symbolsOnCurrentLine=None):
 		stripped = line.strip()
 		if stripped == "":
@@ -43,17 +52,11 @@ class Region(object):
 			symbolsOnCurrentLine
 		))
 
-	def implemented(self):
+	def implemented(self, skipDebugPrint=False):
 		text = "\n".join([line for (line, symbols) in self._linesAndSymbols])
 		if text == "":
 			return ""
-		result = ""
-		if ConversionOptions.Instance().debugPrint:
-			result += "!<--- %s\n" %(type(self))
-		result += text + "\n"
-		if ConversionOptions.Instance().debugPrint:
-			result += "!--->\n"
-		return result
+		return self._wrapInDebugPrint(text)
 
 class CallRegion(Region):
 	def __init__(self, routine):
@@ -71,9 +74,9 @@ class CallRegion(Region):
 		if not self._callee:
 			raise Exception("call needs to be loaded at this point")
 
-		#this hasattr is used to test the callee for analyzability without circular imports
 		text = ""
 		argumentSymbols = None
+		#this hasattr is used to test the callee for analyzability without circular imports
 		if hasattr(self._callee, "implementation"):
 			argumentSymbols = self._callee.additionalArgumentSymbols + self._passedInSymbolsByName.values()
 			for symbol in argumentSymbols:
@@ -117,7 +120,7 @@ class CallRegion(Region):
 			if symbolNum < len(self._callee.additionalArgumentSymbols) - 1 or paramListMatch:
 				adjustedLine += "%s (type %i) %s" %(bridgeStr1, symbol.declarationType, bridgeStr2)
 
-		text += super(CallRegion, self).implemented()
+		text += super(CallRegion, self).implemented(skipDebugPrint=True)
 
 		if hasattr(self._callee, "implementation"):
 			allSymbolsPassedByName = dict(
@@ -133,7 +136,7 @@ class CallRegion(Region):
 					self._routineRef().node,
 					symbolInCaller=symbol
 				)
-		return text
+		return self._wrapInDebugPrint(text)
 
 class ParallelRegion(Region):
 	def __init__(self, routine):
@@ -149,7 +152,9 @@ class ParallelRegion(Region):
 		self._currRegion.loadLine(line, symbolsOnCurrentLine)
 
 	def implemented(self):
-		return "\n".join([region.implemented() for region in self._subRegions])
+		text = ""
+		text += "\n".join([region.implemented() for region in self._subRegions])
+		return self._wrapInDebugPrint(text)
 
 class RoutineSpecificationRegion(Region):
 	pass

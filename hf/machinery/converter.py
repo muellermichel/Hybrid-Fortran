@@ -517,6 +517,9 @@ This is not allowed for implementations using %s.\
                 callee = self.routineNodesByProcName.get(calleeName)
                 if not callee:
                     continue
+                if callee.getAttribute("parallelRegionPosition") == "within":
+                    self.currRoutine.isCallingKernel = True #$$$ this is a crutch - as long as we are generating all code before the implemented() phase, we need this information early,
+                                                            #i.e. routine.loadCall is too late.
                 implementation = self.implementationForTemplateName(callee.getAttribute('implementationTemplate'))
                 additionalImportsForDeviceCompatibility, \
                 additionalDeclarationsForDeviceCompatibility, \

@@ -55,6 +55,18 @@ class AnalyzableRoutine(Routine):
 		self._additionalArguments = None
 		self._additionalImports = None
 
+	@property
+	def programmerArgumentNames(self):
+		if self._programmerArguments == None:
+			raise Exception("programmer arguments not yet loaded for %s" %(self.name))
+		return self._programmerArguments
+
+	@property
+	def additionalArgumentSymbols(self):
+		if self._additionalArguments == None:
+			raise Exception("additional arguments not yet loaded for %s" %(self.name))
+		return self._additionalArguments
+
 	def _implementHeader(self):
 		parameterList = ""
 		if self._additionalArguments and len(self._additionalArguments) > 0:

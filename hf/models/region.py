@@ -70,14 +70,12 @@ class CallRegion(Region):
 	def implemented(self):
 		if not self._callee:
 			raise Exception("call needs to be loaded at this point")
-		if hasattr(self._callee, "_programmerArguments") \
-		and (not self._callee._additionalArguments or not self._callee._programmerArguments):
-			raise Exception("callee arguments need to be loaded at this point")
 
+		#this hasattr is used to test the callee for analyzability without circular imports
 		text = ""
 		argumentSymbols = None
-		if hasattr(self._callee, "_programmerArguments"):
-			argumentSymbols = self._callee._additionalArguments + self._passedInSymbolsByName.values()
+		if hasattr(self._callee, "implementation"):
+			argumentSymbols = self._callee.additionalArgumentSymbols + self._passedInSymbolsByName.values()
 			for symbol in argumentSymbols:
 				text += self._callee.implementation.callPreparationForPassedSymbol(
 					self._routineRef().node,
@@ -85,9 +83,9 @@ class CallRegion(Region):
 				)
 
 		parallelRegionPosition = None
-		if hasattr(self._callee, "_programmerArguments"):
+		if hasattr(self._callee, "implementation"):
 			parallelRegionPosition = self._callee.node.getAttribute("parallelRegionPosition")
-		if hasattr(self._callee, "_programmerArguments") and parallelRegionPosition == "within":
+		if hasattr(self._callee, "implementation") and parallelRegionPosition == "within":
 			if not self._callee.parallelRegionTemplates \
 			or len(self._callee.parallelRegionTemplates) == 0:
 				raise Exception("No parallel region templates found for subroutine %s" %(
@@ -95,8 +93,8 @@ class CallRegion(Region):
 				))
 			text += "%s call %s %s" %(
 				self._callee.implementation.kernelCallPreparation(
-					parallelRegionTemplates[0],
-					calleeNode=self.currCallee.node
+					self._callee.parallelRegionTemplates[0],
+					calleeNode=self._callee.node
 				),
 				self._callee.name,
 				self._callee.implementation.kernelCallConfig()
@@ -104,24 +102,24 @@ class CallRegion(Region):
 		else:
 			text += "call " + self._callee.name
 
-		if len(self._callee._additionalArguments) > 0:
+		if len(self._callee.additionalArgumentSymbols) > 0:
 			text += "( &\n"
 		else:
 			text += "("
 		bridgeStr1 = " & !additional parameter"
 		bridgeStr2 = "inserted by framework\n& "
-		numOfProgrammerSpecifiedArguments = len(self._callee._programmerArguments)
-		for symbolNum, symbol in enumerate(self._callee._additionalArguments):
+		numOfProgrammerSpecifiedArguments = len(self._callee.programmerArgumentNames)
+		for symbolNum, symbol in enumerate(self._callee.additionalArgumentSymbols):
 			hostName = symbol.nameInScope()
 			adjustedLine += hostName
-			if symbolNum < len(self._callee._additionalArguments) - 1 or numOfProgrammerSpecifiedArguments > 0:
+			if symbolNum < len(self._callee.additionalArgumentSymbols) - 1 or numOfProgrammerSpecifiedArguments > 0:
 				adjustedLine += ", "
-			if symbolNum < len(self._callee._additionalArguments) - 1 or paramListMatch:
+			if symbolNum < len(self._callee.additionalArgumentSymbols) - 1 or paramListMatch:
 				adjustedLine += "%s (type %i) %s" %(bridgeStr1, symbol.declarationType, bridgeStr2)
 
 		text += super(CallRegion, self).implemented()
 
-		if hasattr(self._callee, "_programmerArguments"):
+		if hasattr(self._callee, "implementation"):
 			allSymbolsPassedByName = dict(
 				(symbol.name, symbol)
 				for symbol in argumentSymbols

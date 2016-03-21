@@ -628,6 +628,7 @@ This is not allowed for implementations using %s.\
         self.switchToNewRegion("ParallelRegion")
         self.currParallelRegion = self.currRegion
         self.currParallelRegion.loadActiveParallelRegionTemplate(self.currParallelRegionTemplateNode)
+        self.currParallelRegion.loadActiveSymbols(self.currSymbolsByName.values())
         self.prepareLine("", self.tab_insideSub)
 
     def processParallelRegionEndMatch(self, parallelRegionEndMatch):

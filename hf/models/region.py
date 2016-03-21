@@ -143,6 +143,7 @@ class ParallelRegion(Region):
 		self._currRegion = Region(routine)
 		self._subRegions = [self._currRegion]
 		self._activeTemplate = None
+		self._activeSymbols = None
 
 	def switchToRegion(self, region):
 		self._currRegion = region
@@ -154,6 +155,9 @@ class ParallelRegion(Region):
 	def loadActiveParallelRegionTemplate(self, templateNode):
 		self._activeTemplate = templateNode
 
+	def loadActiveSymbols(self, symbols):
+		self._activeSymbols = copy.copy(symbols)
+
 	def implemented(self):
 		parentRoutine = self._routineRef()
 		hasParallelRegionWithin = parentRoutine.node.getAttribute('parallelRegionPosition') == 'within'
@@ -163,10 +167,15 @@ class ParallelRegion(Region):
 
 		text = ""
 		if hasParallelRegionWithin:
-			text += parentRoutine.implementation.parallelRegionBegin(self._activeTemplate)
+			text += parentRoutine.implementation.parallelRegionBegin(
+				self._activeSymbols,
+				self._activeTemplate
+			).strip() + "\n"
 		text += "\n".join([region.implemented() for region in self._subRegions])
 		if hasParallelRegionWithin:
-			text += parentRoutine.implementation.parallelRegionEnd(self._activeTemplate)
+			text += parentRoutine.implementation.parallelRegionEnd(
+				self._activeTemplate
+			).strip() + "\n"
 		return self._wrapInDebugPrint(text)
 
 class RoutineSpecificationRegion(Region):

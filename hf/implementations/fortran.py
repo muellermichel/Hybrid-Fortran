@@ -141,7 +141,7 @@ class FortranImplementation(object):
 	def processModuleEnd(self):
 		pass
 
-	def parallelRegionBegin(self, parallelRegionTemplate):
+	def parallelRegionBegin(self, dependantSymbols, parallelRegionTemplate):
 		domains = getDomainsWithParallelRegionTemplate(parallelRegionTemplate)
 		regionStr = ''
 		for pos in range(len(domains)-1,-1,-1): #use inverted order (optimization of accesses for fortran storage order)
@@ -262,28 +262,18 @@ class TraceGeneratingFortranImplementation(FortranImplementation):
 
 class OpenMPFortranImplementation(FortranImplementation):
 	def __init__(self, optionFlags):
-		self.currDependantSymbols = None
 		FortranImplementation.__init__(self, optionFlags)
 
-	def declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates):
-		self.currDependantSymbols = dependantSymbols
-		return FortranImplementation.declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates)
-
-	def parallelRegionBegin(self, parallelRegionTemplate):
-		if self.currDependantSymbols == None:
+	def parallelRegionBegin(self, dependantSymbols, parallelRegionTemplate):
+		if not dependantSymbols:
 			raise UsageError("parallel region without any dependant arrays")
 		openMPLines = "!$OMP PARALLEL DO DEFAULT(firstprivate) %s " %(getReductionClause(parallelRegionTemplate).upper())
-		openMPLines += "SHARED(%s)\n" %(', '.join([symbol.nameInScope() for symbol in self.currDependantSymbols]))
-		return openMPLines + FortranImplementation.parallelRegionBegin(self, parallelRegionTemplate)
+		openMPLines += "SHARED(%s)\n" %(', '.join([symbol.nameInScope() for symbol in dependantSymbols]))
+		return openMPLines + FortranImplementation.parallelRegionBegin(self, dependantSymbols, parallelRegionTemplate)
 
 	def parallelRegionEnd(self, parallelRegionTemplate):
 		openMPLines = "\n!$OMP END PARALLEL DO\n"
 		return FortranImplementation.parallelRegionEnd(self, parallelRegionTemplate) + openMPLines
-
-	def subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, isSubroutineEnd):
-		if isSubroutineEnd:
-			self.currDependantSymbols = None
-		return FortranImplementation.subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, isSubroutineEnd)
 
 def _checkDeclarationConformity(dependantSymbols):
 	#analyse state of symbols - already declared as on device or not?
@@ -530,13 +520,11 @@ class PGIOpenACCFortranImplementation(DeviceDataFortranImplementation):
 	architecture = ["openacc", "gpu", "nvd", "nvidia"]
 	onDevice = True
 	createDeclaration = "create"
-	currDependantSymbols = None
 
 	def __init__(self, optionFlags):
 		super(PGIOpenACCFortranImplementation, self).__init__(optionFlags)
 		self.currRoutineNode = None
 		self.createDeclaration = "create"
-		self.currDependantSymbols = None
 		self.currParallelRegionTemplates = None
 
 	def filePreparation(self, filename):
@@ -579,7 +567,6 @@ end subroutine
 
 	def declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates):
 		self.currRoutineNode = currRoutineNode
-		self.currDependantSymbols = dependantSymbols
 		self.currParallelRegionTemplates = currParallelRegionTemplates
 		result = ""
 		if 'DEBUG_PRINT' in self.optionFlags:
@@ -602,7 +589,7 @@ end subroutine
 	def loopPreparation(self):
 		return "!$acc loop seq"
 
-	def parallelRegionBegin(self, parallelRegionTemplate):
+	def parallelRegionBegin(self, dependantSymbols, parallelRegionTemplate):
 		regionStr = ""
 		#$$$ may need to be replaced with CUDA Fortran style manual update
 		# for symbol in self.currDependantSymbols:
@@ -610,7 +597,7 @@ end subroutine
 		# 		regionStr += "!$acc update device(%s)\n" %(symbol.name)
 		vectorSizePPNames = getVectorSizePPNames(parallelRegionTemplate)
 		regionStr += "!$acc kernels "
-		for symbol in self.currDependantSymbols:
+		for symbol in dependantSymbols:
 			if symbol.isOnDevice:
 				regionStr += "deviceptr(%s) " %(symbol.name)
 		regionStr += "\n"
@@ -649,7 +636,6 @@ end subroutine
 	def subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, isSubroutineEnd):
 		if isSubroutineEnd:
 			self.currRoutineNode = None
-			self.currDependantSymbols = None
 			self.currRoutineHasDataDeclarations = False
 			self.currParallelRegionTemplates = None
 		return super(PGIOpenACCFortranImplementation, self).subroutineExitPoint(
@@ -941,7 +927,7 @@ end if\n" %(calleeNode.getAttribute('name'))
 		result += ") then\nreturn\nend if\n"
 		return result
 
-	def parallelRegionBegin(self, parallelRegionTemplate):
+	def parallelRegionBegin(self, dependantSymbols, parallelRegionTemplate):
 		domains = getDomainsWithParallelRegionTemplate(parallelRegionTemplate)
 		regionStr = self.iteratorDefinitionBeforeParallelRegion(domains)
 		regionStr += self.safetyOutsideRegion(domains)
@@ -1008,14 +994,9 @@ class DebugCUDAFortranImplementation(CUDAFortranImplementation):
 
 class DebugEmulatedCUDAFortranImplementation(DebugCUDAFortranImplementation):
 	def __init__(self, optionFlags):
-		self.currDependantSymbols = None
 		DebugCUDAFortranImplementation.__init__(self, optionFlags)
 
-	def declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates):
-		self.currDependantSymbols = dependantSymbols
-		return DebugCUDAFortranImplementation.declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates)
-
-	def parallelRegionBegin(self, parallelRegionTemplate):
+	def parallelRegionBegin(self, dependantSymbols, parallelRegionTemplate):
 		domains = getDomainsWithParallelRegionTemplate(parallelRegionTemplate)
 		regionStr = self.iteratorDefinitionBeforeParallelRegion(domains)
 		routineName = self.currRoutineNode.getAttribute('name')
@@ -1046,7 +1027,7 @@ class DebugEmulatedCUDAFortranImplementation(DebugCUDAFortranImplementation):
 		conditional = conditional + ")"
 		regionStr += "if %s write(0,*) '*********** entering kernel %s finished *************** '\n" %(conditional, routineName)
 		region_domains = getDomainsWithParallelRegionTemplate(parallelRegionTemplate)
-		for symbol in self.currDependantSymbols:
+		for symbol in dependantSymbols:
 			offsets = []
 			symbol_domain_names = [domain[0] for domain in symbol.domains]
 			for region_domain in region_domains:
@@ -1062,8 +1043,3 @@ class DebugEmulatedCUDAFortranImplementation(DebugCUDAFortranImplementation):
 		regionStr += "if %s write(0,*) ''\n" %(conditional)
 		regionStr += self.safetyOutsideRegion(domains)
 		return regionStr
-
-	def subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, isSubroutineEnd):
-		if isSubroutineEnd:
-			self.currDependantSymbols = None
-		return DebugCUDAFortranImplementation.subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, isSubroutineEnd)

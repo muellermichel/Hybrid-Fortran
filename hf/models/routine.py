@@ -67,6 +67,24 @@ class AnalyzableRoutine(Routine):
 			raise Exception("additional arguments not yet loaded for %s" %(self.name))
 		return self._additionalArguments
 
+	def _checkParallelRegions(self):
+		if self.node.getAttribute('parallelRegionPosition') != 'within':
+			return
+		templates = self.parallelRegionTemplates
+		if not templates or len(templates) == 0:
+			raise Exception("Unexpected: no parallel template definition found for routine '%s'" %(
+				self.name
+			))
+		if len(templates) > 1 and self.implementation.multipleParallelRegionsPerSubroutineAllowed != True:
+			raise Exception("Unexpected: more than one parallel region templates found for subroutine '%s' \
+containing a parallelRegion directive \
+This is not allowed for implementations using %s.\
+				" %(
+					self.name,
+					type(self.implementation).__name__
+				)
+			)
+
 	def _implementHeader(self):
 		parameterList = ""
 		if self._additionalArguments and len(self._additionalArguments) > 0:
@@ -95,19 +113,19 @@ class AnalyzableRoutine(Routine):
 		if not self._additionalImports or len(self._additionalImports) == 0:
 			return self.implementation.additionalIncludes()
 		return self.implementation.adjustImportForDevice(
-            None,
-            self._additionalImports,
-            RegionType.KERNEL_CALLER_DECLARATION if self.isCallingKernel else RegionType.OTHER,
-            self.node.getAttribute('parallelRegionPosition'),
-            self.parallelRegionTemplates
-        ) + self.implementation.additionalIncludes()
+			None,
+			self._additionalImports,
+			RegionType.KERNEL_CALLER_DECLARATION if self.isCallingKernel else RegionType.OTHER,
+			self.node.getAttribute('parallelRegionPosition'),
+			self.parallelRegionTemplates
+		) + self.implementation.additionalIncludes()
 
 	def _implementFooter(self):
 		return self.implementation.subroutineExitPoint(
-            self.symbolsByName.values(),
-            self.isCallingKernel,
-            isSubroutineEnd=True
-        ) + "end subroutine\n"
+			self.symbolsByName.values(),
+			self.isCallingKernel,
+			isSubroutineEnd=True
+		) + "end subroutine\n"
 
 	def nameInScope(self):
 		if not self.sisterRoutine:
@@ -147,6 +165,7 @@ class AnalyzableRoutine(Routine):
 		self._currRegion.loadLine(line)
 
 	def implemented(self):
+		self._checkParallelRegions()
 		implementedRoutineElements = [self._implementHeader(), self._implementAdditionalImports()]
 		implementedRoutineElements += [region.implemented() for region in self._regions]
 		implementedRoutineElements += [self._implementFooter()]

@@ -142,6 +142,7 @@ class ParallelRegion(Region):
 		super(ParallelRegion, self).__init__(routine)
 		self._currRegion = Region(routine)
 		self._subRegions = [self._currRegion]
+		self._activeTemplate = None
 
 	def switchToRegion(self, region):
 		self._currRegion = region
@@ -150,9 +151,22 @@ class ParallelRegion(Region):
 	def loadLine(self, line, symbolsOnCurrentLine=None):
 		self._currRegion.loadLine(line, symbolsOnCurrentLine)
 
+	def loadActiveParallelRegionTemplate(self, templateNode):
+		self._activeTemplate = templateNode
+
 	def implemented(self):
+		parentRoutine = self._routineRef()
+		hasParallelRegionWithin = parentRoutine.node.getAttribute('parallelRegionPosition') == 'within'
+		if hasParallelRegionWithin \
+		and not self._activeTemplate:
+			raise Exception("cannot implement parallel region without a template node loaded")
+
 		text = ""
+		if hasParallelRegionWithin:
+			text += parentRoutine.implementation.parallelRegionBegin(self._activeTemplate)
 		text += "\n".join([region.implemented() for region in self._subRegions])
+		if hasParallelRegionWithin:
+			text += parentRoutine.implementation.parallelRegionEnd(self._activeTemplate)
 		return self._wrapInDebugPrint(text)
 
 class RoutineSpecificationRegion(Region):

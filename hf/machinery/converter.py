@@ -167,7 +167,10 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
         if len(templates) > 1 and self.implementation.multipleParallelRegionsPerSubroutineAllowed != True:
             raise Exception("Unexpected: more than one parallel region templates found for subroutine '%s' containing a parallelRegion directive \
 This is not allowed for implementations using %s.\
-                " %(self.currRoutine.name, type(self.implementation).__name__)
+                " %(
+                    self.currRoutine.name,
+                    type(self.implementation).__name__
+                )
             )
         if implementationFunctionName == "parallelRegionBegin":
             self.switchToNewRegion("ParallelRegion")
@@ -622,11 +625,16 @@ This is not allowed for implementations using %s.\
             "...parallel region starts on line %i with active symbols %s" %(self.lineNo, str(self.currSymbolsByName.values())),
             extra={"hfLineNo":currLineNo, "hfFile":currFile}
         )
-        self.prepareActiveParallelRegion('parallelRegionBegin')
+        self.switchToNewRegion("ParallelRegion")
+        self.currParallelRegion = self.currRegion
+        self.currParallelRegion.loadActiveParallelRegionTemplate(self.currParallelRegionTemplateNode)
+        self.prepareLine("", self.tab_insideSub)
 
     def processParallelRegionEndMatch(self, parallelRegionEndMatch):
         super(H90toF90Converter, self).processParallelRegionEndMatch(parallelRegionEndMatch)
-        self.prepareActiveParallelRegion('parallelRegionEnd')
+        self.prepareLine("", self.tab_insideSub)
+        self.switchToNewRegion(oldRegion=self.currParallelRegion)
+        self.currParallelRegion = None
         self.currParallelIterators = []
         self.currParallelRegionTemplateNode = None
         self.currParallelRegionRelationNode = None

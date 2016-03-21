@@ -45,7 +45,7 @@ class AnalyzableRoutine(Routine):
 		self.implementation = implementation
 		self.sisterRoutine = None
 		self.node = routineNode
-		self.parallelRegionTemplates = parallelRegionTemplates
+		self.parallelRegionTemplates = copy.copy(parallelRegionTemplates)
 		self.symbolsByName = None
 		self.callsByCalleeName = {}
 		self.isCallingKernel = False
@@ -67,6 +67,14 @@ class AnalyzableRoutine(Routine):
 			raise Exception("additional arguments not yet loaded for %s" %(self.name))
 		return self._additionalArguments
 
+	@property
+	def regions(self):
+		return self._regions
+
+	@regions.setter
+	def regions(self, _regions):
+		self._regions = _regions
+
 	def _checkParallelRegions(self):
 		if self.node.getAttribute('parallelRegionPosition') != 'within':
 			return
@@ -77,7 +85,7 @@ class AnalyzableRoutine(Routine):
 			))
 		if len(templates) > 1 and self.implementation.multipleParallelRegionsPerSubroutineAllowed != True:
 			raise Exception("Unexpected: more than one parallel region templates found for subroutine '%s' \
-containing a parallelRegion directive \
+containing a parallelRegion directive. \
 This is not allowed for implementations using %s.\
 				" %(
 					self.name,
@@ -131,6 +139,20 @@ This is not allowed for implementations using %s.\
 		if not self.sisterRoutine:
 			return self.name
 		return uniqueIdentifier(self.name, self.implementation.architecture[0])
+
+	def createCloneWithMetadata(self, name):
+		clone = AnalyzableRoutine(
+			name,
+			routineNode=self.node.cloneNode(deep=True),
+			parallelRegionTemplates=copy.copy(self.parallelRegionTemplates),
+			implementation=self.implementation
+		)
+		clone._programmerArguments = copy.copy(self._programmerArguments)
+		clone._additionalArguments = copy.copy(self._additionalArguments)
+		clone._additionalImports = copy.copy(self._additionalImports)
+		clone.symbolsByName = copy.copy(self.symbolsByName)
+		clone.callsByCalleeName = copy.copy(self.callsByCalleeName)
+		return clone
 
 	def createRegion(self, regionClassName="Region", oldRegion=None):
 		import models.region

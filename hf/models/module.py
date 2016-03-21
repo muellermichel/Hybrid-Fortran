@@ -75,7 +75,7 @@ class Module(object):
 			[self._headerText.strip()] \
 			+ [
 				(
-					routine.implemented() + "\n" + self._postTextByRoutine[routine.name].strip()
+					routine.implemented() + "\n" + self._postTextByRoutine.get(routine.name, "").strip()
 				).strip()
 				for routine in routines
 			] \

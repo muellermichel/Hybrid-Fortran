@@ -78,6 +78,7 @@ class CallRegion(Region):
 		argumentSymbols = None
 		#this hasattr is used to test the callee for analyzability without circular imports
 		if hasattr(self._callee, "implementation"):
+			#$$$ we could have an ordering problem with _passedInSymbolsByName
 			argumentSymbols = self._callee.additionalArgumentSymbols + self._passedInSymbolsByName.values()
 			for symbol in argumentSymbols:
 				text += self._callee.implementation.callPreparationForPassedSymbol(
@@ -143,7 +144,15 @@ class ParallelRegion(Region):
 		self._currRegion = Region(routine)
 		self._subRegions = [self._currRegion]
 		self._activeTemplate = None
-		self._activeSymbols = None
+		self._activeSymbolsByName = None
+
+	@property
+	def template(self):
+		return self._activeTemplate
+
+	@property
+	def activeSymbolsByName(self):
+		return self._activeSymbolsByName
 
 	def switchToRegion(self, region):
 		self._currRegion = region
@@ -155,8 +164,8 @@ class ParallelRegion(Region):
 	def loadActiveParallelRegionTemplate(self, templateNode):
 		self._activeTemplate = templateNode
 
-	def loadActiveSymbols(self, symbols):
-		self._activeSymbols = copy.copy(symbols)
+	def loadActiveSymbolsByName(self, symbolsByName):
+		self._activeSymbolsByName = copy.copy(symbolsByName)
 
 	def implemented(self):
 		parentRoutine = self._routineRef()
@@ -168,7 +177,7 @@ class ParallelRegion(Region):
 		text = ""
 		if hasParallelRegionWithin:
 			text += parentRoutine.implementation.parallelRegionBegin(
-				self._activeSymbols,
+				self._activeSymbolsByName.values(),
 				self._activeTemplate
 			).strip() + "\n"
 		text += "\n".join([region.implemented() for region in self._subRegions])

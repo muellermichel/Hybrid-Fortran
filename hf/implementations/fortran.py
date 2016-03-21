@@ -18,14 +18,14 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
+import os, logging
 from models.symbol import Symbol, DeclarationType, purgeFromDeclarationSettings
-from models.region import RegionType
+from models.region import RegionType, ParallelRegion, CallRegion
 from tools.analysis import getAnalysisForSymbol
 from tools.patterns import RegExPatterns
 from tools.commons import UsageError
 from tools.metadata import getDomainDependantTemplatesAndEntries
 from implementations.commons import *
-import os, logging
 
 class FortranImplementation(object):
 	architecture = ["cpu", "host"]
@@ -755,6 +755,49 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 	def __init__(self, optionFlags):
 		self.currRoutineNode = None
 		super(CUDAFortranImplementation, self).__init__(optionFlags)
+
+	def splitIntoCompatibleRoutines(self, routine):
+		if routine.node.getAttribute("parallelRegionPosition") != "within":
+			return [routine]
+
+		parallelRegionsByTemplateID = {}
+		for region in routine.regions:
+			if not isinstance(region, ParallelRegion):
+				continue
+			templateID = region.template.getAttribute('id')
+			if templateID in [None, '']:
+				raise Exception("unexpected template: %s" %(region.template.toxml()))
+			parallelRegionsByTemplateID[templateID] = region
+
+		routines = []
+		kernelRoutinesByRegionTemplateID = {}
+		for kernelNumber, template in enumerate(routine.parallelRegionTemplates):
+			parallelRegion = parallelRegionsByTemplateID.get(template.getAttribute('id'))
+			if not parallelRegion:
+				raise Exception("no parallel region found for template %s" %(template.toxml()))
+			kernelRoutine = routine.createCloneWithMetadata("%s_hfkernel%i" %(routine.name, kernelNumber))
+			kernelRoutine.node.setAttribute("parallelRegionPosition", "within")
+			kernelRoutine.regions = [parallelRegion]
+			kernelRoutine.parallelRegionTemplates = [template]
+			kernelRoutinesByRegionTemplateID[template.getAttribute('id')] = kernelRoutine
+			routines.append(kernelRoutine)
+
+		kernelWrapperRegions = []
+		for region in routine.regions:
+			if not isinstance(region, ParallelRegion):
+				kernelWrapperRegions.append(region)
+				continue
+			kernelRoutine = kernelRoutinesByRegionTemplateID[region.template.getAttribute('id')]
+			callRegion = CallRegion(routine)
+			callRegion.loadCallee(kernelRoutine)
+			callRegion.loadPassedInSymbolsByName(region.activeSymbolsByName)
+			kernelWrapperRegions.append(callRegion)
+
+		routine.node.setAttribute("parallelRegionPosition", "inside")
+		routine.parallelRegionTemplates = []
+		routine.regions = kernelWrapperRegions
+		routines.append(routine)
+		return routines
 
 	def warningOnUnrecognizedSubroutineCallInParallelRegion(self, callerName, calleeName):
 		return "subroutine %s called inside %s's parallel region, but it is not defined in a h90 file.\n" %(

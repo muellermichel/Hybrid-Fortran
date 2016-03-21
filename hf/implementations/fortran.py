@@ -760,21 +760,11 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 		if routine.node.getAttribute("parallelRegionPosition") != "within":
 			return [routine]
 
-		parallelRegionsByTemplateID = {}
-		for region in routine.regions:
-			if not isinstance(region, ParallelRegion):
-				continue
-			templateID = region.template.getAttribute('id')
-			if templateID in [None, '']:
-				raise Exception("unexpected template: %s" %(region.template.toxml()))
-			parallelRegionsByTemplateID[templateID] = region
-
+		parallelRegions = [region for region in routine.regions if isinstance(region, ParallelRegion)]
 		routines = []
 		kernelRoutinesByName = {}
 		for kernelNumber, template in enumerate(routine.parallelRegionTemplates):
-			parallelRegion = parallelRegionsByTemplateID.get(template.getAttribute('id'))
-			if not parallelRegion:
-				raise Exception("no parallel region found for template %s" %(template.toxml()))
+			parallelRegion = parallelRegions[kernelNumber]
 			kernelName = "%s_hfkernel%i" %(routine.name, kernelNumber)
 			kernelRoutine = routine.createCloneWithMetadata(kernelName)
 			kernelRoutine.node.setAttribute("parallelRegionPosition", "within")

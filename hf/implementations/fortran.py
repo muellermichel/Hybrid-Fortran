@@ -770,28 +770,32 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 			parallelRegionsByTemplateID[templateID] = region
 
 		routines = []
-		kernelRoutinesByRegionTemplateID = {}
+		kernelRoutinesByName = {}
 		for kernelNumber, template in enumerate(routine.parallelRegionTemplates):
 			parallelRegion = parallelRegionsByTemplateID.get(template.getAttribute('id'))
 			if not parallelRegion:
 				raise Exception("no parallel region found for template %s" %(template.toxml()))
-			kernelRoutine = routine.createCloneWithMetadata("%s_hfkernel%i" %(routine.name, kernelNumber))
+			kernelName = "%s_hfkernel%i" %(routine.name, kernelNumber)
+			kernelRoutine = routine.createCloneWithMetadata(kernelName)
 			kernelRoutine.node.setAttribute("parallelRegionPosition", "within")
 			kernelRoutine.regions = [parallelRegion]
 			kernelRoutine.parallelRegionTemplates = [template]
-			kernelRoutinesByRegionTemplateID[template.getAttribute('id')] = kernelRoutine
+			kernelRoutinesByName[kernelName] = kernelRoutine
 			routines.append(kernelRoutine)
 
 		kernelWrapperRegions = []
+		parallelRegionIndex = 0
 		for region in routine.regions:
 			if not isinstance(region, ParallelRegion):
 				kernelWrapperRegions.append(region)
 				continue
-			kernelRoutine = kernelRoutinesByRegionTemplateID[region.template.getAttribute('id')]
+			kernelName = "%s_hfkernel%i" %(routine.name, parallelRegionIndex)
+			kernelRoutine = kernelRoutinesByName[kernelName]
 			callRegion = CallRegion(routine)
 			callRegion.loadCallee(kernelRoutine)
 			callRegion.loadPassedInSymbolsByName(region.activeSymbolsByName)
 			kernelWrapperRegions.append(callRegion)
+			parallelRegionIndex += 1
 
 		routine.node.setAttribute("parallelRegionPosition", "inside")
 		routine.parallelRegionTemplates = []

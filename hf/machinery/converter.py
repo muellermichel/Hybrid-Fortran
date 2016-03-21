@@ -372,6 +372,7 @@ This is not allowed for implementations using %s.\
             self.currCallee = Routine(self.currCalleeName)
         self.currRegion.loadCallee(self.currCallee)
 
+        remainingCall = None
         if isinstance(self.currCallee, AnalyzableRoutine):
             arguments = subProcCallMatch.group(2)
             paramListMatch = self.patterns.subprocFirstLineParameterListPattern.match(arguments)
@@ -386,11 +387,12 @@ This is not allowed for implementations using %s.\
                 compactedArray = FrameworkArray(compactedArrayName, declarationPrefix, domains=[("hfauto", str(len(toBeCompacted)))], isOnDevice=True)
                 compactedArrayList = [compactedArray]
             self.currCallee.loadAdditionalArgumentSymbols(sorted(notToBeCompacted + compactedArrayList))
-
-        remainingCall = self.processSymbolsAndGetAdjustedLine(
-            paramListMatch.group(2),
-            isInsideSubroutineCall=True
-        ) if paramListMatch else ")\n"
+            remainingCall = self.processSymbolsAndGetAdjustedLine(
+                paramListMatch.group(2),
+                isInsideSubroutineCall=True
+            ) if paramListMatch else ")\n"
+        else:
+            remainingCall = subProcCallMatch.group(2)
         self.currRegion.loadPassedInSymbolsByName(self.symbolsPassedInCurrentCallByName)
         self.prepareLine(remainingCall, self.tab_insideSub)
         if self.state != "inside_subroutine_call" and not (self.state == "inside_branch" and self.stateBeforeBranch == "inside_subroutine_call"):

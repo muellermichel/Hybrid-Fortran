@@ -121,11 +121,10 @@ class CallRegion(Region):
 		else:
 			text += "call " + self._callee.name
 
+		text += "("
 		if hasattr(self._callee, "implementation"):
 			if len(self._callee.additionalArgumentSymbols) > 0:
-				text += "( &\n"
-			else:
-				text += "("
+				text += " &\n"
 			bridgeStr1 = " & !additional parameter"
 			bridgeStr2 = "inserted by framework\n& "
 			numOfProgrammerSpecifiedArguments = len(self._callee.programmerArgumentNames)
@@ -134,8 +133,7 @@ class CallRegion(Region):
 				text += hostName
 				if symbolNum < len(self._callee.additionalArgumentSymbols) - 1 or numOfProgrammerSpecifiedArguments > 0:
 					text += ", %s (type %i) %s" %(bridgeStr1, symbol.declarationType, bridgeStr2)
-
-		text += super(CallRegion, self).implemented(skipDebugPrint=True)
+		text += ", ".join(self._callee.programmerArgumentNames) + ")\n"
 
 		if hasattr(self._callee, "implementation"):
 			allSymbolsPassedByName = dict(

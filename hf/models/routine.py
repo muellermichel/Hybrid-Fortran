@@ -30,6 +30,16 @@ class Routine(object):
 		if not type(name) in [str, unicode] or name.strip() == "":
 			raise Exception("no valid name passed when trying to initialize routine")
 		self.name = name
+		self._programmerArguments = None
+
+	@property
+	def programmerArgumentNames(self):
+		if self._programmerArguments == None:
+			raise Exception("programmer arguments not yet loaded for %s" %(self.name))
+		return self._programmerArguments
+
+	def loadArguments(self, arguments):
+		self._programmerArguments = copy.copy(arguments)
 
 	def nameInScope(self):
 		return self.name
@@ -51,15 +61,8 @@ class AnalyzableRoutine(Routine):
 		self.isCallingKernel = False
 		self._currRegion = RoutineSpecificationRegion(self)
 		self._regions = [self._currRegion]
-		self._programmerArguments = None
 		self._additionalArguments = None
 		self._additionalImports = None
-
-	@property
-	def programmerArgumentNames(self):
-		if self._programmerArguments == None:
-			raise Exception("programmer arguments not yet loaded for %s" %(self.name))
-		return self._programmerArguments
 
 	@property
 	def additionalArgumentSymbols(self):
@@ -184,9 +187,6 @@ This is not allowed for implementations using %s.\
 		self._regions.append(region)
 		self._currRegion = region
 		self.isCallingKernel = self._containsKernel()
-
-	def loadArguments(self, arguments):
-		self._programmerArguments = copy.copy(arguments)
 
 	def loadAdditionalArgumentSymbols(self, argumentSymbols):
 		self._additionalArguments = copy.copy(argumentSymbols)

@@ -374,13 +374,8 @@ This is not allowed for implementations using %s.\
         else:
             self.currCallee = Routine(self.currCalleeName)
         self.currRegion.loadCallee(self.currCallee)
-
         remainingCall = None
         if isinstance(self.currCallee, AnalyzableRoutine):
-            arguments = subProcCallMatch.group(2)
-            paramListMatch = self.patterns.subprocFirstLineParameterListPattern.match(arguments)
-            if not paramListMatch and len(arguments.strip()) > 0:
-                raise Exception("Subprocedure arguments without enclosing brackets. This is invalid in Hybrid Fortran")
             additionalImports, additionalDeclarations = self.additionalParametersByKernelName.get(self.currCalleeName, ([], []))
             toBeCompacted = []
             toBeCompacted, declarationPrefix, notToBeCompacted = self.listCompactedSymbolsAndDeclarationPrefixAndOtherSymbols(additionalImports + additionalDeclarations)
@@ -391,13 +386,14 @@ This is not allowed for implementations using %s.\
                 compactedArrayList = [compactedArray]
             self.currCallee.loadAdditionalArgumentSymbols(sorted(notToBeCompacted + compactedArrayList))
             remainingCall = self.processSymbolsAndGetAdjustedLine(
-                paramListMatch.group(2),
+                subProcCallMatch.group(2),
                 isInsideSubroutineCall=True
-            ) if paramListMatch else ")\n"
+            )
         else:
             remainingCall = subProcCallMatch.group(2)
+        self.currCallee.loadArguments(self.currArguments)
         self.currRegion.loadPassedInSymbolsByName(self.symbolsPassedInCurrentCallByName)
-        self.prepareLine(remainingCall, self.tab_insideSub)
+        self.prepareLine("", self.tab_insideSub)
         if self.state != "inside_subroutine_call" and not (self.state == "inside_branch" and self.stateBeforeBranch == "inside_subroutine_call"):
             self.symbolsPassedInCurrentCallByName = {}
             self.currCallee = None

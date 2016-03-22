@@ -29,7 +29,6 @@ class RegExPatterns:
         'blankPattern': r'\s',
         'quotedStringPattern': r'''(["'])''',
         'subprocBeginPattern': r'\s*\w*\s*subroutine\s*(\w*).*',
-        'subprocFirstLineParameterListPattern': r'(.*?\()(.*)',
         'subprocEndPattern': r'\s*end\s*subroutine.*',
         'subprocCallPattern': r'\s*call\s*(\w*)(.*)',
         'parallelRegionPattern': r'\s*@parallelRegion\s*{(.*)}.*',

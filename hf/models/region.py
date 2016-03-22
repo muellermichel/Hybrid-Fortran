@@ -34,14 +34,26 @@ class Region(object):
 		self._linesAndSymbols = []
 		self._routineRef = weakref.ref(routine)
 
-	def _wrapInDebugPrint(self, text):
-		if not ConversionOptions.Instance().debugPrint:
+	@property
+	def parentRoutine(self):
+		return self._routineRef()
+
+	@parentRoutine.setter
+	def parentRoutine(self, _routine):
+		self._routineRef = weakref.ref(_routine)
+
+	def _sanitize(self, text, skipDebugPrint=False):
+		if not ConversionOptions.Instance().debugPrint or skipDebugPrint:
 			return text.strip() + "\n"
 		return "!<--- %s\n%s\n!--->\n" %(
 			type(self),
 			text.strip()
 		)
 
+	def clone(self):
+		region = self.__class__(self.parentRoutine)
+		region._linesAndSymbols = copy.deepcopy(self._linesAndSymbols)
+		return region
 
 	def loadLine(self, line, symbolsOnCurrentLine=None):
 		stripped = line.strip()
@@ -56,7 +68,7 @@ class Region(object):
 		text = "\n".join([line for (line, symbols) in self._linesAndSymbols])
 		if text == "":
 			return ""
-		return self._wrapInDebugPrint(text)
+		return self._sanitize(text, skipDebugPrint)
 
 class CallRegion(Region):
 	def __init__(self, routine):
@@ -70,7 +82,10 @@ class CallRegion(Region):
 	def loadPassedInSymbolsByName(self, symbolsByName):
 		self._passedInSymbolsByName = copy.copy(symbolsByName)
 
-	def implemented(self):
+	def clone(self):
+		raise NotImplementedError()
+
+	def implemented(self, skipDebugPrint=False):
 		if not self._callee:
 			raise Exception("call needs to be loaded at this point")
 
@@ -136,7 +151,7 @@ class CallRegion(Region):
 					self._routineRef().node,
 					symbolInCaller=symbol
 				)
-		return self._wrapInDebugPrint(text)
+		return self._sanitize(text, skipDebugPrint)
 
 class ParallelRegion(Region):
 	def __init__(self, routine):
@@ -144,15 +159,10 @@ class ParallelRegion(Region):
 		self._currRegion = Region(routine)
 		self._subRegions = [self._currRegion]
 		self._activeTemplate = None
-		self._activeSymbolsByName = None
 
 	@property
 	def template(self):
 		return self._activeTemplate
-
-	@property
-	def activeSymbolsByName(self):
-		return self._activeSymbolsByName
 
 	def switchToRegion(self, region):
 		self._currRegion = region
@@ -164,10 +174,10 @@ class ParallelRegion(Region):
 	def loadActiveParallelRegionTemplate(self, templateNode):
 		self._activeTemplate = templateNode
 
-	def loadActiveSymbolsByName(self, symbolsByName):
-		self._activeSymbolsByName = copy.copy(symbolsByName)
+	def clone(self):
+		raise NotImplementedError()
 
-	def implemented(self):
+	def implemented(self, skipDebugPrint=False):
 		parentRoutine = self._routineRef()
 		hasParallelRegionWithin = parentRoutine.node.getAttribute('parallelRegionPosition') == 'within'
 		if hasParallelRegionWithin \
@@ -177,7 +187,7 @@ class ParallelRegion(Region):
 		text = ""
 		if hasParallelRegionWithin:
 			text += parentRoutine.implementation.parallelRegionBegin(
-				self._activeSymbolsByName.values(),
+				parentRoutine.symbolsByName.values(),
 				self._activeTemplate
 			).strip() + "\n"
 		text += "\n".join([region.implemented() for region in self._subRegions])
@@ -185,7 +195,16 @@ class ParallelRegion(Region):
 			text += parentRoutine.implementation.parallelRegionEnd(
 				self._activeTemplate
 			).strip() + "\n"
-		return self._wrapInDebugPrint(text)
+		return self._sanitize(text, skipDebugPrint)
 
 class RoutineSpecificationRegion(Region):
-	pass
+	def implemented(self, skipDebugPrint=False):
+		text = super(RoutineSpecificationRegion, self).implemented(skipDebugPrint=True)
+		parentRoutine = self._routineRef()
+		text += parentRoutine.implementation.declarationEnd(
+			parentRoutine.symbolsByName.values() + parentRoutine.additionalImports,
+			parentRoutine.isCallingKernel,
+			parentRoutine.node,
+			parentRoutine.parallelRegionTemplates
+		)
+		return self._sanitize(text, skipDebugPrint)

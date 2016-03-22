@@ -68,12 +68,23 @@ class AnalyzableRoutine(Routine):
 		return self._additionalArguments
 
 	@property
+	def additionalImports(self):
+		return self._additionalImports
+
+	@property
 	def regions(self):
 		return self._regions
 
 	@regions.setter
 	def regions(self, _regions):
 		self._regions = _regions
+		self.isCallingKernel = self._containsKernel()
+
+	def _containsKernel(self):
+		for region in self._regions:
+			if isinstance(region, ParallelRegion):
+				return True
+		return False
 
 	def _checkParallelRegions(self):
 		if self.node.getAttribute('parallelRegionPosition') != 'within':
@@ -154,6 +165,10 @@ This is not allowed for implementations using %s.\
 		clone.callsByCalleeName = copy.copy(self.callsByCalleeName)
 		return clone
 
+	def resetRegions(self, firstRegion):
+		self._regions = []
+		self.addRegion(firstRegion)
+
 	def createRegion(self, regionClassName="Region", oldRegion=None):
 		import models.region
 		regionClass = getattr(models.region, regionClassName)
@@ -162,9 +177,13 @@ This is not allowed for implementations using %s.\
 		and not isinstance(oldRegion, ParallelRegion):
 			self._currRegion.switchToRegion(region)
 		else:
-			self._regions.append(region)
-			self._currRegion = region
+			self.addRegion(region)
 		return region
+
+	def addRegion(self, region):
+		self._regions.append(region)
+		self._currRegion = region
+		self.isCallingKernel = self._containsKernel()
 
 	def loadArguments(self, arguments):
 		self._programmerArguments = copy.copy(arguments)
@@ -180,8 +199,6 @@ This is not allowed for implementations using %s.\
 
 	def loadCall(self, callRoutine):
 		self.callsByCalleeName[callRoutine.name] = callRoutine
-		if callRoutine.node.getAttribute("parallelRegionPosition") == "within":
-			self.isCallingKernel = True
 
 	def loadLine(self, line):
 		self._currRegion.loadLine(line)

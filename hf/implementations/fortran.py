@@ -767,8 +767,9 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 			parallelRegion = parallelRegions[kernelNumber]
 			kernelName = "%s_hfkernel%i" %(routine.name, kernelNumber)
 			kernelRoutine = routine.createCloneWithMetadata(kernelName)
+			kernelRoutine.resetRegions(routine.regions[0].clone())
+			kernelRoutine.addRegion(parallelRegion)
 			kernelRoutine.node.setAttribute("parallelRegionPosition", "within")
-			kernelRoutine.regions = [parallelRegion]
 			kernelRoutine.parallelRegionTemplates = [template]
 			kernelRoutinesByName[kernelName] = kernelRoutine
 			routines.append(kernelRoutine)
@@ -783,7 +784,7 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 			kernelRoutine = kernelRoutinesByName[kernelName]
 			callRegion = CallRegion(routine)
 			callRegion.loadCallee(kernelRoutine)
-			callRegion.loadPassedInSymbolsByName(region.activeSymbolsByName)
+			callRegion.loadPassedInSymbolsByName(kernelRoutine.symbolsByName)
 			kernelWrapperRegions.append(callRegion)
 			parallelRegionIndex += 1
 

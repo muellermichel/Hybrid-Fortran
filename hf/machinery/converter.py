@@ -628,7 +628,6 @@ This is not allowed for implementations using %s.\
         self.switchToNewRegion("ParallelRegion")
         self.currParallelRegion = self.currRegion
         self.currParallelRegion.loadActiveParallelRegionTemplate(self.currParallelRegionTemplateNode)
-        self.currParallelRegion.loadActiveSymbolsByName(self.currSymbolsByName)
         self.prepareLine("", self.tab_insideSub)
 
     def processParallelRegionEndMatch(self, parallelRegionEndMatch):
@@ -823,13 +822,6 @@ This is not allowed for implementations using %s.\
                         "...In subroutine %s: Symbols %s packed into array %s" %(self.currRoutine.name, toBeCompacted, compactedArrayName),
                         extra={"hfLineNo":currLineNo, "hfFile":currFile}
                     )
-
-            additionalDeclarationsStr += self.implementation.declarationEnd(
-                self.currSymbolsByName.values() + additionalImports,
-                self.currRoutine.isCallingKernel,
-                self.currRoutine.node,
-                self.parallelRegionTemplatesByProcName.get(self.currRoutine.name)
-            )
 
             #########################################################################
             # additional symbols for kernels to be packed                           #

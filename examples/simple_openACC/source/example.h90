@@ -16,6 +16,7 @@
 ! along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
 module example
+implicit none
 contains
   subroutine wrapper_separate_kernels(a, b, c, d)
     real, dimension(NZ), intent(in) :: a, b
@@ -85,6 +86,7 @@ contains
   subroutine inline_kernels(a, b, c, d)
     real, dimension(NZ), intent(in) :: a, b
     real, dimension(NZ), intent(out) :: c, d
+    integer :: z
 
     @domainDependant{domName(x,y,z), domSize(NX,NY,NZ), domPP(DOM), accPP(AT)}
     a, b, c, d
@@ -138,6 +140,14 @@ program main
   end do
   end do
   end do
+
+  if (test .EQ. .TRUE.) then
+    write(6,*) "test ok"
+  else
+    write(6,*) "test failed"
+    write(6,*) "fails at", fail_x, fail_y, fail_z, "C:", c(AT(fail_x,fail_y,fail_z)), "D:", d(AT(fail_x,fail_y,fail_z))
+    stop 2
+  end if
 
   c(:,:,:) = 0.0d0
   d(:,:,:) = 0.0d0

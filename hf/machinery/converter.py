@@ -195,11 +195,11 @@ This is not allowed for implementations using %s.\
 
     def processSymbolMatchAndGetAdjustedLine(self, line, symbolMatch, symbol, isInsideSubroutineCall, isPointerAssignment):
         def getAccessorsAndRemainder(accessorString):
-            symbol_access_match = self.patterns.symbolAccessPattern.match(accessorString)
-            if not symbol_access_match:
+            symbolAccessString_match = self.patterns.symbolAccessPattern.match(accessorString)
+            if not symbolAccessString_match:
                 return [], accessorString
             currBracketAnalyzer = BracketAnalyzer()
-            return currBracketAnalyzer.getListOfArgumentsInOpenedBracketsAndRemainder(symbol_access_match.group(1))
+            return currBracketAnalyzer.getListOfArgumentsInOpenedBracketsAndRemainder(symbolAccessString_match.group(1))
 
         implementation = self.implementation
         if isInsideSubroutineCall and isinstance(self.currCallee, AnalyzableRoutine):
@@ -240,52 +240,19 @@ This is not allowed for implementations using %s.\
 
         #$$$ why are we checking for a present statement?
         #$$$ this should be replaced with generic access pattern matching
-        accessPatternChangeRequired = False
-        presentPattern = r"(.*?present\s*\(\s*)" + re.escape(symbol.nameInScope()) + postfixEscaped + r"\s*"
-        currMatch = self.patterns.get(presentPattern).match(line)
+        pattern1 = r"(.*?(?:\W|^))" + re.escape(symbol.nameInScope()) + postfixEscaped + r"\s*"
+        currMatch = self.patterns.get(pattern1).match(line)
         if not currMatch:
-            pattern1 = r"(.*?(?:\W|^))" + re.escape(symbol.nameInScope()) + postfixEscaped + r"\s*"
-            currMatch = self.patterns.get(pattern1).match(line)
-            accessPatternChangeRequired = len(symbol.domains) > 0 #0 domains could be an external function call which we cannot touch
+            pattern2 = r"(.*?(?:\W|^))" + re.escape(symbol.name) + postfixEscaped + r"\s*"
+            currMatch = self.patterns.get(pattern2).match(line)
             if not currMatch:
-                pattern2 = r"(.*?(?:\W|^))" + re.escape(symbol.name) + postfixEscaped + r"\s*"
-                currMatch = self.patterns.get(pattern2).match(line)
-                if not currMatch:
-                    raise Exception(\
-                        "Symbol %s is accessed in an unexpected way. Note: '_d' postfix is reserved for internal use. Cannot match one of the following patterns: \npattern1: '%s'\npattern2: '%s'" \
-                        %(symbol.name, pattern1, pattern2))
+                raise Exception(\
+                    "Symbol %s is accessed in an unexpected way. Note: '_d' postfix is reserved for internal use. Cannot match one of the following patterns: \npattern1: '%s'\npattern2: '%s'" \
+                    %(symbol.name, pattern1, pattern2))
         prefix = currMatch.group(1)
-        numOfIndependentDomains = 0
-        if accessPatternChangeRequired:
-            numOfIndependentDomains = len(symbol.domains) - symbol.numOfParallelDomains
-            offsets = []
-            if len(accessors) != numOfIndependentDomains and len(accessors) != len(symbol.domains) and len(accessors) != 0:
-                raise UsageError("Unexpected array access for symbol %s (%s): Please use either %i (number of parallel independant dimensions) \
-    or %i (dimensions of loaded domain for this array) or zero accessors. Symbol Domains: %s; Symbol Init Level: %i; Parallel Region Position: %s; Parallel Active: %s; Symbol template:\n%s\n" %(
-                    symbol.name,
-                    str(accessors),
-                    numOfIndependentDomains,
-                    len(symbol.domains),
-                    str(symbol.domains),
-                    symbol.initLevel,
-                    str(symbol.parallelRegionPosition),
-                    symbol.parallelActiveDims,
-                    symbol.template.toxml()
-                ))
-            if len(accessors) == 0 and (isInsideSubroutineCall or isPointerAssignment):
-                for i in range(numOfIndependentDomains):
-                    offsets.append(":")
-            else:
-                offsets += accessors
-
-            iterators = self.currParallelIterators
-            if isInsideSubroutineCall:
-                calleeNode = self.routineNodesByProcName.get(self.currCalleeName)
-                if calleeNode and calleeNode.getAttribute("parallelRegionPosition") != "outside":
-                    iterators = []
-        symbol_access = None
+        symbolAccessString = None
         if isPointerAssignment \
-        or not accessPatternChangeRequired \
+        or len(symbol.domains) == 0 \
         or ( \
             self.state != "inside_parallelRegion" \
             and not (self.state == "inside_branch" and self.stateBeforeBranch == "inside_parallelRegion") \
@@ -295,26 +262,27 @@ This is not allowed for implementations using %s.\
             and not symbol.isHostSymbol \
             and len(accessors) == 0 \
         ):
-            symbol_access = symbol.nameInScope()
+            symbolAccessString = symbol.nameInScope()
         else:
-            symbol_access = symbol.accessRepresentation(
-                iterators,
-                offsets,
+            symbolAccessString = symbol.accessRepresentation(
+                self.currParallelIterators,
+                accessors,
                 self.currParallelRegionTemplateNode,
-                inside_subroutine_call=isInsideSubroutineCall
+                expandRange=isInsideSubroutineCall or isPointerAssignment,
+                isInsideSubroutineCall=isInsideSubroutineCall
             )
         logging.debug(
             "symbol %s on line %i rewritten to %s; change required: %s, accessors: %s, num of independent domains: %i" %(
                 str(symbol),
                 self.lineNo,
-                symbol_access,
-                accessPatternChangeRequired,
+                symbolAccessString,
+                len(symbol.domains) > 0,
                 str(accessors),
                 numOfIndependentDomains
             ),
             extra={"hfLineNo":currLineNo, "hfFile":currFile}
         )
-        return (prefix + symbol_access + postfix).rstrip() + "\n"
+        return (prefix + symbolAccessString + postfix).rstrip() + "\n"
 
     def processSymbolsAndGetAdjustedLine(self, line, isInsideSubroutineCall):
         isPointerAssignment = self.patterns.pointerAssignmentPattern.match(line) != None

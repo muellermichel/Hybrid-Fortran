@@ -1189,17 +1189,17 @@ Current Domains: %s\n" %(
 			result = kindMatch.group(1) + kindMatch.group(2) + kindMatch.group(3)
 		return result.strip().lower()
 
-	def getDeclarationLineForAutomaticSymbol(self, purgeList=[], patterns=RegExPatterns.Instance(), name_prefix="", use_domain_reordering=True, skip_on_missing_declaration=False):
+	def getDeclarationLineForAutomaticSymbol(self, purgeList=[], patterns=RegExPatterns.Instance(), name_prefix="", useDomainReordering=True, skip_on_missing_declaration=False):
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] Decl.Line.Gen: Purge List: %s, Name Prefix: %s, Domain Reordering: %s, Skip on Missing: %s." %(
 			str(purgeList),
 			name_prefix,
-			str(use_domain_reordering),
+			str(useDomainReordering),
 			str(skip_on_missing_declaration)
 		))
 		if skip_on_missing_declaration and (self.declarationPrefix == None or self.declarationPrefix == ""):
 			return ""
 		declarationPrefix = self.getSanitizedDeclarationPrefix(purgeList)
-		return declarationPrefix.strip() + " " + name_prefix + self.domainRepresentation(use_domain_reordering)
+		return declarationPrefix.strip() + " " + name_prefix + self.domainRepresentation(useDomainReordering)
 
 	def selectAllRepresentation(self):
 		if self.initLevel < Init.ROUTINENODE_ATTRIBUTES_LOADED:
@@ -1243,7 +1243,7 @@ Please specify the domains and their sizes with domName and domSize attributes i
 		result += ")"
 		return result
 
-	def domainRepresentation(self, use_domain_reordering=True):
+	def domainRepresentation(self, useDomainReordering=True):
 		name = self.nameInScope(
 			useDeviceVersionIfAvailable=len(self.domains) > 0
 		)
@@ -1253,7 +1253,7 @@ Please specify the domains and their sizes with domName and domSize attributes i
 		try:
 			needsAdditionalClosingBracket = False
 			domPP, isExplicit = self.domPP()
-			if use_domain_reordering and domPP != "" \
+			if useDomainReordering and domPP != "" \
 			and (isExplicit or self.numOfParallelDomains > 0) \
 			and self.activeDomainsMatchSpecification:
 				result = result + "(" + domPP + "("
@@ -1292,7 +1292,7 @@ Please specify the domains and their sizes with domName and domSize attributes i
 
 		return result
 
-	def accessRepresentation(self, parallelIterators, offsets, parallelRegionNode, use_domain_reordering=True, inside_subroutine_call=False):
+	def accessRepresentation(self, parallelIterators, accessors, parallelRegionNode, useDomainReordering=True, expandRange=False, callee=None):
 		def getIterators(domains, parallelIterators, offsets):
 			iterators = []
 			nextOffsetIndex = 0
@@ -1330,27 +1330,52 @@ Please specify the domains and their sizes with domName and domSize attributes i
 					raise Exception("Cannot generate access representation for symbol %s: Unknown parallel iterators specified (%s) or not enough offsets (%s)."
 						%(str(self), str(parallelIterators), str(offsets))
 					)
-			if inside_subroutine_call and all([iterator == ':' for iterator in iterators]):
+			if expandRange and all([iterator == ':' for iterator in iterators]):
 				return [] #working around a problem in PGI 15.1: Inliner bails out in certain situations (module test kernel 3+4) if arrays are passed in like a(:,:,:).
 			return [iterator.strip().replace(" ", "") for iterator in iterators]
 
-		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] producing access representation for symbol %s; parallel iterators: %s, offsets: %s" %(self.name, str(parallelIterators), str(offsets)))
+		iterators = copy.copy(parallelIterators)
+		numOfIndependentDomains = 0
+        if len(self.domains) > 0: #0 domains could be an external function call which we cannot touch
+            numOfIndependentDomains = len(self.domains) - self.numOfParallelDomains
+            if len(accessors) != numOfIndependentDomains and len(accessors) != len(self.domains) and len(accessors) != 0:
+                raise UsageError("Unexpected array access for symbol %s (%s): Please use either %i (number of parallel independant dimensions) \
+    or %i (dimensions of loaded domain for this array) or zero accessors. Symbol Domains: %s; Symbol Init Level: %i; Parallel Region Position: %s; Parallel Active: %s; Symbol template:\n%s\n" %(
+                    self.name,
+                    str(accessors),
+                    numOfIndependentDomains,
+                    len(self.domains),
+                    str(self.domains),
+                    self.initLevel,
+                    str(self.parallelRegionPosition),
+                    self.parallelActiveDims,
+                    self.template.toxml()
+                ))
+            if callee and callee.node.getAttribute("parallelRegionPosition") != "outside":
+				iterators = [] #reset the parallel iterators if this symbol is accessed in a subroutine call and it's NOT being passed in inside a kernel
 
+		offsets = []
+		if len(accessors) == 0 and expandRange:
+			for i in range(len(self.domains) - self.numOfParallelDomains):
+				offsets.append(":")
+		else:
+			offsets += accessors
+		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] producing access representation for symbol %s; parallel iterators: %s, offsets: %s" %(self.name, str(iterators), str(offsets)))
 		if self.initLevel < Init.ROUTINENODE_ATTRIBUTES_LOADED:
 			logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] only returning name since routine attributes haven't been loaded yet.")
 			return self.name
 
-		if len(parallelIterators) == 0 \
+		if len(iterators) == 0 \
 		and len(offsets) != 0 \
 		and len(offsets) != len(self.domains) - self.numOfParallelDomains \
 		and len(offsets) != len(self.domains):
 			raise Exception("Unexpected number of offsets specified for symbol %s; Offsets: %s, Expected domains: %s" \
 				%(self.name, offsets, self.domains))
-		if len(parallelIterators) != 0 \
-		and len(offsets) + len(parallelIterators) != len(self.domains) \
+		if len(iterators) != 0 \
+		and len(offsets) + len(iterators) != len(self.domains) \
 		and len(offsets) != len(self.domains):
 			raise Exception("Unexpected number of offsets and iterators specified for symbol %s; Offsets: %s, Iterators: %s, Expected domains: %s" \
-				%(self.name, offsets, parallelIterators, self.domains))
+				%(self.name, offsets, iterators, self.domains))
 
 		result = ""
 		symbolNameUsedInAccessor = None
@@ -1366,7 +1391,7 @@ Please specify the domains and their sizes with domName and domSize attributes i
 		if len(self.domains) == 0:
 			logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] Symbol has 0 domains - only returning name.")
 			return result
-		iterators = getIterators(self.domains, parallelIterators, offsets)
+		iterators = getIterators(self.domains, iterators, offsets)
 		if len(iterators) == 0:
 			logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] No iterators have been determined - only returning name.")
 			return result
@@ -1378,7 +1403,7 @@ Please specify the domains and their sizes with domName and domSize attributes i
 Currently loaded template: %s\n" %(
 				accPP, str(accPPIsExplicit), self.activeDomainsMatchSpecification, self.numOfParallelDomains, self.template.toxml() if self.template != None else "None"
 			))
-		if use_domain_reordering and accPP != "" \
+		if useDomainReordering and accPP != "" \
 		and (accPPIsExplicit or self.numOfParallelDomains > 0) \
 		and self.activeDomainsMatchSpecification:
 			needsAdditionalClosingBracket = True

@@ -234,10 +234,104 @@ class RoutineSpecificationRegion(Region):
 	def implemented(self, skipDebugPrint=False):
 		text = super(RoutineSpecificationRegion, self).implemented(skipDebugPrint=True)
 		parentRoutine = self._routineRef()
+        numberOfAdditionalDeclarations = (
+            len(sum([
+            	parentRoutine.additionalParametersByKernelName[kname][1]
+            	for kname in parentRoutine.additionalParametersByKernelName
+            ], [])) + len(parentRoutine.symbolsToAdd) + len(parentRoutine.packedRealSymbolsByCalleeName.keys())
+        )
+        if numberOfAdditionalDeclarations > 0:
+            text += "\n! ****** additional symbols inserted by framework to emulate device support of language features\n"
+        declarationRegionType = RegionType.OTHER
+        if parentRoutine.isCallingKernel:
+            declarationRegionType = RegionType.KERNEL_CALLER_DECLARATION
+        defaultPurgeList = ['intent', 'public', 'parameter', 'allocatable']
+        for symbol in parentRoutine.symbolsToAdd:
+            purgeList = defaultPurgeList
+            if not symbol.isCompacted:
+                purgeList=['public', 'parameter', 'allocatable']
+            text += parentRoutine.implementation.adjustDeclarationForDevice(
+                symbol.getDeclarationLineForAutomaticSymbol(purgeList).strip(),
+                [symbol],
+                declarationRegionType,
+                self.currRoutine.node.getAttribute('parallelRegionPosition')
+            ).rstrip() + " ! type %i symbol added for this subroutine\n" %(symbol.declarationType)
+        for calleeName in parentRoutine.additionalParametersByKernelName:
+            additionalImports, additionalDeclarations = parentRoutine.additionalParametersByKernelName[calleeName]
+            additionalImportSymbolsByName = {}
+            for symbol in additionalImports:
+                additionalImportSymbolsByName[symbol.name] = symbol
+
+            callee = parentRoutine.callsByCalleeName.get(calleeName)
+            if not callee:
+            	raise Exception("kernel %s is not loaded properly in routine %s" %(calleeName, parentRoutine.name))
+            implementation = callee.implementation
+
+            for symbol in self.filterOutSymbolsAlreadyAliveInCurrentScope(additionalDeclarations):
+                if symbol.declarationType not in [DeclarationType.LOCAL_ARRAY, DeclarationType.LOCAL_SCALAR]:
+                    # only symbols that are local to the kernel actually need to be declared here.
+                    # Everything else we should have in our own scope already, either through additional imports or
+                    # through module association (we assume the kernel and its wrapper reside in the same module)
+                    continue
+
+                logging.debug("...In subroutine %s: Symbol %s is required additionally for %s" %(self.currRoutine.name, symbol, calleeName))
+                #in case the array uses domain sizes in the declaration that are additional symbols themselves
+                #we need to fix them.
+                adjustedDomains = []
+                for (domName, domSize) in symbol.domains:
+                    domSizeSymbol = additionalImportSymbolsByName.get(domSize)
+                    if domSizeSymbol is None:
+                        adjustedDomains.append((domName, domSize))
+                        continue
+                    adjustedDomains.append((domName, domSizeSymbol.nameInScope()))
+                symbol.domains = adjustedDomains
+                logging.debug("...In subroutine %s: Domains of Symbol %s adjusted to %s" %(self.currRoutine.name, symbol, adjustedDomains))
+
+                additionalDeclarationsStr += implementation.adjustDeclarationForDevice(
+                    symbol.getDeclarationLineForAutomaticSymbol(defaultPurgeList).strip(),
+                    [symbol],
+                    declarationRegionType,
+                    self.currRoutine.node.getAttribute('parallelRegionPosition')
+                ).rstrip() + " ! type %i symbol added for callee %s\n" %(symbol.declarationType, calleeName)
+            #TODO: move this into implementation classes
+            toBeCompacted = packedRealSymbolsByCalleeName.get(calleeName, [])
+            if len(toBeCompacted) > 0:
+                #TODO: generalize for cases where we don't want this to be on the device (e.g. put this into Implementation class)
+                compactedArrayName = "hfimp_%s" %(calleeName)
+                compactedArray = FrameworkArray(
+                    compactedArrayName,
+                    compactionDeclarationPrefixByCalleeName[calleeName],
+                    domains=[("hfauto", str(len(toBeCompacted)))],
+                    isOnDevice=True
+                )
+                additionalDeclarationsStr += implementation.adjustDeclarationForDevice(
+                    compactedArray.getDeclarationLineForAutomaticSymbol().strip(),
+                    [compactedArray],
+                    declarationRegionType,
+                    self.currRoutine.node.getAttribute('parallelRegionPosition')
+                ).rstrip() + " ! compaction array added for callee %s\n" %(calleeName)
+                logging.debug(
+                    "...In subroutine %s: Symbols %s packed into array %s" %(self.currRoutine.name, toBeCompacted, compactedArrayName),
+                    extra={"hfLineNo":currLineNo, "hfFile":currFile}
+                )
+
+
 		text += parentRoutine.implementation.declarationEnd(
 			parentRoutine.symbolsByName.values() + parentRoutine.additionalImports,
 			parentRoutine.isCallingKernel,
 			parentRoutine.node,
 			parentRoutine.parallelRegionTemplates
 		)
+		return self._sanitize(text, skipDebugPrint)
+
+class RoutineEarlyExitRegion(Region):
+	def implemented(self, skipDebugPrint=False):
+		parentRoutine = self._routineRef()
+		text = parentRoutine.implementation.subroutineExitPoint(
+            parentRoutine.symbolsByName.values(),
+            parentRoutine.isCallingKernel,
+            isSubroutineEnd=False
+        )
+		text += super(RoutineExitRegion, self).implemented(skipDebugPrint=True)
+
 		return self._sanitize(text, skipDebugPrint)

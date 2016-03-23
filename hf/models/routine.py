@@ -19,7 +19,7 @@
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
 import copy
-from models.region import RegionType, RoutineSpecificationRegion, ParallelRegion
+from models.region import RegionType, RoutineSpecificationRegion, ParallelRegion, CallRegion
 from machinery.commons import ConversionOptions
 
 def uniqueIdentifier(routineName, implementationName):
@@ -58,11 +58,11 @@ class AnalyzableRoutine(Routine):
 		self.parallelRegionTemplates = copy.copy(parallelRegionTemplates)
 		self.symbolsByName = None
 		self.callsByCalleeName = {}
-		self.isCallingKernel = False
 		self._currRegion = RoutineSpecificationRegion(self)
 		self._regions = [self._currRegion]
 		self._additionalArguments = None
 		self._additionalImports = None
+		self._symbolsToUpdate = None
 
 	@property
 	def additionalArgumentSymbols(self):
@@ -78,16 +78,18 @@ class AnalyzableRoutine(Routine):
 	def regions(self):
 		return self._regions
 
+	@property
+	def isCallingKernel(self):
+		for region in self._regions:
+			if isinstance(region, CallRegion) \
+			and region._callee \
+			and region._callee.node.getAttribute("parallelRegionPosition") == "within":
+				return True
+		return False
+
 	@regions.setter
 	def regions(self, _regions):
 		self._regions = _regions
-		self.isCallingKernel = self._containsKernel()
-
-	def _containsKernel(self):
-		for region in self._regions:
-			if isinstance(region, ParallelRegion):
-				return True
-		return False
 
 	def _checkParallelRegions(self):
 		if self.node.getAttribute('parallelRegionPosition') != 'within':
@@ -106,6 +108,15 @@ This is not allowed for implementations using %s.\
 					type(self.implementation).__name__
 				)
 			)
+
+	def _updateSymbolState(self):
+		regionType = RegionType.KERNEL_CALLER_DECLARATION if self.isCallingKernel else RegionType.OTHER
+		for symbol in self._symbolsToUpdate:
+			self.implementation.updateSymbolDeviceState(
+                symbol,
+                regionType,
+                self.node.getAttribute("parallelRegionPosition")
+            )
 
 	def _implementHeader(self):
 		parameterList = ""
@@ -186,7 +197,6 @@ This is not allowed for implementations using %s.\
 	def addRegion(self, region):
 		self._regions.append(region)
 		self._currRegion = region
-		self.isCallingKernel = self._containsKernel()
 
 	def loadAdditionalArgumentSymbols(self, argumentSymbols):
 		self._additionalArguments = copy.copy(argumentSymbols)
@@ -197,6 +207,9 @@ This is not allowed for implementations using %s.\
 	def loadSymbolsByName(self, symbolsByName):
 		self.symbolsByName = copy.copy(symbolsByName)
 
+	def loadSymbolsToUpdate(self, symbolsToUpdate):
+		self._symbolsToUpdate = copy.copy(symbolsToUpdate)
+
 	def loadCall(self, callRoutine):
 		self.callsByCalleeName[callRoutine.name] = callRoutine
 
@@ -205,6 +218,7 @@ This is not allowed for implementations using %s.\
 
 	def implemented(self):
 		self._checkParallelRegions()
+		self._updateSymbolState()
 		implementedRoutineElements = [self._implementHeader(), self._implementAdditionalImports()]
 		implementedRoutineElements += [region.implemented() for region in self._regions]
 		implementedRoutineElements += [self._implementFooter()]

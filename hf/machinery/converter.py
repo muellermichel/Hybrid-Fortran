@@ -458,17 +458,12 @@ This is not allowed for implementations using %s.\
                 logging.debug("call to %s; additinal dummy parameters:" %(calleeName), extra={"hfLineNo":currLineNo, "hfFile":currFile})
                 logging.debug("\n".join([str(symbol) for symbol in additionalDummies]), extra={"hfLineNo":currLineNo, "hfFile":currFile})
 
-        regionType = RegionType.KERNEL_CALLER_DECLARATION if self.currRoutine.isCallingKernel else RegionType.OTHER
         for symbolName in self.currSymbolsByName:
             symbol = self.currSymbolsByName[symbolName]
             if not symbol.uniqueIdentifier in symbolsByUniqueNameToBeUpdated:
                 symbolsByUniqueNameToBeUpdated[symbol.uniqueIdentifier] = symbol
-        for symbolName in symbolsByUniqueNameToBeUpdated:
-            self.implementation.updateSymbolDeviceState(
-                symbolsByUniqueNameToBeUpdated[symbolName],
-                regionType,
-                self.currRoutine.node.getAttribute("parallelRegionPosition")
-            )
+
+        self.currRoutine.loadAdditionalImportSymbols(symbolsByUniqueNameToBeUpdated.values())
         additionalImportsByScopedName = dict(
             (symbol.nameInScope(), symbol)
             for symbol in self.filterOutSymbolsAlreadyAliveInCurrentScope(
@@ -495,14 +490,9 @@ This is not allowed for implementations using %s.\
         if isSubroutineEnd:
             self.prepareLine("", self.tab_outsideSub)
         else:
-            self.prepareLine(
-                self.implementation.subroutineExitPoint(
-                    self.currSymbolsByName.values(),
-                    self.currRoutine.isCallingKernel,
-                    isSubroutineEnd
-                ) + line,
-                self.tab_insideSub
-            )
+            self.switchToNewRegion("RoutineEarlyExitRegion")
+            self.prepareLine(line, self.tab_insideSub)
+            self.switchToNewRegion()
 
     def processProcEndMatch(self, subProcEndMatch):
         self.endRegion()

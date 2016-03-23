@@ -60,6 +60,7 @@ class RegExPatterns:
         'templatePattern': r'\s*@scheme\s*{(.*)}.*',
         'templateEndPattern': r'\s*@end\s*scheme.*',
         'symbolAccessPattern': r'\s*\((.*)',
+        'symbolNamePattern': r'\s*(\w*(?:_d)?)((?:\W.*)|\Z)',
         'argumentPattern': r'\s*(?:subroutine|call)?\s*(?:\w*)\s*\((.*)',
         'selectiveImportPattern': r'^\s*use\s*(\w*)[,\s]*only\s*\:\s*([=>,\s\w]*)(?:\s.*|$)',
         'importAllPattern': r'^\s*use\s*\w*\s*$',

@@ -20,6 +20,37 @@
 
 import re, logging
 from tools.commons import BracketAnalyzer, findRightMostOccurrenceNotInsideQuotes, Singleton
+from tools.patterns import RegExPatterns
+
+def getAccessorsAndRemainder(accessorString):
+    symbolAccessString_match = RegExPatterns.Instance().symbolAccessPattern.match(accessorString)
+    if not symbolAccessString_match:
+        return [], accessorString
+    currBracketAnalyzer = BracketAnalyzer()
+    return currBracketAnalyzer.getListOfArgumentsInOpenedBracketsAndRemainder(symbolAccessString_match.group(1))
+
+def getSymbolAccessStringAndReminder(
+    symbol,
+    parallelIterators,
+    parallelRegionTemplate,
+    accessorString,
+    callee=None,
+    isPointerAssignment=False,
+    isInsideParallelRegion=False
+):
+    accessors = []
+    remainder = accessorString
+    if len(symbol.domains) > 0: #0 domains could be an external function - need to retain postfix
+        accessors, remainder = getAccessorsAndRemainder(accessorString)
+    symbolAccessString = symbol.accessRepresentation(
+        parallelIterators,
+        accessors,
+        parallelRegionTemplate,
+        isPointerAssignment=isPointerAssignment,
+        isInsideParallelRegion=isInsideParallelRegion,
+        callee=callee
+    )
+    return symbolAccessString, remainder
 
 @Singleton
 class ConversionOptions:

@@ -21,7 +21,8 @@
 import weakref, copy
 from tools.commons import enum
 from tools.metadata import getArguments
-from machinery.commons import ConversionOptions
+from tools.patterns import RegExPatterns
+from machinery.commons import ConversionOptions, getSymbolAccessStringAndReminder
 
 RegionType = enum(
 	"MODULE_DECLARATION",
@@ -33,6 +34,7 @@ class Region(object):
 	def __init__(self, routine):
 		self._linesAndSymbols = []
 		self._routineRef = weakref.ref(routine)
+		self._parentRegion = None
 
 	@property
 	def parentRoutine(self):
@@ -55,6 +57,9 @@ class Region(object):
 		region._linesAndSymbols = copy.deepcopy(self._linesAndSymbols)
 		return region
 
+	def loadParentRegion(self, region):
+		self._parentRegion = weakref.ref(region)
+
 	def loadLine(self, line, symbolsOnCurrentLine=None):
 		stripped = line.strip()
 		if stripped == "":
@@ -75,12 +80,41 @@ class CallRegion(Region):
 		super(CallRegion, self).__init__(routine)
 		self._callee = None
 		self._passedInSymbolsByName = None
+		self._passedInSymbolsByNameInScope = None
+
+	def _adjustedArguments(self, arguments):
+		def adjustArgument(argument, parallelRegionTemplate, iterators):
+			symbolMatch = RegExPatterns.Instance().symbolNamePattern.match(argument)
+			if not symbolMatch:
+				return argument
+			symbol = self._passedInSymbolsByNameInScope.get(symbolMatch.group(1))
+			if not symbol:
+				return argument
+			symbolAccessString, remainder = getSymbolAccessStringAndReminder(
+				symbol,
+				iterators,
+				parallelRegionTemplate,
+				symbolMatch.group(2),
+				self._callee,
+				isInsideParallelRegion=parallelRegionTemplate != None
+			)
+			return symbolAccessString + remainder
+
+		parallelRegionTemplate = None
+		if self._parentRegion and isinstance(self._parentRegion(), ParallelRegion):
+			parallelRegionTemplate = self._parentRegion().template
+		iterators = self._callee.implementation.getIterators(parallelRegionTemplate) if parallelRegionTemplate else []
+		return [adjustArgument(argument, parallelRegionTemplate, iterators) for argument in arguments]
 
 	def loadCallee(self, callee):
 		self._callee = callee
 
 	def loadPassedInSymbolsByName(self, symbolsByName):
 		self._passedInSymbolsByName = copy.copy(symbolsByName)
+		self._passedInSymbolsByNameInScope = dict(
+            (symbol.nameInScope(), symbol)
+            for symbol in symbolsByName.values()
+        )
 
 	def clone(self):
 		raise NotImplementedError()
@@ -127,13 +161,13 @@ class CallRegion(Region):
 				text += " &\n"
 			bridgeStr1 = " & !additional parameter"
 			bridgeStr2 = "inserted by framework\n& "
-			numOfProgrammerSpecifiedArguments = len(self._callee.programmerArgumentNames)
+			numOfProgrammerSpecifiedArguments = len(self._callee.programmerArguments)
 			for symbolNum, symbol in enumerate(self._callee.additionalArgumentSymbols):
 				hostName = symbol.nameInScope()
 				text += hostName
 				if symbolNum < len(self._callee.additionalArgumentSymbols) - 1 or numOfProgrammerSpecifiedArguments > 0:
 					text += ", %s (type %i) %s" %(bridgeStr1, symbol.declarationType, bridgeStr2)
-		text += ", ".join(self._callee.programmerArgumentNames) + ")\n"
+		text += ", ".join(self._adjustedArguments(self._callee.programmerArguments)) + ")\n"
 
 		if hasattr(self._callee, "implementation"):
 			allSymbolsPassedByName = dict(
@@ -165,6 +199,7 @@ class ParallelRegion(Region):
 	def switchToRegion(self, region):
 		self._currRegion = region
 		self._subRegions.append(region)
+		region.loadParentRegion(self)
 
 	def loadLine(self, line, symbolsOnCurrentLine=None):
 		self._currRegion.loadLine(line, symbolsOnCurrentLine)

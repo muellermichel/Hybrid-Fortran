@@ -26,9 +26,8 @@ from models.region import RegionType
 from tools.metadata import *
 from tools.commons import UsageError, BracketAnalyzer
 from tools.analysis import SymbolDependencyAnalyzer, getAnalysisForSymbol, getArguments
-from tools.patterns import RegExPatterns
 from machinery.parser import H90CallGraphAndSymbolDeclarationsParser, getSymbolsByName, currFile, currLineNo
-from machinery.commons import FortranCodeSanitizer
+from machinery.commons import FortranCodeSanitizer, getSymbolAccessStringAndReminder
 
 def getModuleArraysForCallee(calleeName, symbolAnalysisByRoutineNameAndSymbolName, symbolsByModuleNameAndSymbolName):
     moduleSymbols = []
@@ -46,7 +45,6 @@ def getModuleArraysForCallee(calleeName, symbolAnalysisByRoutineNameAndSymbolNam
     return moduleSymbols
 
 def getSymbolsByModuleNameAndSymbolName(cgDoc, moduleNodesByName, symbolAnalysisByRoutineNameAndSymbolName={}):
-    patterns = RegExPatterns.Instance()
     symbolsByModuleNameAndSymbolName = {}
     for moduleName in moduleNodesByName.keys():
         moduleNode = moduleNodesByName.get(moduleName)
@@ -64,7 +62,6 @@ def getSymbolsByModuleNameAndSymbolName(cgDoc, moduleNodesByName, symbolAnalysis
     return symbolsByModuleNameAndSymbolName
 
 def getSymbolsByRoutineNameAndSymbolName(cgDoc, routineNodesByProcName, parallelRegionTemplatesByProcName, symbolAnalysisByRoutineNameAndSymbolName={}):
-    patterns = RegExPatterns.Instance()
     symbolsByRoutineNameAndSymbolName = {}
     for procName in routineNodesByProcName:
         routine = routineNodesByProcName[procName]
@@ -193,96 +190,31 @@ This is not allowed for implementations using %s.\
             )
         ]
 
-    def processSymbolMatchAndGetAdjustedLine(self, line, symbolMatch, symbol, isInsideSubroutineCall, isPointerAssignment):
-        def getAccessorsAndRemainder(accessorString):
-            symbolAccessString_match = self.patterns.symbolAccessPattern.match(accessorString)
-            if not symbolAccessString_match:
-                return [], accessorString
-            currBracketAnalyzer = BracketAnalyzer()
-            return currBracketAnalyzer.getListOfArgumentsInOpenedBracketsAndRemainder(symbolAccessString_match.group(1))
-
-        implementation = self.implementation
-        if isInsideSubroutineCall and isinstance(self.currCallee, AnalyzableRoutine):
-            implementation = self.currCallee.implementation
-
-        #match the symbol's postfix again in the current given line. (The prefix could have changed from the last match.)
-        postfix = symbolMatch.group(3)
-        postfixEscaped = re.escape(postfix)
-        accessors = []
-        if len(symbol.domains) > 0: #0 domains could be an external function - need to retain postfix
-            accessors, postfix = getAccessorsAndRemainder(postfix)
-
-        if not implementation.supportsArbitraryDataAccessesOutsideOfKernels \
-        and symbol.domains \
-        and len(symbol.domains) > 0 \
-        and not isInsideSubroutineCall \
-        and not isPointerAssignment \
-        and not symbol.isModuleSymbol \
-        and not symbol.isHostSymbol \
-        and self.state != "inside_parallelRegion" \
-        and not (self.state == "inside_branch" and self.stateBeforeBranch == "inside_parallelRegion") \
-        and self.currRoutine.node.getAttribute("parallelRegionPosition") != "outside" \
-        and len(accessors) != 0 \
-        and ( \
-            not implementation.supportsNativeMemsetsOutsideOfKernels \
-            or any([accessor.strip() != ":" for accessor in accessors]) \
-        ):
-            logging.warning(
-                "Dependant symbol %s accessed with accessor domains (%s) outside of a parallel region or subroutine call in subroutine %s(%s:%i)" %(
-                    symbol.name,
-                    str(accessors),
-                    self.currRoutine.name,
-                    self.fileName,
-                    self.lineNo
-                ),
-                extra={"hfLineNo":currLineNo, "hfFile":currFile}
+    def processSymbolMatchAndGetAdjustedLine(self, line, symbolMatch, symbol, isPointerAssignment):
+        argumentString = symbolMatch.group(3)
+        symbolAccessString, remainder = getSymbolAccessStringAndReminder(
+            symbol,
+            self.currParallelIterators,
+            self.currParallelRegionTemplateNode,
+            argumentString,
+            self.currCallee,
+            isPointerAssignment,
+            isInsideParallelRegion=self.state == "inside_parallelRegion" or (
+                self.state == "inside_branch"
+                and self.stateBeforeBranch == "inside_parallelRegion"
             )
-
-        #$$$ why are we checking for a present statement?
-        #$$$ this should be replaced with generic access pattern matching
-        pattern1 = r"(.*?(?:\W|^))" + re.escape(symbol.nameInScope()) + postfixEscaped + r"\s*"
+        )
+        pattern1 = r"(.*?(?:\W|^))" + re.escape(symbol.nameInScope()) + re.escape(argumentString) + r"\s*"
         currMatch = self.patterns.get(pattern1).match(line)
         if not currMatch:
-            pattern2 = r"(.*?(?:\W|^))" + re.escape(symbol.name) + postfixEscaped + r"\s*"
+            pattern2 = r"(.*?(?:\W|^))" + re.escape(symbol.name) + re.escape(argumentString) + r"\s*"
             currMatch = self.patterns.get(pattern2).match(line)
             if not currMatch:
                 raise Exception(\
                     "Symbol %s is accessed in an unexpected way. Note: '_d' postfix is reserved for internal use. Cannot match one of the following patterns: \npattern1: '%s'\npattern2: '%s'" \
                     %(symbol.name, pattern1, pattern2))
         prefix = currMatch.group(1)
-        symbolAccessString = None
-        if isPointerAssignment \
-        or len(symbol.domains) == 0 \
-        or ( \
-            self.state != "inside_parallelRegion" \
-            and not (self.state == "inside_branch" and self.stateBeforeBranch == "inside_parallelRegion") \
-            and not isInsideSubroutineCall \
-            and not isPointerAssignment \
-            and not symbol.isModuleSymbol \
-            and not symbol.isHostSymbol \
-            and len(accessors) == 0 \
-        ):
-            symbolAccessString = symbol.nameInScope()
-        else:
-            symbolAccessString = symbol.accessRepresentation(
-                self.currParallelIterators,
-                accessors,
-                self.currParallelRegionTemplateNode,
-                expandRange=isInsideSubroutineCall or isPointerAssignment,
-                isInsideSubroutineCall=isInsideSubroutineCall
-            )
-        logging.debug(
-            "symbol %s on line %i rewritten to %s; change required: %s, accessors: %s, num of independent domains: %i" %(
-                str(symbol),
-                self.lineNo,
-                symbolAccessString,
-                len(symbol.domains) > 0,
-                str(accessors),
-                numOfIndependentDomains
-            ),
-            extra={"hfLineNo":currLineNo, "hfFile":currFile}
-        )
-        return (prefix + symbolAccessString + postfix).rstrip() + "\n"
+        return (prefix + symbolAccessString + remainder).rstrip() + "\n"
 
     def processSymbolsAndGetAdjustedLine(self, line, isInsideSubroutineCall):
         isPointerAssignment = self.patterns.pointerAssignmentPattern.match(line) != None
@@ -299,7 +231,7 @@ This is not allowed for implementations using %s.\
                 prefix = nextMatch.group(1)
                 lineSections.append(prefix)
                 postfix = nextMatch.group(3)
-                processed = self.processSymbolMatchAndGetAdjustedLine(work, nextMatch, symbol, isInsideSubroutineCall, isPointerAssignment)
+                processed = self.processSymbolMatchAndGetAdjustedLine(work, nextMatch, symbol, isPointerAssignment)
                 adjustedMatch = symbol.namePattern.match(processed)
                 if not adjustedMatch:
                     raise Exception("Symbol %s can't be matched again after adjustment. Adjusted portion: %s" %(symbol.name, processed))

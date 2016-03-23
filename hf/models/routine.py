@@ -33,7 +33,7 @@ class Routine(object):
 		self._programmerArguments = None
 
 	@property
-	def programmerArgumentNames(self):
+	def programmerArguments(self):
 		if self._programmerArguments == None:
 			raise Exception("programmer arguments not yet loaded for %s" %(self.name))
 		return self._programmerArguments

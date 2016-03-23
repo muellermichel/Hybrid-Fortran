@@ -1292,7 +1292,16 @@ Please specify the domains and their sizes with domName and domSize attributes i
 
 		return result
 
-	def accessRepresentation(self, parallelIterators, accessors, parallelRegionNode, useDomainReordering=True, expandRange=False, callee=None):
+	def accessRepresentation(
+		self,
+		parallelIterators,
+		accessors,
+		parallelRegionNode,
+		useDomainReordering=True,
+		isPointerAssignment=False,
+		isInsideParallelRegion=False,
+		callee=None
+	):
 		def getIterators(domains, parallelIterators, offsets):
 			iterators = []
 			nextOffsetIndex = 0
@@ -1330,32 +1339,44 @@ Please specify the domains and their sizes with domName and domSize attributes i
 					raise Exception("Cannot generate access representation for symbol %s: Unknown parallel iterators specified (%s) or not enough offsets (%s)."
 						%(str(self), str(parallelIterators), str(offsets))
 					)
-			if expandRange and all([iterator == ':' for iterator in iterators]):
+			if (callee or isPointerAssignment) and all([iterator == ':' for iterator in iterators]):
 				return [] #working around a problem in PGI 15.1: Inliner bails out in certain situations (module test kernel 3+4) if arrays are passed in like a(:,:,:).
 			return [iterator.strip().replace(" ", "") for iterator in iterators]
 
+		if isPointerAssignment \
+		or len(self.domains) == 0 \
+		or ( \
+			not isInsideParallelRegion \
+			and not callee \
+			and not isPointerAssignment \
+			and not self.isModuleSymbol \
+			and not self.isHostSymbol \
+			and len(accessors) == 0 \
+		):
+			return self.nameInScope()
+
 		iterators = copy.copy(parallelIterators)
 		numOfIndependentDomains = 0
-        if len(self.domains) > 0: #0 domains could be an external function call which we cannot touch
-            numOfIndependentDomains = len(self.domains) - self.numOfParallelDomains
-            if len(accessors) != numOfIndependentDomains and len(accessors) != len(self.domains) and len(accessors) != 0:
-                raise UsageError("Unexpected array access for symbol %s (%s): Please use either %i (number of parallel independant dimensions) \
-    or %i (dimensions of loaded domain for this array) or zero accessors. Symbol Domains: %s; Symbol Init Level: %i; Parallel Region Position: %s; Parallel Active: %s; Symbol template:\n%s\n" %(
-                    self.name,
-                    str(accessors),
-                    numOfIndependentDomains,
-                    len(self.domains),
-                    str(self.domains),
-                    self.initLevel,
-                    str(self.parallelRegionPosition),
-                    self.parallelActiveDims,
-                    self.template.toxml()
-                ))
-            if callee and callee.node.getAttribute("parallelRegionPosition") != "outside":
+		if len(self.domains) > 0: #0 domains could be an external function call which we cannot touch
+			numOfIndependentDomains = len(self.domains) - self.numOfParallelDomains
+			if len(accessors) != numOfIndependentDomains and len(accessors) != len(self.domains) and len(accessors) != 0:
+				raise UsageError("Unexpected array access for symbol %s (%s): Please use either %i (number of parallel independant dimensions) \
+	or %i (dimensions of loaded domain for this array) or zero accessors. Symbol Domains: %s; Symbol Init Level: %i; Parallel Region Position: %s; Parallel Active: %s; Symbol template:\n%s\n" %(
+					self.name,
+					str(accessors),
+					numOfIndependentDomains,
+					len(self.domains),
+					str(self.domains),
+					self.initLevel,
+					str(self.parallelRegionPosition),
+					self.parallelActiveDims,
+					self.template.toxml()
+				))
+			if callee and callee.node.getAttribute("parallelRegionPosition") != "outside":
 				iterators = [] #reset the parallel iterators if this symbol is accessed in a subroutine call and it's NOT being passed in inside a kernel
 
 		offsets = []
-		if len(accessors) == 0 and expandRange:
+		if len(accessors) == 0 and (callee or isPointerAssignment):
 			for i in range(len(self.domains) - self.numOfParallelDomains):
 				offsets.append(":")
 		else:

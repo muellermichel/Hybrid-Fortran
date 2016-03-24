@@ -75,6 +75,10 @@ class AnalyzableRoutine(Routine):
 		return self._additionalImports
 
 	@property
+	def currRegion(self):
+		return self._currRegion
+
+	@property
 	def regions(self):
 		return self._regions
 

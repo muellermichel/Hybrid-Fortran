@@ -146,9 +146,11 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
             sys.exit(1)
 
     def switchToNewRegion(self, regionClassName="Region", oldRegion=None):
+        logging.debug("switching to new %s on line %i" %(regionClassName, self.lineNo))
         self.currRegion = self.currRoutine.createRegion(regionClassName, oldRegion)
 
     def endRegion(self):
+        logging.debug("ending region on line %i" %(self.lineNo))
         self.currRegion = None
 
     def prepareActiveParallelRegion(self, implementationFunctionName):
@@ -351,6 +353,7 @@ This is not allowed for implementations using %s.\
         )
         self.currRoutine.loadSymbolsByName(self.currSymbolsByName)
         self.currRoutine.loadArguments(self.currArguments)
+        self.currRegion = self.currRoutine.currRegion
 
         symbolsByUniqueNameToBeUpdated = {}
 

@@ -34,8 +34,8 @@ RegionType = enum(
 class Region(object):
 	def __init__(self, routine):
 		self._linesAndSymbols = []
-		self._routineRef = weakref.ref(routine)
 		self._parentRegion = None
+		self.loadParentRoutine(routine)
 
 	@property
 	def parentRoutine(self):
@@ -60,6 +60,9 @@ class Region(object):
 
 	def loadParentRegion(self, region):
 		self._parentRegion = weakref.ref(region)
+
+	def loadParentRoutine(self, routine):
+		self._routineRef = weakref.ref(routine)
 
 	def loadLine(self, line, symbolsOnCurrentLine=None):
 		stripped = line.strip()
@@ -240,6 +243,17 @@ class RoutineSpecificationRegion(Region):
 		self._compactionDeclarationPrefixByCalleeName = None
 		self._currAdditionalCompactedSubroutineParameters = None
 
+	def clone(self):
+		clone = super(RoutineSpecificationRegion, self).clone()
+		clone.loadAdditionalContext(
+			self._additionalParametersByKernelName,
+			self._packedRealSymbolsByCalleeName,
+			self._symbolsToAdd,
+			self._compactionDeclarationPrefixByCalleeName,
+			self._currAdditionalCompactedSubroutineParameters
+		)
+		return clone
+
 	def loadAdditionalContext(
 		self,
 		additionalParametersByKernelName,
@@ -248,11 +262,11 @@ class RoutineSpecificationRegion(Region):
 		compactionDeclarationPrefixByCalleeName,
 		currAdditionalCompactedSubroutineParameters
 	):
-		self._additionalParametersByKernelName = additionalParametersByKernelName
-		self._packedRealSymbolsByCalleeName = packedRealSymbolsByCalleeName
-		self._symbolsToAdd = symbolsToAdd
-		self._compactionDeclarationPrefixByCalleeName = compactionDeclarationPrefixByCalleeName
-		self._currAdditionalCompactedSubroutineParameters = currAdditionalCompactedSubroutineParameters
+		self._additionalParametersByKernelName = copy.copy(additionalParametersByKernelName)
+		self._packedRealSymbolsByCalleeName = copy.copy(packedRealSymbolsByCalleeName)
+		self._symbolsToAdd = copy.copy(symbolsToAdd)
+		self._compactionDeclarationPrefixByCalleeName = copy.copy(compactionDeclarationPrefixByCalleeName)
+		self._currAdditionalCompactedSubroutineParameters = copy.copy(currAdditionalCompactedSubroutineParameters)
 
 	def implemented(self, skipDebugPrint=False):
 		parentRoutine = self._routineRef()

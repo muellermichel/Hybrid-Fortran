@@ -214,6 +214,7 @@ This is not allowed for implementations using %s.\
 	def addRegion(self, region):
 		self._regions.append(region)
 		self._currRegion = region
+		region.loadParentRoutine(self)
 
 	def loadAdditionalArgumentSymbols(self, argumentSymbols):
 		self._additionalArguments = copy.copy(argumentSymbols)

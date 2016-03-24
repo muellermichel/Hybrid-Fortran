@@ -260,6 +260,13 @@ class RoutineSpecificationRegion(Region):
 		if parentRoutine.isCallingKernel:
 			declarationRegionType = RegionType.KERNEL_CALLER_DECLARATION
 
+		if self._additionalParametersByKernelName == None \
+		or self._packedRealSymbolsByCalleeName == None \
+		or self._symbolsToAdd == None \
+		or self._compactionDeclarationPrefixByCalleeName == None \
+		or self._currAdditionalCompactedSubroutineParameters == None:
+			raise Exception("additional context not properly loaded for routine specification region in %s" %(parentRoutine.name))
+
 		importedSymbols = []
 		textBeforeImports = ""
 		textBeforeDeclarations = ""
@@ -289,7 +296,7 @@ class RoutineSpecificationRegion(Region):
 					importedSymbols.append(symbol)
 					continue
 				raise Exception("symbol %s expected to be referenced in line '%s', but all matchings have failed" %(symbol.name, line))
-			declarations += self.implementation.adjustDeclarationForDevice(
+			declarations += parentRoutine.implementation.adjustDeclarationForDevice(
 				purgeDimensionAndGetAdjustedLine(declarationsOnThisLine).strip(),
 				declaredSymbols,
 				declarationRegionType,
@@ -298,12 +305,12 @@ class RoutineSpecificationRegion(Region):
 
 		text = textBeforeImports
 		if len(importedSymbols) > 0:
-			text += self.implementation.adjustImportForDevice(
+			text += parentRoutine.implementation.adjustImportForDevice(
 				None,
 				importedSymbols,
 				RegionType.KERNEL_CALLER_DECLARATION if parentRoutine.isCallingKernel else RegionType.OTHER,
 				parentRoutine.node.getAttribute('parallelRegionPosition'),
-				self.parallelRegionTemplatesByProcName.get(parentRoutine.name)
+				parentRoutine.parallelRegionTemplates
 			).strip() + "\n"
 		text += textBeforeDeclarations
 		text += declarations

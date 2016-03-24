@@ -95,16 +95,6 @@ class AnalyzableRoutine(Routine):
 	def regions(self, _regions):
 		self._regions = _regions
 
-	def _filterOutSymbolsAlreadyAliveInCurrentScope(self, symbolList):
-		return [
-			symbol for symbol in symbolList
-			if not symbol.analysis \
-			or ( \
-				symbol.uniqueIdentifier not in self.symbolsByName \
-				and symbol.analysis.argumentIndexByRoutineName.get(self.name, -1) == -1 \
-			)
-		]
-
 	def _checkParallelRegions(self):
 		if self.node.getAttribute('parallelRegionPosition') != 'within':
 			return
@@ -124,6 +114,8 @@ This is not allowed for implementations using %s.\
 			)
 
 	def _updateSymbolState(self):
+		if self._symbolsToUpdate == None:
+			raise Exception("no symbols loaded for updating in routine %s" %(self.name))
 		regionType = RegionType.KERNEL_CALLER_DECLARATION if self.isCallingKernel else RegionType.OTHER
 		for symbol in self._symbolsToUpdate:
 			self.implementation.updateSymbolDeviceState(
@@ -174,6 +166,16 @@ This is not allowed for implementations using %s.\
 			isSubroutineEnd=True
 		) + "end subroutine\n"
 
+	def filterOutSymbolsAlreadyAliveInCurrentScope(self, symbolList):
+		return [
+			symbol for symbol in symbolList
+			if not symbol.analysis \
+			or ( \
+				symbol.uniqueIdentifier not in self.symbolsByName \
+				and symbol.analysis.argumentIndexByRoutineName.get(self.name, -1) == -1 \
+			)
+		]
+
 	def nameInScope(self):
 		if not self.sisterRoutine:
 			return self.name
@@ -189,6 +191,7 @@ This is not allowed for implementations using %s.\
 		clone._programmerArguments = copy.copy(self._programmerArguments)
 		clone._additionalArguments = copy.copy(self._additionalArguments)
 		clone._additionalImports = copy.copy(self._additionalImports)
+		clone._symbolsToUpdate = copy.copy(self._symbolsToUpdate)
 		clone.symbolsByName = copy.copy(self.symbolsByName)
 		clone.callsByCalleeName = copy.copy(self.callsByCalleeName)
 		return clone
@@ -226,6 +229,8 @@ This is not allowed for implementations using %s.\
 
 	def loadCall(self, callRoutine):
 		self.callsByCalleeName[callRoutine.name] = callRoutine
+		if isinstance(self._currRegion, CallRegion):
+			self._currRegion.loadCallee(callRoutine)
 
 	def loadLine(self, line, symbolsOnCurrentLine=None):
 		self._currRegion.loadLine(line, symbolsOnCurrentLine)

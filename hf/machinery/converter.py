@@ -275,7 +275,7 @@ This is not allowed for implementations using %s.\
             self.currCallee.loadArguments(getArguments(calleeNode))
         else:
             self.currCallee = Routine(self.currCalleeName)
-        self.currRegion.loadCallee(self.currCallee)
+        self.currRoutine.loadCall(self.currCallee)
         remainingCall = None
         if isinstance(self.currCallee, AnalyzableRoutine):
             additionalImports, additionalDeclarations = self.additionalParametersByKernelName.get(self.currCalleeName, ([], []))
@@ -355,8 +355,6 @@ This is not allowed for implementations using %s.\
         self.currRoutine.loadArguments(self.currArguments)
         self.currRegion = self.currRoutine.currRegion
 
-        symbolsByUniqueNameToBeUpdated = {}
-
         #build list of additional subroutine parameters
         #(parameters that the user didn't specify but that are necessary based on the features of the underlying technology
         # and the symbols declared by the user, such us temporary arrays and imported symbols)
@@ -378,8 +376,12 @@ This is not allowed for implementations using %s.\
         ), extra={"hfLineNo":currLineNo, "hfFile":currFile})
         for symbol in additionalImportsForOurSelves + additionalDeclarationsForOurselves:
             symbol.isEmulatingSymbolThatWasActiveInCurrentScope = True
+
+        symbolsByUniqueNameToBeUpdated = {}
         for symbol in additionalImportsForOurSelves + additionalDeclarationsForOurselves + additionalDummiesForOurselves:
             symbolsByUniqueNameToBeUpdated[symbol.uniqueIdentifier] = symbol
+        self.currRoutine.loadSymbolsToUpdate(symbolsByUniqueNameToBeUpdated.values())
+
         toBeCompacted, declarationPrefix, otherImports = self.listCompactedSymbolsAndDeclarationPrefixAndOtherSymbols(
             additionalImportsForOurSelves + additionalDeclarationsForOurselves
         )

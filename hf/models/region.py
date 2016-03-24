@@ -22,8 +22,8 @@ import weakref, copy
 from tools.commons import enum
 from tools.metadata import getArguments
 from tools.patterns import RegExPatterns
-from models.symbol import DeclarationType
-from machinery.commons import ConversionOptions, getSymbolAccessStringAndReminder
+from machinery.commons import ConversionOptions, getSymbolAccessStringAndReminder, purgeDimensionAndGetAdjustedLine
+from symbol import DeclarationType
 
 RegionType = enum(
 	"MODULE_DECLARATION",
@@ -256,8 +256,58 @@ class RoutineSpecificationRegion(Region):
 
 	def implemented(self, skipDebugPrint=False):
 		parentRoutine = self._routineRef()
+		declarationRegionType = RegionType.OTHER
+		if parentRoutine.isCallingKernel:
+			declarationRegionType = RegionType.KERNEL_CALLER_DECLARATION
 
-		text = super(RoutineSpecificationRegion, self).implemented(skipDebugPrint=True)
+		importedSymbols = []
+		textBeforeImports = ""
+		textBeforeDeclarations = ""
+		textAfterDeclarations = ""
+		declarations = ""
+		for (line, symbols) in self._linesAndSymbols:
+			if not symbols or len(symbols) == 0:
+				if len(importedSymbols) == 0:
+					textBeforeImports += line.strip() + "\n"
+				elif len(declarations) == 0:
+					textBeforeDeclarations += line.strip() + "\n"
+				else:
+					textAfterDeclarations += line.strip() + "\n"
+				continue
+			declarationsOnThisLine = ""
+			declaredSymbols = []
+			for symbol in symbols:
+				match = symbol.getDeclarationMatch(line)
+				if match:
+					declarationsOnThisLine += symbol.getAdjustedDeclarationLine(match)
+					declaredSymbols.append(symbol)
+					continue
+				match = symbol.importPattern.match(line)
+				if not match:
+					match = symbol.importMapPattern.match(line)
+				if match:
+					importedSymbols.append(symbol)
+					continue
+				raise Exception("symbol %s expected to be referenced in line '%s', but all matchings have failed" %(symbol.name, line))
+			declarations += self.implementation.adjustDeclarationForDevice(
+				purgeDimensionAndGetAdjustedLine(declarationsOnThisLine).strip(),
+				declaredSymbols,
+				declarationRegionType,
+				parentRoutine.node.getAttribute('parallelRegionPosition')
+			).strip() + "\n"
+
+		text = textBeforeImports
+		if len(importedSymbols) > 0:
+			text += self.implementation.adjustImportForDevice(
+				None,
+				importedSymbols,
+				RegionType.KERNEL_CALLER_DECLARATION if parentRoutine.isCallingKernel else RegionType.OTHER,
+				parentRoutine.node.getAttribute('parallelRegionPosition'),
+				self.parallelRegionTemplatesByProcName.get(parentRoutine.name)
+			).strip() + "\n"
+		text += textBeforeDeclarations
+		text += declarations
+		text += textAfterDeclarations
 
 		numberOfAdditionalDeclarations = (
 			len(sum([
@@ -267,9 +317,6 @@ class RoutineSpecificationRegion(Region):
 		)
 		if numberOfAdditionalDeclarations > 0:
 			text += "\n! ****** additional symbols inserted by framework to emulate device support of language features\n"
-		declarationRegionType = RegionType.OTHER
-		if parentRoutine.isCallingKernel:
-			declarationRegionType = RegionType.KERNEL_CALLER_DECLARATION
 		defaultPurgeList = ['intent', 'public', 'parameter', 'allocatable']
 		for symbol in self._symbolsToAdd:
 			purgeList = defaultPurgeList

@@ -844,7 +844,7 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
             declMatch = symbol.getDeclarationMatch(line)
             importMatch = None
             if analyseImports:
-                importMatch = symbol.symbolImportPattern.match(line)
+                importMatch = symbol.importPattern.match(line)
             if declMatch:
                 self.symbolsOnCurrentLine.append(symbol)
                 self.processSymbolDeclMatch(declMatch, symbol)

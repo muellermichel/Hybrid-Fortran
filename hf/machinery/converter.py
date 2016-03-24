@@ -249,15 +249,15 @@ This is not allowed for implementations using %s.\
                 self.symbolsPassedInCurrentCallByName[symbolName] = symbol
         return adjustedLine.rstrip() + "\n"
 
-    def processSymbolImportAndGetAdjustedLine(self, line, symbols):
+    def processModuleSymbolImportAndGetAdjustedLine(self, line, symbols):
         if len(symbols) == 0:
             return line
         return self.implementation.adjustImportForDevice(
             line,
             symbols,
-            RegionType.KERNEL_CALLER_DECLARATION if self.currRoutine.isCallingKernel else RegionType.OTHER,
-            self.currRoutine.node.getAttribute('parallelRegionPosition'),
-            self.parallelRegionTemplatesByProcName.get(self.currRoutine.name)
+            RegionType.MODULE_DECLARATION,
+            parallelRegionPosition=None,
+            parallelRegionTemplates=[],
         )
 
     def processCallMatch(self, subProcCallMatch):
@@ -298,25 +298,11 @@ This is not allowed for implementations using %s.\
             self.symbolsPassedInCurrentCallByName = {}
             self.currCallee = None
 
-    def processDeclarationLineAndGetAdjustedLine(self, line, declarationRegionType):
+    def processModuleDeclarationLineAndGetAdjustedLine(self, line):
         baseline = line
         if self.currentLineNeedsPurge:
-            baseline = ""
-        adjustedLine = baseline
-
-        for symbol in self.symbolsOnCurrentLine:
-            match = symbol.getDeclarationMatch(str(adjustedLine))
-            if not match:
-                raise Exception("Symbol %s not found on a line where it has already been identified before. Current string to search: %s" \
-                    %(symbol, adjustedLine))
-            adjustedLine = symbol.getAdjustedDeclarationLine(match, declarationRegionType)
-
-        if adjustedLine != baseline and declarationRegionType != RegionType.MODULE_DECLARATION:
-            #$$$ this is scary. isn't there a better state test for this?
-            adjustedLine = purgeDimensionAndGetAdjustedLine(adjustedLine, self.patterns).rstrip() + "\n"
-
-        adjustedLine = self.processSymbolImportAndGetAdjustedLine(adjustedLine, self.importsOnCurrentLine)
-
+            baseline = "" #$$$ this seems dangerous
+        adjustedLine = self.processModuleSymbolImportAndGetAdjustedLine(baseline, self.importsOnCurrentLine)
         if len(self.symbolsOnCurrentLine) > 0:
             adjustedLine = self.implementation.adjustDeclarationForDevice(
                 adjustedLine,
@@ -324,7 +310,6 @@ This is not allowed for implementations using %s.\
                 declarationRegionType,
                 self.currRoutine.node.getAttribute('parallelRegionPosition') if self.currRoutine else "inside"
             )
-
         return adjustedLine
 
     def processTemplateMatch(self, templateMatch):
@@ -418,9 +403,6 @@ This is not allowed for implementations using %s.\
                 callee = self.routineNodesByProcName.get(calleeName)
                 if not callee:
                     continue
-                if callee.getAttribute("parallelRegionPosition") == "within":
-                    self.currRoutine.isCallingKernel = True #$$$ this is a crutch - as long as we are generating all code before the implemented() phase, we need this information early,
-                                                            #i.e. routine.loadCall is too late.
                 implementation = self.implementationForTemplateName(callee.getAttribute('implementationTemplate'))
                 additionalImportsForDeviceCompatibility, \
                 additionalDeclarationsForDeviceCompatibility, \
@@ -579,9 +561,11 @@ This is not allowed for implementations using %s.\
         or (self.state == 'inside_branch' and self.stateBeforeBranch != 'inside_module'):
             return
         if not self.prepareLineCalledForCurrentLine:
-            self.prepareLine(self.processDeclarationLineAndGetAdjustedLine(line, RegionType.MODULE_DECLARATION), self.tab_outsideSub)
+            self.prepareLine(self.processModuleDeclarationLineAndGetAdjustedLine(line), self.tab_outsideSub)
 
     def processInsideDeclarationsState(self, line):
+        '''process everything that happens per h90 declaration line'''
+
         def finalizeDeclarationContext():
             ourSymbolsToAdd = sorted(
                 self.currAdditionalSubroutineParameters + self.currAdditionalCompactedSubroutineParameters
@@ -614,7 +598,6 @@ This is not allowed for implementations using %s.\
             )
             self.switchToNewRegion()
 
-        '''process everything that happens per h90 declaration line'''
         subProcCallMatch = self.patterns.subprocCallPattern.match(line)
         parallelRegionMatch = self.patterns.parallelRegionPattern.match(line)
         domainDependantMatch = self.patterns.domainDependantPattern.match(line)
@@ -685,7 +668,7 @@ This is not allowed for implementations using %s.\
         self.analyseSymbolInformationOnCurrentLine(line)
         #we are never calling super and every match that would have prepared a line, would already have been covered
         #with a return -> safe to call prepareLine here.
-        self.prepareLine(self.processDeclarationLineAndGetAdjustedLine(line, declarationRegionType), self.tab_insideSub)
+        self.prepareLine(line, self.tab_insideSub)
 
     def processInsideSubroutineBodyState(self, line):
         '''process everything that happens per h90 subroutine body line'''
@@ -884,9 +867,9 @@ This is not allowed for implementations using %s.\
         if line == "":
             return
         if self.currRegion:
-            self.currRegion.loadLine(line)
+            self.currRegion.loadLine(line, self.symbolsOnCurrentLine + self.importsOnCurrentLine)
         elif self.currRoutine:
-            self.currRoutine.loadLine(line)
+            self.currRoutine.loadLine(line, self.symbolsOnCurrentLine + self.importsOnCurrentLine)
         elif self.currModule:
             self.currModule.loadLine(line)
         else:

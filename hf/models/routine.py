@@ -92,14 +92,14 @@ class AnalyzableRoutine(Routine):
 		self._regions = _regions
 
 	def _filterOutSymbolsAlreadyAliveInCurrentScope(self, symbolList):
-        return [
-            symbol for symbol in symbolList
-            if not symbol.analysis \
-            or ( \
-                symbol.uniqueIdentifier not in self.symbolsByName \
-                and symbol.analysis.argumentIndexByRoutineName.get(self.name, -1) == -1 \
-            )
-        ]
+		return [
+			symbol for symbol in symbolList
+			if not symbol.analysis \
+			or ( \
+				symbol.uniqueIdentifier not in self.symbolsByName \
+				and symbol.analysis.argumentIndexByRoutineName.get(self.name, -1) == -1 \
+			)
+		]
 
 	def _checkParallelRegions(self):
 		if self.node.getAttribute('parallelRegionPosition') != 'within':
@@ -123,10 +123,10 @@ This is not allowed for implementations using %s.\
 		regionType = RegionType.KERNEL_CALLER_DECLARATION if self.isCallingKernel else RegionType.OTHER
 		for symbol in self._symbolsToUpdate:
 			self.implementation.updateSymbolDeviceState(
-                symbol,
-                regionType,
-                self.node.getAttribute("parallelRegionPosition")
-            )
+				symbol,
+				regionType,
+				self.node.getAttribute("parallelRegionPosition")
+			)
 
 	def _implementHeader(self):
 		parameterList = ""
@@ -223,8 +223,8 @@ This is not allowed for implementations using %s.\
 	def loadCall(self, callRoutine):
 		self.callsByCalleeName[callRoutine.name] = callRoutine
 
-	def loadLine(self, line):
-		self._currRegion.loadLine(line)
+	def loadLine(self, line, symbolsOnCurrentLine=None):
+		self._currRegion.loadLine(line, symbolsOnCurrentLine)
 
 	def implemented(self):
 		self._checkParallelRegions()

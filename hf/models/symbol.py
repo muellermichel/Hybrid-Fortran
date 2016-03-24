@@ -21,12 +21,12 @@
 import re, sys, copy
 import logging
 import pdb
-from models.region import RegionType
 from tools.metadata import *
 from tools.commons import enum, BracketAnalyzer
 from tools.patterns import RegExPatterns
 from tools.commons import Singleton, UsageError
 from tools.analysis import SymbolDependencyAnalyzer, SymbolType
+from machinery.commons import purgeDimensionAndGetAdjustedLine
 
 Init = enum(
 	"NOTHING_LOADED",
@@ -177,13 +177,6 @@ def getReorderedDomainsAccordingToDeclaration(domains, dimensionSizesInDeclarati
 		return domains
 	return reorderedDomains
 
-def purgeDimensionAndGetAdjustedLine(line, patterns):
-	match = patterns.dimensionPattern.match(line)
-	if not match:
-		return line
-	else:
-		return match.group(1) + match.group(3)
-
 def uniqueIdentifier(symbolName, suffix):
 	return (symbolName + "_hfauto_" + suffix).strip()
 
@@ -231,8 +224,8 @@ class Symbol(object):
 			self.patterns = RegExPatterns.Instance()
 		self.analysis = analysis
 		self.declPattern = self.patterns.get(r'(\s*(?:double\s+precision|real|integer|logical).*?[\s,:]+)' + re.escape(name) + r'((?:\s|\,|\(|$)+.*)')
-		self.symbolImportPattern = self.patterns.get(r'^\s*use\s*(\w*)[,\s]*only\s*\:.*?\W' + re.escape(name) + r'\W.*')
-		self.symbolImportMapPattern = self.patterns.get(r'.*?\W' + re.escape(name) + r'\s*\=\>\s*(\w*).*')
+		self.importPattern = self.patterns.get(r'^\s*use\s*(\w*)[,\s]*only\s*\:.*?\W' + re.escape(name) + r'\W.*')
+		self.importMapPattern = self.patterns.get(r'.*?\W' + re.escape(name) + r'\s*\=\>\s*(\w*).*')
 		self.pointerDeclarationPattern = self.patterns.get(r'\s*(?:double\s+precision|real|integer|logical).*?pointer.*?[\s,:]+' + re.escape(name))
 		self.initLevel = Init.NOTHING_LOADED
 		self.routineNode = None
@@ -903,7 +896,7 @@ EXAMPLE:\n\
 			patterns, \
 			withAndWithoutIntent=False \
 		)
-		self.declarationPrefix = purgeDimensionAndGetAdjustedLine(declarationDirectives.rstrip() + " " + "::", patterns)
+		self.declarationPrefix = purgeDimensionAndGetAdjustedLine(declarationDirectives.rstrip() + " " + "::")
 
 		#   get and check intent                                      #
 		intentMatch = patterns.intentPattern.match(paramDeclMatch.group(1))
@@ -1077,7 +1070,7 @@ Parallel region position: %s"
 		sourceModuleName = importMatch.group(1)
 		if sourceModuleName == "":
 			raise Exception("Invalid module in use statement for symbol %s" %(symbol.name))
-		mapMatch = self.symbolImportMapPattern.match(importMatch.group(0))
+		mapMatch = self.importMapPattern.match(importMatch.group(0))
 		sourceSymbolName = ""
 		if mapMatch:
 			sourceSymbolName = mapMatch.group(1)
@@ -1167,11 +1160,7 @@ Current Domains: %s\n" %(
 		#         %(self.name, dimensionStr))
 		return dimensionStr, postfix
 
-	def getAdjustedDeclarationLine(self, paramDeclMatch, declarationRegionType):
-		'''process everything that happens per h90 declaration symbol'''
-		if declarationRegionType == RegionType.MODULE_DECLARATION:
-			return paramDeclMatch.group(0)
-
+	def getAdjustedDeclarationLine(self, paramDeclMatch):
 		prefix = paramDeclMatch.group(1)
 		postfix = paramDeclMatch.group(2)
 

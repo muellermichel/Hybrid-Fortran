@@ -55,7 +55,7 @@ class Region(object):
 
 	def clone(self):
 		region = self.__class__(self.parentRoutine)
-		region._linesAndSymbols = copy.deepcopy(self._linesAndSymbols)
+		region._linesAndSymbols = copy.copy(self._linesAndSymbols)
 		return region
 
 	def loadParentRegion(self, region):

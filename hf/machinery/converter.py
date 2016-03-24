@@ -582,14 +582,7 @@ This is not allowed for implementations using %s.\
             self.prepareLine(self.processDeclarationLineAndGetAdjustedLine(line, RegionType.MODULE_DECLARATION), self.tab_outsideSub)
 
     def processInsideDeclarationsState(self, line):
-        def declarationEndStatements(declarationRegionType, isInsertedBeforeCurrentLine):
-            additionalDeclarationsStr = ""
-
-            #TODO $$$: most of the following code should probably be handled within implementation classes
-
-            #########################################################################
-            # gather additional symbols for ourselves                               #
-            #########################################################################
+        def finalizeDeclarationContext():
             ourSymbolsToAdd = sorted(
                 self.currAdditionalSubroutineParameters + self.currAdditionalCompactedSubroutineParameters
             )
@@ -602,10 +595,6 @@ This is not allowed for implementations using %s.\
                         continue
                     calleeName = call.getAttribute("callee")
                     additionalImports += self.additionalWrapperImportsByKernelName.get(calleeName, [])
-
-            #########################################################################
-            # gather symbols to be packed for called kernels                        #
-            #########################################################################
             packedRealSymbolsByCalleeName = {}
             compactionDeclarationPrefixByCalleeName = {}
             for calleeName in self.additionalParametersByKernelName.keys():
@@ -616,125 +605,13 @@ This is not allowed for implementations using %s.\
                 if len(toBeCompacted) > 0:
                     compactionDeclarationPrefixByCalleeName[calleeName] = declarationPrefix
                     packedRealSymbolsByCalleeName[calleeName] = toBeCompacted
-
-            #########################################################################
-            # mark in code, include additional symbols for kernel calls             #
-            #########################################################################
-            numberOfAdditionalDeclarations = ( \
-                len(sum([self.additionalParametersByKernelName[kname][1] for kname in self.additionalParametersByKernelName], [])) \
-                + len(ourSymbolsToAdd) \
-                + len(packedRealSymbolsByCalleeName.keys()) \
+            self.currRegion.loadAdditionalContext(
+                self.additionalParametersByKernelName,
+                packedRealSymbolsByCalleeName,
+                ourSymbolsToAdd,
+                compactionDeclarationPrefixByCalleeName,
+                self.currAdditionalCompactedSubroutineParameters
             )
-            if numberOfAdditionalDeclarations > 0:
-                additionalDeclarationsStr = "\n" + self.tab_insideSub + \
-                 "! ****** additional symbols inserted by framework to emulate device support of language features\n"
-
-            defaultPurgeList = ['intent', 'public', 'parameter', 'allocatable']
-            #########################################################################
-            # create declaration lines for symbols for ourself                      #
-            #########################################################################
-            for symbol in ourSymbolsToAdd:
-                purgeList = defaultPurgeList
-                if not symbol.isCompacted:
-                    purgeList=['public', 'parameter', 'allocatable']
-                additionalDeclarationsStr += self.tab_insideSub + self.implementation.adjustDeclarationForDevice(
-                    self.tab_insideSub +
-                        symbol.getDeclarationLineForAutomaticSymbol(purgeList).strip(),
-                    [symbol],
-                    declarationRegionType,
-                    self.currRoutine.node.getAttribute('parallelRegionPosition')
-                ).rstrip() + " ! type %i symbol added for this subroutine\n" %(symbol.declarationType)
-                logging.debug(
-                    "...In subroutine %s: Symbol %s additionally declared" %(self.currRoutine.name, symbol),
-                    extra={"hfLineNo":currLineNo, "hfFile":currFile}
-                )
-
-            #########################################################################
-            # create declaration lines for called kernels                           #
-            #########################################################################
-            for calleeName in self.additionalParametersByKernelName:
-                additionalImports, additionalDeclarations = self.additionalParametersByKernelName[calleeName]
-                additionalImportSymbolsByName = {}
-                for symbol in additionalImports:
-                    additionalImportSymbolsByName[symbol.name] = symbol
-
-                calleeNode = self.routineNodesByProcName.get(calleeName)
-                implementation = self.implementationForTemplateName(calleeNode.getAttribute('implementationTemplate'))
-
-                for symbol in self.filterOutSymbolsAlreadyAliveInCurrentScope(additionalDeclarations):
-                    if symbol.declarationType not in [DeclarationType.LOCAL_ARRAY, DeclarationType.LOCAL_SCALAR]:
-                        # only symbols that are local to the kernel actually need to be declared here.
-                        # Everything else we should have in our own scope already, either through additional imports or
-                        # through module association (we assume the kernel and its wrapper reside in the same module)
-                        continue
-
-                    logging.debug("...In subroutine %s: Symbol %s is required additionally for %s" %(self.currRoutine.name, symbol, calleeName))
-                    #in case the array uses domain sizes in the declaration that are additional symbols themselves
-                    #we need to fix them.
-                    adjustedDomains = []
-                    for (domName, domSize) in symbol.domains:
-                        domSizeSymbol = additionalImportSymbolsByName.get(domSize)
-                        if domSizeSymbol is None:
-                            adjustedDomains.append((domName, domSize))
-                            continue
-                        adjustedDomains.append((domName, domSizeSymbol.nameInScope()))
-                    symbol.domains = adjustedDomains
-                    logging.debug("...In subroutine %s: Domains of Symbol %s adjusted to %s" %(self.currRoutine.name, symbol, adjustedDomains))
-
-                    additionalDeclarationsStr += implementation.adjustDeclarationForDevice(
-                        symbol.getDeclarationLineForAutomaticSymbol(defaultPurgeList).strip(),
-                        [symbol],
-                        declarationRegionType,
-                        self.currRoutine.node.getAttribute('parallelRegionPosition')
-                    ).rstrip() + " ! type %i symbol added for callee %s\n" %(symbol.declarationType, calleeName)
-                #TODO: move this into implementation classes
-                toBeCompacted = packedRealSymbolsByCalleeName.get(calleeName, [])
-                if len(toBeCompacted) > 0:
-                    #TODO: generalize for cases where we don't want this to be on the device (e.g. put this into Implementation class)
-                    compactedArrayName = "hfimp_%s" %(calleeName)
-                    compactedArray = FrameworkArray(
-                        compactedArrayName,
-                        compactionDeclarationPrefixByCalleeName[calleeName],
-                        domains=[("hfauto", str(len(toBeCompacted)))],
-                        isOnDevice=True
-                    )
-                    additionalDeclarationsStr += implementation.adjustDeclarationForDevice(
-                        compactedArray.getDeclarationLineForAutomaticSymbol().strip(),
-                        [compactedArray],
-                        declarationRegionType,
-                        self.currRoutine.node.getAttribute('parallelRegionPosition')
-                    ).rstrip() + " ! compaction array added for callee %s\n" %(calleeName)
-                    logging.debug(
-                        "...In subroutine %s: Symbols %s packed into array %s" %(self.currRoutine.name, toBeCompacted, compactedArrayName),
-                        extra={"hfLineNo":currLineNo, "hfFile":currFile}
-                    )
-
-            #########################################################################
-            # additional symbols for kernels to be packed                           #
-            #########################################################################
-            calleesWithPackedReals = packedRealSymbolsByCalleeName.keys()
-            for calleeName in calleesWithPackedReals:
-                for idx, symbol in enumerate(sorted(packedRealSymbolsByCalleeName[calleeName])):
-                    #$$$ clean this up, the hf_imp prefix should be decided within the symbol class
-                    additionalDeclarationsStr += "hfimp_%s(%i) = %s" %(calleeName, idx+1, symbol.nameInScope()) + \
-                         " ! type %i symbol compaction for callee %s\n" %(symbol.declarationType, calleeName)
-
-            #########################################################################
-            # additional symbols for ourselves to be unpacked                       #
-            #########################################################################
-            #TODO: move this into implementation classes
-            for idx, symbol in enumerate(self.currAdditionalCompactedSubroutineParameters):
-                #$$$ clean this up, the hf_imp prefix should be decided within the symbol class
-                additionalDeclarationsStr += "%s = hfimp_%s(%i)" %(symbol.nameInScope(), self.currRoutine.name, idx+1) + \
-                         " ! additional type %i symbol compaction\n" %(symbol.declarationType)
-
-            #########################################################################
-            # mark the end of additional includes in code                           #
-            #########################################################################
-            if numberOfAdditionalDeclarations > 0:
-                additionalDeclarationsStr += "! ****** end additional symbols\n\n"
-
-            self.prepareAdditionalLine(additionalDeclarationsStr, self.tab_insideSub, isInsertedBeforeCurrentLine)
             self.switchToNewRegion()
 
         '''process everything that happens per h90 declaration line'''
@@ -746,16 +623,12 @@ This is not allowed for implementations using %s.\
         templateEndMatch = self.patterns.templateEndPattern.match(line)
         branchMatch = self.patterns.branchPattern.match(line)
 
-        declarationRegionType = RegionType.OTHER
-        if self.currRoutine.isCallingKernel:
-            declarationRegionType = RegionType.KERNEL_CALLER_DECLARATION
-
         if branchMatch:
-            declarationEndStatements(declarationRegionType, isInsertedBeforeCurrentLine=True)
+            finalizeDeclarationContext()
             self.processBranchMatch(branchMatch)
             return
         if subProcCallMatch:
-            declarationEndStatements(declarationRegionType, isInsertedBeforeCurrentLine=True)
+            finalizeDeclarationContext()
             self.switchToNewRegion("CallRegion")
             self.processCallMatch(subProcCallMatch)
             if (self.state == "inside_branch" and self.stateBeforeBranch != 'inside_subroutine_call') or (self.state != "inside_branch" and self.state != 'inside_subroutine_call'):
@@ -763,7 +636,7 @@ This is not allowed for implementations using %s.\
             self.switchToNewRegion()
             return
         if subProcEndMatch:
-            declarationEndStatements(declarationRegionType, isInsertedBeforeCurrentLine=True)
+            finalizeDeclarationContext()
             self.processProcEndMatch(subProcEndMatch)
             if self.state == "inside_branch":
                 self.stateBeforeBranch = 'inside_module_body'
@@ -784,7 +657,7 @@ This is not allowed for implementations using %s.\
                 self.stateBeforeBranch = 'inside_domainDependantRegion'
             else:
                 self.state = 'inside_domainDependantRegion'
-            declarationEndStatements(declarationRegionType, isInsertedBeforeCurrentLine=True)
+            finalizeDeclarationContext()
             self.processDomainDependantMatch(domainDependantMatch)
             return
 
@@ -805,7 +678,7 @@ This is not allowed for implementations using %s.\
                 self.stateBeforeBranch = "inside_subroutine_body"
             else:
                 self.state = "inside_subroutine_body"
-            declarationEndStatements(declarationRegionType, isInsertedBeforeCurrentLine=True)
+            finalizeDeclarationContext()
             self.processInsideSubroutineBodyState(line)
             return
 

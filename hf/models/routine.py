@@ -91,6 +91,16 @@ class AnalyzableRoutine(Routine):
 	def regions(self, _regions):
 		self._regions = _regions
 
+	def _filterOutSymbolsAlreadyAliveInCurrentScope(self, symbolList):
+        return [
+            symbol for symbol in symbolList
+            if not symbol.analysis \
+            or ( \
+                symbol.uniqueIdentifier not in self.symbolsByName \
+                and symbol.analysis.argumentIndexByRoutineName.get(self.name, -1) == -1 \
+            )
+        ]
+
 	def _checkParallelRegions(self):
 		if self.node.getAttribute('parallelRegionPosition') != 'within':
 			return

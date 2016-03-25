@@ -18,7 +18,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
-import os, sys, re, logging, logging.handlers, atexit
+import os, sys, re, logging, logging.handlers, atexit, traceback
 
 class UsageError(Exception):
     pass
@@ -34,6 +34,12 @@ class HFContextFormatter(logging.Formatter):
         if hasattr(record, "hfFile") and hasattr(record, "hfLineNo"):
             return self.contextFormatter.format(record)
         return logging.Formatter.format(self, record)
+
+def formatStacktrace(trace_tuple):
+    return "\n".join([
+        "%s:%i(%s)" %(os.path.basename(filename), lineNo, functionName)
+        for (filename, lineNo, functionName, _) in traceback.extract_tb(trace[2])
+    ])
 
 def setupDeferredLogging(filename, logLevel, showDeferredLogging=True):
     logger = logging.getLogger()

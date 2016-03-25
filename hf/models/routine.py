@@ -229,9 +229,19 @@ This is not allowed for implementations using %s.\
 		self._symbolsToUpdate = copy.copy(symbolsToUpdate)
 
 	def loadCall(self, callRoutine):
-		self.callsByCalleeName[callRoutine.name] = callRoutine
+		callRegion = None
 		if isinstance(self._currRegion, CallRegion):
-			self._currRegion.loadCallee(callRoutine)
+			callRegion = self._currRegion
+		elif isinstance(self._currRegion, ParallelRegion) \
+		and isinstance(self._currRegion.currRegion, CallRegion):
+			callRegion = self._currRegion.currRegion
+		if not isinstance(callRegion, CallRegion):
+			raise Exception("cannot load call %s for %s outside a callregion" %(
+				callRoutine.name,
+				self.name
+			))
+		callRegion.loadCallee(callRoutine)
+		self.callsByCalleeName[callRoutine.name] = callRoutine
 
 	def loadLine(self, line, symbolsOnCurrentLine=None):
 		self._currRegion.loadLine(line, symbolsOnCurrentLine)

@@ -125,7 +125,7 @@ class CallRegion(Region):
 
 	def implemented(self, skipDebugPrint=False):
 		if not self._callee:
-			raise Exception("call needs to be loaded at this point")
+			raise Exception("call not loaded for call region in %s" %(self._routineRef().name))
 
 		text = ""
 		argumentSymbols = None
@@ -195,6 +195,10 @@ class ParallelRegion(Region):
 		self._currRegion = Region(routine)
 		self._subRegions = [self._currRegion]
 		self._activeTemplate = None
+
+	@property
+	def currRegion(self):
+		return self._currRegion
 
 	@property
 	def template(self):

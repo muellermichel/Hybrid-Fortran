@@ -384,7 +384,6 @@ This is not allowed for implementations using %s.\
         symbolsByUniqueNameToBeUpdated = {}
         for symbol in additionalImportsForOurSelves + additionalDeclarationsForOurselves + additionalDummiesForOurselves:
             symbolsByUniqueNameToBeUpdated[symbol.uniqueIdentifier] = symbol
-        self.currRoutine.loadSymbolsToUpdate(symbolsByUniqueNameToBeUpdated.values())
 
         toBeCompacted, declarationPrefix, otherImports = self.listCompactedSymbolsAndDeclarationPrefixAndOtherSymbols(
             additionalImportsForOurSelves + additionalDeclarationsForOurselves
@@ -453,8 +452,7 @@ This is not allowed for implementations using %s.\
             symbol = self.currSymbolsByName[symbolName]
             if not symbol.uniqueIdentifier in symbolsByUniqueNameToBeUpdated:
                 symbolsByUniqueNameToBeUpdated[symbol.uniqueIdentifier] = symbol
-
-        self.currRoutine.loadAdditionalImportSymbols(symbolsByUniqueNameToBeUpdated.values())
+        self.currRoutine.loadSymbolsToUpdate(symbolsByUniqueNameToBeUpdated.values())
         additionalImportsByScopedName = dict(
             (symbol.nameInScope(), symbol)
             for symbol in self.filterOutSymbolsAlreadyAliveInCurrentScope(

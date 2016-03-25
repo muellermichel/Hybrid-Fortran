@@ -118,6 +118,7 @@ This is not allowed for implementations using %s.\
 			raise Exception("no symbols loaded for updating in routine %s" %(self.name))
 		regionType = RegionType.KERNEL_CALLER_DECLARATION if self.isCallingKernel else RegionType.OTHER
 		for symbol in self._symbolsToUpdate:
+			symbol.parallelRegionPosition = self.node.getAttribute("parallelRegionPosition")
 			self.implementation.updateSymbolDeviceState(
 				symbol,
 				regionType,

@@ -359,10 +359,6 @@ class Symbol(object):
 			return True #as a general rule in HF, if we have a kernel in our subroutine, all symbols are to be already present on the device
 		return self._isPresent
 
-	@isPresent.setter
-	def isPresent(self, _isPresent):
-		self._isPresent = _isPresent
-
 	@property
 	def isArray(self):
 		if self.domains and len(self.domains) > 0:

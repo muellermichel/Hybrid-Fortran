@@ -332,10 +332,6 @@ class DeviceDataFortranImplementation(FortranImplementation):
 			symbol.isUsingDevicePostfix
 		))
 
-		#assume that the data is already on the device for parallel within/outside position
-		if parallelRegionPosition in ["within", "outside"]:
-			symbol.isPresent = True
-
 		#packed symbols -> leave them alone
 		if symbol.isCompacted:
 			return

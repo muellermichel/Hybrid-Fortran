@@ -286,25 +286,22 @@ class RoutineSpecificationRegion(Region):
 			raise Exception("additional context not properly loaded for routine specification region in %s" %(parentRoutine.name))
 
 		importedSymbols = []
+		declaredSymbols = []
 		textBeforeImports = ""
 		textBeforeDeclarations = ""
 		textAfterDeclarations = ""
-		declarations = ""
 		for (line, symbols) in self._linesAndSymbols:
 			if not symbols or len(symbols) == 0:
 				if len(importedSymbols) == 0:
 					textBeforeImports += line.strip() + "\n"
-				elif len(declarations) == 0:
+				elif len(declaredSymbols) == 0:
 					textBeforeDeclarations += line.strip() + "\n"
 				else:
 					textAfterDeclarations += line.strip() + "\n"
 				continue
-			declarationsOnThisLine = ""
-			declaredSymbols = []
 			for symbol in symbols:
 				match = symbol.getDeclarationMatch(line)
 				if match:
-					declarationsOnThisLine += symbol.getAdjustedDeclarationLine(match)
 					declaredSymbols.append(symbol)
 					continue
 				match = symbol.importPattern.match(line)
@@ -314,12 +311,6 @@ class RoutineSpecificationRegion(Region):
 					importedSymbols.append(symbol)
 					continue
 				raise Exception("symbol %s expected to be referenced in line '%s', but all matchings have failed" %(symbol.name, line))
-			declarations += parentRoutine.implementation.adjustDeclarationForDevice(
-				purgeDimensionAndGetAdjustedLine(declarationsOnThisLine).strip(),
-				declaredSymbols,
-				declarationRegionType,
-				parentRoutine.node.getAttribute('parallelRegionPosition')
-			).strip() + "\n"
 
 		text = textBeforeImports
 		if len(importedSymbols) > 0:
@@ -331,7 +322,16 @@ class RoutineSpecificationRegion(Region):
 				parentRoutine.parallelRegionTemplates
 			).strip() + "\n"
 		text += textBeforeDeclarations
-		text += declarations
+		if len(declaredSymbols) > 0:
+			text += parentRoutine.implementation.adjustDeclarationForDevice(
+				"\n".join([
+					symbol.getDeclarationLine(purgeList=[]).strip()
+					for symbol in declaredSymbols
+				]),
+				declaredSymbols,
+				declarationRegionType,
+				parentRoutine.node.getAttribute('parallelRegionPosition')
+			).strip() + "\n"
 		text += textAfterDeclarations
 
 		numberOfAdditionalDeclarations = (
@@ -348,7 +348,7 @@ class RoutineSpecificationRegion(Region):
 			if not symbol.isCompacted:
 				purgeList=['public', 'parameter', 'allocatable']
 			text += parentRoutine.implementation.adjustDeclarationForDevice(
-				symbol.getDeclarationLineForAutomaticSymbol(purgeList).strip(),
+				symbol.getDeclarationLine(purgeList).strip(),
 				[symbol],
 				declarationRegionType,
 				parentRoutine.node.getAttribute('parallelRegionPosition')
@@ -382,7 +382,7 @@ class RoutineSpecificationRegion(Region):
 				symbol.domains = adjustedDomains
 
 				text += implementation.adjustDeclarationForDevice(
-					symbol.getDeclarationLineForAutomaticSymbol(defaultPurgeList).strip(),
+					symbol.getDeclarationLine(defaultPurgeList).strip(),
 					[symbol],
 					declarationRegionType,
 					parentRoutine.node.getAttribute('parallelRegionPosition')
@@ -398,7 +398,7 @@ class RoutineSpecificationRegion(Region):
 					isOnDevice=True
 				)
 				text += implementation.adjustDeclarationForDevice(
-					compactedArray.getDeclarationLineForAutomaticSymbol().strip(),
+					compactedArray.getDeclarationLine().strip(),
 					[compactedArray],
 					declarationRegionType,
 					parentRoutine.node.getAttribute('parallelRegionPosition')

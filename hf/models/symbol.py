@@ -1160,17 +1160,19 @@ Current Domains: %s\n" %(
 		#         %(self.name, dimensionStr))
 		return dimensionStr, postfix
 
-	def getAdjustedDeclarationLine(self, paramDeclMatch):
+	def getAdjustedDeclarationLine(self, paramDeclMatch, omitRemainder=False):
 		prefix = paramDeclMatch.group(1)
 		postfix = paramDeclMatch.group(2)
 
 		_, postfix = self.getDimensionStringAndRemainderFromDeclMatch(paramDeclMatch)
+		if omitRemainder:
+			return prefix + str(self)
 		return prefix + str(self) + postfix
 
-	def getSanitizedDeclarationPrefix(self, purgeList=[]):
+	def getSanitizedDeclarationPrefix(self, purgeList=None):
 		if self.declarationPrefix in [None, ""]:
 			raise Exception("Cannot generate declaration prefix for %s" %(str(self)))
-		if len(purgeList) == 0:
+		if purgeList == None:
 			purgeList = ['intent', 'public', 'parameter']
 		result = self._getPurgedDeclarationPrefix(purgeList)
 		kindMatch = self.patterns.declarationKindPattern.match(result)
@@ -1178,7 +1180,7 @@ Current Domains: %s\n" %(
 			result = kindMatch.group(1) + kindMatch.group(2) + kindMatch.group(3)
 		return result.strip().lower()
 
-	def getDeclarationLineForAutomaticSymbol(self, purgeList=[], patterns=RegExPatterns.Instance(), name_prefix="", useDomainReordering=True, skip_on_missing_declaration=False):
+	def getDeclarationLine(self, purgeList=None, patterns=RegExPatterns.Instance(), name_prefix="", useDomainReordering=True, skip_on_missing_declaration=False):
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] Decl.Line.Gen: Purge List: %s, Name Prefix: %s, Domain Reordering: %s, Skip on Missing: %s." %(
 			str(purgeList),
 			name_prefix,

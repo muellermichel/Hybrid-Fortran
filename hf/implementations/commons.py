@@ -164,7 +164,7 @@ def getTracingDeclarationStatements(currRoutineNode, dependantSymbols, patterns,
 		if len(symbol.domains) > max_num_of_domains_for_symbols:
 			max_num_of_domains_for_symbols = len(symbol.domains)
 		for prefix in useReorderingByAdditionalSymbolPrefixes.keys():
-			current_declaration_line = symbol.getDeclarationLineForAutomaticSymbol(
+			current_declaration_line = symbol.getDeclarationLine(
 				purgeList=['intent', 'public', 'allocatable', 'target'],
 				name_prefix=prefix,
 				use_domain_reordering=useReorderingByAdditionalSymbolPrefixes[prefix],

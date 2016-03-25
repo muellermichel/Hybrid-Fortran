@@ -35,10 +35,15 @@ class HFContextFormatter(logging.Formatter):
             return self.contextFormatter.format(record)
         return logging.Formatter.format(self, record)
 
-def formatStacktrace(trace_tuple):
+def stacktrace():
+    exc = sys.exc_info()[0]
+    stack = traceback.extract_stack()[:-1]  # last one would be full_stack()
+    if not exc is None:  # i.e. if an exception is present
+        del stack[-1]    # remove call of full_stack, the printed exception
+                         # will contain the caught exception caller instead
     return "\n".join([
         "%s:%i(%s)" %(os.path.basename(filename), lineNo, functionName)
-        for (filename, lineNo, functionName, _) in traceback.extract_tb(trace[2])
+        for (filename, lineNo, functionName, _) in stack
     ])
 
 def setupDeferredLogging(filename, logLevel, showDeferredLogging=True):

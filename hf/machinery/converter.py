@@ -24,7 +24,7 @@ from models.routine import Routine, AnalyzableRoutine
 from models.module import Module
 from models.region import RegionType
 from tools.metadata import *
-from tools.commons import UsageError, BracketAnalyzer, formatStacktrace
+from tools.commons import UsageError, BracketAnalyzer, stacktrace
 from tools.analysis import SymbolDependencyAnalyzer, getAnalysisForSymbol, getArguments
 from machinery.parser import H90CallGraphAndSymbolDeclarationsParser, getSymbolsByName, currFile, currLineNo
 from machinery.commons import FortranCodeSanitizer, getSymbolAccessStringAndReminder
@@ -146,10 +146,10 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
             sys.exit(1)
 
     def switchToNewRegion(self, regionClassName="Region", oldRegion=None):
-        logging.debug("switching to new %s on line %i; called from %s" %(
+        logging.debug("switching to new %s on line %i; called from:\n%s" %(
             regionClassName,
             self.lineNo,
-            formatStacktrace(sys.exc_info())
+            stacktrace()
         ))
         self.currRegion = self.currRoutine.createRegion(regionClassName, oldRegion)
 
@@ -616,7 +616,6 @@ This is not allowed for implementations using %s.\
         branchMatch = self.patterns.branchPattern.match(line)
 
         if branchMatch:
-            finalizeDeclarationContext()
             self.processBranchMatch(branchMatch)
             return
         if subProcCallMatch:

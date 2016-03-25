@@ -323,15 +323,15 @@ class RoutineSpecificationRegion(Region):
 			).strip() + "\n"
 		text += textBeforeDeclarations
 		if len(declaredSymbols) > 0:
-			text += parentRoutine.implementation.adjustDeclarationForDevice(
-				"\n".join([
-					symbol.getDeclarationLine(purgeList=[]).strip()
-					for symbol in declaredSymbols
-				]),
-				declaredSymbols,
-				declarationRegionType,
-				parentRoutine.node.getAttribute('parallelRegionPosition')
-			).strip() + "\n"
+			text += "\n".join([
+				parentRoutine.implementation.adjustDeclarationForDevice(
+					symbol.getDeclarationLine(purgeList=[]).strip(),
+					[symbol],
+					declarationRegionType,
+					parentRoutine.node.getAttribute('parallelRegionPosition')
+				)
+				for symbol in declaredSymbols
+			]).strip() + "\n"
 		text += textAfterDeclarations
 
 		numberOfAdditionalDeclarations = (

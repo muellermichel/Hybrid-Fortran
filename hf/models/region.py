@@ -325,11 +325,11 @@ class RoutineSpecificationRegion(Region):
 		if len(declaredSymbols) > 0:
 			text += "\n".join([
 				parentRoutine.implementation.adjustDeclarationForDevice(
-					symbol.getDeclarationLine(purgeList=[]).strip(),
+					symbol.getDeclarationLine(purgeList=[]),
 					[symbol],
 					declarationRegionType,
 					parentRoutine.node.getAttribute('parallelRegionPosition')
-				)
+				).strip()
 				for symbol in declaredSymbols
 			]).strip() + "\n"
 		text += textAfterDeclarations

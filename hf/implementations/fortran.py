@@ -766,6 +766,7 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 			kernelRoutine.resetRegions(routine.regions[0].clone())
 			kernelRoutine.addRegion(parallelRegion)
 			kernelRoutine.node.setAttribute("parallelRegionPosition", "within")
+			kernelRoutine.node.setAttribute("name", kernelName)
 			kernelRoutine.parallelRegionTemplates = [template]
 			kernelRoutinesByName[kernelName] = kernelRoutine
 			routines.append(kernelRoutine)

@@ -58,7 +58,7 @@ CONTAINS
     integer(4), intent(in) :: n
     real(RP), intent(inout), dimension(n,n) :: u, h
     real(RP), intent(in)   :: omega
-    @domainDependant {attribute(autoDom)}
+    @domainDependant {attribute(autoDom, present)}
       n, u, h, omega
     @end domainDependant
 

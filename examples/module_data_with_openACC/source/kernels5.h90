@@ -50,7 +50,7 @@ contains
     real, dimension(NX,NY,NZ), intent(out) :: c
     integer :: z
 
-    @domainDependant{attribute(autoDom)}
+    @domainDependant{attribute(autoDom, present)}
     a, b, c
     @end domainDependant
 
@@ -67,7 +67,7 @@ contains
     real, dimension(NX,NY,NZ), intent(out) :: d
     integer :: z
 
-    @domainDependant{attribute(autoDom)}
+    @domainDependant{attribute(autoDom, present)}
     a, b, d
     @end domainDependant
 

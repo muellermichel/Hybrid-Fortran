@@ -25,7 +25,7 @@ MODULE kernels
 		real(RP), dimension(3,3), intent(in)  :: s   ! 3x3 stencil
 		real(RP),                 intent(in)  :: c   ! scaling constant
 		real(RP)  :: d11, d12, d13, d21, d22, d23, d31, d32, d33
-		@domainDependant {attribute(autoDom)}
+		@domainDependant {attribute(autoDom, present)}
 			n, m, y, x, f, s, c
 		@end domainDependant
 
@@ -60,7 +60,7 @@ MODULE kernels
 		real(RP), dimension(n,m), intent(in)  :: f    ! right hand side/load vector
 		real(RP), dimension(3,3), intent(in)  :: s    ! 3x3 stencil
 		real(RP)  :: d11, d12, d13, d21, d23, d31, d32, d33
-		@domainDependant {attribute(autoDom)}
+		@domainDependant {attribute(autoDom, present)}
 			 n, m, u, u0, f, s
 		@end domainDependant
 

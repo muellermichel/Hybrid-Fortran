@@ -38,17 +38,13 @@
 !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
       MODULE PROBLEM
       CONTAINS
-         SUBROUTINE PROBLEM_FUNCTION_KERNEL(M,N,P1,P2,F,G,X)
+         SUBROUTINE PROBLEM_FUNCTION(M,N,P1,P2,F,G,X)
             INTEGER(4), intent(in) :: M, N, P1, P2
             DOUBLE PRECISION, intent(out) :: F
             DOUBLE PRECISION, intent(out) :: G(M)
             DOUBLE PRECISION, intent(in) :: X(N)
             DOUBLE PRECISION temp_sum
             INTEGER(4) i
-            ! Make Hybrid Fortran aware of scalars passed to this kernel.
-            @domainDependant{attribute(autoDom)}
-            M, N, P1, P2
-            @end domainDependant
             ! Make Hybrid Fortran aware of data that is dependant on C domain.
             ! Please note that since we introduce the C1/C2-dependency only through this
             ! directive, we don't have to privatize the code in the parallelization domains - Hybrid Fortran will do this for us
@@ -56,6 +52,7 @@
             @domainDependant{domName(C1,C2), domSize(P1,P2), attribute(autoDom)}
             F
             @end domainDependant
+
             ! .. since autoDom functionality is limited to cases where the parallel domains are inserted *before* the independant domains (which Midaco currently isn't compatible with),
             ! we have to define the domains for X and G explicitely.
             ! Note that this memory layout is not efficient for GPU, but since this code is heavily compute bound, it doesn't really matter here.
@@ -66,10 +63,8 @@
             X
             @end domainDependant
 
-            ! Parallelize here for GPU - we could paralellize here for CPU as well by leaving away the 'appliesTo' attribute,
-            ! but by separating the parallelization like this the generated code for the CPU will be more identical to the pure OpenMP version
-            ! (by parallelizing it outside this subroutine). It also shows off Hybrid Fortran's flexibility and compile-time reshaping.
-            @parallelRegion{domName(C1,C2), domSize(P1,P2), appliesTo(GPU)}
+            ! Parallelize here
+            @parallelRegion{domName(C1,C2), domSize(P1,P2)}
             ! Synthetically increase the computations to construct an example where GPU makes sense. See HF documentation for formulas on GPU performance increase.
 
 !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
@@ -101,20 +96,6 @@
 !
 !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
 
-            @end parallelRegion
-         END SUBROUTINE
-
-         ! Hybrid Fortran only operates on subroutines, so we put the problem function in its own one.
-         SUBROUTINE PROBLEM_FUNCTION(M,N,P1,P2,F,G,X)
-            INTEGER(4), intent(in) :: M, N, P1, P2
-            DOUBLE PRECISION, intent(out) :: F(P1,P2), G(M,P1,P2)
-            DOUBLE PRECISION, intent(in) :: X(N,P1,P2)
-            @domainDependant{attribute(autoDom)}
-            F, G, X
-            @end domainDependant
-
-            @parallelRegion{domName(C1,C2), domSize(P1,P2), appliesTo(CPU)}
-            CALL PROBLEM_FUNCTION_KERNEL(M,N,P1,P2,F,G,X)
             @end parallelRegion
          END SUBROUTINE
       END MODULE

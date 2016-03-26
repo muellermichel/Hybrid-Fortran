@@ -35,7 +35,7 @@ contains
     implicit none
     integer :: z
 
-    @domainDependant{attribute(autoDom)}
+    @domainDependant{attribute(autoDom, present)}
     a, b, c
     @end domainDependant
 
@@ -51,7 +51,7 @@ contains
     implicit none
     integer :: z
 
-    @domainDependant{attribute(autoDom)}
+    @domainDependant{attribute(autoDom, present)}
     a, b, d
     @end domainDependant
 

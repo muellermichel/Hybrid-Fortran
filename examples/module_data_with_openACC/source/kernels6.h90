@@ -51,7 +51,7 @@ contains
     real, dimension(NX,NY,NZ), intent(in) :: a, b
     real, dimension(NX,NY,NZ), intent(out) :: c
 
-    @domainDependant{attribute(autoDom)}
+    @domainDependant{attribute(autoDom, present)}
     a, b, c
     @end domainDependant
 
@@ -67,7 +67,7 @@ contains
     integer(4), intent(in) :: x, y
     real, intent(out) :: result(NZ)
     integer :: z
-    @domainDependant{attribute(autoDom)}
+    @domainDependant{attribute(autoDom, present)}
     used_in_acc_routine
     @end domainDependant
 

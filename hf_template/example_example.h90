@@ -95,7 +95,7 @@ contains
   !     Hybrid Fortran uses this information in order to re-insert these dimensions before 'z' for a, b and c, because we're still outside the GPU-parallelRegion
   !     in the callgraph at this point.
   !
-    @domainDependant{attribute(autoDom), domName(x,y), domSize(NX,NY)}
+    @domainDependant{attribute(autoDom, present), domName(x,y), domSize(NX,NY)}
     a, b, c
     @end domainDependant
 
@@ -119,7 +119,7 @@ contains
     real, dimension(NZ), intent(out) :: d
     integer :: z
 
-    @domainDependant{attribute(autoDom), domName(x,y), domSize(NX,NY)}
+    @domainDependant{attribute(autoDom, present), domName(x,y), domSize(NX,NY)}
     a, b, d
     @end domainDependant
 
@@ -140,7 +140,7 @@ contains
     real, intent(out) :: result
     integer :: z
 
-    @domainDependant{attribute(autoDom), domName(x,y), domSize(NX,NY)}
+    @domainDependant{attribute(autoDom, present), domName(x,y), domSize(NX,NY)}
     a
     @end domainDependant
 

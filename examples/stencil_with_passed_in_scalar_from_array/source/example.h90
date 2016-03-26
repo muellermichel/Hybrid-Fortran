@@ -19,19 +19,6 @@ contains
     end do
     @end parallelRegion
   end subroutine
-
-  subroutine stencil_wrapper(n, m, nz, a, c, b)
-    implicit none
-    integer(4), intent(in) :: n, m, nz
-    real(8), intent(in), dimension(n,m) :: a
-    real(8), intent(in), dimension(n,m,nz) :: c
-    real(8), intent(out), dimension(n,m) :: b
-    @domainDependant{attribute(autoDom)}
-    a, c, b
-    @end domainDependant
-
-    call stencil(n, m, nz, a, c, c(1,1,1), b)
-  end subroutine
 end module
 
 program main
@@ -50,7 +37,7 @@ program main
   a(:,:) = 1.0d0
   b(:,:) = 0.0d0
   c(:,:,:) = 1.0d0
-  call stencil_wrapper(n, m, nz, a, c, b)
+  call stencil(n, m, nz, a, c, c(1,1,1), b)
   do i=1,n-1
     do j=1,m
       if (b(i,j) .ne. 5.0d0) then

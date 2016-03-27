@@ -18,19 +18,40 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
-import copy
+import copy, weakref
 from models.region import RegionType, RoutineSpecificationRegion, ParallelRegion, CallRegion
+from models.symbol import FrameworkArray
 from machinery.commons import ConversionOptions
+
+def getModuleArraysForCallee(calleeName, symbolAnalysisByRoutineNameAndSymbolName, symbolsByModuleNameAndSymbolName):
+    moduleSymbols = []
+    analysisBySymbolName = symbolAnalysisByRoutineNameAndSymbolName.get(calleeName, {})
+    for symbolCallAnalysis in analysisBySymbolName.values():
+        for symbolAnalysis in symbolCallAnalysis:
+            if not symbolAnalysis.isModuleSymbol:
+                continue
+            symbol = symbolsByModuleNameAndSymbolName.get(symbolAnalysis.sourceModule, {}).get(symbolAnalysis.name)
+            if symbol == None:
+                #this happens for scalars for example
+                continue
+            symbol.analysis = symbolAnalysis
+            moduleSymbols.append(symbol)
+    return moduleSymbols
 
 def uniqueIdentifier(routineName, implementationName):
 	return (routineName + "_hfauto_" + implementationName).strip()
 
 class Routine(object):
-	def __init__(self, name):
+	def __init__(self, name, module):
 		if not type(name) in [str, unicode] or name.strip() == "":
 			raise Exception("no valid name passed when trying to initialize routine")
 		self.name = name
 		self._programmerArguments = None
+		self._parentModule = weakref.ref(module)
+
+	@property
+	def parentModule(self):
+		return self._parentModule()
 
 	@property
 	def programmerArguments(self):
@@ -45,8 +66,8 @@ class Routine(object):
 		return self.name
 
 class AnalyzableRoutine(Routine):
-	def __init__(self, name, routineNode, parallelRegionTemplates, implementation):
-		super(AnalyzableRoutine, self).__init__(name)
+	def __init__(self, name, module, routineNode, parallelRegionTemplates, implementation):
+		super(AnalyzableRoutine, self).__init__(name, module)
 		if not routineNode:
 			raise Exception("no definition passed when trying to initialize routine '%s'" %(name))
 		if not implementation:
@@ -63,6 +84,9 @@ class AnalyzableRoutine(Routine):
 		self._additionalArguments = None
 		self._additionalImports = None
 		self._symbolsToUpdate = None
+		self._moduleNodesByName = None
+		self._symbolAnalysisByRoutineNameAndSymbolName = None
+		self._symbolsByModuleNameAndSymbolName = None
 
 	@property
 	def additionalArgumentSymbols(self):
@@ -125,6 +149,168 @@ This is not allowed for implementations using %s.\
 				self.node.getAttribute("parallelRegionPosition")
 			)
 
+	def _listCompactedSymbolsAndDeclarationPrefixAndOtherSymbols(self, additionalImports):
+		toBeCompacted = []
+		otherImports = []
+		declarationPrefix = None
+		for symbol in additionalImports:
+			declType = symbol.declarationType
+
+			# compact the imports of real type. Background: Experience has shown that too many
+			# symbols passed to kernels, such that parameter list > 256Byte, can cause strange behavior. (corruption
+			# of parameter list leading to launch failures)
+			#-> need to pack all real symbols into an array to make it work reliably for cases where many reals are imported
+			# why not integers? because they can be used as array boundaries.
+			# Note: currently only a single real type per subroutine is supported for compaction
+			currentDeclarationPrefix = symbol.getSanitizedDeclarationPrefix()
+			if declType in [DeclarationType.FOREIGN_MODULE_SCALAR, DeclarationType.LOCAL_MODULE_SCALAR] \
+			and 'real' in symbol.declarationPrefix.lower() \
+			and (declarationPrefix == None or currentDeclarationPrefix == declarationPrefix):
+				declarationPrefix = currentDeclarationPrefix
+				symbol.isCompacted = True
+				toBeCompacted.append(symbol)
+			else:
+				otherImports.append(symbol)
+		return toBeCompacted, declarationPrefix, otherImports
+
+	def _prepareAdditionalContext(self):
+		if not self._moduleNodesByName \
+		or not self._symbolAnalysisByRoutineNameAndSymbolName \
+		or not self._symbolsByModuleNameAndSymbolName:
+			raise Exception("global context not loaded correctly for routine %s" %(self.name))
+
+		#build list of additional subroutine parameters
+		#(parameters that the user didn't specify but that are necessary based on the features of the underlying technology
+		# and the symbols declared by the user, such us temporary arrays and imported symbols)
+		additionalImportsForOurSelves, \
+		additionalDeclarationsForOurselves, \
+		additionalDummiesForOurselves = self.implementation.getAdditionalKernelParameters(
+			currRoutine=self,
+			callee=self,
+			moduleNodesByName=self._moduleNodesByName,
+			symbolAnalysisByRoutineNameAndSymbolName=self._symbolAnalysisByRoutineNameAndSymbolName
+		)
+		for symbol in additionalImportsForOurSelves + additionalDeclarationsForOurselves:
+			symbol.isEmulatingSymbolThatWasActiveInCurrentScope = True
+
+		symbolsByUniqueNameToBeUpdated = {}
+		for symbol in additionalImportsForOurSelves + additionalDeclarationsForOurselves + additionalDummiesForOurselves:
+			symbolsByUniqueNameToBeUpdated[symbol.uniqueIdentifier] = symbol
+
+		toBeCompacted, declarationPrefix, otherImports = self._listCompactedSymbolsAndDeclarationPrefixAndOtherSymbols(
+			additionalImportsForOurSelves + additionalDeclarationsForOurselves
+		)
+		compactedArrayList = []
+		if len(toBeCompacted) > 0:
+			compactedArrayName = "hfimp_%s" %(self.name)
+			compactedArray = FrameworkArray(
+				compactedArrayName,
+				declarationPrefix,
+				domains=[("hfauto", str(len(toBeCompacted)))],
+				isOnDevice=True
+			)
+			compactedArrayList = [compactedArray]
+		additionalSubroutineParameters = sorted(otherImports + compactedArrayList)
+		self.loadAdditionalArgumentSymbols(additionalSubroutineParameters + additionalDummiesForOurselves)
+
+		#analyse whether this routine is calling other routines that have a parallel region within
+		#+ analyse the additional symbols that come up there
+		additionalParametersByKernelName = {}
+		additionalWrapperImportsByKernelName = {}
+		if self.node.getAttribute("parallelRegionPosition") == "inside":
+			for callee in self.callsByCalleeName.values():
+				additionalImportsForDeviceCompatibility, \
+				additionalDeclarationsForDeviceCompatibility, \
+				additionalDummies = callee.implementation.getAdditionalKernelParameters(
+					currRoutine=self,
+					callee=callee,
+					moduleNodesByName=self._moduleNodesByName,
+					symbolAnalysisByRoutineNameAndSymbolName=self._symbolAnalysisByRoutineNameAndSymbolName
+				)
+				for symbol in additionalImportsForDeviceCompatibility \
+				+ additionalDeclarationsForDeviceCompatibility \
+				+ additionalDummies:
+					symbol.resetScope(self.currRoutine.name)
+					symbolsByUniqueNameToBeUpdated[symbol.uniqueIdentifier] = symbol
+				if 'DEBUG_PRINT' in callee.implementation.optionFlags:
+					tentativeAdditionalImports = getModuleArraysForCallee(
+						callee.name,
+						self._symbolAnalysisByRoutineNameAndSymbolName,
+						self._symbolsByModuleNameAndSymbolName
+					)
+					additionalImports = self.filterOutSymbolsAlreadyAliveInCurrentScope(tentativeAdditionalImports)
+					additionalImportsByName = {}
+					for symbol in additionalImports:
+						additionalImportsByName[symbol.name] = symbol
+						symbol.resetScope(self.currRoutine.name)
+					additionalWrapperImportsByKernelName[callee.name] = additionalImportsByName.values()
+				additionalParametersByKernelName[callee.name] = (
+					additionalImportsForDeviceCompatibility,
+					additionalDeclarationsForDeviceCompatibility + additionalDummies
+				)
+
+		#prepare imports
+		for symbolName in self.symbolsByName:
+			symbol = self.symbolsByName[symbolName]
+			if not symbol.uniqueIdentifier in symbolsByUniqueNameToBeUpdated:
+				symbolsByUniqueNameToBeUpdated[symbol.uniqueIdentifier] = symbol
+		self._symbolsToUpdate = symbolsByUniqueNameToBeUpdated.values()
+		additionalImportsByScopedName = dict(
+			(symbol.nameInScope(), symbol)
+			for symbol in self.filterOutSymbolsAlreadyAliveInCurrentScope(
+				sum(
+					[
+						additionalParametersByKernelName[kernelName][0]
+						for kernelName in additionalParametersByKernelName.keys()
+					],
+					[]
+				) + sum(
+					[
+						additionalWrapperImportsByKernelName[kernelName]
+						for kernelName in additionalWrapperImportsByKernelName.keys()
+					],
+					[]
+				)
+			)
+		)
+		self._additionalImports = additionalImportsByScopedName.values()
+
+		#prepare context in callees and load it into our specification region
+		additionalCompactedSubroutineParameters = sorted(toBeCompacted)
+		ourSymbolsToAdd = sorted(
+			additionalSubroutineParameters + additionalCompactedSubroutineParameters
+		)
+		packedRealSymbolsByCalleeName = {}
+		compactionDeclarationPrefixByCalleeName = {}
+		for callee in self.callsByCalleeName.values():
+			additionalImports, additionalDeclarations = additionalParametersByKernelName[callee.name]
+			toBeCompacted, \
+			declarationPrefix, \
+			notToBeCompacted = self._listCompactedSymbolsAndDeclarationPrefixAndOtherSymbols(
+				additionalImports + additionalDeclarations
+			)
+			if len(toBeCompacted) > 0:
+				compactionDeclarationPrefixByCalleeName[callee.name] = declarationPrefix
+				packedRealSymbolsByCalleeName[callee.name] = toBeCompacted
+			compactedArrayList = []
+			if len(toBeCompacted) > 0:
+				compactedArrayName = "hfimp_%s" %(callee.name)
+				compactedArray = FrameworkArray(
+					compactedArrayName,
+					declarationPrefix,
+					domains=[("hfauto", str(len(toBeCompacted)))],
+					isOnDevice=True
+				)
+				compactedArrayList = [compactedArray]
+			callee.loadAdditionalArgumentSymbols(sorted(notToBeCompacted + compactedArrayList))
+		self.regions[0].loadAdditionalContext(
+			additionalParametersByKernelName,
+			packedRealSymbolsByCalleeName,
+			ourSymbolsToAdd,
+			compactionDeclarationPrefixByCalleeName,
+			additionalCompactedSubroutineParameters
+		)
+
 	def _implementHeader(self):
 		parameterList = ""
 		if self._additionalArguments and len(self._additionalArguments) > 0:
@@ -185,6 +371,7 @@ This is not allowed for implementations using %s.\
 	def createCloneWithMetadata(self, name):
 		clone = AnalyzableRoutine(
 			name,
+			self._parentModule(),
 			routineNode=self.node.cloneNode(deep=True),
 			parallelRegionTemplates=copy.copy(self.parallelRegionTemplates),
 			implementation=self.implementation
@@ -193,6 +380,9 @@ This is not allowed for implementations using %s.\
 		clone._additionalArguments = copy.copy(self._additionalArguments)
 		clone._additionalImports = copy.copy(self._additionalImports)
 		clone._symbolsToUpdate = copy.copy(self._symbolsToUpdate)
+		clone._moduleNodesByName = self._moduleNodesByName
+		clone._symbolAnalysisByRoutineNameAndSymbolName = self._symbolAnalysisByRoutineNameAndSymbolName
+		clone._symbolsByModuleNameAndSymbolName = self._symbolsByModuleNameAndSymbolName
 		clone.symbolsByName = copy.copy(self.symbolsByName)
 		clone.callsByCalleeName = copy.copy(self.callsByCalleeName)
 		return clone
@@ -217,17 +407,21 @@ This is not allowed for implementations using %s.\
 		self._currRegion = region
 		region.loadParentRoutine(self)
 
-	def loadAdditionalArgumentSymbols(self, argumentSymbols):
-		self._additionalArguments = copy.copy(argumentSymbols)
-
-	def loadAdditionalImportSymbols(self, importSymbols):
-		self._additionalImports = copy.copy(importSymbols)
-
 	def loadSymbolsByName(self, symbolsByName):
 		self.symbolsByName = copy.copy(symbolsByName)
 
-	def loadSymbolsToUpdate(self, symbolsToUpdate):
-		self._symbolsToUpdate = copy.copy(symbolsToUpdate)
+	def loadAdditionalArgumentSymbols(self, additionalArgumentSymbols):
+		self._additionalArguments = copy.copy(additionalArgumentSymbols)
+
+	def loadGlobalContext(
+		self,
+		moduleNodesByName,
+		symbolAnalysisByRoutineNameAndSymbolName,
+		symbolsByModuleNameAndSymbolName
+	):
+		self._moduleNodesByName = moduleNodesByName
+		self._symbolAnalysisByRoutineNameAndSymbolName = symbolAnalysisByRoutineNameAndSymbolName
+		self._symbolsByModuleNameAndSymbolName = symbolsByModuleNameAndSymbolName
 
 	def loadCall(self, callRoutine):
 		callRegion = None
@@ -249,6 +443,7 @@ This is not allowed for implementations using %s.\
 
 	def implemented(self):
 		self._checkParallelRegions()
+		self._prepareAdditionalContext()
 		self._updateSymbolState()
 		implementedRoutineElements = [self._implementHeader(), self._implementAdditionalImports()]
 		implementedRoutineElements += [region.implemented() for region in self._regions]

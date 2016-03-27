@@ -29,21 +29,6 @@ from tools.analysis import SymbolDependencyAnalyzer, getAnalysisForSymbol, getAr
 from machinery.parser import H90CallGraphAndSymbolDeclarationsParser, getSymbolsByName, currFile, currLineNo
 from machinery.commons import FortranCodeSanitizer, getSymbolAccessStringAndReminder
 
-def getModuleArraysForCallee(calleeName, symbolAnalysisByRoutineNameAndSymbolName, symbolsByModuleNameAndSymbolName):
-    moduleSymbols = []
-    analysisBySymbolName = symbolAnalysisByRoutineNameAndSymbolName.get(calleeName, {})
-    for symbolCallAnalysis in analysisBySymbolName.values():
-        for symbolAnalysis in symbolCallAnalysis:
-            if not symbolAnalysis.isModuleSymbol:
-                continue
-            symbol = symbolsByModuleNameAndSymbolName.get(symbolAnalysis.sourceModule, {}).get(symbolAnalysis.name)
-            if symbol == None:
-                #this happens for scalars for example
-                continue
-            symbol.analysis = symbolAnalysis
-            moduleSymbols.append(symbol)
-    return moduleSymbols
-
 def getSymbolsByModuleNameAndSymbolName(cgDoc, moduleNodesByName, symbolAnalysisByRoutineNameAndSymbolName={}):
     symbolsByModuleNameAndSymbolName = {}
     for moduleName in moduleNodesByName.keys():
@@ -100,16 +85,12 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
         self.outputStream = outputStream
         self.currSubroutineImplementationNeedsToBeCommented = False
         self.symbolsPassedInCurrentCallByName = {}
-        self.additionalParametersByKernelName = {}
-        self.additionalWrapperImportsByKernelName = {}
         self.currParallelIterators = []
         self.currRoutine = None
         self.currRegion = None
         self.currParallelRegion = None
         self.currModule = None
         self.currCallee = None
-        self.currAdditionalSubroutineParameters = []
-        self.currAdditionalCompactedSubroutineParameters = []
         self.codeSanitizer = FortranCodeSanitizer()
         self.currParallelRegionRelationNode = None
         self.currParallelRegionTemplateNode = None
@@ -272,25 +253,16 @@ This is not allowed for implementations using %s.\
         if calleeNode:
             self.currCallee = AnalyzableRoutine(
                 self.currCalleeName,
+                self.currModule,
                 calleeNode,
                 self.parallelRegionTemplatesByProcName.get(self.currCalleeName),
                 self.implementationForTemplateName(calleeNode.getAttribute('implementationTemplate'))
             )
-            self.currCallee.loadArguments(getArguments(calleeNode))
         else:
-            self.currCallee = Routine(self.currCalleeName)
+            self.currCallee = Routine(self.currCalleeName, self.currModule)
         self.currRoutine.loadCall(self.currCallee)
         remainingCall = None
         if isinstance(self.currCallee, AnalyzableRoutine):
-            additionalImports, additionalDeclarations = self.additionalParametersByKernelName.get(self.currCalleeName, ([], []))
-            toBeCompacted = []
-            toBeCompacted, declarationPrefix, notToBeCompacted = self.listCompactedSymbolsAndDeclarationPrefixAndOtherSymbols(additionalImports + additionalDeclarations)
-            compactedArrayList = []
-            if len(toBeCompacted) > 0:
-                compactedArrayName = "hfimp_%s" %(self.currCalleeName)
-                compactedArray = FrameworkArray(compactedArrayName, declarationPrefix, domains=[("hfauto", str(len(toBeCompacted)))], isOnDevice=True)
-                compactedArrayList = [compactedArray]
-            self.currCallee.loadAdditionalArgumentSymbols(sorted(notToBeCompacted + compactedArrayList))
             remainingCall = self.processSymbolsAndGetAdjustedLine(
                 subProcCallMatch.group(2),
                 isInsideSubroutineCall=True
@@ -357,122 +329,12 @@ This is not allowed for implementations using %s.\
         )
         self.currRoutine.loadSymbolsByName(self.currSymbolsByName)
         self.currRoutine.loadArguments(self.currArguments)
-        self.currRegion = self.currRoutine.currRegion
-
-        #build list of additional subroutine parameters
-        #(parameters that the user didn't specify but that are necessary based on the features of the underlying technology
-        # and the symbols declared by the user, such us temporary arrays and imported symbols)
-        additionalImportsForOurSelves, additionalDeclarationsForOurselves, additionalDummiesForOurselves = self.implementation.getAdditionalKernelParameters(
-            self.cgDoc,
-            self.currArguments,
-            self.currRoutine.node,
-            self.currRoutine.node,
-            self.currModule.node,
-            self.parallelRegionTemplatesByProcName.get(self.currRoutine.name),
+        self.currRoutine.loadGlobalContext(
             self.moduleNodesByName,
-            self.currSymbolsByName,
-            self.symbolAnalysisByRoutineNameAndSymbolName
+            self.symbolAnalysisByRoutineNameAndSymbolName,
+            self.symbolsByModuleNameAndSymbolName
         )
-        logging.debug("additional symbols for ourselves;\nimports: %s\ndeclarations: %s\ndummies: %s" %(
-            additionalImportsForOurSelves,
-            additionalDeclarationsForOurselves,
-            additionalDummiesForOurselves
-        ), extra={"hfLineNo":currLineNo, "hfFile":currFile})
-        for symbol in additionalImportsForOurSelves + additionalDeclarationsForOurselves:
-            symbol.isEmulatingSymbolThatWasActiveInCurrentScope = True
-
-        symbolsByUniqueNameToBeUpdated = {}
-        for symbol in additionalImportsForOurSelves + additionalDeclarationsForOurselves + additionalDummiesForOurselves:
-            symbolsByUniqueNameToBeUpdated[symbol.uniqueIdentifier] = symbol
-
-        toBeCompacted, declarationPrefix, otherImports = self.listCompactedSymbolsAndDeclarationPrefixAndOtherSymbols(
-            additionalImportsForOurSelves + additionalDeclarationsForOurselves
-        )
-        compactedArrayList = []
-        if len(toBeCompacted) > 0:
-            compactedArrayName = "hfimp_%s" %(self.currRoutine.name)
-            compactedArray = FrameworkArray(compactedArrayName, declarationPrefix, domains=[("hfauto", str(len(toBeCompacted)))], isOnDevice=True)
-            compactedArrayList = [compactedArray]
-        self.currAdditionalSubroutineParameters = sorted(otherImports + compactedArrayList)
-        self.currRoutine.loadAdditionalArgumentSymbols(self.currAdditionalSubroutineParameters + additionalDummiesForOurselves)
-        self.currAdditionalCompactedSubroutineParameters = sorted(toBeCompacted)
-
-        #analyse whether this routine is calling other routines that have a parallel region within
-        #+ analyse the additional symbols that come up there
-        if self.currRoutine.node.getAttribute("parallelRegionPosition") == "inside":
-            callsLibraries = self.cgDoc.getElementsByTagName("calls")
-            if not callsLibraries or len(callsLibraries) == 0:
-                raise Exception("Caller library not found.")
-            calls = callsLibraries[0].getElementsByTagName("call")
-            for call in calls:
-                if call.getAttribute("caller") != self.currRoutine.name:
-                    continue
-                calleeName = call.getAttribute("callee")
-                callee = self.routineNodesByProcName.get(calleeName)
-                if not callee:
-                    continue
-                implementation = self.implementationForTemplateName(callee.getAttribute('implementationTemplate'))
-                additionalImportsForDeviceCompatibility, \
-                additionalDeclarationsForDeviceCompatibility, \
-                additionalDummies = implementation.getAdditionalKernelParameters(
-                    self.cgDoc,
-                    getArguments(call),
-                    self.currRoutine.node,
-                    callee,
-                    self.moduleNodesByName[callee.getAttribute('module')],
-                    self.parallelRegionTemplatesByProcName.get(calleeName),
-                    self.moduleNodesByName,
-                    self.currSymbolsByName,
-                    self.symbolAnalysisByRoutineNameAndSymbolName
-                )
-                for symbol in additionalImportsForDeviceCompatibility + additionalDeclarationsForDeviceCompatibility + additionalDummies:
-                    symbol.resetScope(self.currRoutine.name)
-                    symbolsByUniqueNameToBeUpdated[symbol.uniqueIdentifier] = symbol
-                if 'DEBUG_PRINT' in implementation.optionFlags:
-                    tentativeAdditionalImports = getModuleArraysForCallee(
-                        calleeName,
-                        self.symbolAnalysisByRoutineNameAndSymbolName,
-                        self.symbolsByModuleNameAndSymbolName
-                    )
-                    additionalImports = self.filterOutSymbolsAlreadyAliveInCurrentScope(tentativeAdditionalImports)
-                    additionalImportsByName = {}
-                    for symbol in additionalImports:
-                        additionalImportsByName[symbol.name] = symbol
-                        symbol.resetScope(self.currRoutine.name)
-                    self.additionalWrapperImportsByKernelName[calleeName] = additionalImportsByName.values()
-                self.additionalParametersByKernelName[calleeName] = (additionalImportsForDeviceCompatibility, additionalDeclarationsForDeviceCompatibility + additionalDummies)
-                logging.debug("call to %s; additional imports for device compatibility:" %(calleeName), extra={"hfLineNo":currLineNo, "hfFile":currFile})
-                logging.debug("\n".join([str(symbol) for symbol in additionalImportsForDeviceCompatibility]), extra={"hfLineNo":currLineNo, "hfFile":currFile})
-                logging.debug("call to %s; additional declarations for device compatibility:" %(calleeName), extra={"hfLineNo":currLineNo, "hfFile":currFile})
-                logging.debug("\n".join([str(symbol) for symbol in additionalDeclarationsForDeviceCompatibility]), extra={"hfLineNo":currLineNo, "hfFile":currFile})
-                logging.debug("call to %s; additinal dummy parameters:" %(calleeName), extra={"hfLineNo":currLineNo, "hfFile":currFile})
-                logging.debug("\n".join([str(symbol) for symbol in additionalDummies]), extra={"hfLineNo":currLineNo, "hfFile":currFile})
-
-        for symbolName in self.currSymbolsByName:
-            symbol = self.currSymbolsByName[symbolName]
-            if not symbol.uniqueIdentifier in symbolsByUniqueNameToBeUpdated:
-                symbolsByUniqueNameToBeUpdated[symbol.uniqueIdentifier] = symbol
-        self.currRoutine.loadSymbolsToUpdate(symbolsByUniqueNameToBeUpdated.values())
-        additionalImportsByScopedName = dict(
-            (symbol.nameInScope(), symbol)
-            for symbol in self.filterOutSymbolsAlreadyAliveInCurrentScope(
-                sum(
-                    [self.additionalParametersByKernelName[kernelName][0] for kernelName in self.additionalParametersByKernelName.keys()],
-                    []
-                ) + sum(
-                    [self.additionalWrapperImportsByKernelName[kernelName] for kernelName in self.additionalWrapperImportsByKernelName.keys()],
-                    []
-                )
-            )
-        )
-        logging.debug(
-            "curr Module: %s; additional imports: %s" %(
-                self.currModuleName,
-                ["%s: %s from %s" %(symbol.name, symbol.declarationType, symbol.sourceModule) for symbol in additionalImportsByScopedName.values()]
-            ),
-            extra={"hfLineNo":currLineNo, "hfFile":currFile}
-        )
-        self.currRoutine.loadAdditionalImportSymbols(additionalImportsByScopedName.values())
+        self.currRegion = self.currRoutine.currRegion
         self.prepareLine("", self.tab_insideSub)
 
     def processProcExitPoint(self, line, isSubroutineEnd):
@@ -486,10 +348,6 @@ This is not allowed for implementations using %s.\
     def processProcEndMatch(self, subProcEndMatch):
         self.endRegion()
         self.processProcExitPoint(subProcEndMatch.group(0), isSubroutineEnd=True)
-        self.additionalParametersByKernelName = {}
-        self.additionalWrapperImportsByKernelName = {}
-        self.currAdditionalSubroutineParameters = []
-        self.currAdditionalCompactedSubroutineParameters = []
         self.currSubroutineImplementationNeedsToBeCommented = False
         self.currRoutine = None
         super(H90toF90Converter, self).processProcEndMatch(subProcEndMatch)
@@ -538,30 +396,6 @@ This is not allowed for implementations using %s.\
         super(H90toF90Converter, self).processNoMatch(line)
         self.prepareLine(line, "")
 
-    def listCompactedSymbolsAndDeclarationPrefixAndOtherSymbols(self, additionalImports):
-        toBeCompacted = []
-        otherImports = []
-        declarationPrefix = None
-        for symbol in additionalImports:
-            declType = symbol.declarationType
-
-            # compact the imports of real type. Background: Experience has shown that too many
-            # symbols passed to kernels, such that parameter list > 256Byte, can cause strange behavior. (corruption
-            # of parameter list leading to launch failures)
-            #-> need to pack all real symbols into an array to make it work reliably for cases where many reals are imported
-            # why not integers? because they can be used as array boundaries.
-            # Note: currently only a single real type per subroutine is supported for compaction
-            currentDeclarationPrefix = symbol.getSanitizedDeclarationPrefix()
-            if declType in [DeclarationType.FOREIGN_MODULE_SCALAR, DeclarationType.LOCAL_MODULE_SCALAR] \
-            and 'real' in symbol.declarationPrefix.lower() \
-            and (declarationPrefix == None or currentDeclarationPrefix == declarationPrefix):
-                declarationPrefix = currentDeclarationPrefix
-                symbol.isCompacted = True
-                toBeCompacted.append(symbol)
-            else:
-                otherImports.append(symbol)
-        return toBeCompacted, declarationPrefix, otherImports
-
     def processInsideModuleState(self, line):
         super(H90toF90Converter, self).processInsideModuleState(line)
         if self.state not in ['inside_module', 'inside_branch'] \
@@ -572,39 +406,6 @@ This is not allowed for implementations using %s.\
 
     def processInsideDeclarationsState(self, line):
         '''process everything that happens per h90 declaration line'''
-
-        def finalizeDeclarationContext():
-            ourSymbolsToAdd = sorted(
-                self.currAdditionalSubroutineParameters + self.currAdditionalCompactedSubroutineParameters
-            )
-            additionalImports = []
-            if 'DEBUG_PRINT' in self.implementation.optionFlags:
-                callsLibraries = self.cgDoc.getElementsByTagName("calls")
-                calls = callsLibraries[0].getElementsByTagName("call")
-                for call in calls:
-                    if call.getAttribute("caller") != self.currRoutine.name:
-                        continue
-                    calleeName = call.getAttribute("callee")
-                    additionalImports += self.additionalWrapperImportsByKernelName.get(calleeName, [])
-            packedRealSymbolsByCalleeName = {}
-            compactionDeclarationPrefixByCalleeName = {}
-            for calleeName in self.additionalParametersByKernelName.keys():
-                additionalImports, additionalDeclarations = self.additionalParametersByKernelName[calleeName]
-                toBeCompacted, declarationPrefix, _ = self.listCompactedSymbolsAndDeclarationPrefixAndOtherSymbols(
-                    additionalImports + additionalDeclarations
-                )
-                if len(toBeCompacted) > 0:
-                    compactionDeclarationPrefixByCalleeName[calleeName] = declarationPrefix
-                    packedRealSymbolsByCalleeName[calleeName] = toBeCompacted
-            self.currRegion.loadAdditionalContext(
-                self.additionalParametersByKernelName,
-                packedRealSymbolsByCalleeName,
-                ourSymbolsToAdd,
-                compactionDeclarationPrefixByCalleeName,
-                self.currAdditionalCompactedSubroutineParameters
-            )
-            self.switchToNewRegion()
-
         subProcCallMatch = self.patterns.subprocCallPattern.match(line)
         parallelRegionMatch = self.patterns.parallelRegionPattern.match(line)
         domainDependantMatch = self.patterns.domainDependantPattern.match(line)
@@ -617,7 +418,6 @@ This is not allowed for implementations using %s.\
             self.processBranchMatch(branchMatch)
             return
         if subProcCallMatch:
-            finalizeDeclarationContext()
             self.switchToNewRegion("CallRegion")
             self.processCallMatch(subProcCallMatch)
             if (self.state == "inside_branch" and self.stateBeforeBranch != 'inside_subroutine_call') or (self.state != "inside_branch" and self.state != 'inside_subroutine_call'):
@@ -625,7 +425,6 @@ This is not allowed for implementations using %s.\
             self.switchToNewRegion()
             return
         if subProcEndMatch:
-            finalizeDeclarationContext()
             self.processProcEndMatch(subProcEndMatch)
             if self.state == "inside_branch":
                 self.stateBeforeBranch = 'inside_module_body'
@@ -646,7 +445,7 @@ This is not allowed for implementations using %s.\
                 self.stateBeforeBranch = 'inside_domainDependantRegion'
             else:
                 self.state = 'inside_domainDependantRegion'
-            finalizeDeclarationContext()
+            self.switchToNewRegion()
             self.processDomainDependantMatch(domainDependantMatch)
             return
 
@@ -667,7 +466,7 @@ This is not allowed for implementations using %s.\
                 self.stateBeforeBranch = "inside_subroutine_body"
             else:
                 self.state = "inside_subroutine_body"
-            finalizeDeclarationContext()
+            self.switchToNewRegion()
             self.processInsideSubroutineBodyState(line)
             return
 

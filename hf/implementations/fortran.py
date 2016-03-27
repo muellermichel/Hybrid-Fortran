@@ -106,15 +106,10 @@ class FortranImplementation(object):
 
 	def getAdditionalKernelParameters(
 		self,
-		cgDoc,
-		currArguments,
-		currRoutineNode,
-		calleeNode,
-		moduleNode,
-		parallelRegionTemplates,
+		currRoutine,
+		callee,
 		moduleNodesByName,
-		currSymbolsByName={},
-		symbolAnalysisByRoutineNameAndSymbolName={}
+		symbolAnalysisByRoutineNameAndSymbolName={},
 	):
 		return [], [], []
 
@@ -842,32 +837,26 @@ end if\n" %(calleeNode.getAttribute('name'))
 
 	def getAdditionalKernelParameters(
 		self,
-		cgDoc,
-		currArguments,
-		currRoutineNode,
-		calleeNode,
-		moduleNode,
-		parallelRegionTemplates,
+		currRoutine,
+		callee,
 		moduleNodesByName,
-		currSymbolsByName={},
 		symbolAnalysisByRoutineNameAndSymbolName={},
-
 	):
 		def getAdditionalImportsAndDeclarationsForParentScope(parentNode, argumentSymbolNames):
 			additionalImports = []
 			additionalDeclarations = []
 			additionalDummies = []
-			dependantTemplatesAndEntries = getDomainDependantTemplatesAndEntries(cgDoc, parentNode)
+			dependantTemplatesAndEntries = getDomainDependantTemplatesAndEntries(parentNode.ownerDocument, parentNode)
 			for template, entry in dependantTemplatesAndEntries:
 				dependantName = entry.firstChild.nodeValue
 				if dependantName in argumentSymbolNames:
 					continue #in case user is working with slices and passing them to different symbols inside the kernel, he has to manage that stuff manually
-				symbol = currSymbolsByName.get(dependantName)
+				symbol = currRoutine.symbolsByName.get(dependantName)
 				if symbol == None:
 					logging.debug("while analyzing additional kernel parameters: symbol %s was not available yet for parent %s, so it was loaded freshly;\nCurrent symbols:%s\n" %(
 						dependantName,
 						parentNode.getAttribute('name'),
-						currSymbolsByName.keys()
+						currRoutine.symbolsByName.keys()
 					))
 					symbol = Symbol(
 						dependantName,
@@ -875,13 +864,13 @@ end if\n" %(calleeNode.getAttribute('name'))
 						symbolEntry=entry,
 						scopeNode=parentNode,
 						analysis=getAnalysisForSymbol(symbolAnalysisByRoutineNameAndSymbolName, parentNode.getAttribute('name'), dependantName),
-						parallelRegionTemplates=parallelRegionTemplates
+						parallelRegionTemplates=callee.parallelRegionTemplates
 					)
-				symbol.loadRoutineNodeAttributes(parentNode, parallelRegionTemplates)
+				symbol.loadRoutineNodeAttributes(parentNode, callee.parallelRegionTemplates)
 				if symbol.isDummySymbolForRoutine(routineName=parentNode.getAttribute('name')):
 					continue #already passed manually
 				if symbol.declarationType == DeclarationType.LOCAL_MODULE_SCALAR \
-				and (currRoutineNode.getAttribute('module') == symbol.sourceModule):
+				and (currRoutine.node.getAttribute('module') == symbol.sourceModule):
 					logging.debug("decl added for %s" %(symbol))
 					additionalDeclarations.append(symbol)
 				elif (symbol.analysis and symbol.analysis.isModuleSymbol) \
@@ -889,12 +878,12 @@ end if\n" %(calleeNode.getAttribute('name'))
 						DeclarationType.LOCAL_MODULE_SCALAR,
 						DeclarationType.MODULE_ARRAY,
 						DeclarationType.MODULE_ARRAY_PASSED_IN_AS_ARGUMENT
-					] and currRoutineNode.getAttribute('module') != symbol.sourceModule \
+					] and currRoutine.node.getAttribute('module') != symbol.sourceModule \
 				) \
 				or symbol.declarationType == DeclarationType.FOREIGN_MODULE_SCALAR:
-					if symbol.sourceModule != moduleNode.getAttribute('name'):
+					if symbol.sourceModule != callee.parentModule.node.getAttribute('name'):
 						foreignModuleNode = moduleNodesByName[symbol.sourceModule]
-						symbol.loadImportInformation(cgDoc, foreignModuleNode)
+						symbol.loadImportInformation(parentNode.ownerDocument, foreignModuleNode)
 					logging.debug("import added for %s" %(symbol))
 					additionalImports.append(symbol)
 				elif symbol.declarationType == DeclarationType.LOCAL_ARRAY:
@@ -902,20 +891,20 @@ end if\n" %(calleeNode.getAttribute('name'))
 					additionalDummies.append(symbol)
 			return additionalImports, additionalDeclarations, additionalDummies
 
-		if calleeNode.getAttribute("parallelRegionPosition") != "within" or not parallelRegionTemplates:
+		if callee.node.getAttribute("parallelRegionPosition") != "within" or not callee.parallelRegionTemplates:
 			return [], [], []
 		argumentSymbolNames = []
-		for argument in currArguments:
+		for argument in callee.programmerArguments:
 			argumentMatch = self.patterns.callArgumentPattern.match(argument)
 			if not argumentMatch:
 				raise UsageError("illegal argument: %s" %(argument))
 			argumentSymbolNames.append(argumentMatch.group(1))
-		logging.debug("============ loading additional symbols for module %s ===============" %(moduleNode.getAttribute("name")))
-		moduleImports, moduleDeclarations, additionalDummies = getAdditionalImportsAndDeclarationsForParentScope(moduleNode, argumentSymbolNames)
+		logging.debug("============ loading additional symbols for module %s ===============" %(callee.parentModule.node.getAttribute("name")))
+		moduleImports, moduleDeclarations, additionalDummies = getAdditionalImportsAndDeclarationsForParentScope(callee.parentModule.node, argumentSymbolNames)
 		if len(additionalDummies) != 0:
 			raise Exception("dummies are supposed to be added for module scope symbols")
-		logging.debug("============ loading additional symbols for routine %s ==============" %(calleeNode.getAttribute("name")))
-		routineImports, routineDeclarations, additionalDummies = getAdditionalImportsAndDeclarationsForParentScope(calleeNode, argumentSymbolNames)
+		logging.debug("============ loading additional symbols for routine %s ==============" %(callee.node.getAttribute("name")))
+		routineImports, routineDeclarations, additionalDummies = getAdditionalImportsAndDeclarationsForParentScope(callee.node, argumentSymbolNames)
 		return sorted(routineImports + moduleImports), sorted(routineDeclarations + moduleDeclarations), sorted(additionalDummies)
 
 	def getIterators(self, parallelRegionTemplate):

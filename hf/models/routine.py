@@ -78,7 +78,7 @@ class AnalyzableRoutine(Routine):
 		self.node = routineNode
 		self.parallelRegionTemplates = copy.copy(parallelRegionTemplates)
 		self.symbolsByName = None
-		self.callsByCalleeName = {}
+		self.callees = []
 		self._currRegion = RoutineSpecificationRegion(self)
 		self._regions = [self._currRegion]
 		self._additionalArguments = None
@@ -218,7 +218,7 @@ This is not allowed for implementations using %s.\
 		additionalParametersByKernelName = {}
 		additionalWrapperImportsByKernelName = {}
 		if self.node.getAttribute("parallelRegionPosition") == "inside":
-			for callee in self.callsByCalleeName.values():
+			for callee in self.callees:
 				additionalImportsForDeviceCompatibility, \
 				additionalDeclarationsForDeviceCompatibility, \
 				additionalDummies = callee.implementation.getAdditionalKernelParameters(
@@ -282,7 +282,7 @@ This is not allowed for implementations using %s.\
 		)
 		packedRealSymbolsByCalleeName = {}
 		compactionDeclarationPrefixByCalleeName = {}
-		for callee in self.callsByCalleeName.values():
+		for callee in self.callees:
 			additionalImports, additionalDeclarations = additionalParametersByKernelName[callee.name]
 			toBeCompacted, \
 			declarationPrefix, \
@@ -384,7 +384,7 @@ This is not allowed for implementations using %s.\
 		clone._symbolAnalysisByRoutineNameAndSymbolName = self._symbolAnalysisByRoutineNameAndSymbolName
 		clone._symbolsByModuleNameAndSymbolName = self._symbolsByModuleNameAndSymbolName
 		clone.symbolsByName = copy.copy(self.symbolsByName)
-		clone.callsByCalleeName = copy.copy(self.callsByCalleeName)
+		clone.callees = copy.copy(self.callees)
 		return clone
 
 	def resetRegions(self, firstRegion):
@@ -436,7 +436,7 @@ This is not allowed for implementations using %s.\
 				self.name
 			))
 		callRegion.loadCallee(callRoutine)
-		self.callsByCalleeName[callRoutine.name] = callRoutine
+		self.callees.append(callRoutine)
 
 	def loadLine(self, line, symbolsOnCurrentLine=None):
 		self._currRegion.loadLine(line, symbolsOnCurrentLine)

@@ -353,15 +353,12 @@ class RoutineSpecificationRegion(Region):
 				declarationRegionType,
 				parentRoutine.node.getAttribute('parallelRegionPosition')
 			).rstrip() + " ! type %i symbol added for this subroutine\n" %(symbol.declarationType)
-		for calleeName in self._additionalParametersByKernelName:
-			additionalImports, additionalDeclarations = self._additionalParametersByKernelName[calleeName]
+		for callee in parentRoutine.callees:
+			additionalImports, additionalDeclarations = self._additionalParametersByKernelName[callee.name]
 			additionalImportSymbolsByName = {}
 			for symbol in additionalImports:
 				additionalImportSymbolsByName[symbol.name] = symbol
 
-			callee = parentRoutine.callsByCalleeName.get(calleeName)
-			if not callee:
-				raise Exception("kernel %s is not loaded properly in routine %s" %(calleeName, parentRoutine.name))
 			implementation = callee.implementation
 			for symbol in parentRoutine.filterOutSymbolsAlreadyAliveInCurrentScope(additionalDeclarations):
 				if symbol.declarationType not in [DeclarationType.LOCAL_ARRAY, DeclarationType.LOCAL_SCALAR]:
@@ -386,14 +383,14 @@ class RoutineSpecificationRegion(Region):
 					[symbol],
 					declarationRegionType,
 					parentRoutine.node.getAttribute('parallelRegionPosition')
-				).rstrip() + " ! type %i symbol added for callee %s\n" %(symbol.declarationType, calleeName)
-			toBeCompacted = self._packedRealSymbolsByCalleeName.get(calleeName, [])
+				).rstrip() + " ! type %i symbol added for callee %s\n" %(symbol.declarationType, callee.name)
+			toBeCompacted = self._packedRealSymbolsByCalleeName.get(callee.name, [])
 			if len(toBeCompacted) > 0:
 				#TODO: generalize for cases where we don't want this to be on the device (e.g. put this into Implementation class)
-				compactedArrayName = "hfimp_%s" %(calleeName)
+				compactedArrayName = "hfimp_%s" %(callee.name)
 				compactedArray = FrameworkArray(
 					compactedArrayName,
-					self._compactionDeclarationPrefixByCalleeName[calleeName],
+					self._compactionDeclarationPrefixByCalleeName[callee.name],
 					domains=[("hfauto", str(len(toBeCompacted)))],
 					isOnDevice=True
 				)
@@ -402,7 +399,7 @@ class RoutineSpecificationRegion(Region):
 					[compactedArray],
 					declarationRegionType,
 					parentRoutine.node.getAttribute('parallelRegionPosition')
-				).rstrip() + " ! compaction array added for callee %s\n" %(calleeName)
+				).rstrip() + " ! compaction array added for callee %s\n" %(callee.name)
 
 		calleesWithPackedReals = self._packedRealSymbolsByCalleeName.keys()
 		for calleeName in calleesWithPackedReals:

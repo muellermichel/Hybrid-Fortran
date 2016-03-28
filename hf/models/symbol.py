@@ -224,7 +224,7 @@ class Symbol(object):
 			self.patterns = RegExPatterns.Instance()
 		self.analysis = analysis
 		self.declPattern = self.patterns.get(r'(\s*(?:double\s+precision|real|integer|logical).*?[\s,:]+)' + re.escape(name) + r'((?:\s|\,|\(|$)+.*)')
-		self.importPattern = self.patterns.get(r'^\s*use\s*(\w*)[,\s]*only\s*\:.*?\W' + re.escape(name) + r'\W.*')
+		self.importPattern = self.patterns.get(r'^\s*use\s*(\w*)\s*,\s*only\s*.*?\W\s*' + re.escape(name) + r'(?:\W|$).*')
 		self.importMapPattern = self.patterns.get(r'.*?\W' + re.escape(name) + r'\s*\=\>\s*(\w*).*')
 		self.pointerDeclarationPattern = self.patterns.get(r'\s*(?:double\s+precision|real|integer|logical).*?pointer.*?[\s,:]+' + re.escape(name))
 		self.initLevel = Init.NOTHING_LOADED

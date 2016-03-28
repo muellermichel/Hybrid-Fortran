@@ -285,7 +285,7 @@ This is not allowed for implementations using %s.\
             adjustedLine = self.implementation.adjustDeclarationForDevice(
                 adjustedLine,
                 self.symbolsOnCurrentLine,
-                declarationRegionType,
+                RegionType.MODULE_DECLARATION,
                 self.currRoutine.node.getAttribute('parallelRegionPosition') if self.currRoutine else "inside"
             )
         return adjustedLine

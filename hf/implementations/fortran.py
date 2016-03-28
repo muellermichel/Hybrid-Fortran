@@ -96,6 +96,8 @@ class FortranImplementation(object):
 		return 'call %s' %(subroutineName)
 
 	def adjustImportForDevice(self, line, dependantSymbols, regionType, parallelRegionPosition, parallelRegionTemplates):
+		if line == None:
+			return ""
 		return line
 
 	def adjustDeclarationForDevice(self, line, dependantSymbols, regionType, parallelRegionPosition):
@@ -400,7 +402,7 @@ class DeviceDataFortranImplementation(FortranImplementation):
 			return ""
 
 		adjustedLine = line
-		if not adjustedLine or dependantSymbols[0].isPresent:
+		if adjustedLine == None or dependantSymbols[0].isPresent:
 			#amend import or convert to device symbol version for already present symbols
 			adjustedLine = importStatements(dependantSymbols)
 			return adjustedLine + "\n"

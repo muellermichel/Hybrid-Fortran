@@ -377,14 +377,7 @@ class DeviceDataFortranImplementation(FortranImplementation):
 		))
 
 	def adjustImportForDevice(self, line, dependantSymbols, regionType, parallelRegionPosition, parallelRegionTemplates):
-		if len(dependantSymbols) == 0:
-			raise Exception("unexpected empty list of symbols")
 		_, _, _ = _checkDeclarationConformity(dependantSymbols)
-		for symbol in dependantSymbols:
-			if len(symbol.domains) == 0:
-				continue
-			if not line and not symbol.isPresent:
-				raise UsageError("symbol %s needs to be already present on the device in this context" %(symbol))
 
 		for symbol in dependantSymbols:
 			self.updateSymbolDeviceState(symbol, RegionType.OTHER, parallelRegionPosition, postTransfer=True)
@@ -392,15 +385,18 @@ class DeviceDataFortranImplementation(FortranImplementation):
 			return ""
 
 		adjustedLine = line
-		if adjustedLine == None or dependantSymbols[0].isPresent:
+		if adjustedLine == None \
+		or (len(dependantSymbols) > 0 and dependantSymbols[0].isPresent):
 			#amend import or convert to device symbol version for already present symbols
 			adjustedLine = getImportStatements(dependantSymbols)
 			return adjustedLine + "\n"
 
-		if dependantSymbols[0].isPresent or dependantSymbols[0].isHostSymbol:
+		if len(dependantSymbols) > 0 \
+		and (dependantSymbols[0].isPresent or dependantSymbols[0].isHostSymbol):
 			return adjustedLine + "\n"
 
-		if dependantSymbols[0].isToBeTransfered or regionType == RegionType.KERNEL_CALLER_DECLARATION:
+		if (len(dependantSymbols) > 0 and dependantSymbols[0].isToBeTransfered) \
+		or regionType == RegionType.KERNEL_CALLER_DECLARATION:
 			adjustedLine += getImportStatements(dependantSymbols)
 		return adjustedLine + "\n"
 

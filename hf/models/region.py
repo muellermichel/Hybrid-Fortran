@@ -329,10 +329,11 @@ class RoutineSpecificationRegion(Region):
 		importsRequiredDict = copy.copy(self._allImports)
 		if len(importedSymbols) > 0:
 			text += getImportLine(None, importedSymbols, parentRoutine)
-			for symbol in importedSymbols:
-				k = (symbol.sourceModule, symbol.nameInScope())
-				if k in importsRequiredDict:
-					del importsRequiredDict[k]
+			if importsRequiredDict:
+				for symbol in importedSymbols:
+					k = (symbol.sourceModule, symbol.nameInScope())
+					if k in importsRequiredDict:
+						del importsRequiredDict[k]
 		if importsRequiredDict:
 			for (sourceModule, nameInScope) in importsRequiredDict:
 				sourceName = importsRequiredDict[(sourceModule, nameInScope)]

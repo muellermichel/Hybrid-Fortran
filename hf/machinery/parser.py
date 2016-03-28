@@ -873,7 +873,6 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
             parentNode = self.routineNodesByProcName.get(self.currSubprocName)
         else:
             parentNode = self.moduleNodesByName[self.currModuleName]
-        parallelRegionPosition = parentNode.getAttribute("parallelRegionPosition")
         moduleName = importMatch.group(1)
         if moduleName == "":
             raise UsageError("import without module specified")
@@ -1139,7 +1138,7 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
         if not self.symbolsByModuleNameAndSymbolName:
             return #in case we run this at a point where foreign symbol analysis is not available yet
         moduleSymbolParsingRequired = not self.implementation.supportsNativeModuleImportsWithinKernels \
-            and parallelRegionPosition in ["within", "outside"]
+            and parentNode.getAttribute("parallelRegionPosition") in ["within", "outside"]
         moduleSymbolsByName = self.symbolsByModuleNameAndSymbolName.get(moduleName)
         if not moduleSymbolsByName and moduleSymbolParsingRequired:
             raise UsageError(

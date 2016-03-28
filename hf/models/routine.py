@@ -20,8 +20,9 @@
 
 import copy, weakref
 from models.region import RegionType, RoutineSpecificationRegion, ParallelRegion, CallRegion
-from models.symbol import FrameworkArray
+from models.symbol import FrameworkArray, DeclarationType
 from machinery.commons import ConversionOptions
+from tools.commons import UsageError
 
 def getModuleArraysForCallee(calleeName, symbolAnalysisByRoutineNameAndSymbolName, symbolsByModuleNameAndSymbolName):
     moduleSymbols = []
@@ -450,16 +451,20 @@ This is not allowed for implementations using %s.\
 		self._currRegion.loadLine(line, symbolsOnCurrentLine)
 
 	def implemented(self):
-		self._checkParallelRegions()
-		self._prepareAdditionalContext()
-		self._updateSymbolState()
-		implementedRoutineElements = [self._implementHeader(), self._implementAdditionalImports()]
-		implementedRoutineElements += [region.implemented() for region in self._regions]
-		implementedRoutineElements += [self._implementFooter()]
-		purgedRoutineElements = [
-			(index, text) for index, text in enumerate(implementedRoutineElements)
-			if text != ""
-		]
+		purgedRoutineElements = []
+		try:
+			self._checkParallelRegions()
+			self._prepareAdditionalContext()
+			self._updateSymbolState()
+			implementedRoutineElements = [self._implementHeader(), self._implementAdditionalImports()]
+			implementedRoutineElements += [region.implemented() for region in self._regions]
+			implementedRoutineElements += [self._implementFooter()]
+			purgedRoutineElements = [
+				(index, text) for index, text in enumerate(implementedRoutineElements)
+				if text != ""
+			]
+		except UsageError as e:
+			raise UsageError("Error in %s: %s" %(self.name, str(e)))
 		return "\n".join([
 			text
 			for (index, text) in purgedRoutineElements

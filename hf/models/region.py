@@ -354,7 +354,10 @@ class RoutineSpecificationRegion(Region):
 				parentRoutine.node.getAttribute('parallelRegionPosition')
 			).rstrip() + " ! type %i symbol added for this subroutine\n" %(symbol.declarationType)
 		for callee in parentRoutine.callees:
-			additionalImports, additionalDeclarations = self._additionalParametersByKernelName[callee.name]
+			additionalImports, additionalDeclarations = self._additionalParametersByKernelName.get(
+				callee.name,
+				([], [])
+			)
 			additionalImportSymbolsByName = {}
 			for symbol in additionalImports:
 				additionalImportSymbolsByName[symbol.name] = symbol

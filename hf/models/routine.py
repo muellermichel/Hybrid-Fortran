@@ -283,7 +283,10 @@ This is not allowed for implementations using %s.\
 		packedRealSymbolsByCalleeName = {}
 		compactionDeclarationPrefixByCalleeName = {}
 		for callee in self.callees:
-			additionalImports, additionalDeclarations = additionalParametersByKernelName[callee.name]
+			additionalImports, additionalDeclarations = additionalParametersByKernelName.get(
+				callee.name,
+				([], [])
+			)
 			toBeCompacted, \
 			declarationPrefix, \
 			notToBeCompacted = self._listCompactedSymbolsAndDeclarationPrefixAndOtherSymbols(

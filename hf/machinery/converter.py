@@ -346,6 +346,7 @@ This is not allowed for implementations using %s.\
             self.switchToNewRegion()
 
     def processProcEndMatch(self, subProcEndMatch):
+        self.currRoutine.loadAllImports(self.currRoutineImportsDict)
         self.endRegion()
         self.processProcExitPoint(subProcEndMatch.group(0), isSubroutineEnd=True)
         self.currSubroutineImplementationNeedsToBeCommented = False

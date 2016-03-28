@@ -246,6 +246,7 @@ class RoutineSpecificationRegion(Region):
 		self._symbolsToAdd = None
 		self._compactionDeclarationPrefixByCalleeName = None
 		self._currAdditionalCompactedSubroutineParameters = None
+		self._allImports = None
 
 	def clone(self):
 		clone = super(RoutineSpecificationRegion, self).clone()
@@ -254,7 +255,8 @@ class RoutineSpecificationRegion(Region):
 			self._packedRealSymbolsByCalleeName,
 			self._symbolsToAdd,
 			self._compactionDeclarationPrefixByCalleeName,
-			self._currAdditionalCompactedSubroutineParameters
+			self._currAdditionalCompactedSubroutineParameters,
+			self._allImports
 		)
 		return clone
 
@@ -264,15 +266,26 @@ class RoutineSpecificationRegion(Region):
 		packedRealSymbolsByCalleeName,
 		symbolsToAdd,
 		compactionDeclarationPrefixByCalleeName,
-		currAdditionalCompactedSubroutineParameters
+		currAdditionalCompactedSubroutineParameters,
+		allImports
 	):
 		self._additionalParametersByKernelName = copy.copy(additionalParametersByKernelName)
 		self._packedRealSymbolsByCalleeName = copy.copy(packedRealSymbolsByCalleeName)
 		self._symbolsToAdd = copy.copy(symbolsToAdd)
 		self._compactionDeclarationPrefixByCalleeName = copy.copy(compactionDeclarationPrefixByCalleeName)
 		self._currAdditionalCompactedSubroutineParameters = copy.copy(currAdditionalCompactedSubroutineParameters)
+		self._allImports = copy.copy(allImports)
 
 	def implemented(self, skipDebugPrint=False):
+		def getImportLine(line, importedSymbols, parentRoutine):
+			return parentRoutine.implementation.adjustImportForDevice(
+				line,
+				importedSymbols,
+				RegionType.KERNEL_CALLER_DECLARATION if parentRoutine.isCallingKernel else RegionType.OTHER,
+				parentRoutine.node.getAttribute('parallelRegionPosition'),
+				parentRoutine.parallelRegionTemplates
+			).strip() + "\n"
+
 		parentRoutine = self._routineRef()
 		declarationRegionType = RegionType.OTHER
 		if parentRoutine.isCallingKernel:
@@ -313,14 +326,22 @@ class RoutineSpecificationRegion(Region):
 				raise Exception("symbol %s expected to be referenced in line '%s', but all matchings have failed" %(symbol.name, line))
 
 		text = textBeforeImports
+		importsRequiredDict = copy.copy(self._allImports)
 		if len(importedSymbols) > 0:
-			text += parentRoutine.implementation.adjustImportForDevice(
-				None,
-				importedSymbols,
-				RegionType.KERNEL_CALLER_DECLARATION if parentRoutine.isCallingKernel else RegionType.OTHER,
-				parentRoutine.node.getAttribute('parallelRegionPosition'),
-				parentRoutine.parallelRegionTemplates
-			).strip() + "\n"
+			text += getImportLine(None, importedSymbols, parentRoutine)
+			for symbol in importedSymbols:
+				k = (symbol.sourceModule, symbol.nameInScope())
+				if k in importsRequiredDict:
+					del importsRequiredDict[k]
+		if importsRequiredDict:
+			for (sourceModule, nameInScope) in importsRequiredDict:
+				sourceName = importsRequiredDict[(sourceModule, nameInScope)]
+				text += getImportLine(
+					"use %s, only: %s => %s" %(sourceModule, nameInScope, sourceName),
+					[],
+					parentRoutine
+				)
+
 		text += textBeforeDeclarations
 		if len(declaredSymbols) > 0:
 			text += "\n".join([

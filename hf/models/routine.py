@@ -87,6 +87,7 @@ class AnalyzableRoutine(Routine):
 		self._moduleNodesByName = None
 		self._symbolAnalysisByRoutineNameAndSymbolName = None
 		self._symbolsByModuleNameAndSymbolName = None
+		self._allImports = None
 
 	@property
 	def additionalArgumentSymbols(self):
@@ -311,7 +312,8 @@ This is not allowed for implementations using %s.\
 			packedRealSymbolsByCalleeName,
 			ourSymbolsToAdd,
 			compactionDeclarationPrefixByCalleeName,
-			additionalCompactedSubroutineParameters
+			additionalCompactedSubroutineParameters,
+			self._allImports
 		)
 
 	def _implementHeader(self):
@@ -415,6 +417,9 @@ This is not allowed for implementations using %s.\
 
 	def loadAdditionalArgumentSymbols(self, additionalArgumentSymbols):
 		self._additionalArguments = copy.copy(additionalArgumentSymbols)
+
+	def loadAllImports(self, allImports):
+		self._allImports = copy.copy(allImports)
 
 	def loadGlobalContext(
 		self,

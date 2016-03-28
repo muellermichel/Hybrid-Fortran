@@ -723,17 +723,6 @@ def getParallelRegionData(cgDoc):
     return parallelRegionTemplateRelationsByProcName, parallelRegionTemplatesByProcName, routineNodesByProcName, routineNodesByModule
 
 class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
-    cgDoc = None
-    symbolsOnCurrentLine = None
-    importsOnCurrentLine = None
-    routineNodesByProcName = None
-    moduleNodesByName = None
-    routineNodesByModule = None
-    parallelRegionTemplatesByProcName = None
-    parallelRegionTemplateRelationsByProcName = None
-    #$$$ remove this in case we never enable routine domain dependant specifications for module symbols (likely)
-    # tentativeModuleSymbolsByName = None
-
     def __init__(self, cgDoc, moduleNodesByName=None, parallelRegionData=None, implementationsByTemplateName=None):
         self.cgDoc = cgDoc
         self.symbolsOnCurrentLine = []
@@ -752,6 +741,8 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
         self.parallelRegionTemplateRelationsByProcName = parallelRegionData[0]
         self.routineNodesByProcName = parallelRegionData[2]
         self.routineNodesByModule = parallelRegionData[3]
+        self.currModuleImportsDict = None
+        self.currRoutineImportsDict = None
         super(H90CallGraphAndSymbolDeclarationsParser, self).__init__()
 
     @property
@@ -789,7 +780,7 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
     def analyseSymbolInformationOnCurrentLine(self, line, analyseImports=True, isModuleSpecification=False):
         selectiveImportMatch = self.patterns.selectiveImportPattern.match(line)
         if selectiveImportMatch:
-            self.processImplicitForeignModuleSymbolMatch(selectiveImportMatch)
+            self.processImportMatch(selectiveImportMatch)
 
         specifiedSymbolsByNameInScope = dict(
             (symbol.nameInScope(useDeviceVersionIfAvailable=False), symbol)
@@ -866,6 +857,41 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
                 )
             arrayDeclarationLine = symbol.isArray
 
+    def processImport(self, parentNode, uid, moduleName, sourceSymbol, symbolInScope):
+        k = (moduleName, symbolInScope)
+        if self.currRoutineImportsDict != None:
+            self.currRoutineImportsDict[k] = sourceSymbol
+        elif self.currModuleImportsDict != None:
+            self.currModuleImportsDict[k] = sourceSymbol
+        else:
+            raise Exception("unexpected import on this line")
+
+    def processImportMatch(self, importMatch):
+        parentNode = None
+        isInModuleScope = self.currSubprocName in [None, ""]
+        if not isInModuleScope:
+            parentNode = self.routineNodesByProcName.get(self.currSubprocName)
+        else:
+            parentNode = self.moduleNodesByName[self.currModuleName]
+        parallelRegionPosition = parentNode.getAttribute("parallelRegionPosition")
+        moduleName = importMatch.group(1)
+        if moduleName == "":
+            raise UsageError("import without module specified")
+        symbolList = importMatch.group(2).split(',')
+        for entry in symbolList:
+            stripped = entry.strip()
+            uid = uniqueIdentifier(stripped, parentNode.getAttribute("name"))
+            mappedImportMatch = self.patterns.singleMappedImportPattern.match(stripped)
+            sourceSymbol = None
+            symbolInScope = None
+            if mappedImportMatch:
+                symbolInScope = mappedImportMatch.group(1)
+                sourceSymbol = mappedImportMatch.group(2)
+            else:
+                symbolInScope = stripped
+                sourceSymbol = symbolInScope
+            self.processImport(parentNode, uid, moduleName, sourceSymbol, symbolInScope)
+
     def processSymbolDeclMatch(self, paramDeclMatch, symbol):
         '''process everything that happens per h90 declaration symbol'''
         logging.debug("processing symbol declaration for %s" %(symbol))
@@ -939,9 +965,6 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
             return
         self.analyseSymbolInformationOnCurrentLine(line)
 
-    def processImplicitForeignModuleSymbolMatch(self, importMatch):
-        pass
-
     def processModuleBeginMatch(self, moduleBeginMatch):
         super(H90CallGraphAndSymbolDeclarationsParser, self).processModuleBeginMatch(moduleBeginMatch)
         moduleName = moduleBeginMatch.group(1)
@@ -949,6 +972,7 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
         if not moduleNode:
             return
         self.loadSymbolsFromTemplate(moduleNode, None, isModuleSymbols=True)
+        self.currModuleImportsDict = {}
 
         #$$$ remove this in case we never enable routine domain dependant specifications for module symbols (likely)
         #just in case a programmer (like myself when doing the original ASUCA HF physics when HF didn't yet have module capabilities) specified module symbols within routine nodes instead of the module :-S.
@@ -982,6 +1006,7 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
             )
         logging.debug("Clearing current symbol scope since the module definition is finished", extra={"hfLineNo":currLineNo, "hfFile":currFile})
         self.currSymbolsByName = {}
+        self.currModuleImportsDict = None
         #$$$ remove this in case we never enable routine domain dependant specifications for module symbols (likely)
         # self.tentativeModuleSymbolsByName = None
 
@@ -993,6 +1018,7 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
             return
         parallelRegionTemplates = self.parallelRegionTemplatesByProcName.get(self.currSubprocName)
         self.loadSymbolsFromTemplate(routineNode, parallelRegionTemplates)
+        self.currRoutineImportsDict = {}
 
     def processProcEndMatch(self, subProcEndMatch):
         routineNode = self.routineNodesByProcName.get(self.currSubprocName)
@@ -1025,6 +1051,7 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
                 domains of first unmatched: %s"
                 %(routineNode.getAttribute('name'), unmatched, str(self.currSymbolsByName[unmatched[0]].domains))
             )
+        self.currRoutineImportsDict = None
 
     def processLine(self, line):
         super(H90CallGraphAndSymbolDeclarationsParser, self).processLine(line)
@@ -1032,13 +1059,11 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
         self.importsOnCurrentLine = []
 
 class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
-    entryNodesBySymbolName = {}
-    currSymbols = []
-    symbolsByModuleNameAndSymbolName = None
-
     def __init__(self, cgDoc, symbolsByModuleNameAndSymbolName=None, implementationsByTemplateName=None):
         super(H90XMLSymbolDeclarationExtractor, self).__init__(cgDoc, implementationsByTemplateName=implementationsByTemplateName)
         self.symbolsByModuleNameAndSymbolName = symbolsByModuleNameAndSymbolName
+        self.entryNodesBySymbolName = {}
+        self.currSymbols = []
 
     def udpateActiveSymbols(self, isModule=False):
         currSymbolNames = self.currSymbolsByName.keys()
@@ -1101,19 +1126,20 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
                 continue
             symbol.storeDomainDependantEntryNodeAttributes(entryNode)
 
-    def processImplicitForeignModuleSymbolMatch(self, importMatch):
-        super(H90XMLSymbolDeclarationExtractor, self).processImplicitForeignModuleSymbolMatch(importMatch)
+    def processImport(self, parentNode, uid, moduleName, sourceSymbol, symbolInScope):
+        super(H90XMLSymbolDeclarationExtractor, self).processImport(
+            parentNode,
+            uid,
+            moduleName,
+            sourceSymbol,
+            symbolInScope
+        )
+        if self.currSymbolsByName.get(uid) != None:
+            return #this already has an @domaindependant directive - don't do anything further.
         if not self.symbolsByModuleNameAndSymbolName:
             return #in case we run this at a point where foreign symbol analysis is not available yet
-        parentNode = None
-        isInModuleScope = self.currSubprocName in [None, ""]
-        if not isInModuleScope:
-            parentNode = self.routineNodesByProcName.get(self.currSubprocName)
-        else:
-            parentNode = self.moduleNodesByName[self.currModuleName]
-        parallelRegionPosition = parentNode.getAttribute("parallelRegionPosition")
-        moduleName = importMatch.group(1)
-        moduleSymbolParsingRequired = not self.implementation.supportsNativeModuleImportsWithinKernels and parallelRegionPosition in ["within", "outside"]
+        moduleSymbolParsingRequired = not self.implementation.supportsNativeModuleImportsWithinKernels \
+            and parallelRegionPosition in ["within", "outside"]
         moduleSymbolsByName = self.symbolsByModuleNameAndSymbolName.get(moduleName)
         if not moduleSymbolsByName and moduleSymbolParsingRequired:
             raise UsageError(
@@ -1122,63 +1148,46 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
                 )
             )
         if not moduleSymbolsByName:
-            return
-        if moduleName == "":
-            raise UsageError("import without module specified")
-        symbolList = importMatch.group(2).split(',')
-        for entry in symbolList:
-            stripped = entry.strip()
-            uid = uniqueIdentifier(stripped, parentNode.getAttribute("name"))
-            if self.currSymbolsByName.get(uid) != None:
-                continue
-            mappedImportMatch = self.patterns.singleMappedImportPattern.match(stripped)
-            sourceSymbol = None
-            symbolInScope = None
-            if mappedImportMatch:
-                symbolInScope = mappedImportMatch.group(1)
-                sourceSymbol = mappedImportMatch.group(2)
-            else:
-                symbolInScope = stripped
-                sourceSymbol = symbolInScope
-            moduleSymbol = moduleSymbolsByName.get(uid)
-            if not moduleSymbol and moduleSymbolParsingRequired:
-                raise UsageError(
-                    "No symbol information for symbol %s in module %s. Please make Hybrid Fortran aware of this symbol by declaring it in a @domainDependant{attribute(host)} directive in the module specification part." %(
-                        sourceSymbol,
-                        moduleName
-                    )
+           return
+        moduleSymbol = moduleSymbolsByName.get(uid)
+        if not moduleSymbol and moduleSymbolParsingRequired:
+            raise UsageError(
+                "No symbol information for symbol %s in module %s. Please make Hybrid Fortran aware of this symbol by declaring it in a @domainDependant{attribute(host)} directive in the module specification part." %(
+                    sourceSymbol,
+                    moduleName
                 )
-            elif not moduleSymbol:
-                continue
-            relationNode, templateNode = setTemplateInfos(
-                self.cgDoc,
-                parentNode,
-                specText="attribute(autoDom)",
-                templateParentNodeName="domainDependantTemplates",
-                templateNodeName="domainDependantTemplate",
-                referenceParentNodeName="domainDependants"
             )
-            entries = addAndGetEntries(self.cgDoc, relationNode, symbolInScope)
-            if len(entries) != 1:
-                raise Exception("Could not add entry for symbol %s" %(entry))
-            symbol = ImplicitForeignModuleSymbol(moduleName, symbolInScope, sourceSymbol, template=templateNode)
-            symbol.isMatched = True
-            symbol.loadDomainDependantEntryNodeAttributes(entries[0])
-            if isInModuleScope:
-                symbol.loadModuleNodeAttributes(parentNode)
-            else:
-                symbol.loadRoutineNodeAttributes(parentNode, self.parallelRegionTemplatesByProcName.get(self.currSubprocName))
-            symbol.merge(moduleSymbol)
-            if isInModuleScope:
-                symbol.isModuleSymbol = True
-                symbol.isHostSymbol = True
-            else:
-                symbol.isModuleSymbol = False
-            if uid != symbol.uniqueIdentifier:
-                raise Exception("unique identifier does not match expectation")
-            if not symbol.uniqueIdentifier in self.currSymbolsByName:
-                self.currSymbolsByName[symbol.uniqueIdentifier] = symbol
-            logging.debug("symbol %s added to current context because of import %s; currently active: %s" %(symbol, importMatch.group(0), self.currSymbolsByName.keys()))
+        if not moduleSymbol:
+            return
+        relationNode, templateNode = setTemplateInfos(
+            self.cgDoc,
+            parentNode,
+            specText="attribute(autoDom)",
+            templateParentNodeName="domainDependantTemplates",
+            templateNodeName="domainDependantTemplate",
+            referenceParentNodeName="domainDependants"
+        )
+        entries = addAndGetEntries(self.cgDoc, relationNode, symbolInScope)
+        if len(entries) != 1:
+            raise Exception("Could not add entry for symbol %s" %(entry))
+        symbol = ImplicitForeignModuleSymbol(moduleName, symbolInScope, sourceSymbol, template=templateNode)
+        symbol.isMatched = True
+        symbol.loadDomainDependantEntryNodeAttributes(entries[0])
+        if isInModuleScope:
+            symbol.loadModuleNodeAttributes(parentNode)
+        else:
+            symbol.loadRoutineNodeAttributes(parentNode, self.parallelRegionTemplatesByProcName.get(
+                self.currSubprocName
+            ))
+        symbol.merge(moduleSymbol)
+        if isInModuleScope:
+            symbol.isModuleSymbol = True
+            symbol.isHostSymbol = True
+        else:
+            symbol.isModuleSymbol = False
+        if uid != symbol.uniqueIdentifier:
+            raise Exception("unique identifier does not match expectation")
+        self.currSymbolsByName[symbol.uniqueIdentifier] = symbol
 
     def processModuleEndMatch(self, moduleEndMatch):
         #get handles to currently active symbols -> temporarily save the handles

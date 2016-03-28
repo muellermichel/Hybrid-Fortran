@@ -397,7 +397,7 @@ class DeviceDataFortranImplementation(FortranImplementation):
 			adjustedLine = getImportStatements(dependantSymbols)
 			return adjustedLine + "\n"
 
-		if dependantSymbols[0].isPresent or symbol.isHostSymbol:
+		if dependantSymbols[0].isPresent or dependantSymbols[0].isHostSymbol:
 			return adjustedLine + "\n"
 
 		if dependantSymbols[0].isToBeTransfered or regionType == RegionType.KERNEL_CALLER_DECLARATION:

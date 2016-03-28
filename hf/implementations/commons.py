@@ -22,6 +22,16 @@ from tools.commons import UsageError
 from tools.metadata import appliesTo, getDomainsWithParallelRegionTemplate, getReductionScalarsByOperator, getTemplate
 import logging
 
+def getImportStatements(symbols):
+    return "\n".join(
+        "use %s, only : %s => %s" %(
+            symbol.sourceModule,
+            symbol.nameInScope(),
+            symbol.sourceSymbol if symbol.sourceSymbol not in [None, ""] else symbol.name
+        )
+        for symbol in symbols
+    )
+
 def getReductionClause(parallelRegionTemplate):
 	reductionScalarsByOperator = getReductionScalarsByOperator(parallelRegionTemplate)
 	return ", ".join([

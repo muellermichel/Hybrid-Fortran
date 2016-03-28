@@ -97,7 +97,7 @@ class FortranImplementation(object):
 
 	def adjustImportForDevice(self, line, dependantSymbols, regionType, parallelRegionPosition, parallelRegionTemplates):
 		if line == None:
-			return ""
+			return getImportStatements(dependantSymbols)
 		return line
 
 	def adjustDeclarationForDevice(self, line, dependantSymbols, regionType, parallelRegionPosition):
@@ -377,16 +377,6 @@ class DeviceDataFortranImplementation(FortranImplementation):
 		))
 
 	def adjustImportForDevice(self, line, dependantSymbols, regionType, parallelRegionPosition, parallelRegionTemplates):
-		def importStatements(symbols):
-			return "\n".join(
-				"use %s, only : %s => %s" %(
-					symbol.sourceModule,
-					symbol.nameInScope(),
-					symbol.sourceSymbol if symbol.sourceSymbol not in [None, ""] else symbol.name
-				)
-				for symbol in symbols
-			)
-
 		if len(dependantSymbols) == 0:
 			raise Exception("unexpected empty list of symbols")
 		_, _, _ = _checkDeclarationConformity(dependantSymbols)
@@ -404,14 +394,14 @@ class DeviceDataFortranImplementation(FortranImplementation):
 		adjustedLine = line
 		if adjustedLine == None or dependantSymbols[0].isPresent:
 			#amend import or convert to device symbol version for already present symbols
-			adjustedLine = importStatements(dependantSymbols)
+			adjustedLine = getImportStatements(dependantSymbols)
 			return adjustedLine + "\n"
 
 		if dependantSymbols[0].isPresent or symbol.isHostSymbol:
 			return adjustedLine + "\n"
 
 		if dependantSymbols[0].isToBeTransfered or regionType == RegionType.KERNEL_CALLER_DECLARATION:
-			adjustedLine += importStatements(dependantSymbols)
+			adjustedLine += getImportStatements(dependantSymbols)
 		return adjustedLine + "\n"
 
 	def adjustDeclarationForDevice(self, line, dependantSymbols, regionType, parallelRegionPosition):

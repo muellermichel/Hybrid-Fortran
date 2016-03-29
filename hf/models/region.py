@@ -18,7 +18,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
-import weakref, copy
+import weakref, copy, re
 from tools.commons import enum
 from tools.metadata import getArguments
 from tools.patterns import RegExPatterns
@@ -33,13 +33,13 @@ RegionType = enum(
 
 def implementMatch(line, match, symbol, iterators=[], parallelRegionTemplate=None, callee=None):
 	isPointerAssignment = RegExPatterns.Instance().pointerAssignmentPattern.match(line) != None
-	argumentString = symbolMatch.group(3)
+	argumentString = match.group(3)
 	symbolAccessString, remainder = getSymbolAccessStringAndReminder(
 		symbol,
 		iterators,
 		parallelRegionTemplate,
 		argumentString,
-		self.currCallee,
+		callee,
 		isPointerAssignment
 	)
 	patterns = RegExPatterns.Instance()
@@ -53,8 +53,10 @@ def implementMatch(line, match, symbol, iterators=[], parallelRegionTemplate=Non
 Symbol %s is accessed in an unexpected way. Note: '_d' postfix is reserved for internal use.
 Cannot match one of the following patterns:
 pattern1: '%s'
-pattern2: '%s'\
-""" %(symbol.name, pattern1, pattern2))
+pattern2: '%s'
+line:
+%s\
+""" %(symbol.name, pattern1, pattern2, line))
 	prefix = currMatch.group(1)
 	return (prefix + symbolAccessString + remainder).strip() + "\n"
 
@@ -69,8 +71,7 @@ def implementLine(line, symbols, parentRoutine, iterators=[], parallelRegionTemp
 			symbolWasMatched = True
 			prefix = nextMatch.group(1)
 			lineSections.append(prefix)
-			postfix = nextMatch.group(3)
-			processed = implementMatch(line, match, symbol, iterators, parallelRegionTemplate, callee)
+			processed = implementMatch(work, nextMatch, symbol, iterators, parallelRegionTemplate, callee)
 			adjustedMatch = symbol.namePattern.match(processed)
 			if not adjustedMatch:
 				raise Exception("Symbol %s can't be matched again after adjustment. Adjusted portion: %s" %(
@@ -117,6 +118,8 @@ class Region(object):
 	def clone(self):
 		region = self.__class__(self.parentRoutine)
 		region._linesAndSymbols = copy.copy(self._linesAndSymbols)
+		if self._parentRegion:
+			region.loadParentRegion(self._parentRegion())
 		return region
 
 	def loadParentRegion(self, region):
@@ -268,6 +271,7 @@ class ParallelRegion(Region):
 	def __init__(self, routine):
 		self._currRegion = Region(routine)
 		self._subRegions = [self._currRegion]
+		self._currRegion.loadParentRegion(self)
 		self._activeTemplate = None
 		super(ParallelRegion, self).__init__(routine)
 

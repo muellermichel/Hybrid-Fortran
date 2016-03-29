@@ -515,7 +515,7 @@ This is not allowed for implementations using %s.\
         if (self.patterns.subprocBeginPattern.match(line)):
             raise Exception("subprocedure within subprocedure not allowed")
 
-        self.analyseSymbolInformationOnCurrentLine(line)
+        self.analyseSymbolInformationOnCurrentLine(line, useUnspecificMatching=True)
         self.prepareLine(line, self.tab_insideSub)
 
     def processInsideParallelRegionState(self, line):
@@ -561,7 +561,7 @@ This is not allowed for implementations using %s.\
         if whileLoopMatch == None and loopMatch != None:
             adjustedLine += self.implementation.loopPreparation().strip() + '\n'
         adjustedLine += line
-        self.analyseSymbolInformationOnCurrentLine(line)
+        self.analyseSymbolInformationOnCurrentLine(line, useUnspecificMatching=True)
         self.prepareLine(adjustedLine, self.tab_insideSub)
 
     def processInsideDomainDependantRegionState(self, line):

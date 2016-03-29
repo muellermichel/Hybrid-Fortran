@@ -778,7 +778,7 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
             extra={"hfLineNo":currLineNo, "hfFile":currFile}
         )
 
-    def analyseSymbolInformationOnCurrentLine(self, line, analyseImports=True, isModuleSpecification=False, isInsideSubroutineCall=False):
+    def analyseSymbolInformationOnCurrentLine(self, line, analyseImports=True, isModuleSpecification=False, isInsideSubroutineCall=False, useUnspecificMatching=False):
         specifiedSymbolsByNameInScope = dict(
             (symbol.nameInScope(useDeviceVersionIfAvailable=False), symbol)
             for symbol in self.currSymbolsByName.values()
@@ -850,22 +850,22 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
             elif importMatch:
                 self.importsOnCurrentLine.append(symbol)
                 self.processSymbolImportMatch(importMatch, symbol)
-            elif symbol.namePattern.match(line):
+            elif useUnspecificMatching and symbol.namePattern.match(line):
                 self.symbolsOnCurrentLine.append(symbol)
 
         #validate the symbols on the current declaration line: Do they match the requirements for Hybrid Fortran?
-        lineDeclarationType = DeclarationType.UNDEFINED
-        arrayDeclarationLine = None
-        for symbol in self.symbolsOnCurrentLine:
-            if symbol.isArray and arrayDeclarationLine == False or not symbol.isArray and arrayDeclarationLine == True:
-                raise UsageError(
-                    "Array symbols have been mixed with non-array symbols on the same line (%s has declaration type %i): %s. This is invalid in Hybrid Fortran. Please move apart these declarations.\n" %(
-                        symbol.name,
-                        symbol.declarationType,
-                        self.symbolsOnCurrentLine
+        if not useUnspecificMatching:
+            arrayDeclarationLine = None
+            for symbol in self.symbolsOnCurrentLine:
+                if symbol.isArray and arrayDeclarationLine == False or not symbol.isArray and arrayDeclarationLine == True:
+                    raise UsageError(
+                        "Array symbols have been mixed with non-array symbols on the same line (%s has declaration type %i): %s. This is invalid in Hybrid Fortran. Please move apart these declarations.\n" %(
+                            symbol.name,
+                            symbol.declarationType,
+                            self.symbolsOnCurrentLine
+                        )
                     )
-                )
-            arrayDeclarationLine = symbol.isArray
+                arrayDeclarationLine = symbol.isArray
 
     def processImport(self, parentNode, uid, moduleName, sourceSymbol, symbolInScope):
         k = (moduleName, symbolInScope)

@@ -51,7 +51,7 @@ contains
     integer :: z
 
     @domainDependant{attribute(autoDom, present)}
-    a, b, c
+    a, b, c, used_in_acc_routine
     @end domainDependant
 
     @parallelRegion{domName(x,y), domSize(NX, NY)}

@@ -347,7 +347,7 @@ class Symbol(object):
 
 	@property
 	def isHostSymbol(self):
-		return self._isHostSymbol and not self._isPresent and not self._isToBeTransfered
+		return self._isHostSymbol and not self.isPresent and not self.isToBeTransfered
 
 	@isHostSymbol.setter
 	def isHostSymbol(self, _isHostSymbol):

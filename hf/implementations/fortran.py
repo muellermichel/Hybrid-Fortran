@@ -377,7 +377,10 @@ class DeviceDataFortranImplementation(FortranImplementation):
 		))
 
 	def adjustImportForDevice(self, line, dependantSymbols, regionType, parallelRegionPosition, parallelRegionTemplates):
-		_, _, _ = _checkDeclarationConformity(dependantSymbols)
+		try:
+			_, _, _ = _checkDeclarationConformity(dependantSymbols)
+		except UsageError as e:
+			raise UsageError("In %s: %s; symbols: %s" %(line.strip(), str(e), dependantSymbols))
 
 		for symbol in dependantSymbols:
 			self.updateSymbolDeviceState(symbol, RegionType.OTHER, parallelRegionPosition, postTransfer=True)
@@ -411,7 +414,12 @@ class DeviceDataFortranImplementation(FortranImplementation):
 			raise Exception("no symbols to adjust")
 		for symbol in dependantSymbols:
 			self.updateSymbolDeviceState(symbol, regionType, parallelRegionPosition, postTransfer=True)
-		alreadyOnDevice, copyHere, _ = _checkDeclarationConformity(dependantSymbols)
+		alreadyOnDevice = None
+		copyHere = None
+		try:
+			alreadyOnDevice, copyHere, _ = _checkDeclarationConformity(dependantSymbols)
+		except UsageError as e:
+			raise UsageError("In %s: %s; symbols: %s" %(line.strip(), str(e), dependantSymbols))
 		adjustedLine = line.rstrip()
 
 		#packed symbols -> leave them alone
@@ -857,17 +865,16 @@ end if\n" %(calleeNode.getAttribute('name'))
 				symbol.loadRoutineNodeAttributes(parentNode, callee.parallelRegionTemplates)
 				if symbol.isDummySymbolForRoutine(routineName=parentNode.getAttribute('name')):
 					continue #already passed manually
-				if symbol.declarationType == DeclarationType.LOCAL_MODULE_SCALAR \
-				and (currRoutine.node.getAttribute('module') == symbol.sourceModule):
+				isModuleSymbol = symbol.declarationType in [
+					DeclarationType.LOCAL_MODULE_SCALAR,
+					DeclarationType.MODULE_ARRAY,
+					DeclarationType.MODULE_ARRAY_PASSED_IN_AS_ARGUMENT
+				]
+				if isModuleSymbol and currRoutine.node.getAttribute('module') == symbol.sourceModule:
 					logging.debug("decl added for %s" %(symbol))
 					additionalDeclarations.append(symbol)
 				elif (symbol.analysis and symbol.analysis.isModuleSymbol) \
-				or (symbol.declarationType in [
-						DeclarationType.LOCAL_MODULE_SCALAR,
-						DeclarationType.MODULE_ARRAY,
-						DeclarationType.MODULE_ARRAY_PASSED_IN_AS_ARGUMENT
-					] and currRoutine.node.getAttribute('module') != symbol.sourceModule \
-				) \
+				or (isModuleSymbol and currRoutine.node.getAttribute('module') != symbol.sourceModule) \
 				or symbol.declarationType == DeclarationType.FOREIGN_MODULE_SCALAR:
 					if symbol.sourceModule != callee.parentModule.node.getAttribute('name'):
 						foreignModuleNode = moduleNodesByName[symbol.sourceModule]

@@ -31,6 +31,67 @@ RegionType = enum(
 	"OTHER"
 )
 
+def implementMatch(line, match, symbol, iterators=[], parallelRegionTemplate=None, callee=None):
+	isPointerAssignment = RegExPatterns.Instance().pointerAssignmentPattern.match(line) != None
+	argumentString = symbolMatch.group(3)
+	symbolAccessString, remainder = getSymbolAccessStringAndReminder(
+		symbol,
+		iterators,
+		parallelRegionTemplate,
+		argumentString,
+		self.currCallee,
+		isPointerAssignment
+	)
+	patterns = RegExPatterns.Instance()
+	pattern1 = r"(.*?(?:\W|^))" + re.escape(symbol.nameInScope()) + re.escape(argumentString) + r"\s*"
+	currMatch = patterns.get(pattern1).match(line)
+	if not currMatch:
+		pattern2 = r"(.*?(?:\W|^))" + re.escape(symbol.name) + re.escape(argumentString) + r"\s*"
+		currMatch = patterns.get(pattern2).match(line)
+		if not currMatch:
+			raise Exception("""\
+Symbol %s is accessed in an unexpected way. Note: '_d' postfix is reserved for internal use.
+Cannot match one of the following patterns:
+pattern1: '%s'
+pattern2: '%s'\
+""" %(symbol.name, pattern1, pattern2))
+	prefix = currMatch.group(1)
+	return (prefix + symbolAccessString + remainder).strip() + "\n"
+
+def implementLine(line, symbols, parentRoutine, iterators=[], parallelRegionTemplate=None, callee=None):
+	adjustedLine = line
+	for symbol in symbols:
+		symbolWasMatched = False
+		lineSections = []
+		work = adjustedLine
+		nextMatch = symbol.namePattern.match(work)
+		while nextMatch:
+			symbolWasMatched = True
+			prefix = nextMatch.group(1)
+			lineSections.append(prefix)
+			postfix = nextMatch.group(3)
+			processed = implementMatch(line, match, symbol, iterators, parallelRegionTemplate, callee)
+			adjustedMatch = symbol.namePattern.match(processed)
+			if not adjustedMatch:
+				raise Exception("Symbol %s can't be matched again after adjustment. Adjusted portion: %s" %(
+					symbol.name,
+					processed
+				))
+			lineSections.append(adjustedMatch.group(2))
+			work = adjustedMatch.group(3)
+			nextMatch = symbol.namePattern.match(work)
+		if not symbolWasMatched:
+			raise Exception("symbol %s expected on line '%s' for %s - no match" %(
+				symbol.name,
+				line,
+				parentRoutine.name
+			))
+		#whatever is left now as "work" is the unmatched trailer of the line
+		lineSections.append(work)
+		#rebuild adjusted line - next symbol starts adjustment anew
+		adjustedLine = "".join(lineSections).strip()
+	return adjustedLine
+
 class Region(object):
 	def __init__(self, routine):
 		self._linesAndSymbols = []
@@ -74,7 +135,18 @@ class Region(object):
 		))
 
 	def implemented(self, skipDebugPrint=False):
-		text = "\n".join([line for (line, symbols) in self._linesAndSymbols])
+		parentRoutine = self._routineRef()
+		parallelRegionTemplate = None
+		if self._parentRegion:
+			parentRegion = self._parentRegion()
+			if isinstance(parentRegion, ParallelRegion):
+				parallelRegionTemplate = parentRegion.template
+		iterators = parentRoutine.implementation.getIterators(parallelRegionTemplate) \
+			if parallelRegionTemplate else []
+		text = "\n".join([
+			implementLine(line, symbols, parentRoutine, iterators, parallelRegionTemplate)
+			for (line, symbols) in self._linesAndSymbols
+		])
 		if text == "":
 			return ""
 		return self._sanitize(text, skipDebugPrint)
@@ -99,16 +171,19 @@ class CallRegion(Region):
 				iterators,
 				parallelRegionTemplate,
 				symbolMatch.group(2),
-				self._callee,
-				isInsideParallelRegion=parallelRegionTemplate != None
+				self._callee
 			)
 			return symbolAccessString + remainder
 
 		parallelRegionTemplate = None
 		if self._parentRegion and isinstance(self._parentRegion(), ParallelRegion):
 			parallelRegionTemplate = self._parentRegion().template
-		iterators = self._callee.implementation.getIterators(parallelRegionTemplate) if parallelRegionTemplate else []
-		return [adjustArgument(argument, parallelRegionTemplate, iterators) for argument in arguments]
+		iterators = self._callee.implementation.getIterators(parallelRegionTemplate) \
+			if parallelRegionTemplate else []
+		return [
+			adjustArgument(argument, parallelRegionTemplate, iterators)
+			for argument in arguments
+		]
 
 	def loadCallee(self, callee):
 		self._callee = callee
@@ -191,10 +266,10 @@ class CallRegion(Region):
 
 class ParallelRegion(Region):
 	def __init__(self, routine):
-		super(ParallelRegion, self).__init__(routine)
 		self._currRegion = Region(routine)
 		self._subRegions = [self._currRegion]
 		self._activeTemplate = None
+		super(ParallelRegion, self).__init__(routine)
 
 	@property
 	def currRegion(self):
@@ -214,6 +289,11 @@ class ParallelRegion(Region):
 
 	def loadActiveParallelRegionTemplate(self, templateNode):
 		self._activeTemplate = templateNode
+
+	def loadParentRoutine(self, routine):
+		super(ParallelRegion, self).loadParentRoutine(routine)
+		for region in self._subRegions:
+			region.loadParentRoutine(routine)
 
 	def clone(self):
 		raise NotImplementedError()
@@ -296,7 +376,9 @@ class RoutineSpecificationRegion(Region):
 		or self._symbolsToAdd == None \
 		or self._compactionDeclarationPrefixByCalleeName == None \
 		or self._currAdditionalCompactedSubroutineParameters == None:
-			raise Exception("additional context not properly loaded for routine specification region in %s" %(parentRoutine.name))
+			raise Exception("additional context not properly loaded for routine specification region in %s" %(
+				parentRoutine.name
+			))
 
 		importedSymbols = []
 		declaredSymbols = []
@@ -323,7 +405,10 @@ class RoutineSpecificationRegion(Region):
 				if match:
 					importedSymbols.append(symbol)
 					continue
-				raise Exception("symbol %s expected to be referenced in line '%s', but all matchings have failed" %(symbol.name, line))
+				raise Exception("symbol %s expected to be referenced in line '%s', but all matchings have failed" %(
+					symbol.name,
+					line
+				))
 
 		text = textBeforeImports
 		importsRequiredDict = copy.copy(self._allImports)
@@ -411,7 +496,8 @@ class RoutineSpecificationRegion(Region):
 				).rstrip() + " ! type %i symbol added for callee %s\n" %(symbol.declarationType, callee.name)
 			toBeCompacted = self._packedRealSymbolsByCalleeName.get(callee.name, [])
 			if len(toBeCompacted) > 0:
-				#TODO: generalize for cases where we don't want this to be on the device (e.g. put this into Implementation class)
+				#TODO: generalize for cases where we don't want this to be on the device
+				#(e.g. put this into Implementation class)
 				compactedArrayName = "hfimp_%s" %(callee.name)
 				compactedArray = FrameworkArray(
 					compactedArrayName,

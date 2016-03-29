@@ -27,7 +27,7 @@ from tools.metadata import *
 from tools.commons import UsageError, BracketAnalyzer, stacktrace
 from tools.analysis import SymbolDependencyAnalyzer, getAnalysisForSymbol, getArguments
 from machinery.parser import H90CallGraphAndSymbolDeclarationsParser, getSymbolsByName, currFile, currLineNo
-from machinery.commons import FortranCodeSanitizer, getSymbolAccessStringAndReminder
+from machinery.commons import FortranCodeSanitizer
 
 def getSymbolsByModuleNameAndSymbolName(cgDoc, moduleNodesByName, symbolAnalysisByRoutineNameAndSymbolName={}):
     symbolsByModuleNameAndSymbolName = {}
@@ -84,7 +84,6 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
         )
         self.outputStream = outputStream
         self.currSubroutineImplementationNeedsToBeCommented = False
-        self.symbolsPassedInCurrentCallByName = {}
         self.currParallelIterators = []
         self.currRoutine = None
         self.currRegion = None
@@ -177,65 +176,6 @@ This is not allowed for implementations using %s.\
             )
         ]
 
-    def processSymbolMatchAndGetAdjustedLine(self, line, symbolMatch, symbol, isPointerAssignment):
-        argumentString = symbolMatch.group(3)
-        symbolAccessString, remainder = getSymbolAccessStringAndReminder(
-            symbol,
-            self.currParallelIterators,
-            self.currParallelRegionTemplateNode,
-            argumentString,
-            self.currCallee,
-            isPointerAssignment,
-            isInsideParallelRegion=self.state == "inside_parallelRegion" or (
-                self.state == "inside_branch"
-                and self.stateBeforeBranch == "inside_parallelRegion"
-            )
-        )
-        pattern1 = r"(.*?(?:\W|^))" + re.escape(symbol.nameInScope()) + re.escape(argumentString) + r"\s*"
-        currMatch = self.patterns.get(pattern1).match(line)
-        if not currMatch:
-            pattern2 = r"(.*?(?:\W|^))" + re.escape(symbol.name) + re.escape(argumentString) + r"\s*"
-            currMatch = self.patterns.get(pattern2).match(line)
-            if not currMatch:
-                raise Exception(\
-                    "Symbol %s is accessed in an unexpected way. Note: '_d' postfix is reserved for internal use. Cannot match one of the following patterns: \npattern1: '%s'\npattern2: '%s'" \
-                    %(symbol.name, pattern1, pattern2))
-        prefix = currMatch.group(1)
-        return (prefix + symbolAccessString + remainder).rstrip() + "\n"
-
-    def processSymbolsAndGetAdjustedLine(self, line, isInsideSubroutineCall):
-        isPointerAssignment = self.patterns.pointerAssignmentPattern.match(line) != None
-        symbolNames = self.currSymbolsByName.keys()
-        adjustedLine = line
-        for symbolName in symbolNames:
-            symbol = self.currSymbolsByName[symbolName]
-            symbolWasMatched = False
-            lineSections = []
-            work = adjustedLine
-            nextMatch = symbol.namePattern.match(work)
-            while nextMatch:
-                symbolWasMatched = True
-                prefix = nextMatch.group(1)
-                lineSections.append(prefix)
-                postfix = nextMatch.group(3)
-                processed = self.processSymbolMatchAndGetAdjustedLine(work, nextMatch, symbol, isPointerAssignment)
-                adjustedMatch = symbol.namePattern.match(processed)
-                if not adjustedMatch:
-                    raise Exception("Symbol %s can't be matched again after adjustment. Adjusted portion: %s" %(symbol.name, processed))
-                lineSections.append(adjustedMatch.group(2))
-                work = adjustedMatch.group(3)
-                nextMatch = symbol.namePattern.match(work)
-            #whatever is left now as "work" is the unmatched trailer of the line
-            lineSections.append(work)
-            adjustedLine = ""
-            for section in lineSections:
-                adjustedLine = adjustedLine + section
-            if not isInsideSubroutineCall:
-                continue
-            if symbolWasMatched:
-                self.symbolsPassedInCurrentCallByName[symbolName] = symbol
-        return adjustedLine.rstrip() + "\n"
-
     def processModuleSymbolImportAndGetAdjustedLine(self, line, symbols):
         if len(symbols) == 0:
             return line
@@ -261,20 +201,15 @@ This is not allowed for implementations using %s.\
         else:
             self.currCallee = Routine(self.currCalleeName, self.currModule)
         self.currRoutine.loadCall(self.currCallee)
-        remainingCall = None
+        remainingCall = subProcCallMatch.group(2)
         if isinstance(self.currCallee, AnalyzableRoutine):
-            remainingCall = self.processSymbolsAndGetAdjustedLine(
-                subProcCallMatch.group(2),
-                isInsideSubroutineCall=True
-            )
-        else:
-            remainingCall = subProcCallMatch.group(2)
+            self.analyseSymbolInformationOnCurrentLine(subProcCallMatch.group(0), isInsideSubroutineCall=True)
         self.currCallee.loadArguments(self.currArguments)
         self.currRegion.loadPassedInSymbolsByName(self.symbolsPassedInCurrentCallByName)
         self.prepareLine("", self.tab_insideSub)
         if self.state != "inside_subroutine_call" and not (self.state == "inside_branch" and self.stateBeforeBranch == "inside_subroutine_call"):
-            self.symbolsPassedInCurrentCallByName = {}
             self.currCallee = None
+            self.processCallPost()
 
     def processModuleDeclarationLineAndGetAdjustedLine(self, line):
         baseline = line
@@ -421,8 +356,6 @@ This is not allowed for implementations using %s.\
         if subProcCallMatch:
             self.switchToNewRegion("CallRegion")
             self.processCallMatch(subProcCallMatch)
-            if (self.state == "inside_branch" and self.stateBeforeBranch != 'inside_subroutine_call') or (self.state != "inside_branch" and self.state != 'inside_subroutine_call'):
-                self.processCallPost()
             self.switchToNewRegion()
             return
         if subProcEndMatch:
@@ -491,8 +424,6 @@ This is not allowed for implementations using %s.\
         if subProcCallMatch:
             self.switchToNewRegion("CallRegion")
             self.processCallMatch(subProcCallMatch)
-            if self.state != 'inside_subroutine_call' and not (self.state == "inside_branch" and self.stateBeforeBranch == "inside_subroutine_call"):
-                self.processCallPost()
             self.switchToNewRegion()
             return
 
@@ -584,8 +515,8 @@ This is not allowed for implementations using %s.\
         if (self.patterns.subprocBeginPattern.match(line)):
             raise Exception("subprocedure within subprocedure not allowed")
 
-        adjustedLine = self.processSymbolsAndGetAdjustedLine(line, False)
-        self.prepareLine(adjustedLine, self.tab_insideSub)
+        self.analyseSymbolInformationOnCurrentLine(line)
+        self.prepareLine(line, self.tab_insideSub)
 
     def processInsideParallelRegionState(self, line):
         branchMatch = self.patterns.branchPattern.match(line)
@@ -604,8 +535,6 @@ This is not allowed for implementations using %s.\
                     logging.warning(message, extra={"hfLineNo":currLineNo, "hfFile":currFile})
             self.switchToNewRegion("CallRegion")
             self.processCallMatch(subProcCallMatch)
-            if self.state != 'inside_subroutine_call' and not (self.state == "inside_branch" and self.stateBeforeBranch == "inside_subroutine_call"):
-                self.processCallPost()
             self.switchToNewRegion()
             return
 
@@ -631,7 +560,8 @@ This is not allowed for implementations using %s.\
         loopMatch = self.patterns.loopPattern.match(line)
         if whileLoopMatch == None and loopMatch != None:
             adjustedLine += self.implementation.loopPreparation().strip() + '\n'
-        adjustedLine += self.processSymbolsAndGetAdjustedLine(line, isInsideSubroutineCall=False)
+        adjustedLine += line
+        self.analyseSymbolInformationOnCurrentLine(line)
         self.prepareLine(adjustedLine, self.tab_insideSub)
 
     def processInsideDomainDependantRegionState(self, line):

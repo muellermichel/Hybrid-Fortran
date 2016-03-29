@@ -42,8 +42,7 @@ def getSymbolAccessStringAndReminder(
     parallelRegionTemplate,
     accessorString,
     callee=None,
-    isPointerAssignment=False,
-    isInsideParallelRegion=False
+    isPointerAssignment=False
 ):
     accessors = []
     remainder = accessorString
@@ -54,7 +53,7 @@ def getSymbolAccessStringAndReminder(
         accessors,
         parallelRegionTemplate,
         isPointerAssignment=isPointerAssignment,
-        isInsideParallelRegion=isInsideParallelRegion,
+        isInsideParallelRegion=parallelRegionTemplate != None,
         callee=callee
     )
     return symbolAccessString, remainder

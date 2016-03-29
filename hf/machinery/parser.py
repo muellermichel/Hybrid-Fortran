@@ -743,6 +743,7 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
         self.routineNodesByModule = parallelRegionData[3]
         self.currModuleImportsDict = None
         self.currRoutineImportsDict = None
+        self.symbolsPassedInCurrentCallByName = {}
         super(H90CallGraphAndSymbolDeclarationsParser, self).__init__()
 
     @property
@@ -777,15 +778,22 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
             extra={"hfLineNo":currLineNo, "hfFile":currFile}
         )
 
-    def analyseSymbolInformationOnCurrentLine(self, line, analyseImports=True, isModuleSpecification=False):
-        selectiveImportMatch = self.patterns.selectiveImportPattern.match(line)
-        if selectiveImportMatch:
-            self.processImportMatch(selectiveImportMatch)
-
+    def analyseSymbolInformationOnCurrentLine(self, line, analyseImports=True, isModuleSpecification=False, isInsideSubroutineCall=False):
         specifiedSymbolsByNameInScope = dict(
             (symbol.nameInScope(useDeviceVersionIfAvailable=False), symbol)
             for symbol in self.currSymbolsByName.values()
         )
+
+        if isInsideSubroutineCall:
+            for symbol in specifiedSymbolsByNameInScope.values():
+                if symbol.namePattern.match(line):
+                    self.symbolsPassedInCurrentCallByName[symbol.uniqueIdentifier] = symbol
+                    self.symbolsOnCurrentLine.append(symbol)
+            return
+
+        selectiveImportMatch = self.patterns.selectiveImportPattern.match(line)
+        if selectiveImportMatch:
+            self.processImportMatch(selectiveImportMatch)
 
         genericSymbolDeclMatch = self.patterns.symbolDeclPattern.match(line)
         if genericSymbolDeclMatch and not "device" in genericSymbolDeclMatch.group(1):
@@ -842,6 +850,8 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
             elif importMatch:
                 self.importsOnCurrentLine.append(symbol)
                 self.processSymbolImportMatch(importMatch, symbol)
+            elif symbol.namePattern.match(line):
+                self.symbolsOnCurrentLine.append(symbol)
 
         #validate the symbols on the current declaration line: Do they match the requirements for Hybrid Fortran?
         lineDeclarationType = DeclarationType.UNDEFINED
@@ -865,6 +875,10 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
             self.currModuleImportsDict[k] = sourceSymbol
         else:
             raise Exception("unexpected import on this line")
+
+    def processCallPost(self):
+        self.symbolsPassedInCurrentCallByName = {}
+        super(H90CallGraphAndSymbolDeclarationsParser, self).processCallPost()
 
     def processImportMatch(self, importMatch):
         parentNode = None

@@ -838,6 +838,19 @@ end if\n" %(calleeNode.getAttribute('name'))
 		moduleNodesByName,
 		symbolAnalysisByRoutineNameAndSymbolName={},
 	):
+		def indexSymbolsByNameInScope(symbols):
+			return dict(
+				(symbol.nameInScope(useDeviceVersionIfAvailable=False), symbol)
+				for symbol in symbols
+			)
+
+		def mergeSymbols(symbols, index):
+			for symbol in symbols:
+				name = symbol.nameInScope(useDeviceVersionIfAvailable=False)
+				if name in index:
+					symbol.merge(index[name])
+					del index[name]
+
 		def getAdditionalImportsAndDeclarationsForParentScope(parentNode, argumentSymbolNames):
 			additionalImports = []
 			additionalDeclarations = []
@@ -897,10 +910,20 @@ end if\n" %(calleeNode.getAttribute('name'))
 		logging.debug("============ loading additional symbols for module %s ===============" %(callee.parentModule.node.getAttribute("name")))
 		moduleImports, moduleDeclarations, additionalDummies = getAdditionalImportsAndDeclarationsForParentScope(callee.parentModule.node, argumentSymbolNames)
 		if len(additionalDummies) != 0:
-			raise Exception("dummies are supposed to be added for module scope symbols")
+			raise Exception("dummies are not supposed to be added for module scope symbols")
+		indexedModuleSymbols = (
+			indexSymbolsByNameInScope(moduleImports),
+			indexSymbolsByNameInScope(moduleDeclarations)
+		)
 		logging.debug("============ loading additional symbols for routine %s ==============" %(callee.node.getAttribute("name")))
 		routineImports, routineDeclarations, additionalDummies = getAdditionalImportsAndDeclarationsForParentScope(callee.node, argumentSymbolNames)
-		return sorted(routineImports + moduleImports), sorted(routineDeclarations + moduleDeclarations), sorted(additionalDummies)
+		mergeSymbols(routineImports, indexedModuleSymbols[0])
+		mergeSymbols(routineDeclarations, indexedModuleSymbols[1])
+		return (
+			sorted(routineImports + indexedModuleSymbols[0].values()),
+			sorted(routineDeclarations + indexedModuleSymbols[1].values()),
+			sorted(additionalDummies)
+		)
 
 	def getIterators(self, parallelRegionTemplate):
 		if not appliesTo(["GPU"], parallelRegionTemplate):

@@ -110,7 +110,7 @@ contains
     nx, ny
     @end domainDependant
 
-    @domainDependant{domName(x,y,z), domSize(nx,ny,NZ), domPP(DOM), accPP(AT)}
+    @domainDependant{attribute(present), domName(x,y,z), domSize(nx,ny,NZ), domPP(DOM), accPP(AT)}
     a, b, c
     @end domainDependant
 
@@ -133,7 +133,7 @@ contains
     nx, ny
     @end domainDependant
 
-    @domainDependant{domName(x,y,z), domSize(nx,ny,NZ), domPP(DOM), accPP(AT)}
+    @domainDependant{attribute(present), domName(x,y,z), domSize(nx,ny,NZ), domPP(DOM), accPP(AT)}
     a, b, d
     @end domainDependant
 

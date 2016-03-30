@@ -43,10 +43,10 @@ def implementMatch(line, match, symbol, iterators=[], parallelRegionTemplate=Non
 		isPointerAssignment
 	)
 	patterns = RegExPatterns.Instance()
-	pattern1 = r"(.*?(?:\W|^))" + re.escape(symbol.nameInScope()) + re.escape(argumentString) + r"\s*"
+	pattern1 = r"((?:.|\n)*?(?:\W|^))" + re.escape(symbol.nameInScope()) + re.escape(argumentString) + r"\s*"
 	currMatch = patterns.get(pattern1).match(line)
 	if not currMatch:
-		pattern2 = r"(.*?(?:\W|^))" + re.escape(symbol.name) + re.escape(argumentString) + r"\s*"
+		pattern2 = r"((?:.|\n)*?(?:\W|^))" + re.escape(symbol.name) + re.escape(argumentString) + r"\s*"
 		currMatch = patterns.get(pattern2).match(line)
 		if not currMatch:
 			raise Exception("""\

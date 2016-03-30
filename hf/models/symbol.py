@@ -223,12 +223,12 @@ class Symbol(object):
 		else:
 			self.patterns = RegExPatterns.Instance()
 		self.analysis = analysis
-		self.declPattern = self.patterns.get(r'(\s*(?:double\s+precision|real|integer|logical).*?[\s,:]+)' + re.escape(name) + r'((?:\s|\,|\(|$)+.*)')
 		self.importPattern = self.patterns.get(r'^\s*use\s*(\w*)\s*,\s*only\s*.*?\W\s*' + re.escape(name) + r'(?:\W|$).*')
 		self.importMapPattern = self.patterns.get(r'.*?\W' + re.escape(name) + r'\s*\=\>\s*(\w*).*')
 		self.pointerDeclarationPattern = self.patterns.get(r'\s*(?:double\s+precision|real|integer|logical).*?pointer.*?[\s,:]+' + re.escape(name))
 		self.initLevel = Init.NOTHING_LOADED
 		self.routineNode = None
+		self.declarationSuffix = None
 		if template != None:
 			self.loadTemplate(template)
 		else:
@@ -912,6 +912,7 @@ EXAMPLE:\n\
 		#   look at declaration of symbol and get its                 #
 		#   dimensions.                                               #
 		dimensionStr, remainder = self.getDimensionStringAndRemainderFromDeclMatch(paramDeclMatch)
+		self.declarationSuffix = remainder.strip()
 		dimensionSizes = [sizeStr.strip() for sizeStr in dimensionStr.split(',') if sizeStr.strip() != ""]
 		if self.isAutoDom:
 			logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] reordering domains for symbol %s with autoDom option." %(self.name))
@@ -1137,15 +1138,20 @@ Current Domains: %s\n" %(
 
 	def getDimensionStringAndRemainderFromDeclMatch(self, paramDeclMatch):
 		prefix = paramDeclMatch.group(1)
-		postfix = paramDeclMatch.group(2)
+		postfix = paramDeclMatch.group(3)
 		dimensionStr = ""
 		remainder = ""
 		dimensionMatch = self.patterns.dimensionPattern.match(prefix, re.IGNORECASE)
 		if dimensionMatch:
 			dimensionStr = dimensionMatch.group(2)
 		else:
-			dimensionMatch = re.match(r'\s*(?:double\s+precision\W|real\W|integer\W|logical\W).*?(?:intent\W)*.*?(?:in\W|out\W|inout\W)*.*?(?:\W|^)' + re.escape(self.name) + r'\s*\(\s*(.*?)\s*\)(.*)', \
-				str(prefix + self.name + postfix), re.IGNORECASE)
+			dimensionMatch = re.match(
+				r'\s*(?:double\s+precision\W|real\W|integer\W|logical\W).*?(?:intent\W)*.*?(?:in\W|out\W|inout\W)*.*?(?:\W|^)' \
+					+ re.escape(self.name) \
+					+ r'\s*\(\s*(.*?)\s*\)(.*)',
+				prefix + self.name + postfix,
+				re.IGNORECASE
+			)
 			if dimensionMatch:
 				dimensionStr = dimensionMatch.group(1)
 				postfix = dimensionMatch.group(2)
@@ -1158,7 +1164,7 @@ Current Domains: %s\n" %(
 
 	def getAdjustedDeclarationLine(self, paramDeclMatch, omitRemainder=False):
 		prefix = paramDeclMatch.group(1)
-		postfix = paramDeclMatch.group(2)
+		postfix = paramDeclMatch.group(3)
 
 		_, postfix = self.getDimensionStringAndRemainderFromDeclMatch(paramDeclMatch)
 		if omitRemainder:
@@ -1186,7 +1192,12 @@ Current Domains: %s\n" %(
 		if skip_on_missing_declaration and (self.declarationPrefix == None or self.declarationPrefix == ""):
 			return ""
 		declarationPrefix = self.getSanitizedDeclarationPrefix(purgeList)
-		return declarationPrefix.strip() + " " + name_prefix + self.domainRepresentation(useDomainReordering)
+		return "%s %s %s %s" %(
+			declarationPrefix.strip(),
+			name_prefix,
+			self.domainRepresentation(useDomainReordering),
+			self.declarationSuffix
+		)
 
 	def selectAllRepresentation(self):
 		if self.initLevel < Init.ROUTINENODE_ATTRIBUTES_LOADED:
@@ -1436,17 +1447,13 @@ Currently loaded template: %s\n" %(
 		return [entry.firstChild.nodeValue for entry in parentNodes[0].childNodes]
 
 	def getDeclarationMatch(self, line):
-		match = self.declPattern.match(line)
+		match = self.patterns.symbolDeclPattern.match(line)
 		if not match:
 			return None
-		#check whether the symbol is matched inside parenthesis - it could be part of the dimension definition
-		#if it is indeed part of a dimension we can forget it and return None - according to Fortran definition
-		#cannot be declared as its own dimension.
-		analyzer = BracketAnalyzer()
-		if analyzer.currLevelAfterString(match.group(1)) != 0:
+		symbolNames = [sn.strip() for sn in match.group(2).split(",")]
+		if not self.name in symbolNames:
 			return None
-		else:
-			return match
+		return match
 
 	def domPP(self):
 		domPPEntries = self.getTemplateEntryNodeValues("domPP")

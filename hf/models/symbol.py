@@ -1196,7 +1196,7 @@ Current Domains: %s\n" %(
 			declarationPrefix.strip(),
 			name_prefix,
 			self.domainRepresentation(useDomainReordering),
-			self.declarationSuffix
+			self.declarationSuffix if self.declarationSuffix else ""
 		)
 
 	def selectAllRepresentation(self):

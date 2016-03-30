@@ -113,6 +113,7 @@ class AnalyzableRoutine(Routine):
 		for region in self._regions:
 			if isinstance(region, CallRegion) \
 			and region._callee \
+			and isinstance(region._callee, AnalyzableRoutine) \
 			and region._callee.node.getAttribute("parallelRegionPosition") == "within":
 				return True
 		return False
@@ -221,6 +222,8 @@ This is not allowed for implementations using %s.\
 		additionalWrapperImportsByKernelName = {}
 		if self.node.getAttribute("parallelRegionPosition") == "inside":
 			for callee in self.callees:
+				if not isinstance(callee, AnalyzableRoutine):
+					continue
 				additionalImportsForDeviceCompatibility, \
 				additionalDeclarationsForDeviceCompatibility, \
 				additionalDummies = callee.implementation.getAdditionalKernelParameters(
@@ -285,6 +288,8 @@ This is not allowed for implementations using %s.\
 		packedRealSymbolsByCalleeName = {}
 		compactionDeclarationPrefixByCalleeName = {}
 		for callee in self.callees:
+			if not isinstance(callee, AnalyzableRoutine):
+				continue
 			additionalImports, additionalDeclarations = additionalParametersByKernelName.get(
 				callee.name,
 				([], [])

@@ -33,32 +33,32 @@ RegionType = enum(
 
 def implementMatch(line, match, symbol, iterators=[], parallelRegionTemplate=None, callee=None):
 	isPointerAssignment = RegExPatterns.Instance().pointerAssignmentPattern.match(line) != None
-	argumentString = match.group(3)
+	# argumentString = match.group(3)
 	symbolAccessString, remainder = getSymbolAccessStringAndReminder(
 		symbol,
 		iterators,
 		parallelRegionTemplate,
-		argumentString,
+		match.group(3),
 		callee,
 		isPointerAssignment
 	)
-	patterns = RegExPatterns.Instance()
-	pattern1 = r"((?:.|\n)*?(?:\W|^))" + re.escape(symbol.nameInScope()) + re.escape(argumentString) + r"\s*"
-	currMatch = patterns.get(pattern1).match(line)
-	if not currMatch:
-		pattern2 = r"((?:.|\n)*?(?:\W|^))" + re.escape(symbol.name) + re.escape(argumentString) + r"\s*"
-		currMatch = patterns.get(pattern2).match(line)
-		if not currMatch:
-			raise Exception("""\
-Symbol %s is accessed in an unexpected way. Note: '_d' postfix is reserved for internal use.
-Cannot match one of the following patterns:
-pattern1: '%s'
-pattern2: '%s'
-line:
-%s\
-""" %(symbol.name, pattern1, pattern2, line))
-	prefix = currMatch.group(1)
-	return (prefix + symbolAccessString + remainder).strip() + "\n"
+# 	patterns = RegExPatterns.Instance()
+# 	pattern1 = r"((?:.|\n)*?(?:\W|^))" + re.escape(symbol.nameInScope()) + re.escape(argumentString) + r"\s*"
+# 	currMatch = patterns.get(pattern1).match(line)
+# 	if not currMatch:
+# 		pattern2 = r"((?:.|\n)*?(?:\W|^))" + re.escape(symbol.name) + re.escape(argumentString) + r"\s*"
+# 		currMatch = patterns.get(pattern2).match(line)
+# 		if not currMatch:
+# 			raise Exception("""\
+# Symbol %s is accessed in an unexpected way. Note: '_d' postfix is reserved for internal use.
+# Cannot match one of the following patterns:
+# pattern1: '%s'
+# pattern2: '%s'
+# line:
+# %s\
+# """ %(symbol.name, pattern1, pattern2, line))
+# 	prefix = currMatch.group(1)
+	return (match.group(1) + symbolAccessString + remainder).strip() + "\n"
 
 def implementLine(line, symbols, parentRoutine, iterators=[], parallelRegionTemplate=None, callee=None):
 	adjustedLine = line
@@ -465,6 +465,9 @@ class RoutineSpecificationRegion(Region):
 				parentRoutine.node.getAttribute('parallelRegionPosition')
 			).rstrip() + " ! type %i symbol added for this subroutine\n" %(symbol.declarationType)
 		for callee in parentRoutine.callees:
+			#this hasattr is used to test the callee for analyzability without circular imports
+			if not hasattr(callee, "implementation"):
+				continue
 			additionalImports, additionalDeclarations = self._additionalParametersByKernelName.get(
 				callee.name,
 				([], [])

@@ -737,7 +737,7 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 	useOpenACCForDebugPrintStatements = False
 	supportsArbitraryDataAccessesOutsideOfKernels = False
 	supportsNativeMemsetsOutsideOfKernels = True
-	supportsNativeModuleImportsWithinKernels = False
+	supportsNativeModuleImportsWithinKernels = True
 
 	def __init__(self, optionFlags):
 		self.currRoutineNode = None

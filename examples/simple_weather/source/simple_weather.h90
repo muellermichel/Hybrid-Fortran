@@ -52,7 +52,7 @@ module simple_weather
   contains
 
   subroutine initialize(nx_in,ny_in,nz_in)
-    use commons
+    use commons, only: nx, ny, nz
     use time_profiling
     integer(4), intent(in) :: nx_in, ny_in, nz_in
     integer(4) :: i, j, k
@@ -82,7 +82,7 @@ module simple_weather
   end subroutine
 
   subroutine simulate(thermal_energy_current, start_time, end_time, timestep, output_timestep, use_c)
-    use commons
+    use commons, only: nx, ny, nz
     use dynamical_processes, only: diffuse
     use physical_processes, only: run_physics
     use time_profiling
@@ -137,7 +137,7 @@ module simple_weather
   end subroutine
 
   subroutine check(current, reference)
-    use commons
+    use commons, only: nx, ny, nz
     real(8), dimension(0:nx+1,0:ny+1,nz), intent(in) :: current, reference
     integer(4) :: i, j, k, num_of_errors
     real(8) :: error
@@ -168,7 +168,7 @@ module simple_weather
   end subroutine check
 
   subroutine write_data(output_data, prefix, time)
-    use commons
+    use commons, only: nx, ny, nz
     use time_profiling
     use helper_functions, only: writeToFile, getTime
     real(8), dimension(0:nx+1,0:ny+1,nz), intent(in) :: output_data
@@ -208,7 +208,7 @@ module simple_weather
   end subroutine
 
   subroutine cleanup()
-    use commons
+    use commons, only: nx, ny, nz
 
     write(6,*) "cleaning up..."
     deallocate(thermal_energy)

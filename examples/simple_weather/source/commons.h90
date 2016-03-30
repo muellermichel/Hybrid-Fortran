@@ -18,6 +18,10 @@
 module commons
   implicit none
   integer(4) :: nx, ny, nz
+
+  @domainDependant{attribute(host)}
+  nx, ny, nz
+  @end domainDependant
   contains
 
   subroutine initialize_domains(nx_in,ny_in,nz_in)

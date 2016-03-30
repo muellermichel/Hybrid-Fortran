@@ -19,7 +19,7 @@ module physical_processes
 implicit none
 contains
   subroutine run_physics(thermal_energy, surface_thermal_energy, planetary_thermal_energy)
-    use commons
+    use commons, only: nx, ny, nz
     use time_profiling
     use helper_functions, only: getTime
     real(8), intent(inout), dimension(0:nx+1,0:ny+1,nz) :: thermal_energy
@@ -39,7 +39,7 @@ contains
   end subroutine
 
   subroutine radiate(thermal_energy)
-    use commons
+    use commons, only: nx, ny, nz
     real(8), intent(inout), dimension(nz) :: thermal_energy
     integer(4) :: k
     real(8) :: radiation_intensity
@@ -57,7 +57,7 @@ contains
   end subroutine
 
   subroutine exchange_heat_with_boundary(thermal_energy, boundary_thermal_energy, boundary_level)
-    use commons
+    use commons, only: nx, ny, nz
     real(8), intent(inout), dimension(nz) :: thermal_energy
     real(8), intent(in) :: boundary_thermal_energy
     integer(4), intent(in) :: boundary_level

@@ -19,7 +19,7 @@ module dynamical_processes
 implicit none
 contains
   subroutine diffuse(thermal_energy_updated, thermal_energy)
-    use commons
+    use commons, only: nx, ny, nz
     use time_profiling
     use helper_functions, only: getTime
     real(8), intent(out), dimension(0:nx+1,0:ny+1,nz) :: thermal_energy_updated

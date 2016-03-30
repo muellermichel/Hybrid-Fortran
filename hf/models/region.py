@@ -547,6 +547,6 @@ class RoutineEarlyExitRegion(Region):
 			parentRoutine.isCallingKernel,
 			isSubroutineEnd=False
 		)
-		text += super(RoutineExitRegion, self).implemented(skipDebugPrint=True)
+		text += super(RoutineEarlyExitRegion, self).implemented(skipDebugPrint=True)
 
 		return self._sanitize(text, skipDebugPrint)

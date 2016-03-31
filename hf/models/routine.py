@@ -394,6 +394,7 @@ This is not allowed for implementations using %s.\
 		clone._moduleNodesByName = self._moduleNodesByName
 		clone._symbolAnalysisByRoutineNameAndSymbolName = self._symbolAnalysisByRoutineNameAndSymbolName
 		clone._symbolsByModuleNameAndSymbolName = self._symbolsByModuleNameAndSymbolName
+		clone._allImports = copy.copy(self._allImports)
 		clone.symbolsByName = copy.copy(self.symbolsByName)
 		clone.callees = copy.copy(self.callees)
 		return clone

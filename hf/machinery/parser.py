@@ -778,6 +778,40 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
             extra={"hfLineNo":currLineNo, "hfFile":currFile}
         )
 
+    def createSymbolsForParent(self, parent, symbolNames, parallelRegionTemplates):
+        _, template, entries = setDomainDependants(
+            self.cgDoc,
+            parent,
+            specificationText="attribute(autoDom)",
+            entryText=",".join(symbolNames)
+        )
+        symbols = []
+        for entry in entries:
+            symbolName = entry.firstChild.nodeValue
+            symbol = Symbol(
+                symbolName,
+                template=template,
+                symbolEntry=entry,
+                scopeNode=parent,
+                parallelRegionTemplates=parallelRegionTemplates
+            )
+            symbols.append(symbol)
+        return symbols
+
+    def createSymbolsForCurrentContext(self, symbolNames):
+        parent = None
+        if self.currSubprocName:
+            parent = self.routineNodesByProcName[self.currSubprocName]
+        elif self.currModuleName:
+            parent = self.moduleNodesByName[self.currModuleName]
+        else:
+            raise Exception("no valid context for symbol creation")
+        return self.createSymbolsForParent(
+            parent,
+            symbolNames,
+            self.parallelRegionTemplatesByProcName.get(self.currSubprocName, [])
+        )
+
     def analyseSymbolInformationOnCurrentLine(self, line, analyseImports=True, isModuleSpecification=False, isInsideSubroutineCall=False, useUnspecificMatching=False):
         specifiedSymbolsByNameInScope = dict(
             (symbol.nameInScope(useDeviceVersionIfAvailable=False), symbol)
@@ -812,28 +846,8 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
                         )
                     )
             if len(symbolNamesWithoutDomainDependantSpecs) > 0:
-                parent = None
-                if self.currSubprocName:
-                    parent = self.routineNodesByProcName[self.currSubprocName]
-                elif self.currModuleName:
-                    parent = self.moduleNodesByName[self.currModuleName]
-                else:
-                    raise Exception("symbol parsing called outside of a module scope")
-                _, template, entries = setDomainDependants(
-                    self.cgDoc,
-                    parent,
-                    specificationText="attribute(autoDom)",
-                    entryText=",".join(symbolNamesWithoutDomainDependantSpecs)
-                )
-                for entry in entries:
-                    symbolName = entry.firstChild.nodeValue
-                    symbol = Symbol(
-                        symbolName,
-                        template=template,
-                        symbolEntry=entry,
-                        scopeNode=parent,
-                        parallelRegionTemplates=self.parallelRegionTemplatesByProcName.get(self.currSubprocName, [])
-                    )
+                symbols = self.createSymbolsForCurrentContext(symbolNamesWithoutDomainDependantSpecs)
+                for symbol in symbols:
                     specifiedSymbolsByNameInScope[symbolName] = symbol
                     self.currSymbolsByName[symbolName] = symbol
                     logging.debug("symbol %s added to current context because of declaration %s" %(symbol, line))
@@ -867,12 +881,12 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
                     )
                 arrayDeclarationLine = symbol.isArray
 
-    def processImport(self, parentNode, uid, moduleName, sourceSymbol, symbolInScope):
-        k = (moduleName, symbolInScope)
+    def processImport(self, parentNode, uid, moduleName, sourceSymbolName, symbolNameInScope):
+        k = (moduleName, symbolNameInScope)
         if self.currRoutineImportsDict != None:
-            self.currRoutineImportsDict[k] = sourceSymbol
+            self.currRoutineImportsDict[k] = sourceSymbolName
         elif self.currModuleImportsDict != None:
-            self.currModuleImportsDict[k] = sourceSymbol
+            self.currModuleImportsDict[k] = sourceSymbolName
         else:
             raise Exception("unexpected import on this line")
 
@@ -891,19 +905,19 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
         if moduleName == "":
             raise UsageError("import without module specified")
         symbolList = importMatch.group(2).split(',')
-        for entry in symbolList:
-            stripped = entry.strip()
-            uid = uniqueIdentifier(stripped, parentNode.getAttribute("name"))
+        for symbolName in symbolList:
+            stripped = symbolName.strip()
+            uid = uniqueIdentifier(stripped, moduleName)
             mappedImportMatch = self.patterns.singleMappedImportPattern.match(stripped)
-            sourceSymbol = None
-            symbolInScope = None
+            sourceSymbolName = None
+            symbolNameInScope = None
             if mappedImportMatch:
-                symbolInScope = mappedImportMatch.group(1)
-                sourceSymbol = mappedImportMatch.group(2)
+                symbolNameInScope = mappedImportMatch.group(1)
+                sourceSymbolName = mappedImportMatch.group(2)
             else:
-                symbolInScope = stripped
-                sourceSymbol = symbolInScope
-            self.processImport(parentNode, uid, moduleName, sourceSymbol, symbolInScope)
+                symbolNameInScope = stripped
+                sourceSymbolName = symbolNameInScope
+            self.processImport(parentNode, uid, moduleName, sourceSymbolName, symbolNameInScope)
 
     def processSymbolDeclMatch(self, paramDeclMatch, symbol):
         '''process everything that happens per h90 declaration symbol'''
@@ -1186,6 +1200,7 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
         symbol = ImplicitForeignModuleSymbol(moduleName, symbolInScope, sourceSymbol, template=templateNode)
         symbol.isMatched = True
         symbol.loadDomainDependantEntryNodeAttributes(entries[0])
+        isInModuleScope = self.currSubprocName in [None, ""]
         if isInModuleScope:
             symbol.loadModuleNodeAttributes(parentNode)
         else:

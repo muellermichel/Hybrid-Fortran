@@ -229,6 +229,7 @@ class Symbol(object):
 		self.initLevel = Init.NOTHING_LOADED
 		self.routineNode = None
 		self.declarationSuffix = None
+		self._entryNode = symbolEntry
 		if template != None:
 			self.loadTemplate(template)
 		else:
@@ -482,7 +483,11 @@ EXAMPLE:\n\
 	def uniqueIdentifier(self):
 		if not self.routineNode:
 			raise Exception("routine node needs to be loaded at this point")
-		return uniqueIdentifier(self.name, self.routineNode.getAttribute("name"))
+		return uniqueIdentifier(
+			self.name,
+			self.sourceModule if self.sourceModule not in [None, "", "HF90_LOCAL_MODULE"] \
+				else self.routineNode.getAttribute("name")
+		)
 
 	def nameInScope(self, useDeviceVersionIfAvailable=True):
 		#Give a symbol representation that is guaranteed to *not* collide with any local namespace (as long as programmer doesn't use any 'hfXXX' pre- or postfixes)
@@ -666,7 +671,12 @@ EXAMPLE:\n\
 			self._isToBeTransfered = True
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] attributes set")
 
-	def storeDomainDependantEntryNodeAttributes(self, domainDependantEntryNode):
+	def storeDomainDependantEntryNodeAttributes(self, overloadEntryNode=None):
+		domainDependantEntryNode = self._entryNode
+		if overloadEntryNode != None:
+			domainDependantEntryNode = overloadEntryNode
+		if domainDependantEntryNode == None:
+			raise Exception("no entry node specified for %s - cannot store attributes" %(self.name))
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] storing symbol attributes. Init Level: %s" %(str(self.initLevel)))
 		if self.intent:
 			domainDependantEntryNode.setAttribute("intent", self.intent)

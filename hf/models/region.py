@@ -397,9 +397,14 @@ class RoutineSpecificationRegion(Region):
 					line
 				))
 
-		text = textBeforeImports
+		text = ""
+		if textBeforeImports != "" and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
+			text += "!<----- before imports: ------\n"
+		text += textBeforeImports
 		importsRequiredDict = copy.copy(self._allImports)
 		if len(importedSymbols) > 0:
+			if ConversionOptions.Instance().debugPrint and not skipDebugPrint:
+				text += "!<----- programmer imports: --\n"
 			text += getImportLine(None, importedSymbols, parentRoutine)
 			if importsRequiredDict:
 				for symbol in importedSymbols:
@@ -407,6 +412,8 @@ class RoutineSpecificationRegion(Region):
 					if k in importsRequiredDict:
 						del importsRequiredDict[k]
 		if importsRequiredDict:
+			if len(importsRequiredDict.keys()) > 0 and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
+				text += "!<----- programmer imports: --\n"
 			for (sourceModule, nameInScope) in importsRequiredDict:
 				sourceName = importsRequiredDict[(sourceModule, nameInScope)]
 				text += getImportLine(
@@ -415,8 +422,12 @@ class RoutineSpecificationRegion(Region):
 					parentRoutine
 				)
 
+		if textBeforeDeclarations != "" and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
+			text += "!<----- before declarations: --\n"
 		text += textBeforeDeclarations
 		if len(declaredSymbols) > 0:
+			if ConversionOptions.Instance().debugPrint and not skipDebugPrint:
+				text += "!<----- declarations: -------\n"
 			text += "\n".join([
 				parentRoutine.implementation.adjustDeclarationForDevice(
 					symbol.getDeclarationLine(purgeList=[]),
@@ -426,6 +437,8 @@ class RoutineSpecificationRegion(Region):
 				).strip()
 				for symbol in declaredSymbols
 			]).strip() + "\n"
+		if textAfterDeclarations != "" and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
+			text += "!<----- after declarations: --\n"
 		text += textAfterDeclarations
 
 		numberOfAdditionalDeclarations = (

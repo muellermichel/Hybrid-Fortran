@@ -444,17 +444,20 @@ class DeviceDataFortranImplementation(FortranImplementation):
 
 		#module scalars in kernels
 		if parallelRegionPosition == "within" \
-		and (declarationType == DeclarationType.FOREIGN_MODULE_SCALAR or declarationType == DeclarationType.LOCAL_MODULE_SCALAR):
+		and (declarationType in [
+			DeclarationType.FOREIGN_MODULE_SCALAR,
+			DeclarationType.LOCAL_MODULE_SCALAR
+		]):
 			adjustedLine = declarationDirectivesWithoutIntent + " ,intent(in), value :: " + symbolDeclarationStr
 
 		#passed in scalars in kernels and inside kernels
 		elif parallelRegionPosition in ["within", "outside"] \
 		and len(dependantSymbols[0].domains) == 0 \
-		and intent not in ["out", "inout", "local"]:
+		and intent not in ["out", "inout"]:
 			#handle scalars (passed by value)
 			adjustedLine = declarationDirectives + " ,value ::" + symbolDeclarationStr
 
-		#arrays outside of kernels
+		#arrays
 		elif len(dependantSymbols[0].domains) > 0:
 			if alreadyOnDevice == "yes" or (intent in [None, "", "local"] and regionType == RegionType.KERNEL_CALLER_DECLARATION):
 				adjustedLine = declarationStatements(dependantSymbols, declarationDirectives, deviceType)
@@ -815,7 +818,17 @@ end if\n" %(calleeNode.getAttribute('name'))
 				gridStr += ", "
 				blockStr += ", "
 			if i < len(domains):
-				gridPreparationStr += "%s = ceiling(real(%s) / real(%s))" %(gridSizeVarNames[i], domains[i].size, blockSizePPNames[i])
+				domainComponents = domains[i].size.split(":")
+				domainSizeSpecification = None
+				if len(domainComponents) == 1:
+					domainSizeSpecification = domainComponents[0]
+				elif len(domainComponents) == 2:
+					domainSizeSpecification = "%s - %s + 1" %(domainComponents[1], domainComponents[0])
+				gridPreparationStr += "%s = ceiling(real(%s) / real(%s))" %(
+					gridSizeVarNames[i],
+					domainSizeSpecification,
+					blockSizePPNames[i]
+				)
 				blockStr += "%s" %(blockSizePPNames[i])
 			else:
 				gridPreparationStr +=  "%s = 1" %(gridSizeVarNames[i])
@@ -894,7 +907,11 @@ end if\n" %(calleeNode.getAttribute('name'))
 						symbol.loadImportInformation(parentNode.ownerDocument, foreignModuleNode)
 					logging.debug("import added for %s" %(symbol))
 					additionalImports.append(symbol)
-				elif symbol.declarationType == DeclarationType.LOCAL_ARRAY:
+				elif symbol.declarationType in [
+					DeclarationType.LOCAL_ARRAY,
+					DeclarationType.LOCAL_SCALAR,
+					DeclarationType.OTHER_SCALAR
+				]:
 					logging.debug("dummy added for %s" %(symbol))
 					additionalDummies.append(symbol)
 			return additionalImports, additionalDeclarations, additionalDummies

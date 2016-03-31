@@ -671,7 +671,8 @@ def getSymbolsByName(cgDoc, parentNode, parallelRegionTemplates=[], currentModul
         if existingSymbol == None and currentModuleName not in [None, ""]:
             existingSymbol = currentSymbolsByName.get(uniqueIdentifier(dependantName, currentModuleName))
             if existingSymbol != None:
-                symbol.resetScope(currentModuleName) #if this symbol is found in the local module, assume we are using that module symbol here. Problem: Does not cover when local scope overrides module scope.
+                #if this symbol is found in the local module, assume we are using that module symbol here. Problem: Does not cover when local scope overrides module scope.
+                symbol.resetScope(currentModuleName)
         if existingSymbol != None:
             symbol.merge(existingSymbol)
         symbolsByName[symbol.uniqueIdentifier] = symbol

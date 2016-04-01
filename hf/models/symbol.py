@@ -296,7 +296,7 @@ class Symbol(object):
 		if self._sourceModuleIdentifier not in ['', None, 'HF90_LOCAL_MODULE']:
 			return self._sourceModuleIdentifier
 		if not self.routineNode:
-			raise Exception("node needs to be loaded at this point")
+			return None
 		sourceModule = self.routineNode.getAttribute('module')
 		if sourceModule in ['', None]:
 			sourceModule = self.routineNode.getAttribute('name') #looks like a module node is loaded for this symbol instead
@@ -510,7 +510,12 @@ EXAMPLE:\n\
 				referencingName = symbol.uniqueIdentifier
 			return referencingName[:min(len(referencingName), 31)] #cut after 31 chars because of Fortran 90 limitation
 
-		if self.isEmulatingSymbolThatWasActiveInCurrentScope:
+		if (self.routineNode and self.sourceModule in [
+			"HF90_LOCAL_MODULE",
+			self.routineNode.getAttribute("name")
+		]) \
+		or (self.sourceModule not in [None, ""] and self.routineNode and self.sourceModule == self.routineNode.getAttribute('module')) \
+		or self.isEmulatingSymbolThatWasActiveInCurrentScope:
 			self._nameInScope = self.name
 		if self._nameInScope == None:
 			self._nameInScope = automaticName(self)

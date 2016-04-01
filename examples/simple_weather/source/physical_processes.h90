@@ -43,7 +43,7 @@ contains
     real(8), intent(inout), dimension(nz) :: thermal_energy
     integer(4) :: k
     real(8) :: radiation_intensity
-    @domainDependant{attribute(autoDom, present), domName(i,j), domSize(nx+2,ny+2)}
+    @domainDependant{attribute(autoDom, present), domName(i,j), domSize(0:nx+1,0:ny+1)}
     thermal_energy
     @end domainDependant
 
@@ -63,7 +63,7 @@ contains
     integer(4), intent(in) :: boundary_level
     integer(4) :: k
     real(8) :: energy_transfer_air_to_boundary, transfer_velocity
-    @domainDependant{attribute(autoDom, present), domName(i,j), domSize(nx+2,ny+2)}
+    @domainDependant{attribute(autoDom, present), domName(i,j), domSize(0:nx+1,0:ny+1)}
     thermal_energy, boundary_thermal_energy
     @end domainDependant
 

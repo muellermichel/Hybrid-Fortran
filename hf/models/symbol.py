@@ -767,10 +767,10 @@ EXAMPLE:\n\
 				)
 			)
 
-	def loadDeclarationPrefixFromString(self, declarationPrefixFromTemplate):
-		if declarationPrefixFromTemplate != None and declarationPrefixFromTemplate.strip() != "":
-			self.declarationPrefix = declarationPrefixFromTemplate
-		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] declaration prefix loaded: %s" %(declarationPrefixFromTemplate))
+	def loadDeclarationPrefixFromString(self, declarationPrefix):
+		if declarationPrefix != None and declarationPrefix.strip() != "":
+			self.declarationPrefix = declarationPrefix
+		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] declaration prefix loaded: %s" %(declarationPrefix))
 
 	def loadDomains(self, dependantDomNameAndSize, parallelRegionTemplates=[]):
 		if dependantDomNameAndSize == None or len(dependantDomNameAndSize) == 0:

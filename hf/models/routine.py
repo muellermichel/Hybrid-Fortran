@@ -213,8 +213,8 @@ This is not allowed for implementations using %s.\
 				isOnDevice=True
 			)
 			compactedArrayList = [compactedArray]
-		additionalSubroutineParameters = sorted(otherImports + compactedArrayList)
-		self.loadAdditionalArgumentSymbols(additionalSubroutineParameters + additionalDummiesForOurselves)
+		additionalSubroutineParameters = sorted(otherImports + compactedArrayList + additionalDummiesForOurselves)
+		self.loadAdditionalArgumentSymbols(additionalSubroutineParameters)
 
 		#analyse whether this routine is calling other routines that have a parallel region within
 		#+ analyse the additional symbols that come up there

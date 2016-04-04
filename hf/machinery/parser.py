@@ -675,6 +675,8 @@ def getSymbolsByName(cgDoc, parentNode, parallelRegionTemplates=[], currentModul
                 symbol.resetScope(currentModuleName)
         if existingSymbol != None:
             symbol.merge(existingSymbol)
+            #overspecifying module symbol in a subroutine domain dependant specification
+            symbol.isModuleSymbol = existingSymbol.isModuleSymbol
         symbolsByName[symbol.uniqueIdentifier] = symbol
     return symbolsByName
 

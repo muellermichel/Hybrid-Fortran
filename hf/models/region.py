@@ -23,7 +23,7 @@ from tools.commons import enum
 from tools.metadata import getArguments
 from tools.patterns import RegExPatterns
 from machinery.commons import ConversionOptions, getSymbolAccessStringAndReminder, purgeDimensionAndGetAdjustedLine
-from symbol import DeclarationType
+from symbol import DeclarationType, FrameworkArray
 
 RegionType = enum(
 	"MODULE_DECLARATION",
@@ -200,6 +200,14 @@ class CallRegion(Region):
 					symbolInCaller=symbol
 				)
 
+		parentRoutine = self._routineRef()
+		calleesWithPackedReals = parentRoutine._packedRealSymbolsByCalleeName.keys()
+		for calleeName in calleesWithPackedReals:
+			for idx, symbol in enumerate(sorted(parentRoutine._packedRealSymbolsByCalleeName[calleeName])):
+				#$$$ clean this up, the hf_imp prefix should be decided within the symbol class
+				text += "hfimp_%s(%i) = %s" %(calleeName, idx+1, symbol.nameInScope()) + \
+					 " ! type %i symbol compaction for callee %s\n" %(symbol.declarationType, calleeName)
+
 		parallelRegionPosition = None
 		if hasattr(self._callee, "implementation"):
 			parallelRegionPosition = self._callee.node.getAttribute("parallelRegionPosition")
@@ -309,7 +317,6 @@ class RoutineSpecificationRegion(Region):
 	def __init__(self, routine):
 		super(RoutineSpecificationRegion, self).__init__(routine)
 		self._additionalParametersByKernelName = None
-		self._packedRealSymbolsByCalleeName = None
 		self._symbolsToAdd = None
 		self._compactionDeclarationPrefixByCalleeName = None
 		self._currAdditionalCompactedSubroutineParameters = None
@@ -319,7 +326,6 @@ class RoutineSpecificationRegion(Region):
 		clone = super(RoutineSpecificationRegion, self).clone()
 		clone.loadAdditionalContext(
 			self._additionalParametersByKernelName,
-			self._packedRealSymbolsByCalleeName,
 			self._symbolsToAdd,
 			self._compactionDeclarationPrefixByCalleeName,
 			self._currAdditionalCompactedSubroutineParameters,
@@ -330,14 +336,12 @@ class RoutineSpecificationRegion(Region):
 	def loadAdditionalContext(
 		self,
 		additionalParametersByKernelName,
-		packedRealSymbolsByCalleeName,
 		symbolsToAdd,
 		compactionDeclarationPrefixByCalleeName,
 		currAdditionalCompactedSubroutineParameters,
 		allImports
 	):
 		self._additionalParametersByKernelName = copy.copy(additionalParametersByKernelName)
-		self._packedRealSymbolsByCalleeName = copy.copy(packedRealSymbolsByCalleeName)
 		self._symbolsToAdd = copy.copy(symbolsToAdd)
 		self._compactionDeclarationPrefixByCalleeName = copy.copy(compactionDeclarationPrefixByCalleeName)
 		self._currAdditionalCompactedSubroutineParameters = copy.copy(currAdditionalCompactedSubroutineParameters)
@@ -359,7 +363,6 @@ class RoutineSpecificationRegion(Region):
 			declarationRegionType = RegionType.KERNEL_CALLER_DECLARATION
 
 		if self._additionalParametersByKernelName == None \
-		or self._packedRealSymbolsByCalleeName == None \
 		or self._symbolsToAdd == None \
 		or self._compactionDeclarationPrefixByCalleeName == None \
 		or self._currAdditionalCompactedSubroutineParameters == None:
@@ -372,6 +375,10 @@ class RoutineSpecificationRegion(Region):
 		textBeforeImports = ""
 		textBeforeDeclarations = ""
 		textAfterDeclarations = ""
+		symbolsToAddByScopedName = dict(
+			(symbol.nameInScope(), symbol)
+			for symbol in self._symbolsToAdd
+		)
 		for (line, symbols) in self._linesAndSymbols:
 			if not symbols or len(symbols) == 0:
 				if len(importedSymbols) == 0:
@@ -382,6 +389,10 @@ class RoutineSpecificationRegion(Region):
 					textAfterDeclarations += line.strip() + "\n"
 				continue
 			for symbol in symbols:
+				if symbol.nameInScope() in symbolsToAddByScopedName:
+					continue
+				if symbol.isCompacted:
+					continue #compacted symbols are handled as part of symbolsToAdd
 				match = symbol.getDeclarationMatch(line)
 				if match:
 					declaredSymbols.append(symbol)
@@ -445,7 +456,7 @@ class RoutineSpecificationRegion(Region):
 			len(sum([
 				self._additionalParametersByKernelName[kname][1]
 				for kname in self._additionalParametersByKernelName
-			], [])) + len(self._symbolsToAdd) + len(self._packedRealSymbolsByCalleeName.keys())
+			], [])) + len(self._symbolsToAdd) + len(parentRoutine._packedRealSymbolsByCalleeName.keys())
 		)
 		if numberOfAdditionalDeclarations > 0:
 			text += "\n! ****** additional symbols inserted by framework to emulate device support of language features\n"
@@ -497,7 +508,7 @@ class RoutineSpecificationRegion(Region):
 					declarationRegionType,
 					parentRoutine.node.getAttribute('parallelRegionPosition')
 				).rstrip() + " ! type %i symbol added for callee %s\n" %(symbol.declarationType, callee.name)
-			toBeCompacted = self._packedRealSymbolsByCalleeName.get(callee.name, [])
+			toBeCompacted = parentRoutine._packedRealSymbolsByCalleeName.get(callee.name, [])
 			if len(toBeCompacted) > 0:
 				#TODO: generalize for cases where we don't want this to be on the device
 				#(e.g. put this into Implementation class)
@@ -515,18 +526,6 @@ class RoutineSpecificationRegion(Region):
 					parentRoutine.node.getAttribute('parallelRegionPosition')
 				).rstrip() + " ! compaction array added for callee %s\n" %(callee.name)
 
-		calleesWithPackedReals = self._packedRealSymbolsByCalleeName.keys()
-		for calleeName in calleesWithPackedReals:
-			for idx, symbol in enumerate(sorted(self._packedRealSymbolsByCalleeName[calleeName])):
-				#$$$ clean this up, the hf_imp prefix should be decided within the symbol class
-				text += "hfimp_%s(%i) = %s" %(calleeName, idx+1, symbol.nameInScope()) + \
-					 " ! type %i symbol compaction for callee %s\n" %(symbol.declarationType, calleeName)
-
-		for idx, symbol in enumerate(self._currAdditionalCompactedSubroutineParameters):
-			#$$$ clean this up, the hf_imp prefix should be decided within the symbol class
-			text += "%s = hfimp_%s(%i)" %(symbol.nameInScope(), parentRoutine.name, idx+1) + \
-					 " ! additional type %i symbol compaction\n" %(symbol.declarationType)
-
 		if numberOfAdditionalDeclarations > 0:
 			text += "! ****** end additional symbols\n\n"
 
@@ -536,6 +535,12 @@ class RoutineSpecificationRegion(Region):
 			parentRoutine.node,
 			parentRoutine.parallelRegionTemplates
 		)
+
+		for idx, symbol in enumerate(self._currAdditionalCompactedSubroutineParameters):
+			#$$$ clean this up, the hf_imp prefix should be decided within the symbol class
+			text += "%s = hfimp_%s(%i)" %(symbol.nameInScope(), parentRoutine.name, idx+1) + \
+					 " ! additional type %i symbol compaction\n" %(symbol.declarationType)
+
 		return self._sanitize(text, skipDebugPrint)
 
 class RoutineEarlyExitRegion(Region):

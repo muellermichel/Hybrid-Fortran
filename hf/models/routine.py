@@ -89,6 +89,7 @@ class AnalyzableRoutine(Routine):
 		self._symbolAnalysisByRoutineNameAndSymbolName = None
 		self._symbolsByModuleNameAndSymbolName = None
 		self._allImports = None
+		self._packedRealSymbolsByCalleeName = {}
 
 	@property
 	def additionalArgumentSymbols(self):
@@ -165,9 +166,18 @@ This is not allowed for implementations using %s.\
 			#-> need to pack all real symbols into an array to make it work reliably for cases where many reals are imported
 			# why not integers? because they can be used as array boundaries.
 			# Note: currently only a single real type per subroutine is supported for compaction
+			#$$$ dangerous in case of mixed precition usage
 			currentDeclarationPrefix = symbol.getSanitizedDeclarationPrefix()
-			if declType in [DeclarationType.FOREIGN_MODULE_SCALAR, DeclarationType.LOCAL_MODULE_SCALAR] \
-			and 'real' in symbol.declarationPrefix.lower() \
+			if declType in [
+				DeclarationType.FOREIGN_MODULE_SCALAR,
+				DeclarationType.LOCAL_MODULE_SCALAR,
+				DeclarationType.OTHER_SCALAR,
+				DeclarationType.LOCAL_SCALAR
+			] \
+			and ( \
+				'real' in currentDeclarationPrefix \
+				or 'double' in currentDeclarationPrefix \
+			) \
 			and (declarationPrefix == None or currentDeclarationPrefix == declarationPrefix):
 				declarationPrefix = currentDeclarationPrefix
 				symbol.isCompacted = True
@@ -197,11 +207,12 @@ This is not allowed for implementations using %s.\
 			symbol.isEmulatingSymbolThatWasActiveInCurrentScope = True
 
 		symbolsByUniqueNameToBeUpdated = {}
-		for symbol in additionalImportsForOurSelves + additionalDeclarationsForOurselves + additionalDummiesForOurselves:
+		additionalParameters = additionalImportsForOurSelves + additionalDeclarationsForOurselves + additionalDummiesForOurselves
+		for symbol in additionalParameters:
 			symbolsByUniqueNameToBeUpdated[symbol.uniqueIdentifier] = symbol
 
 		toBeCompacted, declarationPrefix, otherImports = self._listCompactedSymbolsAndDeclarationPrefixAndOtherSymbols(
-			additionalImportsForOurSelves + additionalDeclarationsForOurselves
+			additionalParameters
 		)
 		compactedArrayList = []
 		if len(toBeCompacted) > 0:
@@ -213,7 +224,7 @@ This is not allowed for implementations using %s.\
 				isOnDevice=True
 			)
 			compactedArrayList = [compactedArray]
-		additionalSubroutineParameters = sorted(otherImports + compactedArrayList + additionalDummiesForOurselves)
+		additionalSubroutineParameters = sorted(otherImports + compactedArrayList)
 		self.loadAdditionalArgumentSymbols(additionalSubroutineParameters)
 
 		#analyse whether this routine is calling other routines that have a parallel region within
@@ -235,7 +246,7 @@ This is not allowed for implementations using %s.\
 				for symbol in additionalImportsForDeviceCompatibility \
 				+ additionalDeclarationsForDeviceCompatibility \
 				+ additionalDummies:
-					symbol.resetScope(self.currRoutine.name)
+					symbol.resetScope(self.name)
 					symbolsByUniqueNameToBeUpdated[symbol.uniqueIdentifier] = symbol
 				if 'DEBUG_PRINT' in callee.implementation.optionFlags:
 					tentativeAdditionalImports = getModuleArraysForCallee(
@@ -247,7 +258,7 @@ This is not allowed for implementations using %s.\
 					additionalImportsByName = {}
 					for symbol in additionalImports:
 						additionalImportsByName[symbol.name] = symbol
-						symbol.resetScope(self.currRoutine.name)
+						symbol.resetScope(self.name)
 					additionalWrapperImportsByKernelName[callee.name] = additionalImportsByName.values()
 				additionalParametersByKernelName[callee.name] = (
 					additionalImportsForDeviceCompatibility,
@@ -285,7 +296,6 @@ This is not allowed for implementations using %s.\
 		ourSymbolsToAdd = sorted(
 			additionalSubroutineParameters + additionalCompactedSubroutineParameters
 		)
-		packedRealSymbolsByCalleeName = {}
 		compactionDeclarationPrefixByCalleeName = {}
 		for callee in self.callees:
 			if not isinstance(callee, AnalyzableRoutine):
@@ -301,7 +311,7 @@ This is not allowed for implementations using %s.\
 			)
 			if len(toBeCompacted) > 0:
 				compactionDeclarationPrefixByCalleeName[callee.name] = declarationPrefix
-				packedRealSymbolsByCalleeName[callee.name] = toBeCompacted
+				self._packedRealSymbolsByCalleeName[callee.name] = toBeCompacted
 			compactedArrayList = []
 			if len(toBeCompacted) > 0:
 				compactedArrayName = "hfimp_%s" %(callee.name)
@@ -315,7 +325,6 @@ This is not allowed for implementations using %s.\
 			callee.loadAdditionalArgumentSymbols(sorted(notToBeCompacted + compactedArrayList))
 		self.regions[0].loadAdditionalContext(
 			additionalParametersByKernelName,
-			packedRealSymbolsByCalleeName,
 			ourSymbolsToAdd,
 			compactionDeclarationPrefixByCalleeName,
 			additionalCompactedSubroutineParameters,
@@ -438,9 +447,11 @@ This is not allowed for implementations using %s.\
 		self._symbolAnalysisByRoutineNameAndSymbolName = symbolAnalysisByRoutineNameAndSymbolName
 		self._symbolsByModuleNameAndSymbolName = symbolsByModuleNameAndSymbolName
 
-	def loadCall(self, callRoutine):
+	def loadCall(self, callRoutine, overrideRegion=None):
 		callRegion = None
-		if isinstance(self._currRegion, CallRegion):
+		if overrideRegion != None:
+			callRegion = overrideRegion
+		elif isinstance(self._currRegion, CallRegion):
 			callRegion = self._currRegion
 		elif isinstance(self._currRegion, ParallelRegion) \
 		and isinstance(self._currRegion.currRegion, CallRegion):

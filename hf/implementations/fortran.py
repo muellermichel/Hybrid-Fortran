@@ -348,6 +348,11 @@ class DeviceDataFortranImplementation(FortranImplementation):
 				symbol.isUsingDevicePostfix = True
 				symbol.isOnDevice = False
 
+			elif symbol.isHostSymbol and regionType == RegionType.KERNEL_CALLER_DECLARATION:
+				#for kernel calls, assume that the programmer or previous automation has handled the transfer through directives
+				symbol.isUsingDevicePostfix = True
+				symbol.isOnDevice = True
+
 			elif symbol.isHostSymbol:
 				symbol.isUsingDevicePostfix = False
 				symbol.isOnDevice = False

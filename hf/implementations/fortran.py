@@ -936,6 +936,8 @@ end if\n" %(calleeNode.getAttribute('name'))
 		routineImports, routineDeclarations, additionalDummies = getAdditionalImportsAndDeclarationsForParentScope(callee.node, argumentSymbolNames)
 		mergeSymbols(routineImports, indexedModuleSymbols[0])
 		mergeSymbols(routineDeclarations, indexedModuleSymbols[1])
+		mergeSymbols(additionalDummies, indexedModuleSymbols[0])
+		mergeSymbols(additionalDummies, indexedModuleSymbols[1])
 		return (
 			sorted(routineImports + indexedModuleSymbols[0].values()),
 			sorted(routineDeclarations + indexedModuleSymbols[1].values()),

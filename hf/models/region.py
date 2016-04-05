@@ -46,27 +46,28 @@ def implementMatch(line, match, symbol, iterators=[], parallelRegionTemplate=Non
 def implementLine(line, symbols, parentRoutine, iterators=[], parallelRegionTemplate=None, callee=None):
 	adjustedLine = line
 	for symbol in symbols:
+		currSymbol = symbol
 		symbolWasMatched = False
 		lineSections = []
 		work = adjustedLine
-		nextMatch = symbol.namePattern.match(work)
+		nextMatch = currSymbol.namePattern.match(work)
 		while nextMatch:
 			symbolWasMatched = True
 			prefix = nextMatch.group(1)
 			lineSections.append(prefix)
-			processed = implementMatch(work, nextMatch, symbol, iterators, parallelRegionTemplate, callee)
-			adjustedMatch = symbol.namePattern.match(processed)
+			processed = implementMatch(work, nextMatch, currSymbol, iterators, parallelRegionTemplate, callee)
+			adjustedMatch = currSymbol.namePattern.match(processed)
 			if not adjustedMatch:
 				raise Exception("Symbol %s can't be matched again after adjustment. Adjusted portion: %s" %(
-					symbol.name,
+					currSymbol.name,
 					processed
 				))
 			lineSections.append(adjustedMatch.group(2))
 			work = adjustedMatch.group(3)
-			nextMatch = symbol.namePattern.match(work)
+			nextMatch = currSymbol.namePattern.match(work)
 		if not symbolWasMatched:
 			raise Exception("symbol %s expected on line '%s' for %s - no match" %(
-				symbol.name,
+				currSymbol.name,
 				line,
 				parentRoutine.name
 			))

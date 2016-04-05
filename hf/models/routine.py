@@ -141,7 +141,16 @@ This is not allowed for implementations using %s.\
 				)
 			)
 
+	def _updateSymbolReferences(self):
+		#scoped name could have changed through splitting / merging
+		updatedSymbolsByName = dict(
+			(symbol.nameInScope(useDeviceVersionIfAvailable=False), symbol)
+			for symbol in self.symbolsByName.values()
+		)
+		self.symbolsByName = updatedSymbolsByName
+
 	def _updateSymbolState(self):
+		#updating device state
 		if self._symbolsToUpdate == None:
 			raise Exception("no symbols loaded for updating in routine %s" %(self.name))
 		regionType = RegionType.KERNEL_CALLER_DECLARATION if self.isCallingKernel else RegionType.OTHER
@@ -210,6 +219,7 @@ This is not allowed for implementations using %s.\
 		additionalParameters = additionalImportsForOurSelves + additionalDeclarationsForOurselves + additionalDummiesForOurselves
 		for symbol in additionalParameters:
 			symbolsByUniqueNameToBeUpdated[symbol.uniqueIdentifier] = symbol
+			self.symbolsByName[symbol.uniqueIdentifier] = symbol
 
 		toBeCompacted, declarationPrefix, otherImports = self._listCompactedSymbolsAndDeclarationPrefixAndOtherSymbols(
 			additionalParameters
@@ -471,6 +481,7 @@ This is not allowed for implementations using %s.\
 		purgedRoutineElements = []
 		try:
 			self._checkParallelRegions()
+			self._updateSymbolReferences()
 			self._prepareAdditionalContext()
 			self._updateSymbolState()
 			implementedRoutineElements = [self._implementHeader(), self._implementAdditionalImports()]

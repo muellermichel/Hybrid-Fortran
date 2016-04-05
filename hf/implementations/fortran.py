@@ -893,7 +893,7 @@ end if\n" %(calleeNode.getAttribute('name'))
 						analysis=getAnalysisForSymbol(symbolAnalysisByRoutineNameAndSymbolName, parentNode.getAttribute('name'), dependantName),
 						parallelRegionTemplates=callee.parallelRegionTemplates
 					)
-				symbol.loadRoutineNodeAttributes(parentNode, callee.parallelRegionTemplates)
+					symbol.loadRoutineNodeAttributes(parentNode, callee.parallelRegionTemplates)
 				if symbol.isDummySymbolForRoutine(routineName=parentNode.getAttribute('name')):
 					continue #already passed manually
 				isModuleSymbol = symbol.declarationType in [

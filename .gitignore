@@ -30,3 +30,5 @@ doc/src/declarationOfOriginality.pdf
 doc/src/HFDocumentation.pdf
 examples/poisson2d_fem_iterative/input.dat
 examples/particle/test/*
+CPU_IMPLEMENTATION_*
+GPU_IMPLEMENTATION_*

@@ -24,6 +24,7 @@ from tools.commons import Singleton
 
 @Singleton
 class RegExPatterns:
+    attributeRegex = r"\w*\s*(?:\(\s*[\w\,\s\:\+\-\*\/]*\s*(?:\(.*?\))?\s*\))?"
     dynamicPatternsByRegex = None
     staticRegexByPatternName = {
         'blankPattern': r'\s',
@@ -43,11 +44,9 @@ class RegExPatterns:
             ^\s*(
                 (?:double\s+precision|real|integer|character|logical|complex)\s*        #intrinsic types
                 (?:\(\s*[\w\,\s=*:]*\s*\))?\s*                                          #type initialization expression (usually the byte length)
-                (?:\s*\,\s*\w*\s*(?:\(\s*[\w\,\s\:\+\-\*\/]*\s*(?:\(.*?\))?\s*\))?)*    #arbitrarily many additional attributes; Also handle macro calls by allowing brackets within brackets
+                (?:\s*\,\s*""" + attributeRegex + r""")*                                #arbitrarily many additional attributes; Also handle macro calls by allowing brackets within brackets
             )\s*(?:\:\:)?\s*(                                                           #double colon to specify multiple data objects on the same line
-                (?:\w*\s*(?:                                                            #data object names
-                    \(\s*[\w\,\s\:\+\-\*\/]*\s*(?:\(.*?\))?\s*\)                        #same as above with dimension specifications: all that's possible inside dimension brackets
-                )?\s*\,?\s*)+                                                           #glue for multiple data objects
+                (?:""" + attributeRegex + r"""\s*\,?\s*)+                               #data objects
             )(
                 .*                                                                      #everything that comes after the data object names, such as parameter definitions (my_param = 19)
             )\s*$

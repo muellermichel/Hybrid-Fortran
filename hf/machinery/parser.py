@@ -837,9 +837,12 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
             #if symbol is declared device type, let user handle it
             symbolNamesWithoutDomainDependantSpecs = [
                 symbolName.strip()
-                #$$$ this parsing is problematic - we could have a symbol list like s1(dim1, dim2), s2, s3 ....
-                for symbolName in [symbolSpec.split('(')[0] for symbolSpec in genericSymbolDeclMatch.group(2).split(",")]
-                if symbolName.strip() not in specifiedSymbolsByNameInScope
+                for symbolName in [
+                    symbolSpec.split('(')[0].strip()
+                    for symbolSpec in re.split(r"(" + self.patterns.attributeRegex + r")", genericSymbolDeclMatch.group(2))
+                    if symbolSpec.strip() not in ["", ","]
+                ]
+                if symbolName not in specifiedSymbolsByNameInScope
             ]
             for symbolName in symbolNamesWithoutDomainDependantSpecs:
                 if symbolName in ["intent", "dimension", "__device", "device", "type", "double precision", "real", "integer", "character", "logical", "complex"] \

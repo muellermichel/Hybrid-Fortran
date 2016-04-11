@@ -22,9 +22,8 @@ import re, sys, copy
 import logging
 import pdb
 from tools.metadata import *
-from tools.commons import enum, BracketAnalyzer
+from tools.commons import enum, BracketAnalyzer, Singleton, UsageError
 from tools.patterns import RegExPatterns
-from tools.commons import Singleton, UsageError
 from tools.analysis import SymbolDependencyAnalyzer, SymbolType
 from machinery.commons import purgeDimensionAndGetAdjustedLine
 
@@ -1165,12 +1164,11 @@ Current Domains: %s\n" %(
 				r'\s*(?:double\s+precision\W|real\W|integer\W|logical\W).*?(?:intent\W)*.*?(?:in\W|out\W|inout\W)*.*?(?:\W|^)' \
 					+ re.escape(self.name) \
 					+ r'\s*\(\s*(.*?)\s*\)(.*)',
-				prefix + self.name + postfix,
+				prefix + paramDeclMatch.group(2),
 				re.IGNORECASE
 			)
 			if dimensionMatch:
 				dimensionStr = dimensionMatch.group(1)
-				postfix = dimensionMatch.group(2)
 		# MMU 2015-9-13: This check is not compatible with CUDA Fortran version of helper_functions_gpu
 		# dimensionCheckForbiddenCharacters = re.match(r'^(?!.*[()]).*', dimensionStr, re.IGNORECASE)
 		# if not dimensionCheckForbiddenCharacters:
@@ -1467,7 +1465,11 @@ Currently loaded template: %s\n" %(
 		if not match:
 			return None
 		symbolNames = [sn.strip() for sn in match.group(2).split(",")]
-		if not self.name in symbolNames:
+		namePattern = self.patterns.get(r"^\s*" + self.name + r"\s*(?:\(.*)?$")
+		for name in symbolNames:
+			if namePattern.match(name):
+				break
+		else:
 			return None
 		return match
 

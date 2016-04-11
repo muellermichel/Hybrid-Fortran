@@ -19,7 +19,7 @@
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
 import weakref, copy, re
-from tools.commons import enum
+from tools.commons import enum, UsageError
 from tools.metadata import getArguments
 from tools.patterns import RegExPatterns
 from machinery.commons import ConversionOptions, getSymbolAccessStringAndReminder, purgeDimensionAndGetAdjustedLine
@@ -33,14 +33,17 @@ RegionType = enum(
 
 def implementMatch(line, match, symbol, iterators=[], parallelRegionTemplate=None, callee=None):
 	isPointerAssignment = RegExPatterns.Instance().pointerAssignmentPattern.match(line) != None
-	symbolAccessString, remainder = getSymbolAccessStringAndReminder(
-		symbol,
-		iterators,
-		parallelRegionTemplate,
-		match.group(3),
-		callee,
-		isPointerAssignment
-	)
+	try:
+		symbolAccessString, remainder = getSymbolAccessStringAndReminder(
+			symbol,
+			iterators,
+			parallelRegionTemplate,
+			match.group(3),
+			callee,
+			isPointerAssignment
+		)
+	except UsageError as e:
+		raise UsageError("%s; Print of Line: %s" %(str(e), line))
 	return (match.group(1) + symbolAccessString + remainder).strip() + "\n"
 
 def implementLine(line, symbols, parentRoutine, iterators=[], parallelRegionTemplate=None, callee=None):

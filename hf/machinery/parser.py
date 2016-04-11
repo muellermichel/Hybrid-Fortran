@@ -837,13 +837,16 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
             #if symbol is declared device type, let user handle it
             symbolNamesWithoutDomainDependantSpecs = [
                 symbolName.strip()
-                #$$$ this parsing is problematic - we could have a symbol list like s1(dim1, dim2), s2, s3 ....
-                for symbolName in [symbolSpec.split('(')[0] for symbolSpec in genericSymbolDeclMatch.group(2).split(",")]
-                if symbolName.strip() not in specifiedSymbolsByNameInScope
+                for symbolName in [
+                    symbolSpec.split('(')[0].strip()
+                    for symbolSpec in re.split(r"(" + self.patterns.attributeRegex + r")", genericSymbolDeclMatch.group(2))
+                    if symbolSpec.strip() not in ["", ","]
+                ]
+                if symbolName not in specifiedSymbolsByNameInScope
             ]
             for symbolName in symbolNamesWithoutDomainDependantSpecs:
                 if symbolName in ["intent", "dimension", "__device", "device", "type", "double precision", "real", "integer", "character", "logical", "complex"] \
-                or not re.match(r'\w', symbolName):
+                or not re.match(r'^\w*$', symbolName):
                     raise Exception(
                         "Either Hybrid Fortran's declaration parser is broken or you have used a Fortran intrinsic keyword as a symbol name: %s; Matched specification: %s; Matched symbol list: %s" %(
                             symbolName, genericSymbolDeclMatch.group(1), genericSymbolDeclMatch.group(2)
@@ -870,20 +873,6 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
                 self.processSymbolImportMatch(importMatch, symbol)
             elif useUnspecificMatching and symbol.namePattern.match(line):
                 self.symbolsOnCurrentLine.append(symbol)
-
-        #validate the symbols on the current declaration line: Do they match the requirements for Hybrid Fortran?
-        if not useUnspecificMatching:
-            arrayDeclarationLine = None
-            for symbol in self.symbolsOnCurrentLine:
-                if symbol.isArray and arrayDeclarationLine == False or not symbol.isArray and arrayDeclarationLine == True:
-                    raise UsageError(
-                        "Array symbols have been mixed with non-array symbols on the same line (%s has declaration type %i): %s. This is invalid in Hybrid Fortran. Please move apart these declarations.\n" %(
-                            symbol.name,
-                            symbol.declarationType,
-                            self.symbolsOnCurrentLine
-                        )
-                    )
-                arrayDeclarationLine = symbol.isArray
 
     def processImport(self, parentNode, uid, moduleName, sourceSymbolName, symbolNameInScope):
         k = (moduleName, symbolNameInScope)
@@ -938,7 +927,8 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
         symbol.isMatched = True
         moduleName, sourceName = symbol.getModuleNameAndSourceSymbolNameFromImportMatch(importMatch)
         moduleNode = self.moduleNodesByName.get(moduleName)
-        symbol.loadImportInformation(self.cgDoc, moduleNode, sourceName)
+        if moduleNode:
+            symbol.loadImportInformation(self.cgDoc, moduleNode, sourceName)
 
     def processBranchMatch(self, branchMatch):
         super(H90CallGraphAndSymbolDeclarationsParser, self).processBranchMatch(branchMatch)

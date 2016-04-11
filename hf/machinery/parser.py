@@ -874,20 +874,6 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
             elif useUnspecificMatching and symbol.namePattern.match(line):
                 self.symbolsOnCurrentLine.append(symbol)
 
-        #validate the symbols on the current declaration line: Do they match the requirements for Hybrid Fortran?
-        if not useUnspecificMatching:
-            arrayDeclarationLine = None
-            for symbol in self.symbolsOnCurrentLine:
-                if symbol.isArray and arrayDeclarationLine == False or not symbol.isArray and arrayDeclarationLine == True:
-                    raise UsageError(
-                        "Array symbols have been mixed with non-array symbols on the same line (%s has declaration type %i): %s. This is invalid in Hybrid Fortran. Please move apart these declarations.\n" %(
-                            symbol.name,
-                            symbol.declarationType,
-                            self.symbolsOnCurrentLine
-                        )
-                    )
-                arrayDeclarationLine = symbol.isArray
-
     def processImport(self, parentNode, uid, moduleName, sourceSymbolName, symbolNameInScope):
         k = (moduleName, symbolNameInScope)
         if self.currRoutineImportsDict != None:

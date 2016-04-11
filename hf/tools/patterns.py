@@ -42,10 +42,12 @@ class RegExPatterns:
         'symbolDeclPattern': r"""
             ^\s*(
                 (?:double\s+precision|real|integer|character|logical|complex)\s*        #intrinsic types
-                (?:\(\s*[\w\,\s=*:]*\s*\))?\s*                                            #type initialization expression (usually the byte length)
+                (?:\(\s*[\w\,\s=*:]*\s*\))?\s*                                          #type initialization expression (usually the byte length)
                 (?:\s*\,\s*\w*\s*(?:\(\s*[\w\,\s\:\+\-\*\/]*\s*(?:\(.*?\))?\s*\))?)*    #arbitrarily many additional attributes; Also handle macro calls by allowing brackets within brackets
             )\s*(?:\:\:)?\s*(                                                           #double colon to specify multiple data objects on the same line
-                (?:\w*\s*\,?\s*)+                                                       #the data object name(s)
+                (?:\w*\s*(?:                                                            #data object names
+                    \(\s*[\w\,\s\:\+\-\*\/]*\s*(?:\(.*?\))?\s*\)                        #same as above with dimension specifications: all that's possible inside dimension brackets
+                )?\s*\,?\s*)+                                                           #glue for multiple data objects
             )(
                 .*                                                                      #everything that comes after the data object names, such as parameter definitions (my_param = 19)
             )\s*$

@@ -843,7 +843,7 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
             ]
             for symbolName in symbolNamesWithoutDomainDependantSpecs:
                 if symbolName in ["intent", "dimension", "__device", "device", "type", "double precision", "real", "integer", "character", "logical", "complex"] \
-                or not re.match(r'\w', symbolName):
+                or not re.match(r'^\w*$', symbolName):
                     raise Exception(
                         "Either Hybrid Fortran's declaration parser is broken or you have used a Fortran intrinsic keyword as a symbol name: %s; Matched specification: %s; Matched symbol list: %s" %(
                             symbolName, genericSymbolDeclMatch.group(1), genericSymbolDeclMatch.group(2)
@@ -938,7 +938,8 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
         symbol.isMatched = True
         moduleName, sourceName = symbol.getModuleNameAndSourceSymbolNameFromImportMatch(importMatch)
         moduleNode = self.moduleNodesByName.get(moduleName)
-        symbol.loadImportInformation(self.cgDoc, moduleNode, sourceName)
+        if moduleNode:
+            symbol.loadImportInformation(self.cgDoc, moduleNode, sourceName)
 
     def processBranchMatch(self, branchMatch):
         super(H90CallGraphAndSymbolDeclarationsParser, self).processBranchMatch(branchMatch)

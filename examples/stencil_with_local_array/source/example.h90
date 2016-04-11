@@ -17,12 +17,6 @@ contains
     c
     @end domainDependant
 
-    ! This is a unit test used for Hybrid Fortran: Does it shape the local array like we told it to with the domainDependant directive?
-    if (size(c, 1) .ne. n-1 .or. size(c, 2) .ne. m) then
-      write(6,*) "local array does not have the expected shape:", size(c, 1), "x", size(c, 2), "instead of", n-1, "x", m
-      stop 2
-    end if
-
     @parallelRegion{domName(i,j), domSize(n,m), endAt(n-1,m)}
     c(1) = a(i,j)
     do k = 2, nz
@@ -30,18 +24,6 @@ contains
     end do
     b(i,j) = a(i,j) + a(i+1,j) + c(nz)
     @end parallelRegion
-  end subroutine
-
-  subroutine stencil_wrapper(n, m, nz, a, b)
-    implicit none
-    integer(4), intent(in) :: n, m, nz
-    real(8), intent(in), dimension(n,m) :: a
-    real(8), intent(out), dimension(n,m) :: b
-    @domainDependant{attribute(autoDom)}
-    a, b
-    @end domainDependant
-
-    call stencil(n, m, nz, a, b)
   end subroutine
 end module
 
@@ -58,7 +40,7 @@ program main
   allocate(b(n,m))
   a(:,:) = 1.0d0
   b(:,:) = 0.0d0
-  call stencil_wrapper(n, m, nz, a, b)
+  call stencil(n, m, nz, a, b)
   do i=1,n-1
     do j=1,m
       if (b(i,j) .ne. 6.0d0) then

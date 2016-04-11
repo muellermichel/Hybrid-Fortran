@@ -29,7 +29,6 @@ class RegExPatterns:
         'blankPattern': r'\s',
         'quotedStringPattern': r'''(["'])''',
         'subprocBeginPattern': r'\s*\w*\s*subroutine\s*(\w*).*',
-        'subprocFirstLineParameterListPattern': r'(.*?\()(.*)',
         'subprocEndPattern': r'\s*end\s*subroutine.*',
         'subprocCallPattern': r'\s*call\s*(\w*)(.*)',
         'parallelRegionPattern': r'\s*@parallelRegion\s*{(.*)}.*',
@@ -40,33 +39,56 @@ class RegExPatterns:
         'branchEndPattern': r'\s*@end\s*if.*',
         'intentPattern': r'.*?intent\s*\(\s*(in|out|inout)\s*\).*',
         'dimensionPattern': r'(.*?),?\s*dimension\s*\(\s*(.*?)\s*\)(.*)',
-        'symbolDeclTestPattern': r'.*?::.*',
-        'symbolDeclPattern': r"(\s*(?:double\s+precision|real|integer|character|logical)(?:.*?))\s*::(.*)",
+        'symbolDeclPattern': r"""
+            ^\s*(
+                (?:double\s+precision|real|integer|character|logical|complex)\s*        #intrinsic types
+                (?:\(\s*[\w\,\s=*:]*\s*\))?\s*                                            #type initialization expression (usually the byte length)
+                (?:\s*\,\s*\w*\s*(?:\(\s*[\w\,\s\:\+\-\*\/]*\s*(?:\(.*?\))?\s*\))?)*    #arbitrarily many additional attributes; Also handle macro calls by allowing brackets within brackets
+            )\s*(?:\:\:)?\s*(                                                           #double colon to specify multiple data objects on the same line
+                (?:\w*\s*\,?\s*)+                                                       #the data object name(s)
+            )(
+                .*                                                                      #everything that comes after the data object names, such as parameter definitions (my_param = 19)
+            )\s*$
+        """,
         'declarationKindPattern': r'(.*?)\s*kind\s*=\s*(\w*)\s*(.*)',
         'pointerAssignmentPattern': r"^\s*\w+\s*\=\>\s*\w+.*",
         'whileLoopPattern': r"\s*do\s*while\W.*",
         'loopPattern': r"\s*do\W.*",
+        'interfacePattern': r"\s*interface\s*",
+        'interfaceEndPattern': r"\s*end\s*interface\s*",
         'moduleBeginPattern': r'\s*module\s*(\w*).*',
         'moduleEndPattern': r'\s*end\s*module.*',
         'earlyReturnPattern': r'^\s*return(?:\s.*|$)',
         'templatePattern': r'\s*@scheme\s*{(.*)}.*',
         'templateEndPattern': r'\s*@end\s*scheme.*',
         'symbolAccessPattern': r'\s*\((.*)',
+        'symbolNamePattern': r'\s*(\w*(?:_d)?)((?:\W.*)|\Z)',
         'argumentPattern': r'\s*(?:subroutine|call)?\s*(?:\w*)\s*\((.*)',
         'selectiveImportPattern': r'^\s*use\s*(\w*)[,\s]*only\s*\:\s*([=>,\s\w]*)(?:\s.*|$)',
+        'importAllPattern': r'^\s*use\s*\w*\s*$',
         'singleMappedImportPattern': r'\s*(\w*)\s*=>\s*(\w*)\s*',
         'callArgumentPattern': r'\s*(\w*)\s*(.*)',
-        'containsPattern': r'\s*contains\s*'
+        'containsPattern': r'\s*contains\s*',
+        'specificationStatementPattern': r"""
+            ^\s*(
+                procedure|external|intrinsic
+                |public|private|allocatable|asynchronous
+                |bind|data|dimension|intent|optional|parameter
+                |pointer|protected|save
+                |target|value|volatile|implicit
+                |namelist|equivalence|common
+            )\s+(.*)\s*$
+        """
     }
 
     def __init__(self):
         self.dynamicPatternsByRegex = {}
         for patternName in self.staticRegexByPatternName:
-            setattr(self, patternName, re.compile(self.staticRegexByPatternName[patternName], re.IGNORECASE))
+            setattr(self, patternName, re.compile(self.staticRegexByPatternName[patternName], re.IGNORECASE | re.VERBOSE))
 
     def get(self, regex):
         pattern = self.dynamicPatternsByRegex.get(regex)
         if pattern == None:
-            pattern = re.compile(regex, re.IGNORECASE)
+            pattern = re.compile(regex, re.IGNORECASE | re.VERBOSE)
             self.dynamicPatternsByRegex[regex] = pattern
         return pattern

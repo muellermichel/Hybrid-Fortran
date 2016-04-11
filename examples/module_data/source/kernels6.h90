@@ -15,55 +15,65 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.'
 
-module kernels2
+module kernels6
+
+    real, dimension(:,:,:), allocatable :: local
+
+    @domainDependant{attribute(host), domName(x,y,z), domSize(NX,NY,NZ), domPP(DOM), accPP(AT)}
+    local
+    @end domainDependant
+
 contains
-  subroutine wrapper2()
-    use my_module, only: a, b, c, d, a2, b2, c2, d2
+  subroutine kernels6_initialize()
+    @domainDependant{}
+    @end domainDependant
+    allocate(local(NX,NY,NZ))
+    local(:,:,:) = 5.0d0
+  end subroutine
+
+  subroutine kernels6_cleanup()
+    deallocate(local)
+  end subroutine
+
+  subroutine wrapper6()
+    use my_module, only: a, b, c
     implicit none
 
     @domainDependant{attribute(autoDom,present)}
-    a, b, c, d, a2, b2, c2, d2
+    a, b, c
     @end domainDependant
 
-    call add2(a, b, c)
-    call mult2(a, b, d)
-
-    call add2(a2, b2, c2)
-    call mult2(a2, b2, d2)
+    call add6(a, b, c)
   end subroutine
 
-  subroutine add2(a,b,c)
+  subroutine add6(a,b,c)
     implicit none
     real, dimension(NX,NY,NZ), intent(in) :: a, b
     real, dimension(NX,NY,NZ), intent(out) :: c
-    integer :: z
 
-    @domainDependant{attribute(autoDom)}
+    @domainDependant{attribute(autoDom, present)}
     a, b, c
     @end domainDependant
 
     @parallelRegion{domName(x,y), domSize(NX, NY)}
-    do z=1,NZ
-      c(z) = a(z) + b(z)
-    end do
+    call inner(a(:), b(:), x, y, c(:))
     @end parallelRegion
   end subroutine
 
-  subroutine mult2(a,b,d)
-    implicit none
-    real, dimension(NX,NY,NZ), intent(in) :: a, b
-    real, dimension(NX,NY,NZ), intent(out) :: d
-    integer :: z
+  subroutine inner(in1, in2, x, y, result)
+    use my_module, only: used_in_acc_routine, some_const !we import a module variable in order to break OpenACC routines
 
-    @domainDependant{attribute(autoDom)}
-    a, b, d
+    real, intent(in) :: in1(NZ), in2(NZ)
+    integer(4), intent(in) :: x, y
+    real, intent(out) :: result(NZ)
+    integer :: z
+    @domainDependant{attribute(autoDom, present)}
+    used_in_acc_routine
     @end domainDependant
 
-    @parallelRegion{domName(x,y), domSize(NX, NY)}
     do z=1,NZ
-      d(z) = a(z) * b(z)
+        result = in1(z) + in2(z) + local(x,y,z) + some_const + used_in_acc_routine(x,y,z)
     end do
-    @end parallelRegion
   end subroutine
 
-end module kernels2
+end module kernels6

@@ -26,8 +26,10 @@ from tools.commons import enum, BracketAnalyzer
 from tools.patterns import RegExPatterns
 from tools.commons import Singleton, UsageError
 from tools.analysis import SymbolDependencyAnalyzer, SymbolType
+from machinery.commons import purgeDimensionAndGetAdjustedLine
 
-Init = enum("NOTHING_LOADED",
+Init = enum(
+	"NOTHING_LOADED",
 	"TEMPLATE_LOADED",
 	"DEPENDANT_ENTRYNODE_ATTRIBUTES_LOADED",
 	"ROUTINENODE_ATTRIBUTES_LOADED",
@@ -94,7 +96,8 @@ Init = enum("NOTHING_LOADED",
 #Set of declaration types that are mutually exlusive for
 #declaration lines in Hybrid Fortran.
 #-> You cannot mix and match declarations of different types
-DeclarationType = enum("UNDEFINED",
+DeclarationType = enum(
+	"UNDEFINED",
 	"LOCAL_ARRAY",
 	"LOCAL_MODULE_SCALAR",
 	"MODULE_ARRAY",
@@ -110,21 +113,11 @@ DeclarationType = enum("UNDEFINED",
 def purgeFromDeclarationSettings(line, dependantSymbols, patterns, purgeList=['intent'], withAndWithoutIntent=True):
 	declarationDirectives = ""
 	symbolDeclarationStr = ""
-	if patterns.symbolDeclTestPattern.match(line):
-		match = patterns.symbolDeclPattern.match(line)
-		if not match:
-			raise Exception("When trying to extract a device declaration: This is not a valid declaration: %s" %(line))
-		declarationDirectives = match.group(1)
-		symbolDeclarationStr = match.group(2)
-	else:
-		#no :: is used in this declaration line -> we should only have one symbol defined on this line
-		if len(dependantSymbols) > 1:
-			raise Exception("Declaration line without :: has multiple matching dependant symbols.")
-		match = re.match(r"(\s*(?:double\s+precision|real|integer|character|logical)(?:.*?))\s*(" + re.escape(dependantSymbols[0].name) + r".*)", line, re.IGNORECASE)
-		if not match:
-			raise Exception("When trying to extract a device declaration: This is not a valid declaration: %s" %(line))
-		declarationDirectives = match.group(1)
-		symbolDeclarationStr = match.group(2)
+	match = patterns.symbolDeclPattern.match(line)
+	if not match:
+		raise Exception("When trying to extract a device declaration: This is not a valid declaration: %s" %(line))
+	declarationDirectives = match.group(1)
+	symbolDeclarationStr = match.group(2)
 
 	if not withAndWithoutIntent:
 		return declarationDirectives, symbolDeclarationStr
@@ -184,22 +177,15 @@ def getReorderedDomainsAccordingToDeclaration(domains, dimensionSizesInDeclarati
 		return domains
 	return reorderedDomains
 
-def purgeDimensionAndGetAdjustedLine(line, patterns):
-	match = patterns.dimensionPattern.match(line)
-	if not match:
-		return line
-	else:
-		return match.group(1) + match.group(3)
-
-def uniqueIdentifier(symbolName, nameOfScope):
-	return (symbolName + "_hfauto_" + nameOfScope).strip()
+def uniqueIdentifier(symbolName, suffix):
+	return (symbolName + "_hfauto_" + suffix).strip()
 
 MERGEABLE_DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES = {
 	"isPointer": False,
 	"isMatched": False,
 	"declarationPrefix": None,
-	"sourceModule": None,
-	"sourceSymbol": None,
+	"_sourceModuleIdentifier": None,
+	"_sourceSymbol": None,
 	"parallelRegionTemplates": None,
 	"declaredDimensionSizes": None,
 	"_isPresent": False,
@@ -237,12 +223,13 @@ class Symbol(object):
 		else:
 			self.patterns = RegExPatterns.Instance()
 		self.analysis = analysis
-		self.declPattern = self.patterns.get(r'(\s*(?:double\s+precision|real|integer|logical).*?[\s,:]+)' + re.escape(name) + r'((?:\s|\,|\(|$)+.*)')
-		self.symbolImportPattern = self.patterns.get(r'^\s*use\s*(\w*)[,\s]*only\s*\:.*?\W' + re.escape(name) + r'\W.*')
-		self.symbolImportMapPattern = self.patterns.get(r'.*?\W' + re.escape(name) + r'\s*\=\>\s*(\w*).*')
+		self.importPattern = self.patterns.get(r'^\s*use\s*(\w*)\s*,\s*only\s*.*?\W\s*' + re.escape(name) + r'(?:\W|$).*')
+		self.importMapPattern = self.patterns.get(r'.*?\W' + re.escape(name) + r'\s*\=\>\s*(\w*).*')
 		self.pointerDeclarationPattern = self.patterns.get(r'\s*(?:double\s+precision|real|integer|logical).*?pointer.*?[\s,:]+' + re.escape(name))
 		self.initLevel = Init.NOTHING_LOADED
 		self.routineNode = None
+		self.declarationSuffix = None
+		self._entryNode = symbolEntry
 		if template != None:
 			self.loadTemplate(template)
 		else:
@@ -257,6 +244,9 @@ class Symbol(object):
 				self.loadModuleNodeAttributes(scopeNode)
 			else:
 				self.loadRoutineNodeAttributes(scopeNode, parallelRegionTemplates)
+
+		import inspect
+		self.createdBy = inspect.getouterframes(inspect.currentframe(), 2)[1][3]
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] initialized")
 
 	def __repr__(self):
@@ -297,13 +287,28 @@ class Symbol(object):
 		return False
 
 	@property
-	def isArgument(self):
-		return self._isArgumentOverride or (self.analysis and self.analysis.symbolType in [SymbolType.ARGUMENT_WITH_DOMAIN_DEPENDANT_SPEC, SymbolType.ARGUMENT])
-
-	@property
 	def namePattern(self):
 		symbolName = self._nameInScope if self._nameInScope != None else self.name
 		return self.patterns.get(r'((?:[^\"\']|(?:\".*\")|(?:\'.*\'))*?(?:\W|^))(' + re.escape(symbolName) + r'(?:_d)?)((?:\W.*)|\Z)')
+
+	@property
+	def sourceModule(self):
+		if self._sourceModuleIdentifier not in ['', None, 'HF90_LOCAL_MODULE']:
+			return self._sourceModuleIdentifier
+		if not self.routineNode:
+			return None
+		sourceModule = self.routineNode.getAttribute('module')
+		if sourceModule in ['', None]:
+			sourceModule = self.routineNode.getAttribute('name') #looks like a module node is loaded for this symbol instead
+		return sourceModule
+
+	@sourceModule.setter
+	def sourceModule(self, _sourceModuleIdentifier):
+		self._sourceModuleIdentifier = _sourceModuleIdentifier
+
+	@property
+	def isArgument(self):
+		return self._isArgumentOverride or (self.analysis and self.analysis.symbolType in [SymbolType.ARGUMENT_WITH_DOMAIN_DEPENDANT_SPEC, SymbolType.ARGUMENT])
 
 	@isArgument.setter
 	def isArgument(self, _isArgumentOverride):
@@ -330,8 +335,20 @@ class Symbol(object):
 		self._nameOfScopeOverride = _nameOfScopeOverride
 
 	@property
+	def sourceSymbol(self):
+		if not self._sourceSymbol:
+			return None
+		if self.isUsingDevicePostfix:
+			return self._sourceSymbol + "_d"
+		return self._sourceSymbol
+
+	@sourceSymbol.setter
+	def sourceSymbol(self, _sourceSymbol):
+		self._sourceSymbol = _sourceSymbol
+
+	@property
 	def isHostSymbol(self):
-		return self._isHostSymbol and not self._isPresent and not self._isToBeTransfered
+		return self._isHostSymbol and not self.isPresent and not self.isToBeTransfered
 
 	@isHostSymbol.setter
 	def isHostSymbol(self, _isHostSymbol):
@@ -339,6 +356,8 @@ class Symbol(object):
 
 	@property
 	def isPresent(self):
+		if self.parallelRegionPosition in ["within", "outside"]:
+			return True #as a general rule in HF, if we have a kernel in our subroutine, all symbols are to be already present on the device
 		return self._isPresent
 
 	@property
@@ -355,6 +374,8 @@ class Symbol(object):
 
 	@property
 	def isToBeTransfered(self):
+		if self.parallelRegionPosition == "within":
+			return False
 		return self._isToBeTransfered
 
 	@property
@@ -384,12 +405,17 @@ class Symbol(object):
 	@property
 	def declarationType(self):
 		def hasSourceModule(symbol, onlyLocal=False):
-			if symbol.sourceModule == "HF90_LOCAL_MODULE" \
-			or (symbol.sourceModule not in [None, ""] and symbol.sourceModule == self.routineNode.getAttribute('module')):
+			if symbol._sourceModuleIdentifier == "HF90_LOCAL_MODULE" \
+			or (
+				symbol._sourceModuleIdentifier not in [None, ""] \
+				and (symbol._sourceModuleIdentifier == self.routineNode.getAttribute('module') \
+					or symbol._sourceModuleIdentifier == self.routineNode.getAttribute('name')\
+				) \
+			):
 				return True
 			if onlyLocal:
 				return False
-			if symbol.sourceModule not in [None, ""]:
+			if symbol._sourceModuleIdentifier not in [None, ""]:
 				return True
 			return False
 
@@ -455,7 +481,13 @@ EXAMPLE:\n\
 
 	@property
 	def uniqueIdentifier(self):
-		return uniqueIdentifier(self.name, self.nameOfScope)
+		if not self.routineNode:
+			raise Exception("routine node needs to be loaded at this point")
+		return uniqueIdentifier(
+			self.name,
+			self.sourceModule if self.sourceModule not in [None, "", "HF90_LOCAL_MODULE"] \
+				else self.routineNode.getAttribute("name")
+		)
 
 	def nameInScope(self, useDeviceVersionIfAvailable=True):
 		#Give a symbol representation that is guaranteed to *not* collide with any local namespace (as long as programmer doesn't use any 'hfXXX' pre- or postfixes)
@@ -466,10 +498,24 @@ EXAMPLE:\n\
 					return aliasName
 			if symbol.nameIsGuaranteedUniqueInScope:
 				return symbol.name
-			referencingName = symbol.uniqueIdentifier
+			referencingName = None
+			if symbol.declarationType in [
+				DeclarationType.LOCAL_MODULE_SCALAR,
+				DeclarationType.MODULE_ARRAY,
+				DeclarationType.FOREIGN_MODULE_SCALAR,
+				DeclarationType.MODULE_ARRAY_PASSED_IN_AS_ARGUMENT
+			] and symbol._sourceModuleIdentifier not in [None, ""]:
+				referencingName = uniqueIdentifier(self.name, self._sourceModuleIdentifier)
+			else:
+				referencingName = symbol.uniqueIdentifier
 			return referencingName[:min(len(referencingName), 31)] #cut after 31 chars because of Fortran 90 limitation
 
-		if self.isEmulatingSymbolThatWasActiveInCurrentScope:
+		if (self.routineNode and self.sourceModule in [
+			"HF90_LOCAL_MODULE",
+			self.routineNode.getAttribute("name")
+		]) \
+		or (self.sourceModule not in [None, ""] and self.routineNode and self.sourceModule == self.routineNode.getAttribute('module')) \
+		or self.isEmulatingSymbolThatWasActiveInCurrentScope:
 			self._nameInScope = self.name
 		if self._nameInScope == None:
 			self._nameInScope = automaticName(self)
@@ -598,6 +644,7 @@ EXAMPLE:\n\
 			else:
 				setattr(self, domainAttributeName, getMergedCollection(domainAttributeName))
 		self.initLevel = max(self.initLevel, otherSymbol.initLevel)
+		self._nameInScope = None
 
 	def loadTemplate(self, template):
 		if self.initLevel > Init.DEPENDANT_ENTRYNODE_ATTRIBUTES_LOADED:
@@ -630,16 +677,22 @@ EXAMPLE:\n\
 			self._isToBeTransfered = True
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] attributes set")
 
-	def storeDomainDependantEntryNodeAttributes(self, domainDependantEntryNode):
+	def storeDomainDependantEntryNodeAttributes(self, overloadEntryNode=None):
+		domainDependantEntryNode = self._entryNode
+		if overloadEntryNode != None:
+			domainDependantEntryNode = overloadEntryNode
+		if domainDependantEntryNode == None:
+			raise Exception("no entry node specified for %s - cannot store attributes" %(self.name))
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] storing symbol attributes. Init Level: %s" %(str(self.initLevel)))
 		if self.intent:
 			domainDependantEntryNode.setAttribute("intent", self.intent)
 		if self.declarationPrefix:
 			domainDependantEntryNode.setAttribute("declarationPrefix", self.declarationPrefix)
-		if self.sourceModule:
-			domainDependantEntryNode.setAttribute("sourceModule", self.sourceModule)
+		if self._sourceModuleIdentifier:
+			domainDependantEntryNode.setAttribute("_sourceModuleIdentifier", self._sourceModuleIdentifier)
 		if self.sourceSymbol:
 			domainDependantEntryNode.setAttribute("sourceSymbol", self.sourceSymbol)
+		domainDependantEntryNode.setAttribute("isUsingDevicePostfix", "yes" if self.isUsingDevicePostfix else "no")
 		domainDependantEntryNode.setAttribute("isPointer", "yes" if self.isPointer else "no")
 		if self.domains and len(self.domains) > 0:
 			domainDependantEntryNode.setAttribute(
@@ -656,11 +709,12 @@ EXAMPLE:\n\
 
 		self.intent = domainDependantEntryNode.getAttribute("intent") if self.intent in [None, ''] else self.intent
 		self.declarationPrefix = domainDependantEntryNode.getAttribute("declarationPrefix") if self.declarationPrefix in [None, ''] else self.declarationPrefix
-		self.sourceModule = domainDependantEntryNode.getAttribute("sourceModule") if self.sourceModule in [None, ''] else self.sourceModule
+		self._sourceModuleIdentifier = domainDependantEntryNode.getAttribute("_sourceModuleIdentifier") if self._sourceModuleIdentifier in [None, ''] else self._sourceModuleIdentifier
 		self.sourceSymbol = domainDependantEntryNode.getAttribute("sourceSymbol") if self.sourceSymbol in [None, ''] else self.sourceSymbol
 		if self.isModuleSymbol:
-			self.sourceModule = "HF90_LOCAL_MODULE" if self.sourceModule in [None, ''] else self.sourceModule
-		self.isPointer = domainDependantEntryNode.getAttribute("isPointer") == "yes" if not self.isPointer else self.isPointer
+			self._sourceModuleIdentifier = "HF90_LOCAL_MODULE" if self._sourceModuleIdentifier in [None, ''] else self._sourceModuleIdentifier
+		self.isPointer = domainDependantEntryNode.getAttribute("isPointer") == "yes"
+		self.isUsingDevicePostfix = domainDependantEntryNode.getAttribute("isUsingDevicePostfix") == "yes"
 		declaredDimensionSizes = domainDependantEntryNode.getAttribute("declaredDimensionSizes")
 		self.declaredDimensionSizes = declaredDimensionSizes.split(",") if declaredDimensionSizes \
 			and declaredDimensionSizes != "" \
@@ -688,6 +742,7 @@ EXAMPLE:\n\
 			if not domainName in self.parallelActiveDims:
 				continue
 			parallelDomainSizesDict[domainSize] = None
+		logging.debug("domain integrity checked for symbol %s" %(self))
 
 	def loadTemplateAttributes(self, parallelRegionTemplates=[]):
 		if self.initLevel < Init.TEMPLATE_LOADED:
@@ -713,10 +768,10 @@ EXAMPLE:\n\
 				)
 			)
 
-	def loadDeclarationPrefixFromString(self, declarationPrefixFromTemplate):
-		if declarationPrefixFromTemplate != None and declarationPrefixFromTemplate.strip() != "":
-			self.declarationPrefix = declarationPrefixFromTemplate
-		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] declaration prefix loaded: %s" %(declarationPrefixFromTemplate))
+	def loadDeclarationPrefixFromString(self, declarationPrefix):
+		if declarationPrefix != None and declarationPrefix.strip() != "":
+			self.declarationPrefix = declarationPrefix
+		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] declaration prefix loaded: %s" %(declarationPrefix))
 
 	def loadDomains(self, dependantDomNameAndSize, parallelRegionTemplates=[]):
 		if dependantDomNameAndSize == None or len(dependantDomNameAndSize) == 0:
@@ -771,6 +826,9 @@ EXAMPLE:\n\
 			))
 
 		dimsBeforeReset = copy.deepcopy(self.domains)
+		domNameBySize = {}
+		for (dependantDomName, dependantDomSize) in dimsBeforeReset:
+			domNameBySize[dependantDomSize] = dependantDomName
 		self.domains = []
 		for (dependantDomName, dependantDomSize) in dependantDomNameAndSize:
 			if dependantDomName not in self.parallelActiveDims \
@@ -778,20 +836,22 @@ EXAMPLE:\n\
 				raise Exception("Symbol %s's dependant domain size %s is not declared as one of its dimensions." \
 					%(self.name, dependantDomSize))
 			self.domains.append((dependantDomName, dependantDomSize))
+			domNameBySize[dependantDomSize] = dependantDomName
 			logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] adding domain %s to symbol %s; Domains now: %s" %(
 				str((dependantDomName, dependantDomSize)), self.name, self.domains
 			))
 		if self.isAutoDom and not self.isPointer:
 			alreadyEstablishedDomSizes = [domSize for (domName, domSize) in self.domains]
-			logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] Symbol %s is an autoDom symbol: Checking already established domains %s against previous dimensions: %s. dependantDomNameAndSize: %s" %(
-				self.name, str(self.domains), str(dimsBeforeReset), str(dependantDomNameAndSize))
-			)
+			logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] Symbol %s is an autoDom symbol: Checking already established domains %s against previous dimensions: %s. parallelRegionDomNamesBySize: %s, alreadyEstablishedDomSizes: %s, domNameBySize: %s" %(
+				self.name, str(self.domains), str(dimsBeforeReset), str(parallelRegionDomNamesBySize), str(alreadyEstablishedDomSizes), str(domNameBySize)
+			))
 			for (domName, domSize) in dimsBeforeReset:
-				if domName in self.parallelActiveDims \
-				or parallelRegionDomNamesBySize.get(domSize) != None \
+				domNameAdjusted = domNameBySize.get(domSize, domName)
+				if domNameAdjusted in self.parallelActiveDims \
+				or (self.parallelRegionPosition == "outside" and parallelRegionDomNamesBySize.get(domSize) != None) \
 				or (len(dimsBeforeReset) <= len(self.domains) and domSize in alreadyEstablishedDomSizes):
 					continue
-				self.domains.append((domName, domSize))
+				self.domains.append((domNameAdjusted, domSize))
 		self.checkIntegrityOfDomains()
 
 	def loadModuleNodeAttributes(self, moduleNode):
@@ -848,7 +908,7 @@ EXAMPLE:\n\
 			patterns, \
 			withAndWithoutIntent=False \
 		)
-		self.declarationPrefix = purgeDimensionAndGetAdjustedLine(declarationDirectives.rstrip() + " " + "::", patterns)
+		self.declarationPrefix = purgeDimensionAndGetAdjustedLine(declarationDirectives.rstrip() + " " + "::")
 
 		#   get and check intent                                      #
 		intentMatch = patterns.intentPattern.match(paramDeclMatch.group(1))
@@ -867,10 +927,8 @@ EXAMPLE:\n\
 
 		#   look at declaration of symbol and get its                 #
 		#   dimensions.                                               #
-		dimensionStr, remainder = self.getDimensionStringAndRemainderFromDeclMatch(
-			paramDeclMatch,
-			patterns.dimensionPattern
-		)
+		dimensionStr, remainder = self.getDimensionStringAndRemainderFromDeclMatch(paramDeclMatch)
+		self.declarationSuffix = remainder.strip()
 		dimensionSizes = [sizeStr.strip() for sizeStr in dimensionStr.split(',') if sizeStr.strip() != ""]
 		if self.isAutoDom:
 			logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] reordering domains for symbol %s with autoDom option." %(self.name))
@@ -1021,7 +1079,21 @@ Parallel region position: %s"
 		self.initLevel = max(self.initLevel, Init.DECLARATION_LOADED)
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] declaration loaded for symbol %s. Domains at this point: %s" %(self.name, str(self.domains)))
 
-	def loadImportInformation(self, importMatch, cgDoc, moduleNode):
+	def getModuleNameAndSourceSymbolNameFromImportMatch(self, importMatch):
+		sourceModuleName = importMatch.group(1)
+		if sourceModuleName == "":
+			raise Exception("Invalid module in use statement for symbol %s" %(symbol.name))
+		mapMatch = self.importMapPattern.match(importMatch.group(0))
+		sourceSymbolName = ""
+		if mapMatch:
+			sourceSymbolName = mapMatch.group(1)
+			if sourceSymbolName == "":
+				raise Exception("Invalid source symbol in use statement for symbol %s" %(symbol.name))
+		if sourceSymbolName == "":
+			sourceSymbolName = self.name
+		return sourceModuleName, sourceSymbolName
+
+	def loadImportInformation(self, cgDoc, moduleNode, sourceSymbolName=None):
 		if self.initLevel < Init.TEMPLATE_LOADED:
 			raise Exception(
 				"Cannot load import information for %s at init level %s" %(
@@ -1030,23 +1102,14 @@ Parallel region position: %s"
 				)
 			)
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] +++++++++ LOADING IMPORT INFORMATION ++++++++++ ")
-		sourceModuleName = importMatch.group(1)
-		self.sourceModule = sourceModuleName
-		if type(self.sourceModule) != str or self.sourceModule == "":
-			raise Exception("Invalid module in use statement for symbol %s" %(symbol.name))
+		self._sourceModuleIdentifier = moduleNode.getAttribute('name')
 
 		#   The name used in the import pattern is just self.name - so store this as the scoped name for now
 		self._nameInScope = self.name
-
-		mapMatch = self.symbolImportMapPattern.match(importMatch.group(0))
-		sourceSymbolName = ""
-		if mapMatch:
-			sourceSymbolName = mapMatch.group(1)
-			if sourceSymbolName == "":
-				raise Exception("Invalid source symbol in use statement for symbol %s" %(symbol.name))
-		if sourceSymbolName == "":
-			sourceSymbolName = self.name
-		self.sourceSymbol = sourceSymbolName
+		if sourceSymbolName != None:
+			self.sourceSymbol = sourceSymbolName
+		if self.sourceSymbol in [None, ""]:
+			raise Exception("no source symbol name defined for %s" %(self))
 		if not moduleNode:
 			return
 
@@ -1056,9 +1119,7 @@ Parallel region position: %s"
 		moduleTemplate = None
 		for template, entry in templatesAndEntries:
 			dependantName = entry.firstChild.nodeValue
-			if sourceSymbolName != "" and dependantName != sourceSymbolName:
-				continue
-			elif sourceSymbolName == "" and dependantName != self.name:
+			if dependantName != self.sourceSymbol:
 				continue
 			self.loadDomainDependantEntryNodeAttributes(entry, warnOnOverwrite=False)
 			moduleTemplate = template
@@ -1069,9 +1130,9 @@ Parallel region position: %s"
 			# raise Exception("Symbol %s not found in module information available to Hybrid Fortran. Please use an appropriate @domainDependant specification." %(self.name))
 		informationLoadedFromModule = True
 		logging.debug(
-				"[" + str(self) + ".init " + str(self.initLevel) + "] Loading symbol information for %s imported from %s (import line: '%s')\n\
+				"[" + str(self) + ".init " + str(self.initLevel) + "] Loading symbol information for %s imported from %s\n\
 Current Domains: %s\n" %(
-					self.name, self.sourceModule, importMatch.group(0), str(self.domains)
+					self.name, self._sourceModuleIdentifier, str(self.domains)
 				)
 			)
 		attributes, domains, declarationPrefix, accPP, domPP = getAttributesDomainsDeclarationPrefixAndMacroNames(moduleTemplate, routineTemplate)
@@ -1091,17 +1152,22 @@ Current Domains: %s\n" %(
 				)
 			)
 
-	def getDimensionStringAndRemainderFromDeclMatch(self, paramDeclMatch, dimensionPattern):
+	def getDimensionStringAndRemainderFromDeclMatch(self, paramDeclMatch):
 		prefix = paramDeclMatch.group(1)
-		postfix = paramDeclMatch.group(2)
+		postfix = paramDeclMatch.group(3)
 		dimensionStr = ""
 		remainder = ""
-		dimensionMatch = dimensionPattern.match(prefix, re.IGNORECASE)
+		dimensionMatch = self.patterns.dimensionPattern.match(prefix, re.IGNORECASE)
 		if dimensionMatch:
 			dimensionStr = dimensionMatch.group(2)
 		else:
-			dimensionMatch = re.match(r'\s*(?:double\s+precision\W|real\W|integer\W|logical\W).*?(?:intent\W)*.*?(?:in\W|out\W|inout\W)*.*?(?:\W|^)' + re.escape(self.name) + r'\s*\(\s*(.*?)\s*\)(.*)', \
-				str(prefix + self.name + postfix), re.IGNORECASE)
+			dimensionMatch = re.match(
+				r'\s*(?:double\s+precision\W|real\W|integer\W|logical\W).*?(?:intent\W)*.*?(?:in\W|out\W|inout\W)*.*?(?:\W|^)' \
+					+ re.escape(self.name) \
+					+ r'\s*\(\s*(.*?)\s*\)(.*)',
+				prefix + self.name + postfix,
+				re.IGNORECASE
+			)
 			if dimensionMatch:
 				dimensionStr = dimensionMatch.group(1)
 				postfix = dimensionMatch.group(2)
@@ -1112,36 +1178,42 @@ Current Domains: %s\n" %(
 		#         %(self.name, dimensionStr))
 		return dimensionStr, postfix
 
-	def getAdjustedDeclarationLine(self, paramDeclMatch, parallelRegionTemplates, dimensionPattern):
-		'''process everything that happens per h90 declaration symbol'''
+	def getAdjustedDeclarationLine(self, paramDeclMatch, omitRemainder=False):
 		prefix = paramDeclMatch.group(1)
-		postfix = paramDeclMatch.group(2)
+		postfix = paramDeclMatch.group(3)
 
-		dimensionStr, postfix = self.getDimensionStringAndRemainderFromDeclMatch(paramDeclMatch, dimensionPattern)
+		_, postfix = self.getDimensionStringAndRemainderFromDeclMatch(paramDeclMatch)
+		if omitRemainder:
+			return prefix + str(self)
 		return prefix + str(self) + postfix
 
-	def getSanitizedDeclarationPrefix(self, purgeList=[]):
+	def getSanitizedDeclarationPrefix(self, purgeList=None):
 		if self.declarationPrefix in [None, ""]:
 			raise Exception("Cannot generate declaration prefix for %s" %(str(self)))
-		if len(purgeList) == 0:
+		if purgeList == None:
 			purgeList = ['intent', 'public', 'parameter']
 		result = self._getPurgedDeclarationPrefix(purgeList)
 		kindMatch = self.patterns.declarationKindPattern.match(result)
 		if kindMatch:
 			result = kindMatch.group(1) + kindMatch.group(2) + kindMatch.group(3)
-		return result.strip().lower()
+		return result.strip()
 
-	def getDeclarationLineForAutomaticSymbol(self, purgeList=[], patterns=RegExPatterns.Instance(), name_prefix="", use_domain_reordering=True, skip_on_missing_declaration=False):
+	def getDeclarationLine(self, purgeList=None, patterns=RegExPatterns.Instance(), name_prefix="", useDomainReordering=True, skip_on_missing_declaration=False):
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] Decl.Line.Gen: Purge List: %s, Name Prefix: %s, Domain Reordering: %s, Skip on Missing: %s." %(
 			str(purgeList),
 			name_prefix,
-			str(use_domain_reordering),
+			str(useDomainReordering),
 			str(skip_on_missing_declaration)
 		))
 		if skip_on_missing_declaration and (self.declarationPrefix == None or self.declarationPrefix == ""):
 			return ""
 		declarationPrefix = self.getSanitizedDeclarationPrefix(purgeList)
-		return declarationPrefix.strip() + " " + name_prefix + self.domainRepresentation(use_domain_reordering)
+		return "%s %s %s %s" %(
+			declarationPrefix.strip(),
+			name_prefix,
+			self.domainRepresentation(useDomainReordering),
+			self.declarationSuffix if self.declarationSuffix else ""
+		)
 
 	def selectAllRepresentation(self):
 		if self.initLevel < Init.ROUTINENODE_ATTRIBUTES_LOADED:
@@ -1185,7 +1257,7 @@ Please specify the domains and their sizes with domName and domSize attributes i
 		result += ")"
 		return result
 
-	def domainRepresentation(self, use_domain_reordering=True):
+	def domainRepresentation(self, useDomainReordering=True):
 		name = self.nameInScope(
 			useDeviceVersionIfAvailable=len(self.domains) > 0
 		)
@@ -1195,7 +1267,7 @@ Please specify the domains and their sizes with domName and domSize attributes i
 		try:
 			needsAdditionalClosingBracket = False
 			domPP, isExplicit = self.domPP()
-			if use_domain_reordering and domPP != "" \
+			if useDomainReordering and domPP != "" \
 			and (isExplicit or self.numOfParallelDomains > 0) \
 			and self.activeDomainsMatchSpecification:
 				result = result + "(" + domPP + "("
@@ -1234,7 +1306,16 @@ Please specify the domains and their sizes with domName and domSize attributes i
 
 		return result
 
-	def accessRepresentation(self, parallelIterators, offsets, parallelRegionNode, use_domain_reordering=True, inside_subroutine_call=False):
+	def accessRepresentation(
+		self,
+		parallelIterators,
+		accessors,
+		parallelRegionNode,
+		useDomainReordering=True,
+		isPointerAssignment=False,
+		isInsideParallelRegion=False,
+		callee=None
+	):
 		def getIterators(domains, parallelIterators, offsets):
 			iterators = []
 			nextOffsetIndex = 0
@@ -1272,27 +1353,64 @@ Please specify the domains and their sizes with domName and domSize attributes i
 					raise Exception("Cannot generate access representation for symbol %s: Unknown parallel iterators specified (%s) or not enough offsets (%s)."
 						%(str(self), str(parallelIterators), str(offsets))
 					)
-			if inside_subroutine_call and all([iterator == ':' for iterator in iterators]):
+			if (callee or isPointerAssignment) and all([iterator == ':' for iterator in iterators]):
 				return [] #working around a problem in PGI 15.1: Inliner bails out in certain situations (module test kernel 3+4) if arrays are passed in like a(:,:,:).
 			return [iterator.strip().replace(" ", "") for iterator in iterators]
 
-		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] producing access representation for symbol %s; parallel iterators: %s, offsets: %s" %(self.name, str(parallelIterators), str(offsets)))
+		if isPointerAssignment \
+		or len(self.domains) == 0 \
+		or ( \
+			not isInsideParallelRegion \
+			and not callee \
+			and not isPointerAssignment \
+			and not self.isModuleSymbol \
+			and not self.isHostSymbol \
+			and len(accessors) == 0 \
+		):
+			return self.nameInScope()
 
+		iterators = copy.copy(parallelIterators)
+		numOfIndependentDomains = 0
+		if len(self.domains) > 0: #0 domains could be an external function call which we cannot touch
+			numOfIndependentDomains = len(self.domains) - self.numOfParallelDomains
+			if len(accessors) != numOfIndependentDomains and len(accessors) != len(self.domains) and len(accessors) != 0:
+				raise UsageError("Unexpected array access for symbol %s (%s): Please use either %i (number of parallel independant dimensions) \
+	or %i (dimensions of loaded domain for this array) or zero accessors. Symbol Domains: %s; Symbol Init Level: %i; Parallel Region Position: %s; Parallel Active: %s; Symbol template:\n%s\n" %(
+					self.name,
+					str(accessors),
+					numOfIndependentDomains,
+					len(self.domains),
+					str(self.domains),
+					self.initLevel,
+					str(self.parallelRegionPosition),
+					self.parallelActiveDims,
+					self.template.toxml()
+				))
+			if callee and callee.node.getAttribute("parallelRegionPosition") != "outside":
+				iterators = [] #reset the parallel iterators if this symbol is accessed in a subroutine call and it's NOT being passed in inside a kernel
+
+		offsets = []
+		if len(accessors) == 0 and (callee or isPointerAssignment):
+			for i in range(len(self.domains) - self.numOfParallelDomains):
+				offsets.append(":")
+		else:
+			offsets += accessors
+		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] producing access representation for symbol %s; parallel iterators: %s, offsets: %s" %(self.name, str(iterators), str(offsets)))
 		if self.initLevel < Init.ROUTINENODE_ATTRIBUTES_LOADED:
 			logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] only returning name since routine attributes haven't been loaded yet.")
 			return self.name
 
-		if len(parallelIterators) == 0 \
+		if len(iterators) == 0 \
 		and len(offsets) != 0 \
 		and len(offsets) != len(self.domains) - self.numOfParallelDomains \
 		and len(offsets) != len(self.domains):
 			raise Exception("Unexpected number of offsets specified for symbol %s; Offsets: %s, Expected domains: %s" \
 				%(self.name, offsets, self.domains))
-		if len(parallelIterators) != 0 \
-		and len(offsets) + len(parallelIterators) != len(self.domains) \
+		if len(iterators) != 0 \
+		and len(offsets) + len(iterators) != len(self.domains) \
 		and len(offsets) != len(self.domains):
 			raise Exception("Unexpected number of offsets and iterators specified for symbol %s; Offsets: %s, Iterators: %s, Expected domains: %s" \
-				%(self.name, offsets, parallelIterators, self.domains))
+				%(self.name, offsets, iterators, self.domains))
 
 		result = ""
 		symbolNameUsedInAccessor = None
@@ -1308,7 +1426,7 @@ Please specify the domains and their sizes with domName and domSize attributes i
 		if len(self.domains) == 0:
 			logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] Symbol has 0 domains - only returning name.")
 			return result
-		iterators = getIterators(self.domains, parallelIterators, offsets)
+		iterators = getIterators(self.domains, iterators, offsets)
 		if len(iterators) == 0:
 			logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] No iterators have been determined - only returning name.")
 			return result
@@ -1320,7 +1438,7 @@ Please specify the domains and their sizes with domName and domSize attributes i
 Currently loaded template: %s\n" %(
 				accPP, str(accPPIsExplicit), self.activeDomainsMatchSpecification, self.numOfParallelDomains, self.template.toxml() if self.template != None else "None"
 			))
-		if use_domain_reordering and accPP != "" \
+		if useDomainReordering and accPP != "" \
 		and (accPPIsExplicit or self.numOfParallelDomains > 0) \
 		and self.activeDomainsMatchSpecification:
 			needsAdditionalClosingBracket = True
@@ -1345,17 +1463,13 @@ Currently loaded template: %s\n" %(
 		return [entry.firstChild.nodeValue for entry in parentNodes[0].childNodes]
 
 	def getDeclarationMatch(self, line):
-		match = self.declPattern.match(line)
+		match = self.patterns.symbolDeclPattern.match(line)
 		if not match:
 			return None
-		#check whether the symbol is matched inside parenthesis - it could be part of the dimension definition
-		#if it is indeed part of a dimension we can forget it and return None - according to Fortran definition
-		#cannot be declared as its own dimension.
-		analyzer = BracketAnalyzer()
-		if analyzer.currLevelAfterString(match.group(1)) != 0:
+		symbolNames = [sn.strip() for sn in match.group(2).split(",")]
+		if not self.name in symbolNames:
 			return None
-		else:
-			return match
+		return match
 
 	def domPP(self):
 		domPPEntries = self.getTemplateEntryNodeValues("domPP")
@@ -1401,10 +1515,10 @@ Currently loaded template: %s\n" %(
 			return "", False
 
 class ImplicitForeignModuleSymbol(Symbol):
-	def __init__(self, sourceModule, nameInScope, sourceSymbol, template=None):
+	def __init__(self, _sourceModuleIdentifier, nameInScope, sourceSymbol, template=None):
 		Symbol.__init__(self, nameInScope, template)
 		self._nameInScope = nameInScope
-		self.sourceModule = sourceModule
+		self._sourceModuleIdentifier = _sourceModuleIdentifier
 		self.sourceSymbol = sourceSymbol
 
 class FrameworkArray(Symbol):

@@ -13,7 +13,22 @@
 #define DEBUG_OUT_x 1
 #define DEBUG_OUT_y 1
 #define DEBUG_OUT_z 1
-#define DEBUG_OUT_nz 4
+#define DEBUG_OUT_nz 1
+#define DEBUG_OUT_x_2 1
+#define DEBUG_OUT_i 10
+#define DEBUG_OUT_j 1
+#define DEBUG_OUT_i_2 1
+#define DEBUG_OUT_j_2 1
+#define DEBUG_OUT_k 1
+#define DEBUG_OUT_1 1
+#define DEBUG_OUT_2 1
+#define DEBUG_OUT_3 2
+#define DEBUG_OUT_4 1
+#define DEBUG_OUT_ntlm 1
+#define DEBUG_OUT_ngm 0
+#define DEBUG_OUT_id_qa_e 1
+#define DEBUG_OUT_verticalPlus 1
+#define DEBUG_OUT_vertical 1
 
 ! ------ CUDA run configuration ------------
 #define CUDA_BLOCKSIZE_X 16

@@ -49,7 +49,8 @@ CONTAINS
     real(RP), allocatable, dimension(:,:) :: x1, x2, x3
     real(RP)  :: s(3,3)
     integer   :: i, i_test, n1, n2, n_threads
-    real(DP)  :: times(n_loops), tav, tref
+    real(DP)  :: times(n_loops)
+    real(DP)  :: tav, tref
     character(len=40) :: ctest
 
     s = 2.1d0

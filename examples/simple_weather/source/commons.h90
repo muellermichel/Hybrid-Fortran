@@ -13,12 +13,21 @@
 ! GNU Lesser General Public License for more details.
 
 ! You should have received a copy of the GNU Lesser General Public License
-! along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.'
+! along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
-module my_module
-real, dimension(:, :, :), allocatable :: a, b, c, d, a2, b2, c2, d2, used_in_acc_routine
-real, parameter :: some_const = 1.0d0
-@domainDependant{domName(x,y,z), domSize(NX,NY,NZ), attribute(host)}
-a, b, c, d, a2, b2, c2, d2, used_in_acc_routine
-@end domainDependant
+module commons
+  implicit none
+  integer(4) :: nx, ny, nz
+
+  @domainDependant{attribute(host)}
+  nx, ny, nz
+  @end domainDependant
+  contains
+
+  subroutine initialize_domains(nx_in,ny_in,nz_in)
+    integer(4), intent(in) :: nx_in, ny_in, nz_in
+    nx = nx_in
+    ny = ny_in
+    nz = nz_in
+  end subroutine
 end module

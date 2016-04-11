@@ -10,7 +10,7 @@ contains
     real, dimension(NZ, NZ, 1), intent(in) :: input_3D
     real, dimension(NX, NY, NZ), intent(out) :: c
 
-    @domainDependant{attribute(autoDom,transferHere)}
+    @domainDependant{attribute(autoDom, transferHere)}
     a, b, c, array_5D, input_3D
     @end domainDependant
 
@@ -25,7 +25,7 @@ contains
     real, dimension(NZ, NZ, 1), intent(in) :: input_3D
     real, dimension(NX, NY, NZ), intent(out) :: c
 
-    @domainDependant{attribute(autoDom,present)}
+    @domainDependant{attribute(autoDom, present)}
     a, b, c, array_5D, input_3D
     @end domainDependant
 
@@ -43,11 +43,11 @@ contains
     real, dimension(NZ), intent(out) :: c
     integer :: z
 
-    @domainDependant{attribute(autoDom), domName(x,y), domSize(NX,NY)}
+    @domainDependant{attribute(autoDom, present), domName(x,y), domSize(NX,NY)}
     a, b, c, array_5D
     @end domainDependant
 
-    @domainDependant{attribute(autoDom)}
+    @domainDependant{attribute(autoDom, present)}
     input_3D
     @end domainDependant
 

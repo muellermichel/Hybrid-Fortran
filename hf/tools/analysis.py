@@ -19,7 +19,7 @@
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
 from xml.dom.minidom import Document
-from tools.metadata import addCallers, addCallees, createOrGetFirstNodeWithName, getDomainDependantTemplatesAndEntries
+from tools.metadata import addCallers, addCallees, createOrGetFirstNodeWithName, getDomainDependantTemplatesAndEntries, getArguments
 from tools.commons import enum, prettyprint, UsageError
 import sys
 import logging
@@ -51,12 +51,6 @@ def getAnalysisForSymbol(symbolAnalysisByRoutineNameAndSymbolName, parentName, s
     if len(symbolAnalysisPerCallee) > 0:
         return symbolAnalysisPerCallee[0]
     return None
-
-def getArguments(parentNode):
-    return [
-        argument.getAttribute("symbolName")
-        for argument in parentNode.getElementsByTagName("argument")
-    ]
 
 class SymbolAnalysis:
     def __init__(self):
@@ -295,16 +289,13 @@ class SymbolDependencyAnalyzer:
                     "unexpected error when constructing callgraph for symbol aliases"
                 )
             calleeName = call.getAttribute("callee")
-            try:
-                symbolAnalysis, symbolAnalysisByNameAndSource = self.getSymbolAnalysisFor(
-                    calleeName,
-                    symbolAnalysis=symbolAnalysis,
-                    symbolAnalysisByNameAndSource=symbolAnalysisByNameAndSource,
-                    call=call,
-                    analysisWarningsByCalleeName=analysisWarningsByCalleeName
-                )
-            except Exception as e:
-                raise Exception(str(e) + " Caught in analysis for caller %s." %(routineName))
+            symbolAnalysis, symbolAnalysisByNameAndSource = self.getSymbolAnalysisFor(
+                calleeName,
+                symbolAnalysis=symbolAnalysis,
+                symbolAnalysisByNameAndSource=symbolAnalysisByNameAndSource,
+                call=call,
+                analysisWarningsByCalleeName=analysisWarningsByCalleeName
+            )
         for argumentName in temporarilyStoredAnalysisByArgumentName.keys():
             symbolAnalysis[(routineName, argumentName)] = temporarilyStoredAnalysisByArgumentName[argumentName] + symbolAnalysis.get((routineName, argumentName), [])
 

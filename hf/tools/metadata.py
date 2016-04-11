@@ -225,6 +225,19 @@ def appendSeparatedTextAsNodes(text, separator, doc, parent, nodeName):
 def addAndGetEntries(doc, parent, commaSeparatedEntries):
     return appendSeparatedTextAsNodes(commaSeparatedEntries, ",", doc, parent, "entry")
 
+def setDomainDependants(doc, parent, specificationText, entryText):
+    relationNode, template = setTemplateInfos(
+        doc,
+        parent=parent,
+        specText=specificationText,
+        templateParentNodeName="domainDependantTemplates",
+        templateNodeName="domainDependantTemplate",
+        referenceParentNodeName="domainDependants"
+    )
+    entries = addAndGetEntries(doc, relationNode, entryText)
+    return relationNode, template, entries
+
+
 def deduplicateRelations(parent):
     pass
 
@@ -407,6 +420,11 @@ def setTemplateInfos(doc, parent, specText, templateParentNodeName, templateNode
         templateNode = duplicateTemplateNode
     else:
         templateLibrary.appendChild(templateNode)
+        if not hasattr(doc, "_templateCache"):
+            doc._templateCache = {}
+        templatesByID = doc._templateCache.get(templateNodeName, {})
+        templatesByID[templateNode.getAttribute("id")] = templateNode
+        doc._templateCache[templateNodeName] = templatesByID
 
     templateID = templateNode.getAttribute("id")
     referenceParentNodes = parent.getElementsByTagName(referenceParentNodeName)
@@ -514,7 +532,13 @@ def getDomainDependantTemplatesAndEntries(cgDoc, routineNode):
     for domainDependantRelation in domainDependantRelations:
         entries = domainDependantRelation.getElementsByTagName("entry")
         templateID = domainDependantRelation.getAttribute("id")
-        template = domainDependantTemplateByID[templateID]
+        template = domainDependantTemplateByID.get(templateID)
+        if not template:
+            raise Exception("domain dependant template with ID %s not found, referenced by symbols %s in routine %s" %(
+                templateID,
+                [entry.firstChild.nodeValue for entry in entries],
+                routineNode.getAttribute("name")
+            ))
         for entry in entries:
             if not entry.firstChild:
                 raise Exception("DependantName undefined in subroutine %s, Entry: %s" \
@@ -606,3 +630,9 @@ def getReductionScalarsByOperator(parallelRegionTemplate):
         else:
             result[operator] = [scalar]
     return result
+
+def getArguments(parentNode):
+    return [
+        argument.getAttribute("symbolName")
+        for argument in parentNode.getElementsByTagName("argument")
+    ]

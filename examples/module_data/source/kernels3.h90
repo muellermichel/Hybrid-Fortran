@@ -15,65 +15,67 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.'
 
-module kernels6
-
-    real, dimension(:,:,:), allocatable :: local
-
-    @domainDependant{attribute(host), domName(x,y,z), domSize(NX,NY,NZ), domPP(DOM), accPP(AT)}
-    local
-    @end domainDependant
-
+module kernels3
 contains
-  subroutine kernels6_initialize()
-    @domainDependant{}
-    @end domainDependant
-    allocate(local(NX,NY,NZ))
-    local(:,:,:) = 5.0d0
-  end subroutine
-
-  subroutine kernels6_cleanup()
-    deallocate(local)
-  end subroutine
-
-  subroutine wrapper6()
-    use my_module, only: a, b, c
+  subroutine outer_wrapper3()
+    use my_module, only: a, b, c, d
     implicit none
 
-    @domainDependant{attribute(autoDom,present)}
-    a, b, c
+    @domainDependant{attribute(autoDom,transferHere)}
+    a, b, c, d
     @end domainDependant
 
-    call add6(a, b, c)
+    call wrapper3(a, b, c, d)
   end subroutine
 
-  subroutine add6(a,b,c)
+  subroutine wrapper3(a, b, c, d)
+    implicit none
+    real, dimension(NX,NY,NZ), intent(in) :: a, b
+    real, dimension(NX,NY,NZ), intent(out) :: c, d
+
+    @domainDependant{attribute(autoDom,present)}
+    a, b, c, d
+    @end domainDependant
+
+    call add3(a, b, c)
+    call mult3(a, b, d)
+  end subroutine
+
+  subroutine add3(a,b,c)
     implicit none
     real, dimension(NX,NY,NZ), intent(in) :: a, b
     real, dimension(NX,NY,NZ), intent(out) :: c
+    real, dimension(NX,NY,NZ) :: temp
+    integer :: z
 
-    @domainDependant{attribute(autoDom)}
-    a, b, c
+    @domainDependant{attribute(autoDom, present)}
+    a, b, c, temp
     @end domainDependant
 
+    temp(:,:,:) = 5.0d0
+
     @parallelRegion{domName(x,y), domSize(NX, NY)}
-    call inner(a(:), b(:), x, y, c(:))
+    do z=1,NZ
+      c(z) = a(z) + b(z) + temp(z)
+    end do
     @end parallelRegion
   end subroutine
 
-  subroutine inner(in1, in2, x, y, result)
-    use my_module, only: used_in_acc_routine, some_const !we import a module variable in order to break OpenACC routines
-
-    real, intent(in) :: in1(NZ), in2(NZ)
-    integer(4), intent(in) :: x, y
-    real, intent(out) :: result(NZ)
+  subroutine mult3(a,b,d)
+    implicit none
+    real, dimension(NX,NY,NZ), intent(in) :: a, b
+    real, dimension(NX,NY,NZ), intent(out) :: d
     integer :: z
-    @domainDependant{attribute(autoDom)}
-    used_in_acc_routine
+
+    @domainDependant{attribute(autoDom, present)}
+    a, b, d
     @end domainDependant
 
+    @parallelRegion{domName(x,y), domSize(NX, NY)}
     do z=1,NZ
-        result = in1(z) + in2(z) + local(x,y,z) + some_const + used_in_acc_routine(x,y,z)
+      d(z) = a(z) * b(z)
     end do
+    @end parallelRegion
   end subroutine
 
-end module kernels6
+end module kernels3

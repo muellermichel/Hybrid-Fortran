@@ -15,62 +15,47 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.'
 
-module kernels5
-
-    real, dimension(:,:,:), allocatable :: used_in_acc_routine
-
-    @domainDependant{attribute(host), domName(x,y,z), domSize(NX,NY,NZ), domPP(DOM), accPP(AT)}
-    used_in_acc_routine
-    @end domainDependant
-
+module kernels2
 contains
-  subroutine kernels5_initialize()
-    @domainDependant{}
-    @end domainDependant
-    allocate(used_in_acc_routine(NX,NY,NZ))
-    used_in_acc_routine(:,:,:) = 5.0d0
-  end subroutine
-
-  subroutine kernels5_cleanup()
-    deallocate(used_in_acc_routine)
-  end subroutine
-
-  subroutine wrapper5()
-    use my_module, only: a, b, c, d
+  subroutine wrapper2()
+    use my_module, only: a, b, c, d, a2, b2, c2, d2
     implicit none
 
     @domainDependant{attribute(autoDom,present)}
-    a, b, c, d
+    a, b, c, d, a2, b2, c2, d2
     @end domainDependant
 
-    call add5(a, b, c)
-    call mult5(a, b, d)
+    call add2(a, b, c)
+    call mult2(a, b, d)
+
+    call add2(a2, b2, c2)
+    call mult2(a2, b2, d2)
   end subroutine
 
-  subroutine add5(a,b,c)
+  subroutine add2(a,b,c)
     implicit none
     real, dimension(NX,NY,NZ), intent(in) :: a, b
     real, dimension(NX,NY,NZ), intent(out) :: c
     integer :: z
 
-    @domainDependant{attribute(autoDom)}
+    @domainDependant{attribute(autoDom, present)}
     a, b, c
     @end domainDependant
 
     @parallelRegion{domName(x,y), domSize(NX, NY)}
     do z=1,NZ
-      c(z) = a(z) + b(z) + used_in_acc_routine(x,y,z)
+      c(z) = a(z) + b(z)
     end do
     @end parallelRegion
   end subroutine
 
-  subroutine mult5(a,b,d)
+  subroutine mult2(a,b,d)
     implicit none
     real, dimension(NX,NY,NZ), intent(in) :: a, b
     real, dimension(NX,NY,NZ), intent(out) :: d
     integer :: z
 
-    @domainDependant{attribute(autoDom)}
+    @domainDependant{attribute(autoDom, present)}
     a, b, d
     @end domainDependant
 
@@ -81,4 +66,4 @@ contains
     @end parallelRegion
   end subroutine
 
-end module kernels5
+end module kernels2

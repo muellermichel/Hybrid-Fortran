@@ -22,6 +22,16 @@ from tools.commons import UsageError
 from tools.metadata import appliesTo, getDomainsWithParallelRegionTemplate, getReductionScalarsByOperator, getTemplate
 import logging
 
+def getImportStatements(symbols):
+    return "\n".join(
+        "use %s, only : %s => %s" %(
+            symbol.sourceModule,
+            symbol.nameInScope(),
+            symbol.sourceSymbol if symbol.sourceSymbol not in [None, ""] else symbol.name
+        )
+        for symbol in symbols
+    )
+
 def getReductionClause(parallelRegionTemplate):
 	reductionScalarsByOperator = getReductionScalarsByOperator(parallelRegionTemplate)
 	return ", ".join([
@@ -29,6 +39,7 @@ def getReductionClause(parallelRegionTemplate):
 		for operator in reductionScalarsByOperator.keys()
 	])
 
+# $$$ This is currently unused
 def getDataDirectiveAndUpdateOnDeviceFlags(currRoutineNode, currParallelRegionTemplates, dependantSymbols, createDeclaration, routineIsKernelCaller, enterOrExit='enter'):
 	presentDeclaration = "present" # if currRoutineNode.getAttribute("parallelRegionPosition") == 'inside' else "deviceptr"
 	copyDeclaration = "copyin"
@@ -61,7 +72,7 @@ def getDataDirectiveAndUpdateOnDeviceFlags(currRoutineNode, currParallelRegionTe
 		if symbol.isHostSymbol:
 			continue
 		if currRoutineNode.getAttribute('parallelRegionPosition') == 'within'\
-		and (symbol.intent in ["in", "inout", "out", "unspecified"] or not symbol.sourceModule in [None,""]):
+		and (symbol.intent in ["in", "inout", "out", "unspecified"] or not symbol.sourceModule in [None,""]): #$$$ sourceModule logic has changed! this probably needs to be rethought if reactivate
 			symbol.isOnDevice = True
 			continue
 		if currRoutineNode.getAttribute('parallelRegionPosition') != 'inside'\
@@ -71,7 +82,7 @@ def getDataDirectiveAndUpdateOnDeviceFlags(currRoutineNode, currParallelRegionTe
 		#Rules for kernel wrapper routines and symbols declared to be transfered
 		newDataDeclarations = ""
 		if symbol.isPresent:
-			if symbol.intent in ["in", "out", "inout", "unspecified"] or not symbol.sourceModule in [None,""]:
+			if symbol.intent in ["in", "out", "inout", "unspecified"] or not symbol.sourceModule in [None,""]: #$$$ sourceModule logic has changed! this probably needs to be rethought if reactivate
 				#all we can do is marking the symbol correctly - OpenACC enter data doesn't support present check sadly
 				#please note: unspecified intent is a symbol that is a dummy variable with no intent specified.
 				if enterOrExit == 'enter':
@@ -97,7 +108,7 @@ def getDataDirectiveAndUpdateOnDeviceFlags(currRoutineNode, currParallelRegionTe
 				else:
 					newDataDeclarations += "delete(%s)" %(symbol.name)
 					symbol.isOnDevice = False
-			elif symbol.intent == "inout" or not symbol.sourceModule in [None,""]:
+			elif symbol.intent == "inout" or not symbol.sourceModule in [None,""]: #$$$ sourceModule logic has changed! this probably needs to be rethought if reactivate
 				newDataDeclarations += "%s(%s)" %(copyDeclaration, symbol.name)
 				if enterOrExit == 'enter':
 					symbol.isOnDevice = True
@@ -163,7 +174,7 @@ def getTracingDeclarationStatements(currRoutineNode, dependantSymbols, patterns,
 		if len(symbol.domains) > max_num_of_domains_for_symbols:
 			max_num_of_domains_for_symbols = len(symbol.domains)
 		for prefix in useReorderingByAdditionalSymbolPrefixes.keys():
-			current_declaration_line = symbol.getDeclarationLineForAutomaticSymbol(
+			current_declaration_line = symbol.getDeclarationLine(
 				purgeList=['intent', 'public', 'allocatable', 'target'],
 				name_prefix=prefix,
 				use_domain_reordering=useReorderingByAdditionalSymbolPrefixes[prefix],
@@ -216,7 +227,7 @@ def getTracingStatements(currRoutineNode, currModuleName, tracingSymbols, traceH
 				)
 			)
 			if symbol.isOnDevice:
-				result += "!$acc update host(%s) if(hf_symbols_are_device_present)\n" %(symbol.name)
+				result += "!$acc update host(%s)\n" %(symbol.name)
 			result += getLoopOverSymbolValues(symbol, "%s_temp_%s" %(symbol.name, loop_name_postfix), innerTempArraySetterLoopFunc)
 			result += traceHandlingFunc(currRoutineNode, currModuleName, symbol)
 			if 'allocatable' in symbol.declarationPrefix:
@@ -437,10 +448,11 @@ def getRuntimeDebugPrintStatements(symbolsByName, calleeRoutineNode, parallelReg
 		for symbol in symbolsToPrint
 		if len(symbol.domains) > 0
 	]
-	if useOpenACC:
-		result += "#ifdef GPU\n"
-		result += "!$acc update if(hf_symbols_are_device_present) host(%s)\n" %(", ".join(symbolClauses)) if len(symbolsToPrint) > 0 else ""
-		result += "#endif\n"
+	#michel 2016-3-11: we've switched to device pointers
+	# if useOpenACC:
+	# 	result += "#ifdef GPU\n"
+	# 	result += "!$acc update host(%s)\n" %(", ".join(symbolClauses)) if len(symbolsToPrint) > 0 else ""
+	# 	result += "#endif\n"
 	for symbol in symbolsToPrint:
 		result = result + "hf_output_temp = %s\n" %(symbol.accessRepresentation([], offsetsBySymbolName[symbol.name], parallelRegionNode))
 		#michel 2013-4-18: the Fortran-style memcopy as used right now in the above line creates a runtime error immediately

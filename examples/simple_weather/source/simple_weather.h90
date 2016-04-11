@@ -18,7 +18,7 @@
 module simple_weather
   use iso_c_binding
   implicit none
-  real(8), pointer, dimension(:,:,:) :: thermal_energy, thermal_energy_c, thermal_energy_updated
+  real(8), pointer, dimension(:,:,:) :: thermal_energy, thermal_energy_c, thermal_energy_updated, thermal_energy_current
   real(8), allocatable, target, dimension(:,:) :: surface_thermal_energy, planetary_thermal_energy
   real(8) :: t_start_output_cycle, t_start_output_cycle_w_io
 
@@ -43,7 +43,7 @@ module simple_weather
 !   end interface
 
   @domainDependant{attribute(autoDom,host), domName(i,j,k), domSize(0:nx+1,0:ny+1,nz)}
-  thermal_energy, thermal_energy_c, thermal_energy_updated
+  thermal_energy, thermal_energy_c, thermal_energy_updated, thermal_energy_current
   @end domainDependant
 
   @domainDependant{attribute(autoDom,host), domName(i,j), domSize(0:nx+1,0:ny+1)}
@@ -52,17 +52,16 @@ module simple_weather
   contains
 
   subroutine initialize(nx_in,ny_in,nz_in)
-    use commons
+    use commons, only: nx, ny, nz, initialize_domains
     use time_profiling
     integer(4), intent(in) :: nx_in, ny_in, nz_in
     integer(4) :: i, j, k
-    @domainDependant{}
-    @end domainDependant
 
     call initialize_domains(nx_in,ny_in,nz_in)
     allocate(thermal_energy(0:nx+1,0:ny+1,nz))
     allocate(thermal_energy_c(0:nx+1,0:ny+1,nz))
     allocate(thermal_energy_updated(0:nx+1,0:ny+1,nz))
+    allocate(thermal_energy_current(0:nx+1,0:ny+1,nz))
     allocate(surface_thermal_energy(0:nx+1,0:ny+1))
     allocate(planetary_thermal_energy(0:nx+1,0:ny+1))
 
@@ -81,13 +80,12 @@ module simple_weather
     surface_thermal_energy(:,:) = 330.d0
   end subroutine
 
-  subroutine simulate(thermal_energy_current, start_time, end_time, timestep, output_timestep, use_c)
-    use commons
+  subroutine simulate(start_time, end_time, timestep, output_timestep, use_c)
+    use commons, only: nx, ny, nz
     use dynamical_processes, only: diffuse
     use physical_processes, only: run_physics
     use time_profiling
     use helper_functions, only: getTime
-    real(8), intent(inout), dimension(0:nx+1,0:ny+1,nz), pointer :: thermal_energy_current
     real(8), intent(in) :: start_time, end_time, timestep, output_timestep
     logical, intent (in) :: use_c
     real(8), pointer, dimension(0:nx+1,0:ny+1,nz) :: thermal_energy_temp
@@ -106,7 +104,7 @@ module simple_weather
     call getTime(t_start_output_cycle_w_io)
     do while (.true.)
       if (modulo(time + 0.001d0, output_timestep) < 0.01d0) then
-        call write_data(thermal_energy_current, "thermal_energy", time)
+        call write_all_data(time)
       end if
       call run_physics(thermal_energy_current, surface_thermal_energy, planetary_thermal_energy)
       if (use_c) then
@@ -137,7 +135,7 @@ module simple_weather
   end subroutine
 
   subroutine check(current, reference)
-    use commons
+    use commons, only: nx, ny, nz
     real(8), dimension(0:nx+1,0:ny+1,nz), intent(in) :: current, reference
     integer(4) :: i, j, k, num_of_errors
     real(8) :: error
@@ -167,8 +165,18 @@ module simple_weather
 
   end subroutine check
 
+  subroutine write_all_data(time)
+    real(8), intent(in) :: time
+
+    @if {architecture(GPU)}
+    thermal_energy_current(:,:,:) = thermal_energy_current_d(:,:,:)
+    @end if
+
+    call write_data(thermal_energy_current, "thermal_energy", time)
+  end subroutine write_all_data
+
   subroutine write_data(output_data, prefix, time)
-    use commons
+    use commons, only: nx, ny, nz
     use time_profiling
     use helper_functions, only: writeToFile, getTime
     real(8), dimension(0:nx+1,0:ny+1,nz), intent(in) :: output_data
@@ -177,12 +185,9 @@ module simple_weather
     real(8), intent(in) :: time
     character(len=256) :: path
     integer(4) :: i, j, k
-    @domainDependant {attribute(autoDom, present)}
+    @domainDependant {attribute(autoDom, host)}
     output_data
     @end domainDependant
-#ifdef GPU
-    !$acc update host(output_data)
-#endif
 
     write(6,*) "total diffusion time used: ", counter1
     write(6,*) "total diffusion boundary time used: ", counter4
@@ -208,7 +213,7 @@ module simple_weather
   end subroutine
 
   subroutine cleanup()
-    use commons
+    use commons, only: nx, ny, nz
 
     write(6,*) "cleaning up..."
     deallocate(thermal_energy)
@@ -267,7 +272,7 @@ program main
   call initialize(nx, ny, nz)
   write(6,'(A,F0.1,A,F0.1,A,F0.1)') "Starting simulation. End Time: ", end_time, " Timestep: ", timestep, " Output Timestep: ", output_timestep
   write(6,*) "================== Hybrid Fortran Version =================="
-  call simulate(thermal_energy, 0.0d0, end_time, timestep, output_timestep, .false.)
+  call simulate(0.0d0, end_time, timestep, output_timestep, .false.)
 
 !   thermal_energy_updated(:,:,:) = 0.0d0
 !   write(6,*) "================== CUDA C Version =================="

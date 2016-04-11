@@ -15,44 +15,37 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.'
 
-module kernels3
+module kernels4
 contains
-  subroutine outer_wrapper3()
+  subroutine wrapper4()
     use my_module, only: a, b, c, d
     implicit none
-
-    @domainDependant{attribute(autoDom,transferHere)}
-    a, b, c, d
-    @end domainDependant
-
-    call wrapper3(a, b, c, d)
-  end subroutine
-
-  subroutine wrapper3(a, b, c, d)
-    implicit none
-    real, dimension(NX,NY,NZ), intent(in) :: a, b
-    real, dimension(NX,NY,NZ), intent(out) :: c, d
-
-    @domainDependant{attribute(autoDom,present)}
-    a, b, c, d
-    @end domainDependant
-
-    call add3(a, b, c)
-    call mult3(a, b, d)
-  end subroutine
-
-  subroutine add3(a,b,c)
-    implicit none
-    real, dimension(NX,NY,NZ), intent(in) :: a, b
-    real, dimension(NX,NY,NZ), intent(out) :: c
     real, dimension(NX,NY,NZ) :: temp
-    integer :: z
 
-    @domainDependant{attribute(autoDom)}
-    a, b, c, temp
+    @domainDependant{attribute(autoDom, present)}
+    a, b, c, d
+    @end domainDependant
+
+    @domainDependant{attribute(autoDom, present)}
+    temp
     @end domainDependant
 
     temp(:,:,:) = 5.0d0
+
+    call add4(a, b, temp, c)
+    call mult4(a, b, d)
+  end subroutine
+
+  subroutine add4(a,b,temp,c)
+    implicit none
+    real, dimension(NX,NY,NZ), intent(in) :: a, b
+    real, dimension(NX,NY,NZ), intent(in) :: temp
+    real, dimension(NX,NY,NZ), intent(out) :: c
+    integer :: z
+
+    @domainDependant{attribute(autoDom, present)}
+    a, b, c, temp
+    @end domainDependant
 
     @parallelRegion{domName(x,y), domSize(NX, NY)}
     do z=1,NZ
@@ -61,13 +54,13 @@ contains
     @end parallelRegion
   end subroutine
 
-  subroutine mult3(a,b,d)
+  subroutine mult4(a,b,d)
     implicit none
     real, dimension(NX,NY,NZ), intent(in) :: a, b
     real, dimension(NX,NY,NZ), intent(out) :: d
     integer :: z
 
-    @domainDependant{attribute(autoDom)}
+    @domainDependant{attribute(autoDom, present)}
     a, b, d
     @end domainDependant
 
@@ -78,4 +71,4 @@ contains
     @end parallelRegion
   end subroutine
 
-end module kernels3
+end module kernels4

@@ -51,7 +51,6 @@ contains
     call run(a, b, c, d)
     call reduce_to_sum(c, sum_c)
     call reduce_to_sum(d, sum_d)
-
   end subroutine
 
   subroutine run(a, b, c, d)
@@ -96,7 +95,7 @@ contains
   !     Hybrid Fortran uses this information in order to re-insert these dimensions before 'z' for a, b and c, because we're still outside the GPU-parallelRegion
   !     in the callgraph at this point.
   !
-    @domainDependant{attribute(autoDom), domName(x,y), domSize(NX,NY)}
+    @domainDependant{attribute(autoDom, present), domName(x,y), domSize(NX,NY)}
     a, b, c
     @end domainDependant
 
@@ -120,7 +119,7 @@ contains
     real, dimension(NZ), intent(out) :: d
     integer :: z
 
-    @domainDependant{attribute(autoDom), domName(x,y), domSize(NX,NY)}
+    @domainDependant{attribute(autoDom, present), domName(x,y), domSize(NX,NY)}
     a, b, d
     @end domainDependant
 
@@ -131,13 +130,17 @@ contains
     @end parallelRegion
   end subroutine
 
+  ! (9) Using the @scheme directive and defining the implementation in MakesettingsGeneral, as shown in this example, we can override the default implementation and mix in different ones.
+  !     Note that the template can span over multiple parts of your file, such as multiple subroutines or even modules.
+  !     In this case we use it to enable reduction support (which CUDA Fortran doesn't have), so we can configure the rest of the program to use CUDA as well.
+  @scheme{name(REDUCTION_SUPPORT)}
   subroutine reduce_to_sum(a, result)
     implicit none
     real, dimension(NZ), intent(in) :: a
     real, intent(out) :: result
     integer :: z
 
-    @domainDependant{attribute(autoDom), domName(x,y), domSize(NX,NY)}
+    @domainDependant{attribute(autoDom, present), domName(x,y), domSize(NX,NY)}
     a
     @end domainDependant
 
@@ -156,6 +159,7 @@ contains
     end do
     @end parallelRegion
   end subroutine
+  @end scheme
 
 end module example
 

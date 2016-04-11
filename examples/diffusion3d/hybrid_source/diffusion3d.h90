@@ -8,7 +8,7 @@ subroutine diffusion3d_inner(f, fn, coeff_east_west, coeff_north_south, coeff_to
 	real(FLOAT_BYTE_LENGTH), intent(in), dimension(DIM_X, DIM_Y, DIM_Z) :: f
 	real(FLOAT_BYTE_LENGTH), intent(out), dimension(DIM_X, DIM_Y, DIM_Z) :: fn
 	real(FLOAT_BYTE_LENGTH), intent(in) :: coeff_east_west, coeff_north_south, coeff_top_bottom, coeff_center
-	@domainDependant {attribute(autoDom)}
+	@domainDependant {attribute(autoDom, present)}
 	f, fn, coeff_east_west, coeff_north_south, coeff_top_bottom, coeff_center
 	@end domainDependant
 
@@ -23,7 +23,7 @@ end subroutine
 subroutine wallBoundaryYZ(fn)
 	implicit none
 	real(FLOAT_BYTE_LENGTH), intent(inout), dimension(DIM_X, DIM_Y, DIM_Z) :: fn
-	@domainDependant {attribute(autoDom)}
+	@domainDependant {attribute(autoDom, present)}
 	fn
 	@end domainDependant
 
@@ -36,7 +36,7 @@ end subroutine
 subroutine wallBoundaryXZ(fn)
 	implicit none
 	real(FLOAT_BYTE_LENGTH), intent(inout), dimension(DIM_X, DIM_Y, DIM_Z) :: fn
-	@domainDependant {attribute(autoDom)}
+	@domainDependant {attribute(autoDom, present)}
 	fn
 	@end domainDependant
 
@@ -49,7 +49,7 @@ end subroutine
 subroutine wallBoundaryXY(fn)
 	implicit none
 	real(FLOAT_BYTE_LENGTH), intent(inout), dimension(DIM_X, DIM_Y, DIM_Z) :: fn
-	@domainDependant {attribute(autoDom)}
+	@domainDependant {attribute(autoDom, present)}
 	fn
 	@end domainDependant
 

@@ -1199,22 +1199,22 @@
     real(8) :: QTOTAL,LGTOT,CALCQ,SHUTIN,POWER1,POWER2 `\
     real(8) :: P_HP,P_IP,P_LP,Q_HP,Q_IP,Q_LP,LGMAX,QMAX `\
     integer :: xfloor `\
-    @domainDependant{attribute(autoDom)} `\
+    @domainDependant{attribute(autoDom, present)} `\
     M, N, P1, P2 `\
     @end domainDependant `\
-    @domainDependant{domName(C1,C2), domSize(P1,P2), attribute(autoDom)} `\
+    @domainDependant{domName(C1,C2), domSize(P1,P2), attribute(autoDom, present)} `\
     F `\
     @end domainDependant `\
-    @domainDependant{domName(CONSTR,C1,C2), domSize(M,P1,P2)} `\
+    @domainDependant{domName(CONSTR,C1,C2), domSize(M,P1,P2), attribute(present)} `\
     G `\
     @end domainDependant `\
-    @domainDependant{domName(VAR,C1,C2), domSize(N,P1,P2)} `\
+    @domainDependant{domName(VAR,C1,C2), domSize(N,P1,P2), attribute(present)} `\
     X `\
     @end domainDependant `\
-    @domainDependant{domName(VAR2,C1,C2), domSize(NBIN+NINT,P1,P2)} `\
+    @domainDependant{domName(VAR2,C1,C2), domSize(NBIN+NINT,P1,P2), attribute(present)} `\
     Y `\
     @end domainDependant `\
-    @domainDependant{domName(VARWORK,C1,C2), domSize(10,P1,P2)} `\
+    @domainDependant{domName(VARWORK,C1,C2), domSize(10,P1,P2), attribute(present)} `\
     W `\
     @end domainDependant `\
     @parallelRegion{domName(C1,C2), domSize(P1,P2), appliesTo(GPU)} `\

@@ -19,7 +19,48 @@
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
 import re, logging
-from tools.commons import BracketAnalyzer, findRightMostOccurrenceNotInsideQuotes
+from tools.commons import BracketAnalyzer, findRightMostOccurrenceNotInsideQuotes, Singleton
+from tools.patterns import RegExPatterns
+
+def purgeDimensionAndGetAdjustedLine(line):
+    match = RegExPatterns.Instance().dimensionPattern.match(line)
+    if not match:
+        return line
+    else:
+        return match.group(1) + match.group(3)
+
+def getAccessorsAndRemainder(accessorString):
+    symbolAccessString_match = RegExPatterns.Instance().symbolAccessPattern.match(accessorString)
+    if not symbolAccessString_match:
+        return [], accessorString
+    currBracketAnalyzer = BracketAnalyzer()
+    return currBracketAnalyzer.getListOfArgumentsInOpenedBracketsAndRemainder(symbolAccessString_match.group(1))
+
+def getSymbolAccessStringAndReminder(
+    symbol,
+    parallelIterators,
+    parallelRegionTemplate,
+    accessorString,
+    callee=None,
+    isPointerAssignment=False
+):
+    accessors = []
+    remainder = accessorString
+    if len(symbol.domains) > 0: #0 domains could be an external function - need to retain postfix
+        accessors, remainder = getAccessorsAndRemainder(accessorString)
+    symbolAccessString = symbol.accessRepresentation(
+        parallelIterators,
+        accessors,
+        parallelRegionTemplate,
+        isPointerAssignment=isPointerAssignment,
+        isInsideParallelRegion=parallelRegionTemplate != None,
+        callee=callee
+    )
+    return symbolAccessString, remainder
+
+@Singleton
+class ConversionOptions:
+    debugPrint = False
 
 class FortranRoutineArgumentParser:
     arguments = None
@@ -39,10 +80,9 @@ class FortranRoutineArgumentParser:
         self.arguments = arguments
 
 class FortranCodeSanitizer:
-
     def __init__(self):
-        self.tabIncreasingPattern = re.compile(r'\s*(?:(?:module|select|do|subroutine|function|program)\s|if\W.*?\Wthen).*', re.IGNORECASE)
-        self.tabDecreasingPattern = re.compile(r'\s*end\s*(?:module|select|do|subroutine|function|program|if).*', re.IGNORECASE)
+        self.tabIncreasingPattern = re.compile(r'\s*(?:(?:module|select|do|subroutine|function|program|attributes)|if\W.*?\Wthen)(?:\W|$).*', re.IGNORECASE)
+        self.tabDecreasingPattern = re.compile(r'\s*end\s*(?:module|select|do|subroutine|function|program|if)(?:\W|$).*', re.IGNORECASE)
         self.commentedPattern = re.compile(r'\s*\!', re.IGNORECASE)
         self.openMPLinePattern = re.compile(r'\s*\!\$OMP.*', re.IGNORECASE)
         self.openACCLinePattern = re.compile(r'\s*\!\$ACC.*', re.IGNORECASE)

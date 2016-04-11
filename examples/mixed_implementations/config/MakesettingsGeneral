@@ -202,15 +202,10 @@ TEST_WITH_EVERY_BUILD=false
 
 #############################################################################
 # implementation settings                                                   #
+# using the @scheme directive and defining the implementation here, we can  #
+# override the default implementation (defined using the configure script)  #
+# and mix in different ones.                                                #
 #############################################################################
-#implementations for 'separate_kernels' template
-CPU_IMPLEMENTATION_DEBUG_SEPARATE_KERNELS=FortranImplementation
-CPU_IMPLEMENTATION_PRODUCTION_SEPARATE_KERNELS=OpenMPFortranImplementation
-GPU_IMPLEMENTATION_EMULATION_SEPARATE_KERNELS=DebugEmulatedCUDAFortranImplementation
-GPU_IMPLEMENTATION_DEBUG_SEPARATE_KERNELS=DebugCUDAFortranImplementation
-GPU_IMPLEMENTATION_PRODUCTION_SEPARATE_KERNELS=CUDAFortranImplementation
-
-#CUDA Fortran scheme
-GPU_IMPLEMENTATION_EMULATION_CUDA_FORTRAN=DebugEmulatedCUDAFortranImplementation
-GPU_IMPLEMENTATION_DEBUG_CUDA_FORTRAN=DebugCUDAFortranImplementation
-GPU_IMPLEMENTATION_PRODUCTION_CUDA_FORTRAN=CUDAFortranImplementation
+GPU_IMPLEMENTATION_EMULATION_INLINE_KERNELS=PGIOpenACCFortranImplementation
+GPU_IMPLEMENTATION_DEBUG_INLINE_KERNELS=PGIOpenACCFortranImplementation
+GPU_IMPLEMENTATION_PRODUCTION_INLINE_KERNELS=PGIOpenACCFortranImplementation

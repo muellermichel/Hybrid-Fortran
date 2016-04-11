@@ -31,7 +31,7 @@ from xml.dom.minidom import Document
 from optparse import OptionParser
 from tools.filesystem import dirEntries
 from tools.commons import printProgressIndicator, progressIndicatorReset, setupDeferredLogging
-from machinery.parser import H90XMLCallGraphGenerator, H90XMLSymbolDeclarationExtractor
+from machinery.parser import H90XMLCallGraphGenerator
 import os
 import sys
 import fileinput

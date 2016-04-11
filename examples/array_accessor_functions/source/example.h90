@@ -22,7 +22,7 @@ contains
     integer(4), intent(in) :: n, m
     real(8), intent(in), dimension(n,m) :: a
     real(8), intent(out), dimension(n,m) :: b
-    @domainDependant{attribute(autoDom)}
+    @domainDependant{attribute(autoDom, present)}
     a, b, n, m
     @end domainDependant
 
@@ -40,7 +40,7 @@ contains
     integer(4), intent(in) :: n, m
     real(8), intent(in), dimension(n,m) :: a
     real(8), intent(out), dimension(n,m) :: b
-    @domainDependant{attribute(autoDom)}
+    @domainDependant{attribute(autoDom, transferHere)}
     a, b
     @end domainDependant
 

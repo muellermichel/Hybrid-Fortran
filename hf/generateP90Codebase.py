@@ -23,6 +23,7 @@ from tools.metadata import parseString, ImmutableDOMDocument, getClonedDocument
 from optparse import OptionParser
 from machinery.parser import H90XMLSymbolDeclarationExtractor, getSymbolsByName, getModuleNodesByName, getParallelRegionData
 from machinery.converter import H90toF90Converter, getSymbolsByRoutineNameAndSymbolName, getSymbolsByModuleNameAndSymbolName
+from machinery.commons import ConversionOptions
 from tools.commons import UsageError, openFile, getDataFromFile, setupDeferredLogging, printProgressIndicator, progressIndicatorReset
 from tools.filesystem import dirEntries
 from tools.analysis import SymbolDependencyAnalyzer
@@ -70,6 +71,7 @@ if (not options.implementation):
 	logging.error("implementation option is mandatory. Use '--help' for informations on how to use this module")
 	sys.exit(1)
 
+ConversionOptions.Instance().debugPrint = options.debug
 filesInDir = dirEntries(str(options.sourceDir), True, 'h90')
 
 try:

@@ -62,6 +62,7 @@ class CallGraphParser(object):
            'none': self.processNoneState,
            'inside_module': self.processInsideModuleState,
            'inside_interface': self.processInsideInterface,
+           'inside_type': self.processInsideType,
            'inside_moduleDomainDependantRegion': self.processInsideModuleDomainDependantRegionState,
            'inside_module_body': self.processInsideModuleBodyState,
            'inside_declarations': self.processInsideDeclarationsState,
@@ -150,6 +151,12 @@ class CallGraphParser(object):
     def processInterfaceEndMatch(self, interfaceEndMatch):
         return
 
+    def processTypeMatch(self, typeMatch):
+        return
+
+    def processTypeEndMatch(self, typeMatch):
+        return
+
     def processNoMatch(self, line):
         return
 
@@ -188,6 +195,7 @@ class CallGraphParser(object):
         branchMatch = self.patterns.branchPattern.match(line)
         containsMatch = self.patterns.containsPattern.match(line)
         interfaceMatch = self.patterns.interfacePattern.match(line)
+        typeMatch = self.patterns.typePattern.match(line)
 
         if branchMatch:
             self.processBranchMatch(branchMatch)
@@ -197,6 +205,12 @@ class CallGraphParser(object):
                 self.stateBeforeBranch = 'inside_interface'
             else:
                 self.state = 'inside_interface'
+        elif typeMatch:
+            self.processTypeMatch(typeMatch)
+            if self.state == "inside_branch":
+                self.stateBeforeBranch = 'inside_type'
+            else:
+                self.state = 'inside_type'
         elif templateMatch:
             self.processTemplateMatch(templateMatch)
         elif templateEndMatch:
@@ -228,6 +242,17 @@ class CallGraphParser(object):
         interfaceEndMatch = self.patterns.interfaceEndPattern.match(line)
         if interfaceEndMatch:
             self.processInterfaceEndMatch(interfaceEndMatch)
+            if self.state == "inside_branch":
+                self.stateBeforeBranch = 'inside_module'
+            else:
+                self.state = 'inside_module'
+        else:
+            self.processNoMatch(line)
+
+    def processInsideType(self, line):
+        typeEndMatch = self.patterns.typeEndPattern.match(line)
+        if typeEndMatch:
+            self.processTypeEndMatch(typeEndMatch)
             if self.state == "inside_branch":
                 self.stateBeforeBranch = 'inside_module'
             else:
@@ -1122,11 +1147,13 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
             and symbol.nameOfScope != self.currSubprocName \
             and symbol.declarationType not in [
                 DeclarationType.LOCAL_MODULE_SCALAR,
+                DeclarationType.FOREIGN_MODULE_SCALAR,
                 DeclarationType.MODULE_ARRAY,
                 DeclarationType.MODULE_ARRAY_PASSED_IN_AS_ARGUMENT
             ]:
-                raise Exception("symbol %s from scope %s, created by %s is active in scope %s - something went wrong" %(
+                raise Exception("symbol %s (type %i) from scope %s, created by %s is active in scope %s - something went wrong" %(
                     symbol.name,
+                    symbol.declarationType,
                     symbol.nameOfScope,
                     symbol.createdBy,
                     self.currSubprocName

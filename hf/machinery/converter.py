@@ -325,8 +325,16 @@ This is not allowed for implementations using %s.\
         self.prepareLine(interfaceMatch.group(0), self.tab_outsideSub)
 
     def processInterfaceEndMatch(self, interfaceEndMatch):
-        super(H90toF90Converter, self).processContainsMatch(interfaceEndMatch)
+        super(H90toF90Converter, self).processInterfaceEndMatch(interfaceEndMatch)
         self.prepareLine(interfaceEndMatch.group(0), self.tab_outsideSub)
+
+    def processTypeMatch(self, typeMatch):
+        super(H90toF90Converter, self).processTypeMatch(typeMatch)
+        self.prepareLine(typeMatch.group(0), self.tab_outsideSub)
+
+    def processTypeEndMatch(self, typeEndMatch):
+        super(H90toF90Converter, self).processTypeEndMatch(typeEndMatch)
+        self.prepareLine(typeEndMatch.group(0), self.tab_outsideSub)
 
     def processNoMatch(self, line):
         super(H90toF90Converter, self).processNoMatch(line)

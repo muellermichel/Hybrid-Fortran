@@ -22,7 +22,7 @@ import re, sys, copy
 import logging
 import pdb
 from tools.metadata import *
-from tools.commons import enum, BracketAnalyzer, Singleton, UsageError
+from tools.commons import enum, BracketAnalyzer, Singleton, UsageError, findLeftMostOccurrenceNotInsideQuotes
 from tools.patterns import RegExPatterns
 from tools.analysis import SymbolDependencyAnalyzer, SymbolType
 from machinery.commons import purgeDimensionAndGetAdjustedLine
@@ -521,6 +521,22 @@ EXAMPLE:\n\
 		if useDeviceVersionIfAvailable and self.isUsingDevicePostfix:
 			return self._nameInScope + "_d"
 		return self._nameInScope
+
+	def splitTextAtLeftMostOccurrence(self, text):
+		def leftMostOccurrenceForName(text, name):
+			return findLeftMostOccurrenceNotInsideQuotes(name, text, filterOutEmbeddings=True), name
+		matchIndex, name = leftMostOccurrenceForName(text, self._nameInScope + "_d")
+		if matchIndex < 0:
+			matchIndex, name = leftMostOccurrenceForName(text, self._nameInScope)
+		if matchIndex < 0:
+			return text, None, None
+		prefix = ""
+		if matchIndex > 0:
+			prefix = text[:matchIndex]
+		suffix = ""
+		if len(text) > matchIndex + len(name):
+			suffix = text[matchIndex + len(name):]
+		return prefix, name, suffix
 
 	def isDummySymbolForRoutine(self, routineName):
 		if not self.analysis:

@@ -203,7 +203,7 @@ def findRightMostOccurrenceNotInsideQuotes(stringToMatch, stringToSearch, rightS
             raise Exception("Could not find the string even after 100 tries.")
     return blankPos
 
-def findLeftMostOccurrenceNotInsideQuotes(stringToMatch, stringToSearch, leftStartAt=-1):
+def findLeftMostOccurrenceNotInsideQuotes(stringToMatch, stringToSearch, leftStartAt=-1, filterOutEmbeddings=False):
     indexesWithinQuotes = areIndexesWithinQuotes(stringToSearch)
     nextLeftStart = leftStartAt + 1
     matchIndex = -1
@@ -211,13 +211,38 @@ def findLeftMostOccurrenceNotInsideQuotes(stringToMatch, stringToSearch, leftSta
         if nextLeftStart >= len(stringToMatch):
             break
         matchIndex = stringToSearch[nextLeftStart:].find(stringToMatch)
-        if matchIndex <= 0 or not indexesWithinQuotes[matchIndex]:
+        if matchIndex < 0:
+            break
+        matchEndIndex = matchIndex + len(stringToMatch)
+        if not indexesWithinQuotes[matchIndex] \
+        and (not filterOutEmbeddings or matchIndex < 1 or re.match(r'\W', stringToSearch[matchIndex - 1])) \
+        and (not filterOutEmbeddings or len(stringToSearch) <= matchEndIndex + 1 or re.match(r'\W', stringToSearch[matchEndIndex + 1])):
             break
         nextLeftStart = matchIndex + 1
         matchIndex = -1
         if numOfTrys >= 100:
             raise Exception("Could not find the string even after 100 tries.")
     return matchIndex
+
+def splitTextAtLeftMostOccurrence(matchStrings, text):
+    def leftMostOccurrenceForName(text, matchString):
+        return findLeftMostOccurrenceNotInsideQuotes(matchString, text, filterOutEmbeddings=True), matchString
+    if type(matchStrings) in [unicode, str]:
+        matchStrings = [matchStrings]
+    matchIndex, matchString = -1, None
+    for string in matchStrings:
+        matchIndex, matchString = leftMostOccurrenceForName(text, string)
+        if matchIndex >= 0:
+            break
+    if matchIndex < 0:
+        return text, "", ""
+    prefix = ""
+    if matchIndex > 0:
+        prefix = text[:matchIndex]
+    suffix = ""
+    if len(text) > matchIndex + len(matchString):
+        suffix = text[matchIndex + len(matchString):]
+    return prefix, matchString, suffix
 
 class Singleton:
     """

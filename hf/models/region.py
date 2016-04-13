@@ -22,7 +22,7 @@ import weakref, copy, re
 from tools.commons import enum, UsageError
 from tools.metadata import getArguments
 from tools.patterns import RegExPatterns
-from machinery.commons import ConversionOptions, getSymbolAccessStringAndReminder, purgeDimensionAndGetAdjustedLine
+from machinery.commons import ConversionOptions, getSymbolAccessStringAndRemainder, purgeDimensionAndGetAdjustedLine
 from symbol import DeclarationType, FrameworkArray
 
 RegionType = enum(
@@ -31,44 +31,42 @@ RegionType = enum(
 	"OTHER"
 )
 
-def implementMatch(line, match, symbol, iterators=[], parallelRegionTemplate=None, callee=None):
+def implementSymbolAccessStringAndRemainder(line, suffix, symbol, iterators=[], parallelRegionTemplate=None, callee=None):
 	isPointerAssignment = RegExPatterns.Instance().pointerAssignmentPattern.match(line) != None
 	try:
-		symbolAccessString, remainder = getSymbolAccessStringAndReminder(
+		symbolAccessString, remainder = getSymbolAccessStringAndRemainder(
 			symbol,
 			iterators,
 			parallelRegionTemplate,
-			match.group(3),
+			suffix,
 			callee,
 			isPointerAssignment
 		)
 	except UsageError as e:
 		raise UsageError("%s; Print of Line: %s" %(str(e), line))
-	return (match.group(1) + symbolAccessString + remainder).strip() + "\n"
+	return symbolAccessString, remainder
 
 def implementLine(line, symbols, parentRoutine, iterators=[], parallelRegionTemplate=None, callee=None):
 	adjustedLine = line
 	for symbol in symbols:
 		currSymbol = symbol
-		symbolWasMatched = False
 		lineSections = []
 		work = adjustedLine
-		nextMatch = currSymbol.namePattern.match(work)
-		while nextMatch:
-			symbolWasMatched = True
-			prefix = nextMatch.group(1)
+		prefix, matchedSymbolName, remainder = currSymbol.splitTextAtLeftMostOccurrence(work)
+		while matchedSymbolName != "":
 			lineSections.append(prefix)
-			processed = implementMatch(work, nextMatch, currSymbol, iterators, parallelRegionTemplate, callee)
-			adjustedMatch = currSymbol.namePattern.match(processed)
-			if not adjustedMatch:
-				raise Exception("Symbol %s can't be matched again after adjustment. Adjusted portion: %s" %(
-					currSymbol.name,
-					processed
-				))
-			lineSections.append(adjustedMatch.group(2))
-			work = adjustedMatch.group(3)
-			nextMatch = currSymbol.namePattern.match(work)
-		if not symbolWasMatched:
+			symbolAccessString, remainder = implementSymbolAccessStringAndRemainder(
+				work,
+				remainder,
+				currSymbol,
+				iterators,
+				parallelRegionTemplate,
+				callee
+			)
+			lineSections.append(symbolAccessString)
+			work = remainder
+			prefix, matchedSymbolName, remainder = currSymbol.splitTextAtLeftMostOccurrence(work)
+		if len(lineSections) == 0:
 			raise Exception("symbol %s expected on line '%s' for %s - no match" %(
 				currSymbol.name,
 				line,
@@ -156,7 +154,7 @@ class CallRegion(Region):
 			symbol = self._passedInSymbolsByNameInScope.get(symbolMatch.group(1))
 			if not symbol:
 				return argument
-			symbolAccessString, remainder = getSymbolAccessStringAndReminder(
+			symbolAccessString, remainder = getSymbolAccessStringAndRemainder(
 				symbol,
 				iterators,
 				parallelRegionTemplate,

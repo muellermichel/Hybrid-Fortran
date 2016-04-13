@@ -36,7 +36,7 @@ def getAccessorsAndRemainder(accessorString):
     currBracketAnalyzer = BracketAnalyzer()
     return currBracketAnalyzer.getListOfArgumentsInOpenedBracketsAndRemainder(symbolAccessString_match.group(1))
 
-def getSymbolAccessStringAndReminder(
+def getSymbolAccessStringAndRemainder(
     symbol,
     parallelIterators,
     parallelRegionTemplate,

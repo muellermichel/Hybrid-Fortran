@@ -22,7 +22,7 @@ import re, sys, copy
 import logging
 import pdb
 from tools.metadata import *
-from tools.commons import enum, BracketAnalyzer, Singleton, UsageError, findLeftMostOccurrenceNotInsideQuotes
+from tools.commons import enum, BracketAnalyzer, Singleton, UsageError, splitTextAtLeftMostOccurrence
 from tools.patterns import RegExPatterns
 from tools.analysis import SymbolDependencyAnalyzer, SymbolType
 from machinery.commons import purgeDimensionAndGetAdjustedLine
@@ -286,11 +286,6 @@ class Symbol(object):
 		return False
 
 	@property
-	def namePattern(self):
-		symbolName = self._nameInScope if self._nameInScope != None else self.name
-		return self.patterns.get(r'((?:[^\"\']|(?:\".*\")|(?:\'.*\'))*?(?:\W|^))(' + re.escape(symbolName) + r'(?:_d)?)((?:\W.*)|\Z)')
-
-	@property
 	def sourceModule(self):
 		if self._sourceModuleIdentifier not in ['', None, 'HF90_LOCAL_MODULE']:
 			return self._sourceModuleIdentifier
@@ -523,20 +518,7 @@ EXAMPLE:\n\
 		return self._nameInScope
 
 	def splitTextAtLeftMostOccurrence(self, text):
-		def leftMostOccurrenceForName(text, name):
-			return findLeftMostOccurrenceNotInsideQuotes(name, text, filterOutEmbeddings=True), name
-		matchIndex, name = leftMostOccurrenceForName(text, self._nameInScope + "_d")
-		if matchIndex < 0:
-			matchIndex, name = leftMostOccurrenceForName(text, self._nameInScope)
-		if matchIndex < 0:
-			return text, None, None
-		prefix = ""
-		if matchIndex > 0:
-			prefix = text[:matchIndex]
-		suffix = ""
-		if len(text) > matchIndex + len(name):
-			suffix = text[matchIndex + len(name):]
-		return prefix, name, suffix
+		return splitTextAtLeftMostOccurrence([self._nameInScope + "_d", self._nameInScope], text)
 
 	def isDummySymbolForRoutine(self, routineName):
 		if not self.analysis:

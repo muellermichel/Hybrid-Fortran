@@ -848,7 +848,7 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
 
         if isInsideSubroutineCall:
             for symbol in specifiedSymbolsByNameInScope.values():
-                if symbol.namePattern.match(line):
+                if symbol.splitTextAtLeftMostOccurrence(line)[1] != "":
                     self.symbolsPassedInCurrentCallByName[symbol.uniqueIdentifier] = symbol
                     self.symbolsOnCurrentLine.append(symbol)
             return
@@ -896,7 +896,7 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
             elif importMatch:
                 self.importsOnCurrentLine.append(symbol)
                 self.processSymbolImportMatch(importMatch, symbol)
-            elif useUnspecificMatching and symbol.namePattern.match(line):
+            elif useUnspecificMatching and symbol.splitTextAtLeftMostOccurrence(line)[1] != "":
                 self.symbolsOnCurrentLine.append(symbol)
 
     def processImport(self, parentNode, uid, moduleName, sourceSymbolName, symbolNameInScope):

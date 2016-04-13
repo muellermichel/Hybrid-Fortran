@@ -411,13 +411,11 @@ class RoutineSpecificationRegion(Region):
 				))
 
 		text = ""
-		if textBeforeImports != "" and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
-			text += "!<----- before imports: ------\n"
-		text += textBeforeImports
+
 		importsRequiredDict = copy.copy(self._allImports)
 		if len(importedSymbols) > 0:
 			if ConversionOptions.Instance().debugPrint and not skipDebugPrint:
-				text += "!<----- programmer imports: --\n"
+				text += "!<----- synthesized imports 1: --\n"
 			text += getImportLine(None, importedSymbols, parentRoutine)
 			if importsRequiredDict:
 				for symbol in importedSymbols:
@@ -426,14 +424,20 @@ class RoutineSpecificationRegion(Region):
 						del importsRequiredDict[k]
 		if importsRequiredDict:
 			if len(importsRequiredDict.keys()) > 0 and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
-				text += "!<----- programmer imports: --\n"
+				text += "!<----- synthesized imports 2: --\n"
 			for (sourceModule, nameInScope) in importsRequiredDict:
 				sourceName = importsRequiredDict[(sourceModule, nameInScope)]
 				text += getImportLine(
-					"use %s, only: %s => %s" %(sourceModule, nameInScope, sourceName),
+					"use %s, only: %s => %s" %(sourceModule, nameInScope, sourceName) \
+						if nameInScope != sourceName \
+						else "use %s, only: %s" %(sourceModule, nameInScope),
 					[],
 					parentRoutine
 				)
+
+		if textBeforeImports != "" and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
+			text += "!<----- other imports and specs: ------\n"
+		text += textBeforeImports
 
 		if textBeforeDeclarations != "" and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
 			text += "!<----- before declarations: --\n"

@@ -34,7 +34,7 @@ class TestCommonTools(unittest.TestCase):
 		)
 		self.assertEqual(
 			splitTextAtLeftMostOccurrence("a", " bcd a"),
-			(" bcd", "a", "")
+			(" bcd ", "a", "")
 		)
 		self.assertEqual(
 			splitTextAtLeftMostOccurrence("a", "bcd a123"),
@@ -66,6 +66,19 @@ class TestCommonTools(unittest.TestCase):
 			splitTextAtLeftMostOccurrence("a", "bcd a\'a\'"),
 			("bcd ", "a", "\'a\'")
 		)
+		#$$$ quotes within quotes analysis not supported for now
+		# self.assertEqual(
+		# 	splitTextAtLeftMostOccurrence("a", "bcd \"a\'a\'\"a"),
+		# 	("bcd \"a\'a\'\"", "a", "")
+		# )
+		# self.assertEqual(
+		# 	splitTextAtLeftMostOccurrence("a", "bcd \"a\'a\'\"a 123"),
+		# 	("bcd \"a\'a\'\"", "a", " 123")
+		# )
+		# self.assertEqual(
+		# 	splitTextAtLeftMostOccurrence("a", "bcd \"a\'a\'\" \'blub a\'a 123"),
+		# 	("bcd \"a\'a\'\" \'blub a\'", "a", " 123")
+		# )
 
 if __name__ == '__main__':
 	unittest.main()

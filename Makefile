@@ -39,9 +39,15 @@ ALL_TEST_PROJECTS=${TEST_PROJECTS} ${ADDITIONAL_TEST_PROJECTS}
 
 all: example
 
-tests: test_example ${TEST_TARGETS}
+tests: unit test_example ${TEST_TARGETS}
 
 clean: clean_example ${CLEAN_TARGETS}
+
+unit:
+	@echo "###########################################################################################"
+	@echo "########################## unit tests #####################################################"
+	@echo "###########################################################################################"
+	@python ${HF_DIR}/hf/unit.py
 
 #note: cp -n does not exist in older GNU utils, so we emulate it here for compatibility
 example:

@@ -208,21 +208,22 @@ def findLeftMostOccurrenceNotInsideQuotes(stringToMatch, stringToSearch, leftSta
     nextLeftStart = leftStartAt + 1
     matchIndex = -1
     for numOfTrys in range(1,101):
-        if nextLeftStart >= len(stringToMatch):
+        if nextLeftStart >= len(stringToSearch):
             break
-        matchIndex = stringToSearch[nextLeftStart:].find(stringToMatch)
+        currSlice = stringToSearch[nextLeftStart:]
+        matchIndex = currSlice.find(stringToMatch)
         if matchIndex < 0:
             break
         matchEndIndex = matchIndex + len(stringToMatch)
-        if not indexesWithinQuotes[matchIndex] \
-        and (not filterOutEmbeddings or matchIndex < 1 or re.match(r'\W', stringToSearch[matchIndex - 1])) \
-        and (not filterOutEmbeddings or len(stringToSearch) <= matchEndIndex + 1 or re.match(r'\W', stringToSearch[matchEndIndex + 1])):
+        if not indexesWithinQuotes[nextLeftStart:][matchIndex] \
+        and (not filterOutEmbeddings or matchIndex < 1 or re.match(r'\W', currSlice[matchIndex - 1])) \
+        and (not filterOutEmbeddings or len(currSlice) <= matchEndIndex or re.match(r'\W', currSlice[matchEndIndex])):
             break
-        nextLeftStart = matchIndex + 1
+        nextLeftStart += matchIndex + 1
         matchIndex = -1
         if numOfTrys >= 100:
             raise Exception("Could not find the string even after 100 tries.")
-    return matchIndex
+    return matchIndex + nextLeftStart if matchIndex >= 0 else -1
 
 def splitTextAtLeftMostOccurrence(matchStrings, text):
     def leftMostOccurrenceForName(text, matchString):

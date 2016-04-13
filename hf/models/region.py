@@ -372,8 +372,8 @@ class RoutineSpecificationRegion(Region):
 				parentRoutine.name
 			))
 
-		importedSymbols = []
-		declaredSymbols = []
+		importedSymbolsByScopedName = {}
+		declaredSymbolsByScopedName = {}
 		textBeforeImports = ""
 		textBeforeDeclarations = ""
 		textAfterDeclarations = ""
@@ -383,9 +383,9 @@ class RoutineSpecificationRegion(Region):
 		)
 		for (line, symbols) in self._linesAndSymbols:
 			if not symbols or len(symbols) == 0:
-				if len(importedSymbols) == 0:
+				if len(importedSymbolsByScopedName.keys()) == 0:
 					textBeforeImports += line.strip() + "\n"
-				elif len(declaredSymbols) == 0:
+				elif len(declaredSymbolsByScopedName.keys()) == 0:
 					textBeforeDeclarations += line.strip() + "\n"
 				else:
 					textAfterDeclarations += line.strip() + "\n"
@@ -397,13 +397,13 @@ class RoutineSpecificationRegion(Region):
 					continue #compacted symbols are handled as part of symbolsToAdd
 				match = symbol.getDeclarationMatch(line)
 				if match:
-					declaredSymbols.append(symbol)
+					declaredSymbolsByScopedName[symbol.nameInScope()] = symbol
 					continue
 				match = symbol.importPattern.match(line)
 				if not match:
 					match = symbol.importMapPattern.match(line)
 				if match:
-					importedSymbols.append(symbol)
+					importedSymbolsByScopedName[symbol.nameInScope()] = symbol
 					continue
 				raise Exception("symbol %s expected to be referenced in line '%s', but all matchings have failed" %(
 					symbol.name,
@@ -413,12 +413,12 @@ class RoutineSpecificationRegion(Region):
 		text = ""
 
 		importsRequiredDict = copy.copy(self._allImports)
-		if len(importedSymbols) > 0:
+		if len(importedSymbolsByScopedName.keys()) > 0:
 			if ConversionOptions.Instance().debugPrint and not skipDebugPrint:
 				text += "!<----- synthesized imports 1: --\n"
-			text += getImportLine(None, importedSymbols, parentRoutine)
+			text += getImportLine(None, importedSymbolsByScopedName.values(), parentRoutine)
 			if importsRequiredDict:
-				for symbol in importedSymbols:
+				for symbol in importedSymbolsByScopedName.values():
 					k = (symbol.sourceModule, symbol.nameInScope())
 					if k in importsRequiredDict:
 						del importsRequiredDict[k]
@@ -442,7 +442,7 @@ class RoutineSpecificationRegion(Region):
 		if textBeforeDeclarations != "" and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
 			text += "!<----- before declarations: --\n"
 		text += textBeforeDeclarations
-		if len(declaredSymbols) > 0:
+		if len(declaredSymbolsByScopedName.keys()) > 0:
 			if ConversionOptions.Instance().debugPrint and not skipDebugPrint:
 				text += "!<----- declarations: -------\n"
 			text += "\n".join([
@@ -452,7 +452,7 @@ class RoutineSpecificationRegion(Region):
 					declarationRegionType,
 					parentRoutine.node.getAttribute('parallelRegionPosition')
 				).strip()
-				for symbol in declaredSymbols
+				for symbol in declaredSymbolsByScopedName.values()
 			]).strip() + "\n"
 		if textAfterDeclarations != "" and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
 			text += "!<----- after declarations: --\n"

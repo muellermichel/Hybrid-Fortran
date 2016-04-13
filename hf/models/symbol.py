@@ -109,6 +109,13 @@ DeclarationType = enum(
 	"LOCAL_SCALAR"
 )
 
+def symbolNamesFromDeclarationMatch(match):
+	return [
+        symbolSpec.split('(')[0].strip()
+        for symbolSpec in re.split(r"(" + RegExPatterns.Instance().attributeRegex + r")", match.group(2))
+        if symbolSpec.strip() not in ["", ","]
+    ]
+
 def purgeFromDeclarationSettings(line, dependantSymbols, patterns, purgeList=['intent'], withAndWithoutIntent=True):
 	declarationDirectives = ""
 	symbolDeclarationStr = ""

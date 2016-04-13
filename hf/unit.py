@@ -1,9 +1,8 @@
 import unittest
-from tools.commons import splitTextAtLeftMostOccurrence
 
 class TestCommonTools(unittest.TestCase):
-
 	def testTextSplittingBasic(self):
+		from tools.commons import splitTextAtLeftMostOccurrence
 		self.assertEqual(
 			splitTextAtLeftMostOccurrence("", ""),
 			("", "", "")
@@ -46,6 +45,7 @@ class TestCommonTools(unittest.TestCase):
 		)
 
 	def testTextSplittingQuoted(self):
+		from tools.commons import splitTextAtLeftMostOccurrence
 		self.assertEqual(
 			splitTextAtLeftMostOccurrence("a", "bcd \"a\" 123"),
 			("bcd \"a\" 123", "", "")
@@ -79,6 +79,18 @@ class TestCommonTools(unittest.TestCase):
 		# 	splitTextAtLeftMostOccurrence("a", "bcd \"a\'a\'\" \'blub a\'a 123"),
 		# 	("bcd \"a\'a\'\" \'blub a\'", "a", " 123")
 		# )
+
+class TestSymbolAlgorithms(unittest.TestCase):
+	def testSymbolNamesFromDeclaration(self):
+		def symbolNamesFromDeclaration(self):
+			from models.symbol import symbolNamesFromDeclarationMatch
+			from tools.patterns import RegExPatterns
+
+
+		self.assertEqual(
+			splitTextAtLeftMostOccurrence("", ""),
+			("", "", "")
+		)
 
 if __name__ == '__main__':
 	unittest.main()

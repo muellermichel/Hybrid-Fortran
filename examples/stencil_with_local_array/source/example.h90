@@ -30,7 +30,7 @@ contains
     !this routine has no actual functionality, but we're testing whether Hybrid Fortran doesn't get confused on allocations
     implicit none
     integer(4), intent(in) :: n, m, nz
-    real(rp), allocatable:: c(:,:,:)
+    real(8), allocatable:: c(:,:,:)
 
     allocate(c(n, m, nz))
     deallocate(c)

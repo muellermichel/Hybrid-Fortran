@@ -1169,7 +1169,7 @@ Current Domains: %s\n" %(
 				r'\s*(?:double\s+precision\W|real\W|integer\W|logical\W).*?(?:intent\W)*.*?(?:in\W|out\W|inout\W)*.*?(?:\W|^)' \
 					+ re.escape(self.name) \
 					+ r'\s*\(\s*(.*?)\s*\)(.*)',
-				prefix + paramDeclMatch.group(2),
+				prefix + " " + paramDeclMatch.group(2),
 				re.IGNORECASE
 			)
 			if dimensionMatch:

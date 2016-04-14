@@ -1469,14 +1469,10 @@ Currently loaded template: %s\n" %(
 		match = self.patterns.symbolDeclPattern.match(line)
 		if not match:
 			return None
-		symbolNames = [sn.strip() for sn in match.group(2).split(",")]
-		namePattern = self.patterns.get(r"^\s*" + self.name + r"\s*(?:\(.*)?$")
-		for name in symbolNames:
-			if namePattern.match(name):
-				break
-		else:
-			return None
-		return match
+		symbolNames = symbolNamesFromDeclarationMatch(match)
+		if self.name in symbolNames:
+			return match
+		return None
 
 	def domPP(self):
 		domPPEntries = self.getTemplateEntryNodeValues("domPP")

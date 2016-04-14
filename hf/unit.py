@@ -82,14 +82,27 @@ class TestCommonTools(unittest.TestCase):
 
 class TestSymbolAlgorithms(unittest.TestCase):
 	def testSymbolNamesFromDeclaration(self):
-		def symbolNamesFromDeclaration(self):
+		def symbolNamesFromDeclaration(declaration):
 			from models.symbol import symbolNamesFromDeclarationMatch
 			from tools.patterns import RegExPatterns
-
-
+			return tuple(symbolNamesFromDeclarationMatch(
+				RegExPatterns.Instance().symbolDeclPattern.match(declaration)
+			))
 		self.assertEqual(
-			splitTextAtLeftMostOccurrence("", ""),
-			("", "", "")
+			symbolNamesFromDeclaration("real :: a, b, c"),
+			("a", "b", "c")
+		)
+		self.assertEqual(
+			symbolNamesFromDeclaration("real :: a(n), b, c"),
+			("a", "b", "c")
+		)
+		self.assertEqual(
+			symbolNamesFromDeclaration("integer :: n, a(n), b, c"),
+			("n", "a", "b", "c")
+		)
+		self.assertEqual(
+			symbolNamesFromDeclaration("integer :: a(n, m), b, c"),
+			("a", "b", "c")
 		)
 
 if __name__ == '__main__':

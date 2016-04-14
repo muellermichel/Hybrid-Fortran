@@ -1166,7 +1166,7 @@ Current Domains: %s\n" %(
 			dimensionStr = dimensionMatch.group(2)
 		else:
 			dimensionMatch = re.match(
-				r'\s*(?:double\s+precision\W|real\W|integer\W|logical\W).*?(?:intent\W)*.*?(?:in\W|out\W|inout\W)*.*?(?:\W|^)' \
+				r'\s*(?:double\s+precision\W|real\W|integer\W|logical\W|character\W|complex\W).*?(?:intent\W)*.*?(?:in\W|out\W|inout\W)*.*?(?:\W|^)' \
 					+ re.escape(self.name) \
 					+ r'\s*\(\s*(.*?)\s*\)(.*)',
 				prefix + " " + paramDeclMatch.group(2),

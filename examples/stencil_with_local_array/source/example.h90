@@ -25,6 +25,16 @@ contains
     b(i,j) = a(i,j) + a(i+1,j) + c(nz)
     @end parallelRegion
   end subroutine
+
+  subroutine hostFunctionWithAllocatable(n, m, nz)
+    !this routine has no actual functionality, but we're testing whether Hybrid Fortran doesn't get confused on allocations
+    implicit none
+    integer(4), intent(in) :: n, m, nz
+    real(rp), allocatable:: c(:,:,:)
+
+    allocate(c(n, m, nz))
+    deallocate(c)
+  end subroutine
 end module
 
 program main
@@ -36,6 +46,7 @@ program main
   n = 4
   m = 4
   nz = 3
+  call hostFunctionWithAllocatable(n, m, nz)
   allocate(a(n,m))
   allocate(b(n,m))
   a(:,:) = 1.0d0

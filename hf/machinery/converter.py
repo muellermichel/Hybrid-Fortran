@@ -27,7 +27,7 @@ from tools.metadata import *
 from tools.commons import UsageError, BracketAnalyzer, stacktrace
 from tools.analysis import SymbolDependencyAnalyzer, getAnalysisForSymbol, getArguments
 from machinery.parser import H90CallGraphAndSymbolDeclarationsParser, getSymbolsByName, currFile, currLineNo
-from machinery.commons import FortranCodeSanitizer
+from machinery.commons import FortranCodeSanitizer, ConversionOptions
 
 def getSymbolsByModuleNameAndSymbolName(cgDoc, moduleNodesByName, symbolAnalysisByRoutineNameAndSymbolName={}):
     symbolsByModuleNameAndSymbolName = {}
@@ -629,8 +629,10 @@ This is not allowed for implementations using %s.\
                     self.stateBeforeBranch
                 )
             )
-        import inspect
-        self.preparedBy = inspect.getouterframes(inspect.currentframe(), 2)[1][3]
+        self.preparedBy = ""
+        if ConversionOptions.Instance().debugPrint:
+            import inspect
+            self.preparedBy = inspect.getouterframes(inspect.currentframe(), 2)[1][3]
         self.prepareLineCalledForCurrentLine = True
         self.putLine(line)
 

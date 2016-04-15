@@ -25,7 +25,7 @@ from tools.metadata import *
 from tools.commons import enum, BracketAnalyzer, Singleton, UsageError, splitTextAtLeftMostOccurrence
 from tools.patterns import RegExPatterns
 from tools.analysis import SymbolDependencyAnalyzer, SymbolType
-from machinery.commons import purgeDimensionAndGetAdjustedLine
+from machinery.commons import purgeDimensionAndGetAdjustedLine, ConversionOptions
 
 Init = enum(
 	"NOTHING_LOADED",
@@ -251,8 +251,10 @@ class Symbol(object):
 			else:
 				self.loadRoutineNodeAttributes(scopeNode, parallelRegionTemplates)
 
-		import inspect
-		self.createdBy = inspect.getouterframes(inspect.currentframe(), 2)[1][3]
+		self.createdBy = ""
+		if ConversionOptions.Instance().debugPrint:
+			import inspect
+			self.createdBy = inspect.getouterframes(inspect.currentframe(), 2)[1][3]
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] initialized")
 
 	def __repr__(self):

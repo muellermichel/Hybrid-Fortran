@@ -105,5 +105,59 @@ class TestSymbolAlgorithms(unittest.TestCase):
 			("a", "b", "c")
 		)
 
+	def testDimensionString(self):
+		def dimensionStringFromDeclaration(symbolName, declaration):
+			from models.symbol import dimensionStringFromDeclarationMatch
+			from tools.patterns import RegExPatterns
+			return dimensionStringFromDeclarationMatch(
+				symbolName,
+				RegExPatterns.Instance().symbolDeclPattern.match(declaration)
+			)
+		self.assertEqual(
+			dimensionStringFromDeclaration("a", "real :: a, b, c"),
+			""
+		)
+		self.assertEqual(
+			dimensionStringFromDeclaration("a", "real :: a, b(n, m), c"),
+			""
+		)
+		self.assertEqual(
+			dimensionStringFromDeclaration("b", "real :: a, b(n, m), c"),
+			"n, m"
+		)
+		self.assertEqual(
+			dimensionStringFromDeclaration("a", "real, dimension(n, m) :: a, b, c"),
+			"n, m"
+		)
+		self.assertEqual(
+			dimensionStringFromDeclaration("b", "real, dimension(n, m) :: a, b, c"),
+			"n, m"
+		)
+		self.assertEqual(
+			dimensionStringFromDeclaration("a", "real :: a(n, m), b, c"),
+			"n, m"
+		)
+		self.assertEqual(
+			dimensionStringFromDeclaration("a", "real a(n, m)"),
+			"n, m"
+		)
+		self.assertEqual( #testing whether a symbol being a prefix of another is handled correclty
+			dimensionStringFromDeclaration("a", "real ab, a(n, m)"),
+			"n, m"
+		)
+		self.assertEqual( #testing whether a symbol being a suffix of another is handled correclty
+			dimensionStringFromDeclaration("a", "real ba, a(n, m)"),
+			"n, m"
+		)
+		self.assertEqual(
+			dimensionStringFromDeclaration("a", "real ab,a(n, m)"),
+			"n, m"
+		)
+		self.assertEqual(
+			dimensionStringFromDeclaration("a", "real ba,a(n, m)"),
+			"n, m"
+		)
+
+
 if __name__ == '__main__':
 	unittest.main()

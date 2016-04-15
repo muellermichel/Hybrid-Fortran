@@ -109,6 +109,56 @@ DeclarationType = enum(
 	"LOCAL_SCALAR"
 )
 
+def dimensionStringFromDeclarationMatch(symbolName, paramDeclMatch):
+	def isWord(s):
+		for c in s:
+			o = ord(c)
+			if (o > 47 and o <= 57) \
+			or (o > 64 and o <= 90) \
+			or (o > 96 and o <= 122):
+				continue
+			break
+		else:
+			return True
+		return False
+
+	def nextDimensionString(text, startAt=0):
+		#there should only be whitespace before leftBracketIndex
+		numWhitespaceCharacters = len(text[startAt:]) - len(text[startAt:].lstrip())
+		leftBracketIndex = text.find("(", startAt)
+		if leftBracketIndex < 0 \
+		or len(text) <= leftBracketIndex + 1 \
+		or leftBracketIndex > numWhitespaceCharacters + startAt:
+			return ""
+		rightBracketIndex = text.find(")", leftBracketIndex + 1)
+		if rightBracketIndex < 0:
+			raise Exception("no closing bracket found for dimension attribute")
+		return text[leftBracketIndex + 1:rightBracketIndex]
+
+	#This function is called ~30k times in hybrid asuca - we don't use Regex again here in order to optimize about 15% of preprocessing time
+	symbolNameIndex = -1
+	startAt = 0
+	while True:
+		symbolNameIndex = paramDeclMatch.group(2).find(symbolName, startAt)
+		if (symbolNameIndex > 0 and isWord(paramDeclMatch.group(2)[symbolNameIndex - 1])) \
+		or ( \
+			len(paramDeclMatch.group(2)) > symbolNameIndex + len(symbolName) \
+			and isWord(paramDeclMatch.group(2)[symbolNameIndex + len(symbolName)]) \
+		):
+			#symbolName is not isolated, need to continue search
+			startAt = symbolNameIndex + len(symbolName)
+			continue
+		break
+	if symbolNameIndex < 0:
+		raise Exception("symbol %s does not seem to be declared on line '%s'" %(symbolName, paramDeclMatch.group(0)))
+	dimensionIndex = paramDeclMatch.group(1).find("dimension")
+	if dimensionIndex >= 0:
+		dimensionStr = nextDimensionString(paramDeclMatch.group(1), startAt=dimensionIndex + len("dimension"))
+		if dimensionStr == "":
+			raise Exception("dimension attribute without content")
+		return dimensionStr
+	return nextDimensionString(paramDeclMatch.group(2), startAt=symbolNameIndex + len(symbolName))
+
 def symbolNamesFromDeclarationMatch(match):
 	return [
         symbolSpec.split('(')[0].strip()
@@ -933,7 +983,8 @@ EXAMPLE:\n\
 
 		#   look at declaration of symbol and get its                 #
 		#   dimensions.                                               #
-		dimensionStr, remainder = self.getDimensionStringAndRemainderFromDeclMatch(paramDeclMatch)
+		dimensionStr = dimensionStringFromDeclarationMatch(self.name, paramDeclMatch)
+		remainder = paramDeclMatch.group(3)
 		self.declarationSuffix = remainder.strip()
 		dimensionSizes = [sizeStr.strip() for sizeStr in dimensionStr.split(',') if sizeStr.strip() != ""]
 		if self.isAutoDom:
@@ -1158,36 +1209,9 @@ Current Domains: %s\n" %(
 				)
 			)
 
-	def getDimensionStringAndRemainderFromDeclMatch(self, paramDeclMatch):
-		prefix = paramDeclMatch.group(1)
-		postfix = paramDeclMatch.group(3)
-		dimensionStr = ""
-		remainder = ""
-		dimensionMatch = self.patterns.dimensionPattern.match(prefix, re.IGNORECASE)
-		if dimensionMatch:
-			dimensionStr = dimensionMatch.group(2)
-		else:
-			dimensionMatch = re.match(
-				r'\s*(?:double\s+precision\W|real\W|integer\W|logical\W|character\W|complex\W).*?(?:intent\W)*.*?(?:in\W|out\W|inout\W)*.*?(?:\W|^)' \
-					+ re.escape(self.name) \
-					+ r'\s*\(\s*(.*?)\s*\)(.*)',
-				prefix + " " + paramDeclMatch.group(2),
-				re.IGNORECASE
-			)
-			if dimensionMatch:
-				dimensionStr = dimensionMatch.group(1)
-		# MMU 2015-9-13: This check is not compatible with CUDA Fortran version of helper_functions_gpu
-		# dimensionCheckForbiddenCharacters = re.match(r'^(?!.*[()]).*', dimensionStr, re.IGNORECASE)
-		# if not dimensionCheckForbiddenCharacters:
-		#     raise Exception("Forbidden characters found in declaration of symbol %s: %s. Note: Preprocessor functions in domain dependant declarations are not allowed, only simple definitions." \
-		#         %(self.name, dimensionStr))
-		return dimensionStr, postfix
-
 	def getAdjustedDeclarationLine(self, paramDeclMatch, omitRemainder=False):
 		prefix = paramDeclMatch.group(1)
 		postfix = paramDeclMatch.group(3)
-
-		_, postfix = self.getDimensionStringAndRemainderFromDeclMatch(paramDeclMatch)
 		if omitRemainder:
 			return prefix + str(self)
 		return prefix + str(self) + postfix

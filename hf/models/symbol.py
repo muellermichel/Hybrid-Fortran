@@ -536,11 +536,7 @@ EXAMPLE:\n\
 	def uniqueIdentifier(self):
 		if not self.routineNode:
 			raise Exception("routine node needs to be loaded at this point")
-		return uniqueIdentifier(
-			self.name,
-			self.sourceModule if self.sourceModule not in [None, "", "HF90_LOCAL_MODULE"] \
-				else self.routineNode.getAttribute("name")
-		)
+		return uniqueIdentifier(self.name, self.routineNode.getAttribute("name"))
 
 	def nameInScope(self, useDeviceVersionIfAvailable=True):
 		#Give a symbol representation that is guaranteed to *not* collide with any local namespace (as long as programmer doesn't use any 'hfXXX' pre- or postfixes)

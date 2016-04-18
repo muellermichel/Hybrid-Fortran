@@ -772,7 +772,6 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
         self.currModuleImportsDict = None
         self.currRoutineImportsDict = None
         self.symbolsPassedInCurrentCallByName = {}
-        self.currSymbolsByNameInScope = {}
         super(H90CallGraphAndSymbolDeclarationsParser, self).__init__()
 
     @property
@@ -799,10 +798,6 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
                 if hasattr(self, 'symbolAnalysisByRoutineNameAndSymbolName') \
                 else {}
         ))
-        self.currSymbolsByNameInScope = dict(
-            (symbol.nameInScope(useDeviceVersionIfAvailable=False), symbol)
-            for symbol in self.currSymbolsByName.values()
-        )
         logging.debug(
             "Symbols loaded from template. Symbols currently active in scope: %s. Module Symbol Property: %s" %(
                 str(self.currSymbolsByName.values()),
@@ -847,9 +842,9 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
             self.parallelRegionTemplatesByProcName.get(self.currSubprocName, [])
         )
 
-    def analyseSymbolInformationOnCurrentLine(self, line, analyseImports=True, isModuleSpecification=False, isInsideSubroutineCall=False, useUnspecificMatching=False):
+    def analyseSymbolInformationOnCurrentLine(self, line, isModuleSpecification=False, isInsideSubroutineCall=False, useUnspecificMatching=False):
         if isInsideSubroutineCall:
-            for symbol in self.currSymbolsByNameInScope.values():
+            for symbol in self.currSymbolsByName.values():
                 if symbol.splitTextAtLeftMostOccurrence(line)[1] != "":
                     self.symbolsPassedInCurrentCallByName[symbol.uniqueIdentifier] = symbol
                     self.symbolsOnCurrentLine.append(symbol)
@@ -862,11 +857,11 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
         genericSymbolDeclMatch = self.patterns.symbolDeclPattern.match(line)
         if genericSymbolDeclMatch and not "device" in genericSymbolDeclMatch.group(1):
             #if symbol is declared device type, let user handle it
+            scopeName = self.currModuleName if isModuleSpecification else self.currSubprocName
             symbolNamesWithoutDomainDependantSpecs = [
                 symbolName.strip()
                 for symbolName in symbolNamesFromDeclarationMatch(genericSymbolDeclMatch)
-                if symbolName not in self.currSymbolsByNameInScope \
-                or (self.currSymbolsByNameInScope[symbolName].isModuleSymbol and not isModuleSpecification) #we have scope overloading - make a new symbol here. $$$ this is problematic when the symbol needs to be available afterwards
+                if uniqueIdentifier(symbolName, scopeName) not in self.currSymbolsByName
             ]
             for symbolName in symbolNamesWithoutDomainDependantSpecs:
                 if symbolName in ["intent", "dimension", "__device", "device", "type", "double precision", "real", "integer", "character", "logical", "complex"] \
@@ -879,12 +874,12 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
             if len(symbolNamesWithoutDomainDependantSpecs) > 0:
                 symbols = self.createSymbolsForCurrentContext(symbolNamesWithoutDomainDependantSpecs)
                 for symbol in symbols:
-                    self.currSymbolsByNameInScope[symbol.nameInScope(useDeviceVersionIfAvailable=False)] = symbol
                     self.currSymbolsByName[symbol.uniqueIdentifier] = symbol
                     logging.debug("symbol %s added to current context because of declaration %s" %(symbol, line))
+        elif not genericSymbolDeclMatch:
 
         #$$$ this could be made more efficient by only going through symbols matched in the generic pattern
-        for symbol in self.currSymbolsByNameInScope.values():
+        for symbol in self.currSymbolsByName.values():
             declMatch = symbol.getDeclarationMatch(line)
             importMatch = None
             if analyseImports:
@@ -914,6 +909,7 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
     def processImportMatch(self, importMatch):
         parentNode = None
         isInModuleScope = self.currSubprocName in [None, ""]
+        scopeName = self.currModuleName if isInModuleScope else self.currSubprocName
         if not isInModuleScope:
             parentNode = self.routineNodesByProcName.get(self.currSubprocName)
         else:
@@ -924,7 +920,7 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
         symbolList = importMatch.group(2).split(',')
         for symbolName in symbolList:
             stripped = symbolName.strip()
-            uid = uniqueIdentifier(stripped, moduleName)
+            uid = uniqueIdentifier(stripped, scopeName)
             mappedImportMatch = self.patterns.singleMappedImportPattern.match(stripped)
             sourceSymbolName = None
             symbolNameInScope = None
@@ -1234,9 +1230,8 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
         else:
             symbol.isModuleSymbol = False
         if uid != symbol.uniqueIdentifier:
-            raise Exception("unique identifier does not match expectation")
+            raise Exception("unique identifier (%s) does not match expectation (%s)" %(uid, symbol.uniqueIdentifier))
         self.currSymbolsByName[symbol.uniqueIdentifier] = symbol
-        self.currSymbolsByNameInScope[symbol.nameInScope(useDeviceVersionIfAvailable=False)] = symbol
 
     def processModuleEndMatch(self, moduleEndMatch):
         #get handles to currently active symbols -> temporarily save the handles

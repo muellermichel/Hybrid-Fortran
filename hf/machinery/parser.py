@@ -812,6 +812,8 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
         )
 
     def createSymbolsForParent(self, parent, symbolNames, parallelRegionTemplates):
+        if isinstance(self.cgDoc, ImmutableDOMDocument):
+            raise Exception("Cannot create new symbols (%s) at this point" %(str(symbolNames)))
         _, template, entries = setDomainDependants(
             self.cgDoc,
             parent,
@@ -863,7 +865,8 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
             symbolNamesWithoutDomainDependantSpecs = [
                 symbolName.strip()
                 for symbolName in symbolNamesFromDeclarationMatch(genericSymbolDeclMatch)
-                if symbolName not in self.currSymbolsByNameInScope
+                if symbolName not in self.currSymbolsByNameInScope \
+                or (self.currSymbolsByNameInScope[symbolName].isModuleSymbol and not isModuleSpecification) #we have scope overloading - make a new symbol here. $$$ this is problematic when the symbol needs to be available afterwards
             ]
             for symbolName in symbolNamesWithoutDomainDependantSpecs:
                 if symbolName in ["intent", "dimension", "__device", "device", "type", "double precision", "real", "integer", "character", "logical", "complex"] \
@@ -877,7 +880,7 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
                 symbols = self.createSymbolsForCurrentContext(symbolNamesWithoutDomainDependantSpecs)
                 for symbol in symbols:
                     self.currSymbolsByNameInScope[symbol.nameInScope(useDeviceVersionIfAvailable=False)] = symbol
-                    self.currSymbolsByName[symbolName] = symbol
+                    self.currSymbolsByName[symbol.uniqueIdentifier] = symbol
                     logging.debug("symbol %s added to current context because of declaration %s" %(symbol, line))
 
         #$$$ this could be made more efficient by only going through symbols matched in the generic pattern

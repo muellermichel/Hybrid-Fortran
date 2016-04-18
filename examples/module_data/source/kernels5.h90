@@ -17,6 +17,7 @@
 
 module kernels5
     real, dimension(:,:,:), allocatable :: used_in_acc_routine
+    real, parameter :: to_be_overloaded = 0.9d0
 
     @domainDependant{attribute(host), domName(x,y,z), domSize(NX,NY,NZ), domPP(DOM), accPP(AT)}
     used_in_acc_routine
@@ -36,12 +37,14 @@ contains
     use my_module, only: a, b, c, d
     implicit none
 
+    real :: to_be_overloaded
+
     @domainDependant{attribute(autoDom,present)}
     a, b, c, d
     @end domainDependant
 
     call add5(a, b, c)
-    call mult5(a, b, d)
+    call mult5(a, b, d, to_be_overloaded)
   end subroutine
 
   subroutine add5(a,b,c)
@@ -61,19 +64,22 @@ contains
     @end parallelRegion
   end subroutine
 
-  subroutine mult5(a,b,d)
+  subroutine mult5(a,b,d,to_be_overloaded)
     implicit none
     real, dimension(NX,NY,NZ), intent(in) :: a, b
     real, dimension(NX,NY,NZ), intent(out) :: d
+    real, intent(out) :: to_be_overloaded
     integer :: z
 
     @domainDependant{attribute(autoDom, present)}
     a, b, d
     @end domainDependant
 
+    to_be_overloaded = 1.0d0
+
     @parallelRegion{domName(x,y), domSize(NX, NY)}
     do z=1,NZ
-      d(z) = a(z) * b(z)
+      d(z) = a(z) * b(z) + to_be_overloaded
     end do
     @end parallelRegion
   end subroutine

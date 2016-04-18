@@ -182,7 +182,7 @@ program main
   call kernels5_cleanup()
   write(0,*) "calculation5 complete"
   call assert_values(c, 8.0d0)
-  call assert_values(d, 2.0d0)
+  call assert_values(d, 3.0d0)
 
   !MMU 2015-3-26: As of now device routines that are not scalar do not work reliably.
   !Note: Using !$acc routine is not yet compatible with module data imports as of PGI 15.3

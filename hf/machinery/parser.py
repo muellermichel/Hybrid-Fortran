@@ -690,13 +690,14 @@ def getSymbolsByName(cgDoc, parentNode, parallelRegionTemplates=[], currentModul
             analysis=getAnalysisForSymbol(symbolAnalysisByRoutineNameAndSymbolName, parentName, dependantName),
             parallelRegionTemplates=parallelRegionTemplates
         )
-        existingSymbol = symbolsByName.get(uniqueIdentifier(dependantName, parentName))
+        nameOfScope = entry.getAttribute("nameOfScope")
+        existingSymbol = symbolsByName.get(uniqueIdentifier(dependantName, entry.getAttribute("nameOfScope")))
         if existingSymbol == None:
-            existingSymbol = currentSymbolsByName.get(uniqueIdentifier(dependantName, parentName))
-        if existingSymbol == None and currentModuleName not in [None, ""]:
+            existingSymbol = currentSymbolsByName.get(uniqueIdentifier(dependantName, entry.getAttribute("nameOfScope")))
+        if existingSymbol == None and entry.getAttribute("isDeclaredExplicitely") != "yes" and currentModuleName not in [None, ""]:
             existingSymbol = currentSymbolsByName.get(uniqueIdentifier(dependantName, currentModuleName))
             if existingSymbol != None:
-                #if this symbol is found in the local module, assume we are using that module symbol here. Problem: Does not cover when local scope overrides module scope.
+                #if this symbol is found in the local module and there is no explicit declaration in the already loaded symbol, we are using that module symbol here.
                 symbol.resetScope(currentModuleName)
         if existingSymbol != None:
             symbol.merge(existingSymbol)
@@ -960,11 +961,13 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
     def processSymbolDeclMatch(self, paramDeclMatch, symbol):
         '''process everything that happens per h90 declaration symbol'''
         logging.debug("processing symbol declaration for %s" %(symbol))
+        isInModuleScope = self.currSubprocName in [None, ""]
         symbol.isMatched = True
         symbol.loadDeclaration(
             paramDeclMatch,
             self.patterns,
-            self.currArguments if isinstance(self.currArguments, list) else []
+            self.currArguments if isinstance(self.currArguments, list) else [],
+            self.currModuleName if isInModuleScope else self.currSubprocName
         )
 
     def processKnownSymbolImportMatch(self, importMatch, symbol):

@@ -237,6 +237,7 @@ def uniqueIdentifier(symbolName, suffix):
 	return (symbolName + "_hfauto_" + suffix).strip()
 
 MERGEABLE_DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES = {
+	"isDeclaredExplicitely": False,
 	"isPointer": False,
 	"isMatched": False,
 	"declarationPrefix": None,
@@ -744,6 +745,8 @@ EXAMPLE:\n\
 			domainDependantEntryNode.setAttribute("_sourceModuleIdentifier", self._sourceModuleIdentifier)
 		if self.sourceSymbol:
 			domainDependantEntryNode.setAttribute("sourceSymbol", self.sourceSymbol)
+		domainDependantEntryNode.setAttribute("nameOfScope", self.nameOfScope)
+		domainDependantEntryNode.setAttribute("isDeclaredExplicitely", "yes" if self.isDeclaredExplicitely else "no")
 		domainDependantEntryNode.setAttribute("isUsingDevicePostfix", "yes" if self.isUsingDevicePostfix else "no")
 		domainDependantEntryNode.setAttribute("isPointer", "yes" if self.isPointer else "no")
 		if self.domains and len(self.domains) > 0:
@@ -767,6 +770,8 @@ EXAMPLE:\n\
 			self._sourceModuleIdentifier = "HF90_LOCAL_MODULE" if self._sourceModuleIdentifier in [None, ''] else self._sourceModuleIdentifier
 		self.isPointer = domainDependantEntryNode.getAttribute("isPointer") == "yes"
 		self.isUsingDevicePostfix = domainDependantEntryNode.getAttribute("isUsingDevicePostfix") == "yes"
+		self.isDeclaredExplicitely = domainDependantEntryNode.getAttribute("isDeclaredExplicitely") == "yes"
+		self.nameOfScope = domainDependantEntryNode.getAttribute("nameOfScope")
 		declaredDimensionSizes = domainDependantEntryNode.getAttribute("declaredDimensionSizes")
 		self.declaredDimensionSizes = declaredDimensionSizes.split(",") if declaredDimensionSizes \
 			and declaredDimensionSizes != "" \
@@ -940,7 +945,7 @@ EXAMPLE:\n\
 		self.initLevel = max(self.initLevel, Init.ROUTINENODE_ATTRIBUTES_LOADED)
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] routine node attributes loaded for symbol %s. Domains at this point: %s" %(self.name, str(self.domains)))
 
-	def loadDeclaration(self, paramDeclMatch, patterns, currentRoutineArguments):
+	def loadDeclaration(self, paramDeclMatch, patterns, currentRoutineArguments, currParentName):
 		if self.initLevel < Init.TEMPLATE_LOADED:
 			raise Exception(
 				"Cannot load declaration for %s at init level %s" %(
@@ -953,6 +958,10 @@ EXAMPLE:\n\
 
 		#   The name used in the declaration pattern is just self.name - so store this as the scoped name for now
 		self._nameInScope = self.name
+
+		#   Same with the scope itself - since the declaration line is within a certain scope, this becomes a known known (thanks Mr. Rumsfield...)
+		self.nameOfScope = currParentName
+		self.isDeclaredExplicitely = True
 
 		declarationDirectives, symbolDeclarationStr = purgeFromDeclarationSettings( \
 			paramDeclMatch.group(0), \

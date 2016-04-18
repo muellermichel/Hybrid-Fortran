@@ -857,10 +857,11 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
         genericSymbolDeclMatch = self.patterns.symbolDeclPattern.match(line)
         if genericSymbolDeclMatch and not "device" in genericSymbolDeclMatch.group(1):
             #if symbol is declared device type, let user handle it
+            symbolNames = symbolNamesFromDeclarationMatch(genericSymbolDeclMatch)
             scopeName = self.currModuleName if isModuleSpecification else self.currSubprocName
             symbolNamesWithoutDomainDependantSpecs = [
                 symbolName.strip()
-                for symbolName in symbolNamesFromDeclarationMatch(genericSymbolDeclMatch)
+                for symbolName in symbolNames
                 if uniqueIdentifier(symbolName, scopeName) not in self.currSymbolsByName
             ]
             for symbolName in symbolNamesWithoutDomainDependantSpecs:
@@ -876,21 +877,45 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
                 for symbol in symbols:
                     self.currSymbolsByName[symbol.uniqueIdentifier] = symbol
                     logging.debug("symbol %s added to current context because of declaration %s" %(symbol, line))
-        elif not genericSymbolDeclMatch:
 
-        #$$$ this could be made more efficient by only going through symbols matched in the generic pattern
+        matchesAndSymbolBySymbolNameAndScopeName = {}
         for symbol in self.currSymbolsByName.values():
+            matchesAndSymbolByScopeName = matchesAndSymbolBySymbolNameAndScopeName.get(symbol.name, {})
+            matchesAndSymbol = [None, None, symbol]
             declMatch = symbol.getDeclarationMatch(line)
-            importMatch = None
-            if analyseImports:
-                importMatch = symbol.importPattern.match(line)
             if declMatch:
+                matchesAndSymbol[0] = declMatch
+                matchesAndSymbolByScopeName[symbol.nameOfScope] = matchesAndSymbol
+                matchesAndSymbolBySymbolNameAndScopeName[symbol.name] = matchesAndSymbolByScopeName
+                continue
+            importMatch = symbol.importPattern.match(line)
+            if importMatch:
+                matchesAndSymbol[1] = importMatch
+                matchesAndSymbolByScopeName[symbol.nameOfScope] = matchesAndSymbol
+                matchesAndSymbolBySymbolNameAndScopeName[symbol.name] = matchesAndSymbolByScopeName
+                continue
+            if useUnspecificMatching and symbol.splitTextAtLeftMostOccurrence(line)[1] != "":
+                matchesAndSymbolByScopeName[symbol.nameOfScope] = matchesAndSymbol
+                matchesAndSymbolBySymbolNameAndScopeName[symbol.name] = matchesAndSymbolByScopeName
+
+        for matchesAndSymbolByScopeName in matchesAndSymbolBySymbolNameAndScopeName.values():
+            matchesAndSymbolInScope = matchesAndSymbolByScopeName.get(self.currSubprocName)
+            if matchesAndSymbolInScope == None:
+                matchesAndSymbolInScope = matchesAndSymbolByScopeName.get(self.currModuleName)
+            if matchesAndSymbolInScope == None:
+                raise Exception("invalid scope present on line %i in %s: %s" %(
+                    currLineNo,
+                    self.currModuleName if isModuleSpecification else self.currSubprocName,
+                    str(matchesAndSymbolByScopeName)
+                ))
+            symbol = matchesAndSymbolInScope[2]
+            if matchesAndSymbolInScope[0]:
                 self.symbolsOnCurrentLine.append(symbol)
-                self.processSymbolDeclMatch(declMatch, symbol)
-            elif importMatch:
+                self.processSymbolDeclMatch(matchesAndSymbolInScope[0], symbol)
+            elif matchesAndSymbolInScope[1]:
                 self.importsOnCurrentLine.append(symbol)
-                self.processSymbolImportMatch(importMatch, symbol)
-            elif useUnspecificMatching and symbol.splitTextAtLeftMostOccurrence(line)[1] != "":
+                self.processKnownSymbolImportMatch(matchesAndSymbolInScope[1], symbol)
+            else:
                 self.symbolsOnCurrentLine.append(symbol)
 
     def processImport(self, parentNode, uid, moduleName, sourceSymbolName, symbolNameInScope):
@@ -942,7 +967,7 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
             self.currArguments if isinstance(self.currArguments, list) else []
         )
 
-    def processSymbolImportMatch(self, importMatch, symbol):
+    def processKnownSymbolImportMatch(self, importMatch, symbol):
         logging.debug("processing symbol import for %s" %(symbol))
         symbol.isMatched = True
         moduleName, sourceName = symbol.getModuleNameAndSourceSymbolNameFromImportMatch(importMatch)

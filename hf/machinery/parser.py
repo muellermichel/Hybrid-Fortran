@@ -855,11 +855,11 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
         if selectiveImportMatch:
             self.processImportMatch(selectiveImportMatch)
 
+        scopeName = self.currModuleName if isModuleSpecification else self.currSubprocName
         genericSymbolDeclMatch = self.patterns.symbolDeclPattern.match(line)
         if genericSymbolDeclMatch and not "device" in genericSymbolDeclMatch.group(1):
             #if symbol is declared device type, let user handle it
             symbolNames = symbolNamesFromDeclarationMatch(genericSymbolDeclMatch)
-            scopeName = self.currModuleName if isModuleSpecification else self.currSubprocName
             symbolNamesWithoutDomainDependantSpecs = [
                 symbolName.strip()
                 for symbolName in symbolNames
@@ -891,6 +891,7 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
                 continue
             importMatch = symbol.importPattern.match(line)
             if importMatch:
+                symbol.resetScope(scopeName)
                 matchesAndSymbol[1] = importMatch
                 matchesAndSymbolByScopeName[symbol.nameOfScope] = matchesAndSymbol
                 matchesAndSymbolBySymbolNameAndScopeName[symbol.name] = matchesAndSymbolByScopeName
@@ -904,9 +905,10 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
             if matchesAndSymbolInScope == None:
                 matchesAndSymbolInScope = matchesAndSymbolByScopeName.get(self.currModuleName)
             if matchesAndSymbolInScope == None:
-                raise Exception("invalid scope present on line %i in %s: %s" %(
+                raise Exception("invalid scope present on line %i in %s (%s): %s" %(
                     currLineNo,
-                    self.currModuleName if isModuleSpecification else self.currSubprocName,
+                    scopeName,
+                    self.currModuleName,
                     str(matchesAndSymbolByScopeName)
                 ))
             symbol = matchesAndSymbolInScope[2]

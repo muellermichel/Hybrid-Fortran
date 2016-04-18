@@ -745,7 +745,6 @@ EXAMPLE:\n\
 			domainDependantEntryNode.setAttribute("_sourceModuleIdentifier", self._sourceModuleIdentifier)
 		if self.sourceSymbol:
 			domainDependantEntryNode.setAttribute("sourceSymbol", self.sourceSymbol)
-		domainDependantEntryNode.setAttribute("nameOfScope", self.nameOfScope)
 		domainDependantEntryNode.setAttribute("isDeclaredExplicitely", "yes" if self.isDeclaredExplicitely else "no")
 		domainDependantEntryNode.setAttribute("isUsingDevicePostfix", "yes" if self.isUsingDevicePostfix else "no")
 		domainDependantEntryNode.setAttribute("isPointer", "yes" if self.isPointer else "no")
@@ -771,7 +770,6 @@ EXAMPLE:\n\
 		self.isPointer = domainDependantEntryNode.getAttribute("isPointer") == "yes"
 		self.isUsingDevicePostfix = domainDependantEntryNode.getAttribute("isUsingDevicePostfix") == "yes"
 		self.isDeclaredExplicitely = domainDependantEntryNode.getAttribute("isDeclaredExplicitely") == "yes"
-		self.nameOfScope = domainDependantEntryNode.getAttribute("nameOfScope")
 		declaredDimensionSizes = domainDependantEntryNode.getAttribute("declaredDimensionSizes")
 		self.declaredDimensionSizes = declaredDimensionSizes.split(",") if declaredDimensionSizes \
 			and declaredDimensionSizes != "" \

@@ -844,59 +844,54 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
         )
 
     def analyseSymbolInformationOnCurrentLine(self, line, isModuleSpecification=False, isInsideSubroutineCall=False, useUnspecificMatching=False):
-        if isInsideSubroutineCall:
-            for symbol in self.currSymbolsByName.values():
-                if symbol.splitTextAtLeftMostOccurrence(line)[1] != "":
-                    self.symbolsPassedInCurrentCallByName[symbol.uniqueIdentifier] = symbol
-                    self.symbolsOnCurrentLine.append(symbol)
-            return
-
-        selectiveImportMatch = self.patterns.selectiveImportPattern.match(line)
-        if selectiveImportMatch:
-            self.processImportMatch(selectiveImportMatch)
-
         scopeName = self.currModuleName if isModuleSpecification else self.currSubprocName
-        genericSymbolDeclMatch = self.patterns.symbolDeclPattern.match(line)
-        if genericSymbolDeclMatch and not "device" in genericSymbolDeclMatch.group(1):
-            #if symbol is declared device type, let user handle it
-            symbolNames = symbolNamesFromDeclarationMatch(genericSymbolDeclMatch)
-            symbolNamesWithoutDomainDependantSpecs = [
-                symbolName.strip()
-                for symbolName in symbolNames
-                if uniqueIdentifier(symbolName, scopeName) not in self.currSymbolsByName
-            ]
-            for symbolName in symbolNamesWithoutDomainDependantSpecs:
-                if symbolName in ["intent", "dimension", "__device", "device", "type", "double precision", "real", "integer", "character", "logical", "complex"] \
-                or not re.match(r'^\w*$', symbolName):
-                    raise Exception(
-                        "Either Hybrid Fortran's declaration parser is broken or you have used a Fortran intrinsic keyword as a symbol name: %s; Matched specification: %s; Matched symbol list: %s" %(
-                            symbolName, genericSymbolDeclMatch.group(1), genericSymbolDeclMatch.group(2)
+
+        if not isInsideSubroutineCall:
+            selectiveImportMatch = self.patterns.selectiveImportPattern.match(line)
+            if selectiveImportMatch:
+                self.processImportMatch(selectiveImportMatch)
+            genericSymbolDeclMatch = self.patterns.symbolDeclPattern.match(line)
+            if genericSymbolDeclMatch and not "device" in genericSymbolDeclMatch.group(1):
+                #if symbol is declared device type, let user handle it
+                symbolNames = symbolNamesFromDeclarationMatch(genericSymbolDeclMatch)
+                symbolNamesWithoutDomainDependantSpecs = [
+                    symbolName.strip()
+                    for symbolName in symbolNames
+                    if uniqueIdentifier(symbolName, scopeName) not in self.currSymbolsByName
+                ]
+                for symbolName in symbolNamesWithoutDomainDependantSpecs:
+                    if symbolName in ["intent", "dimension", "__device", "device", "type", "double precision", "real", "integer", "character", "logical", "complex"] \
+                    or not re.match(r'^\w*$', symbolName):
+                        raise Exception(
+                            "Either Hybrid Fortran's declaration parser is broken or you have used a Fortran intrinsic keyword as a symbol name: %s; Matched specification: %s; Matched symbol list: %s" %(
+                                symbolName, genericSymbolDeclMatch.group(1), genericSymbolDeclMatch.group(2)
+                            )
                         )
-                    )
-            if len(symbolNamesWithoutDomainDependantSpecs) > 0:
-                symbols = self.createSymbolsForCurrentContext(symbolNamesWithoutDomainDependantSpecs)
-                for symbol in symbols:
-                    self.currSymbolsByName[symbol.uniqueIdentifier] = symbol
-                    logging.debug("symbol %s added to current context because of declaration %s" %(symbol, line))
+                if len(symbolNamesWithoutDomainDependantSpecs) > 0:
+                    symbols = self.createSymbolsForCurrentContext(symbolNamesWithoutDomainDependantSpecs)
+                    for symbol in symbols:
+                        self.currSymbolsByName[symbol.uniqueIdentifier] = symbol
+                        logging.debug("symbol %s added to current context because of declaration %s" %(symbol, line))
 
         matchesAndSymbolBySymbolNameAndScopeName = {}
         for symbol in self.currSymbolsByName.values():
             matchesAndSymbolByScopeName = matchesAndSymbolBySymbolNameAndScopeName.get(symbol.name, {})
             matchesAndSymbol = [None, None, symbol]
-            declMatch = symbol.getDeclarationMatch(line)
-            if declMatch:
-                matchesAndSymbol[0] = declMatch
-                matchesAndSymbolByScopeName[symbol.nameOfScope] = matchesAndSymbol
-                matchesAndSymbolBySymbolNameAndScopeName[symbol.name] = matchesAndSymbolByScopeName
-                continue
-            importMatch = symbol.importPattern.match(line)
-            if importMatch:
-                symbol.resetScope(scopeName)
-                matchesAndSymbol[1] = importMatch
-                matchesAndSymbolByScopeName[symbol.nameOfScope] = matchesAndSymbol
-                matchesAndSymbolBySymbolNameAndScopeName[symbol.name] = matchesAndSymbolByScopeName
-                continue
-            if useUnspecificMatching and symbol.splitTextAtLeftMostOccurrence(line)[1] != "":
+            if not isInsideSubroutineCall:
+                declMatch = symbol.getDeclarationMatch(line)
+                if declMatch:
+                    matchesAndSymbol[0] = declMatch
+                    matchesAndSymbolByScopeName[symbol.nameOfScope] = matchesAndSymbol
+                    matchesAndSymbolBySymbolNameAndScopeName[symbol.name] = matchesAndSymbolByScopeName
+                    continue
+                importMatch = symbol.importPattern.match(line)
+                if importMatch:
+                    symbol.resetScope(scopeName)
+                    matchesAndSymbol[1] = importMatch
+                    matchesAndSymbolByScopeName[symbol.nameOfScope] = matchesAndSymbol
+                    matchesAndSymbolBySymbolNameAndScopeName[symbol.name] = matchesAndSymbolByScopeName
+                    continue
+            if (useUnspecificMatching or isInsideSubroutineCall) and symbol.splitTextAtLeftMostOccurrence(line)[1] != "":
                 matchesAndSymbolByScopeName[symbol.nameOfScope] = matchesAndSymbol
                 matchesAndSymbolBySymbolNameAndScopeName[symbol.name] = matchesAndSymbolByScopeName
 
@@ -918,6 +913,9 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
             elif matchesAndSymbolInScope[1]:
                 self.importsOnCurrentLine.append(symbol)
                 self.processKnownSymbolImportMatch(matchesAndSymbolInScope[1], symbol)
+            elif isInsideSubroutineCall:
+                self.symbolsPassedInCurrentCallByName[symbol.uniqueIdentifier] = symbol
+                self.symbolsOnCurrentLine.append(symbol)
             else:
                 self.symbolsOnCurrentLine.append(symbol)
 

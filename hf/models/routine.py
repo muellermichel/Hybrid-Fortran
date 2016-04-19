@@ -169,6 +169,10 @@ This is not allowed for implementations using %s.\
 		for symbol in additionalImports:
 			declType = symbol.declarationType
 
+			#if this symbol is a parameter imported from a module (or local to our own), the defining element (e.g. '= 1.0d0')
+			#needs to go away
+			symbol.declarationSuffix = None
+
 			# compact the imports of real type. Background: Experience has shown that too many
 			# symbols passed to kernels, such that parameter list > 256Byte, can cause strange behavior. (corruption
 			# of parameter list leading to launch failures)
@@ -302,10 +306,6 @@ This is not allowed for implementations using %s.\
 		self._additionalImports = additionalImportsByScopedName.values()
 
 		#prepare context in callees and load it into our specification region
-		additionalCompactedSubroutineParameters = sorted(toBeCompacted)
-		ourSymbolsToAdd = sorted(
-			additionalSubroutineParameters + additionalCompactedSubroutineParameters
-		)
 		compactionDeclarationPrefixByCalleeName = {}
 		for callee in self.callees:
 			if not isinstance(callee, AnalyzableRoutine):
@@ -333,6 +333,12 @@ This is not allowed for implementations using %s.\
 				)
 				compactedArrayList = [compactedArray]
 			callee.loadAdditionalArgumentSymbols(sorted(notToBeCompacted + compactedArrayList))
+
+		#finalize context for this routine and load it into the specification region
+		additionalCompactedSubroutineParameters = sorted(toBeCompacted)
+		ourSymbolsToAdd = sorted(
+			additionalSubroutineParameters + additionalCompactedSubroutineParameters
+		)
 		self.regions[0].loadAdditionalContext(
 			additionalParametersByKernelName,
 			ourSymbolsToAdd,

@@ -448,30 +448,30 @@ class DeviceDataFortranImplementation(FortranImplementation):
 		#note: intent == None or "" -> is local array
 		intent = dependantSymbols[0].intent
 
-		activeDirectives = purgedDeclarationDirectives if parallelRegionPosition in ["within", "outside"] \
-			or regionType in [RegionType.KERNEL_CALLER_DECLARATION, RegionType.MODULE_DECLARATION] \
-			else declarationDirectives
-
 		#scalars in kernels ...
 		if parallelRegionPosition in ["within", "outside"] \
 		and len(dependantSymbols[0].domains) == 0:
 			#... not meant for output
 			if intent not in ["out", "inout"]:
-				adjustedLine = activeDirectives + ", value :: " + symbolDeclarationStr
+				adjustedLine = purgedDeclarationDirectives + ", value :: " + symbolDeclarationStr
 
 			#... meant for output
 			else:
-				adjustedLine = activeDirectives + ", intent(%s) :: " %(intent) + symbolDeclarationStr
+				adjustedLine = purgedDeclarationDirectives + ", intent(%s) :: " %(intent) + symbolDeclarationStr
 
 		#arrays...
 		elif len(dependantSymbols[0].domains) > 0:
 			#present
 			if alreadyOnDevice == "yes" or (intent in [None, "", "local"] and regionType == RegionType.KERNEL_CALLER_DECLARATION):
-				adjustedLine = declarationStatements(dependantSymbols, activeDirectives, deviceType)
+				adjustedLine = declarationStatements(
+					dependantSymbols,
+					purgedDeclarationDirectives if parallelRegionPosition in ["within", "outside"] else declarationDirectives,
+					deviceType
+				)
 
 			#to be transferred
 			elif copyHere == "yes" or regionType in [RegionType.KERNEL_CALLER_DECLARATION, RegionType.MODULE_DECLARATION]:
-				adjustedLine += "\n" + declarationStatements(dependantSymbols, activeDirectives, deviceType)
+				adjustedLine += "\n" + declarationStatements(dependantSymbols, purgedDeclarationDirectives, deviceType)
 
 		return adjustedLine + "\n"
 

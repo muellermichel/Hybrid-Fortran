@@ -19,7 +19,7 @@
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
 import weakref, copy, re
-from tools.commons import enum, UsageError
+from tools.commons import enum, UsageError, OrderedDict
 from tools.metadata import getArguments
 from tools.patterns import RegExPatterns
 from machinery.commons import ConversionOptions, getSymbolAccessStringAndRemainder, purgeDimensionAndGetAdjustedLine
@@ -373,7 +373,7 @@ class RoutineSpecificationRegion(Region):
 			))
 
 		importedSymbolsByScopedName = {}
-		declaredSymbolsByScopedName = {}
+		declaredSymbolsByScopedName = OrderedDict()
 		textBeforeImports = ""
 		textBeforeDeclarations = ""
 		textAfterDeclarations = ""

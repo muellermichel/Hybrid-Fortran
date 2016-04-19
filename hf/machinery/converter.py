@@ -22,7 +22,7 @@ import os, sys, re, traceback, logging
 from models.symbol import *
 from models.routine import Routine, AnalyzableRoutine
 from models.module import Module
-from models.region import RegionType
+from models.region import RegionType, RoutineSpecificationRegion
 from tools.metadata import *
 from tools.commons import UsageError, BracketAnalyzer, stacktrace
 from tools.analysis import SymbolDependencyAnalyzer, getAnalysisForSymbol, getArguments
@@ -320,6 +320,12 @@ This is not allowed for implementations using %s.\
         super(H90toF90Converter, self).processContainsMatch(containsMatch)
         self.prepareLine(containsMatch.group(0), self.tab_outsideSub)
 
+    def processDataStatementMatch(self, dataStatementMatch):
+        if not self.currRegion or not isinstance(self.currRegion, RoutineSpecificationRegion):
+            raise Exception("invalid place for a data statement")
+        self.currRegion.loadDataSpecificationLine(dataStatementMatch.group(0))
+        self.prepareLine("", "")
+
     def processInterfaceMatch(self, interfaceMatch):
         super(H90toF90Converter, self).processInterfaceMatch(interfaceMatch)
         self.prepareLine(interfaceMatch.group(0), self.tab_outsideSub)
@@ -357,7 +363,11 @@ This is not allowed for implementations using %s.\
         templateMatch = self.patterns.templatePattern.match(line)
         templateEndMatch = self.patterns.templateEndPattern.match(line)
         branchMatch = self.patterns.branchPattern.match(line)
+        dataStatementMatch = self.patterns.dataStatementPattern.match(line)
 
+        if dataStatementMatch:
+            self.processDataStatementMatch(dataStatementMatch)
+            return
         if branchMatch:
             self.processBranchMatch(branchMatch)
             return

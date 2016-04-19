@@ -323,6 +323,7 @@ class RoutineSpecificationRegion(Region):
 		self._compactionDeclarationPrefixByCalleeName = None
 		self._currAdditionalCompactedSubroutineParameters = None
 		self._allImports = None
+		self._dataSpecificationLines = []
 
 	def clone(self):
 		clone = super(RoutineSpecificationRegion, self).clone()
@@ -334,6 +335,9 @@ class RoutineSpecificationRegion(Region):
 			self._allImports
 		)
 		return clone
+
+	def loadDataSpecificationLine(self, line):
+		self._dataSpecificationLines.append(line)
 
 	def loadAdditionalContext(
 		self,
@@ -454,6 +458,9 @@ class RoutineSpecificationRegion(Region):
 				).strip()
 				for symbol in declaredSymbolsByScopedName.values()
 			]).strip() + "\n"
+		if len(self._dataSpecificationLines) > 0 and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
+			text += "!<----- data specifications: --\n"
+		text += "\n".join(self._dataSpecificationLines)
 		if textAfterDeclarations != "" and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
 			text += "!<----- after declarations: --\n"
 		text += textAfterDeclarations

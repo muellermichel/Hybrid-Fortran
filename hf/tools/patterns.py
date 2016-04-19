@@ -51,6 +51,7 @@ class RegExPatterns:
                 .*                                                                      #everything that comes after the data object names, such as parameter definitions (my_param = 19)
             )\s*$
         """,
+        'dataStatementPattern': r'^\s*data\s+.*',
         'declarationKindPattern': r'(.*?)\s*kind\s*=\s*(\w*)\s*(.*)',
         'pointerAssignmentPattern': r"^\s*\w+\s*\=\>\s*\w+.*",
         'whileLoopPattern': r"^\s*do\s*while\W.*",

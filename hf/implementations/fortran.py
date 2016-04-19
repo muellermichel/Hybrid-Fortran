@@ -452,12 +452,18 @@ class DeviceDataFortranImplementation(FortranImplementation):
 			or regionType in [RegionType.KERNEL_CALLER_DECLARATION, RegionType.MODULE_DECLARATION] \
 			else declarationDirectives
 
-		#module scalars in kernels
+		#scalars in kernels ...
 		if parallelRegionPosition in ["within", "outside"] \
 		and len(dependantSymbols[0].domains) == 0:
-			adjustedLine = activeDirectives + ", value :: " + symbolDeclarationStr
+			#... not meant for output
+			if intent not in ["out", "inout"]:
+				adjustedLine = activeDirectives + ", value :: " + symbolDeclarationStr
 
-		#arrays
+			#... meant for output
+			else:
+				adjustedLine = activeDirectives + ", intent(%s) :: " %(intent) + symbolDeclarationStr
+
+		#arrays...
 		elif len(dependantSymbols[0].domains) > 0:
 			#present
 			if alreadyOnDevice == "yes" or (intent in [None, "", "local"] and regionType == RegionType.KERNEL_CALLER_DECLARATION):

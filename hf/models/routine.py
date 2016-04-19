@@ -305,6 +305,12 @@ This is not allowed for implementations using %s.\
 		)
 		self._additionalImports = additionalImportsByScopedName.values()
 
+		#finalize context for this routine
+		additionalCompactedSubroutineParameters = sorted(toBeCompacted)
+		ourSymbolsToAdd = sorted(
+			additionalSubroutineParameters + additionalCompactedSubroutineParameters
+		)
+
 		#prepare context in callees and load it into our specification region
 		compactionDeclarationPrefixByCalleeName = {}
 		for callee in self.callees:
@@ -334,11 +340,7 @@ This is not allowed for implementations using %s.\
 				compactedArrayList = [compactedArray]
 			callee.loadAdditionalArgumentSymbols(sorted(notToBeCompacted + compactedArrayList))
 
-		#finalize context for this routine and load it into the specification region
-		additionalCompactedSubroutineParameters = sorted(toBeCompacted)
-		ourSymbolsToAdd = sorted(
-			additionalSubroutineParameters + additionalCompactedSubroutineParameters
-		)
+		#load into the specification region
 		self.regions[0].loadAdditionalContext(
 			additionalParametersByKernelName,
 			ourSymbolsToAdd,

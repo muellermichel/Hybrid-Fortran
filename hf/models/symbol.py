@@ -236,6 +236,9 @@ def getReorderedDomainsAccordingToDeclaration(domains, dimensionSizesInDeclarati
 def uniqueIdentifier(symbolName, suffix):
 	return (symbolName + "_hfauto_" + suffix).strip()
 
+def deviceVersionIdentifier(symbolName):
+	return (symbolName + "_hfdev").strip()
+
 MERGEABLE_DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES = {
 	"isDeclaredExplicitely": False,
 	"isPointer": False,
@@ -393,7 +396,7 @@ class Symbol(object):
 		if not self._sourceSymbol:
 			return None
 		if self.isUsingDevicePostfix:
-			return self._sourceSymbol + "_d"
+			return deviceVersionIdentifier(self._sourceSymbol)
 		return self._sourceSymbol
 
 	@sourceSymbol.setter
@@ -540,6 +543,9 @@ EXAMPLE:\n\
 		return uniqueIdentifier(self.name, self.routineNode.getAttribute("name"))
 
 	def nameInScope(self, useDeviceVersionIfAvailable=True):
+		def limitLength(name):
+			return name[:min(len(name), 31)] #cut after 31 chars because of Fortran 90 limitation
+
 		#Give a symbol representation that is guaranteed to *not* collide with any local namespace (as long as programmer doesn't use any 'hfXXX' pre- or postfixes)
 		def automaticName(symbol):
 			if symbol.analysis and symbol.routineNode:
@@ -558,7 +564,7 @@ EXAMPLE:\n\
 				referencingName = uniqueIdentifier(self.name, self._sourceModuleIdentifier)
 			else:
 				referencingName = symbol.uniqueIdentifier
-			return referencingName[:min(len(referencingName), 31)] #cut after 31 chars because of Fortran 90 limitation
+			return referencingName
 
 		if (self.routineNode and self.sourceModule in [
 			"HF90_LOCAL_MODULE",
@@ -570,11 +576,11 @@ EXAMPLE:\n\
 		if self._nameInScope == None:
 			self._nameInScope = automaticName(self)
 		if useDeviceVersionIfAvailable and self.isUsingDevicePostfix:
-			return self._nameInScope + "_d"
-		return self._nameInScope
+			return limitLength(deviceVersionIdentifier(self._nameInScope))
+		return limitLength(self._nameInScope)
 
 	def splitTextAtLeftMostOccurrence(self, text):
-		return splitTextAtLeftMostOccurrence([self._nameInScope + "_d", self._nameInScope], text)
+		return splitTextAtLeftMostOccurrence([deviceVersionIdentifier(self._nameInScope), self._nameInScope], text)
 
 	def isDummySymbolForRoutine(self, routineName):
 		if not self.analysis:

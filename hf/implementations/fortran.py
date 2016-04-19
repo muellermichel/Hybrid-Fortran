@@ -432,7 +432,7 @@ class DeviceDataFortranImplementation(FortranImplementation):
 			return adjustedLine + "\n"
 
 		#$$$ generalize this using using symbol.getSanitizedDeclarationPrefix with a new 'intent' parameter
-		declarationDirectivesWithoutIntent, declarationDirectives,  symbolDeclarationStr = purgeFromDeclarationSettings(
+		purgedDeclarationDirectives, declarationDirectives,  symbolDeclarationStr = purgeFromDeclarationSettings(
 			line,
 			dependantSymbols,
 			self.patterns,
@@ -442,32 +442,30 @@ class DeviceDataFortranImplementation(FortranImplementation):
 
 		deviceType = "device"
 		declarationType = dependantSymbols[0].declarationType
+
 		#analyse the intent of the symbols. Since one line can only have one intent declaration, we can simply assume the intent of the
 		#first symbol
-		intent = dependantSymbols[0].intent
 		#note: intent == None or "" -> is local array
+		intent = dependantSymbols[0].intent
+
+		activeDirectives = purgedDeclarationDirectives if parallelRegionPosition in ["within", "outside"] \
+			or regionType in [RegionType.KERNEL_CALLER_DECLARATION, RegionType.MODULE_DECLARATION] \
+			else declarationDirectives
 
 		#module scalars in kernels
-		if parallelRegionPosition == "within" \
-		and (declarationType in [
-			DeclarationType.FOREIGN_MODULE_SCALAR,
-			DeclarationType.LOCAL_MODULE_SCALAR
-		]):
-			adjustedLine = declarationDirectivesWithoutIntent + " ,intent(in), value :: " + symbolDeclarationStr
-
-		#passed in scalars in kernels and inside kernels
-		elif parallelRegionPosition in ["within", "outside"] \
-		and len(dependantSymbols[0].domains) == 0 \
-		and intent not in ["out", "inout"]:
-			#handle scalars (passed by value)
-			adjustedLine = declarationDirectives + " ,value ::" + symbolDeclarationStr
+		if parallelRegionPosition in ["within", "outside"] \
+		and len(dependantSymbols[0].domains) == 0:
+			adjustedLine = activeDirectives + ", value :: " + symbolDeclarationStr
 
 		#arrays
 		elif len(dependantSymbols[0].domains) > 0:
+			#present
 			if alreadyOnDevice == "yes" or (intent in [None, "", "local"] and regionType == RegionType.KERNEL_CALLER_DECLARATION):
-				adjustedLine = declarationStatements(dependantSymbols, declarationDirectives, deviceType)
+				adjustedLine = declarationStatements(dependantSymbols, activeDirectives, deviceType)
+
+			#to be transferred
 			elif copyHere == "yes" or regionType in [RegionType.KERNEL_CALLER_DECLARATION, RegionType.MODULE_DECLARATION]:
-				adjustedLine += "\n" + declarationStatements(dependantSymbols, declarationDirectivesWithoutIntent, deviceType)
+				adjustedLine += "\n" + declarationStatements(dependantSymbols, activeDirectives, deviceType)
 
 		return adjustedLine + "\n"
 

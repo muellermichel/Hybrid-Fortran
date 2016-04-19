@@ -452,7 +452,7 @@ class DeviceDataFortranImplementation(FortranImplementation):
 		#scalars in kernels ...
 		if parallelRegionPosition in ["within", "outside"] \
 		and len(dependantSymbols[0].domains) == 0:
-			#... not meant for output
+			#... not meant for output (if we can't do reductions just induce a potential compiler error at this point)
 			if intent not in ["out", "inout"] or not self.assignmentToScalarsInKernelsAllowed:
 				adjustedLine = purgedDeclarationDirectives + ", value :: " + symbolDeclarationStr
 

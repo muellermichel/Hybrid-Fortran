@@ -427,12 +427,10 @@ def getRuntimeDebugPrintStatements(symbolsByName, calleeRoutineNode, parallelReg
 	if not routineName:
 		raise Exception("Callee routine name undefined.")
 	result += "write(0,*) '*********** kernel %s finished *************** '\n" %(routineName)
-	symbolsToPrint = symbolsByName.values()
-	# symbolNames = sorted(symbolsByName.keys())
-	# symbolsToPrint = [
-	#     symbolsByName[symbolName] for symbolName in symbolNames
-	#     if symbolsByName[symbolName].domains and len(symbolsByName[symbolName].domains) != 0
-	# ]
+	symbolsToPrint = [
+		symbol for symbol in symbolsByName.values()
+		if "real" in symbol.declarationPrefix
+	]
 	offsetsBySymbolName = {}
 	for symbol in symbolsToPrint:
 		offsets = []

@@ -31,6 +31,7 @@ class FortranImplementation(object):
 	architecture = ["cpu", "host"]
 	onDevice = False
 	multipleParallelRegionsPerSubroutineAllowed = True
+	assignmentToScalarsInKernelsAllowed = True
 	optionFlags = []
 	currDependantSymbols = None
 	currParallelRegionTemplateNode = None
@@ -452,7 +453,7 @@ class DeviceDataFortranImplementation(FortranImplementation):
 		if parallelRegionPosition in ["within", "outside"] \
 		and len(dependantSymbols[0].domains) == 0:
 			#... not meant for output
-			if intent not in ["out", "inout"]:
+			if intent not in ["out", "inout"] or not self.assignmentToScalarsInKernelsAllowed:
 				adjustedLine = purgedDeclarationDirectives + ", value :: " + symbolDeclarationStr
 
 			#... meant for output
@@ -746,6 +747,7 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 	architecture = ["cuda", "gpu", "nvd", "nvidia"]
 	onDevice = True
 	multipleParallelRegionsPerSubroutineAllowed = False
+	assignmentToScalarsInKernelsAllowed = False
 	useOpenACCForDebugPrintStatements = False
 	supportsArbitraryDataAccessesOutsideOfKernels = False
 	supportsNativeMemsetsOutsideOfKernels = True

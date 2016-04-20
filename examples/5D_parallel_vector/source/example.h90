@@ -9,6 +9,8 @@ contains
     real, dimension(NX, NY, NZ, NZ, 1), intent(in) :: array_5D
     real, dimension(NZ, NZ, 1), intent(in) :: input_3D
     real, dimension(NX, NY, NZ), intent(out) :: c
+    real, dimension(NX * (NY + (NZ))) :: expression_in_dimension
+    real :: expression_in_dimension2(NX * (NY + (NZ)))
 
     @domainDependant{attribute(autoDom, transferHere)}
     a, b, c, array_5D, input_3D

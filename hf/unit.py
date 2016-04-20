@@ -80,6 +80,120 @@ class TestCommonTools(unittest.TestCase):
 		# 	("bcd \"a\'a\'\" \'blub a\'", "a", " 123")
 		# )
 
+	def testTextSplittingIntoComponents(self):
+		from tools.commons import splitIntoComponentsAndRemainder
+		components, remainder = splitIntoComponentsAndRemainder("")
+		self.assertTrue(len(components) == 0)
+		self.assertTrue(remainder == "")
+
+		components, remainder = splitIntoComponentsAndRemainder("  ")
+		self.assertTrue(len(components) == 0)
+		self.assertEqual(remainder, "")
+
+		components, remainder = splitIntoComponentsAndRemainder("a")
+		self.assertEqual(
+			tuple(components),
+			("a",)
+		)
+		self.assertEqual(remainder, "")
+
+		components, remainder = splitIntoComponentsAndRemainder("a b")
+		self.assertEqual(
+			tuple(components),
+			("a",)
+		)
+		self.assertEqual(remainder, "b")
+
+		components, remainder = splitIntoComponentsAndRemainder("a  b")
+		self.assertEqual(
+			tuple(components),
+			("a",)
+		)
+		self.assertEqual(remainder, "b")
+
+		components, remainder = splitIntoComponentsAndRemainder("a, b b")
+		self.assertEqual(
+			tuple(components),
+			("a", "b")
+		)
+		self.assertEqual(remainder, "b")
+
+		components, remainder = splitIntoComponentsAndRemainder("a , b b")
+		self.assertEqual(
+			tuple(components),
+			("a", "b")
+		)
+		self.assertEqual(remainder, "b")
+
+		components, remainder = splitIntoComponentsAndRemainder("a, b(n, m) b")
+		self.assertEqual(
+			tuple(components),
+			("a", "b(n, m)")
+		)
+		self.assertEqual(remainder, "b")
+
+		components, remainder = splitIntoComponentsAndRemainder("a, b(n * (m + 1)) b")
+		self.assertEqual(
+			tuple(components),
+			("a", "b(n * (m + 1))")
+		)
+		self.assertEqual(remainder, "b")
+
+		components, remainder = splitIntoComponentsAndRemainder("a, b ::b")
+		self.assertEqual(
+			tuple(components),
+			("a", "b")
+		)
+		self.assertEqual(remainder, "::b")
+
+class TestMachineryAlgorithms(unittest.TestCase):
+	def testSpecificationParsing(self):
+		from machinery.commons import parseSpecification
+		self.assertEqual(
+			parseSpecification(""),
+			None
+		)
+		self.assertEqual(
+			parseSpecification("blub blib"),
+			None
+		)
+		self.assertEqual(
+			parseSpecification("real a"),
+			("real", "a", "")
+		)
+		self.assertEqual(
+			parseSpecification("real, attribute a"),
+			("real, attribute", "a", "")
+		)
+		self.assertEqual(
+			parseSpecification("real, attribute a(m, n)"),
+			("real, attribute", "a(m, n)", "")
+		)
+		self.assertEqual(
+			parseSpecification("real, attribute a(m * (n + 1))"),
+			("real, attribute", "a(m * (n + 1))", "")
+		)
+		self.assertEqual(
+			parseSpecification("real, attribute a (m * (n + 1))"),
+			("real, attribute", "a (m * (n + 1))", "")
+		)
+		self.assertEqual(
+			parseSpecification("real, attribute :: a, b"),
+			("real, attribute", "a, b", "")
+		)
+		self.assertEqual(
+			parseSpecification("real, attribute :: a(m, n), b"),
+			("real, attribute", "a(m, n), b", "")
+		)
+		self.assertEqual(
+			parseSpecification("real, attribute a = 1.0d0"),
+			("real, attribute", "a", "= 1.0d0")
+		)
+		self.assertEqual(
+			parseSpecification("real, attribute a= 1.0d0"),
+			("real, attribute", "a", "= 1.0d0")
+		)
+
 class TestSymbolAlgorithms(unittest.TestCase):
 	def testSymbolNamesFromDeclaration(self):
 		def symbolNamesFromDeclaration(declaration):
@@ -102,6 +216,10 @@ class TestSymbolAlgorithms(unittest.TestCase):
 		)
 		self.assertEqual(
 			symbolNamesFromDeclaration("integer :: a(n, m), b, c"),
+			("a", "b", "c")
+		)
+		self.assertEqual(
+			symbolNamesFromDeclaration("integer :: a(n * (m + k)), b, c"),
 			("a", "b", "c")
 		)
 
@@ -134,12 +252,24 @@ class TestSymbolAlgorithms(unittest.TestCase):
 			"n, m"
 		)
 		self.assertEqual(
+			dimensionStringFromDeclaration("b", "real, dimension(n * (m + k)) :: a, b, c"),
+			"n * (m + k)"
+		)
+		self.assertEqual(
 			dimensionStringFromDeclaration("a", "real :: a(n, m), b, c"),
 			"n, m"
 		)
 		self.assertEqual(
+			dimensionStringFromDeclaration("a", "real :: a(n * (m + k)), b, c"),
+			"n * (m + k)"
+		)
+		self.assertEqual(
 			dimensionStringFromDeclaration("a", "real a(n, m)"),
 			"n, m"
+		)
+		self.assertEqual(
+			dimensionStringFromDeclaration("a", "real a(n * (m + k))"),
+			"n * (m + k)"
 		)
 		self.assertEqual( #testing whether a symbol being a prefix of another is handled correclty
 			dimensionStringFromDeclaration("a", "real ab, a(n, m)"),

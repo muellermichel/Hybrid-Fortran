@@ -350,6 +350,37 @@ def splitTextAtLeftMostOccurrence(matchStrings, text):
         suffix = text[matchIndex + len(matchString):]
     return prefix, matchString, suffix
 
+def splitIntoComponentsAndRemainder(string):
+    if string.strip() == "":
+        return [], ""
+    analyzer = BracketAnalyzer()
+    splitted = string.split(',')
+    currComponent = ""
+    components = []
+    for index, part in enumerate(splitted):
+        currComponent += part
+        if analyzer.currLevelAfterString(part) == 0:
+            components.append(currComponent.strip())
+            currComponent = ""
+            continue
+        if index < len(splitted) - 1:
+            currComponent += ','
+    remainder = currComponent
+    if len(components) > 0:
+        separated = components[-1].split(' ')
+        analyzer = BracketAnalyzer()
+        lastComponent = ""
+        for index, part in enumerate(separated):
+            lastComponent += part + " "
+            if analyzer.currLevelAfterString(part) == 0:
+                components[-1] = lastComponent.strip()
+                if len(separated) > index + 1:
+                    remainder = ' '.join(separated[index + 1:])
+                else:
+                    remainder = ""
+                break
+    return components, remainder.strip()
+
 class Singleton:
     """
     A non-thread-safe helper class to ease implementing singletons.

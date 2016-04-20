@@ -40,6 +40,8 @@ class RegExPatterns:
         'branchEndPattern': r'\s*@end\s*if.*',
         'intentPattern': r'.*?intent\s*\(\s*(in|out|inout)\s*\).*',
         'dimensionPattern': r'(.*?),?\s*dimension\s*\(\s*(.*?)\s*\)(.*)',
+        'multiSpecPattern': r'^(.*?)::(.*)',
+        'standardTypePattern':r'^\s*((?:double\s+precision|real|integer|character|logical|complex)\s*(?:\(\s*[\w\,\s=*:]*\s*\))?).*',
         'symbolDeclPattern': r"""
             ^\s*(
                 (?:double\s+precision|real|integer|character|logical|complex)\s*        #intrinsic types

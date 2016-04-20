@@ -19,7 +19,7 @@
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
 import re, logging
-from tools.commons import BracketAnalyzer, findRightMostOccurrenceNotInsideQuotes, Singleton
+from tools.commons import BracketAnalyzer, Singleton, findRightMostOccurrenceNotInsideQuotes, splitIntoComponentsAndRemainder
 from tools.patterns import RegExPatterns
 
 def purgeDimensionAndGetAdjustedLine(line):
@@ -35,6 +35,21 @@ def getAccessorsAndRemainder(accessorString):
         return [], accessorString
     currBracketAnalyzer = BracketAnalyzer()
     return currBracketAnalyzer.getListOfArgumentsInOpenedBracketsAndRemainder(symbolAccessString_match.group(1))
+
+def parseSpecification(line):
+    components, remainder = splitIntoComponentsAndRemainder(line)
+    if remainder == "" or len(components) == 0:
+        return None
+    patterns = RegExPatterns.Instance()
+    if not patterns.standardTypePattern.match(components[0]):
+        return None
+    declarationPrefix = ", ".join(components)
+    multiSpecMatch = patterns.multiSpecPattern.match(remainder)
+    if multiSpecMatch:
+        if multiSpecMatch.group(1).strip != "":
+            raise Exception("invalid specification")
+        return declarationPrefix, multiSpecMatch(2), ""
+
 
 def getSymbolAccessStringAndRemainder(
     symbol,

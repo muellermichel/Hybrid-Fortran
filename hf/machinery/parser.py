@@ -853,7 +853,7 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
             genericSymbolDeclMatch = self.patterns.symbolDeclPattern.match(line)
             if genericSymbolDeclMatch and not "device" in genericSymbolDeclMatch.group(1):
                 #if symbol is declared device type, let user handle it
-                symbolNames = symbolNamesFromDeclarationMatch(genericSymbolDeclMatch)
+                symbolNames = symbolNamesFromSpecificationTuple(genericSymbolDeclMatch)
                 symbolNamesWithoutDomainDependantSpecs = [
                     symbolName.strip()
                     for symbolName in symbolNames

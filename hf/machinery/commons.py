@@ -19,7 +19,7 @@
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
 import re, logging
-from tools.commons import BracketAnalyzer, Singleton, findRightMostOccurrenceNotInsideQuotes, splitIntoComponentsAndRemainder
+from tools.commons import BracketAnalyzer, Singleton, UsageError, findRightMostOccurrenceNotInsideQuotes, splitIntoComponentsAndRemainder
 from tools.patterns import RegExPatterns
 
 def purgeDimensionAndGetAdjustedLine(line):
@@ -37,19 +37,24 @@ def getAccessorsAndRemainder(accessorString):
     return currBracketAnalyzer.getListOfArgumentsInOpenedBracketsAndRemainder(symbolAccessString_match.group(1))
 
 def parseSpecification(line):
-    components, remainder = splitIntoComponentsAndRemainder(line)
-    if remainder == "" or len(components) == 0:
-        return None
     patterns = RegExPatterns.Instance()
-    if not patterns.standardTypePattern.match(components[0]):
-        return None
-    declarationPrefix = ", ".join(components)
-    multiSpecMatch = patterns.multiSpecPattern.match(remainder)
+    multiSpecMatch = patterns.multiSpecPattern.match(line)
     if multiSpecMatch:
-        if multiSpecMatch.group(1).strip != "":
-            raise Exception("invalid specification")
-        return declarationPrefix, multiSpecMatch(2), ""
-
+        declarationComponents, remainder = splitIntoComponentsAndRemainder(multiSpecMatch.group(1))
+        if len(declarationComponents) == 0 or not patterns.standardTypePattern.match(declarationComponents[0]):
+            return None, None, None
+        if remainder.strip() != "":
+            raise UsageError("invalid component before multispec split")
+        return ", ".join(declarationComponents), multiSpecMatch.group(2).strip(), ""
+    declarationComponents, remainder = splitIntoComponentsAndRemainder(line)
+    if remainder.strip() == "" or len(declarationComponents) == 0:
+        return None, None, None
+    if len(declarationComponents) == 0 or not patterns.standardTypePattern.match(declarationComponents[0]):
+        return None, None, None
+    dataObjectSpecifications, remainder = splitIntoComponentsAndRemainder(remainder)
+    if len(dataObjectSpecifications) != 1:
+        raise UsageError("invalid number of data objects specified on this declaration line")
+    return ", ".join(declarationComponents), dataObjectSpecifications[0], remainder
 
 def getSymbolAccessStringAndRemainder(
     symbol,

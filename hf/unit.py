@@ -151,11 +151,11 @@ class TestMachineryAlgorithms(unittest.TestCase):
 		from machinery.commons import parseSpecification
 		self.assertEqual(
 			parseSpecification(""),
-			None
+			(None, None, None)
 		)
 		self.assertEqual(
 			parseSpecification("blub blib"),
-			None
+			(None, None, None)
 		)
 		self.assertEqual(
 			parseSpecification("real a"),
@@ -178,6 +178,18 @@ class TestMachineryAlgorithms(unittest.TestCase):
 			("real, attribute", "a (m * (n + 1))", "")
 		)
 		self.assertEqual(
+			parseSpecification("real, attribute(m, n) a"),
+			("real, attribute(m, n)", "a", "")
+		)
+		self.assertEqual(
+			parseSpecification("real, attribute(m * (n + 1)) a"),
+			("real, attribute(m * (n + 1))", "a", "")
+		)
+		self.assertEqual(
+			parseSpecification("real, attribute (m * (n + 1)) a"),
+			("real, attribute (m * (n + 1))", "a", "")
+		)
+		self.assertEqual(
 			parseSpecification("real, attribute :: a, b"),
 			("real, attribute", "a, b", "")
 		)
@@ -197,10 +209,10 @@ class TestMachineryAlgorithms(unittest.TestCase):
 class TestSymbolAlgorithms(unittest.TestCase):
 	def testSymbolNamesFromDeclaration(self):
 		def symbolNamesFromDeclaration(declaration):
-			from models.symbol import symbolNamesFromDeclarationMatch
-			from tools.patterns import RegExPatterns
-			return tuple(symbolNamesFromDeclarationMatch(
-				RegExPatterns.Instance().symbolDeclPattern.match(declaration)
+			from models.symbol import symbolNamesFromSpecificationTuple
+			from machinery.commons import parseSpecification
+			return tuple(symbolNamesFromSpecificationTuple(
+				parseSpecification(declaration)
 			))
 		self.assertEqual(
 			symbolNamesFromDeclaration("real :: a, b, c"),

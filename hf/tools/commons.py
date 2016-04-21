@@ -367,15 +367,24 @@ def splitIntoComponentsAndRemainder(string):
             currComponent += ','
     remainder = currComponent
     if len(components) > 0:
-        separated = components[-1].split(' ')
+        separated = re.split(r'([^\w\,\:\+\-\*\/\(\)])', components[-1])
         analyzer = BracketAnalyzer()
         lastComponent = ""
         for index, part in enumerate(separated):
-            lastComponent += part + " "
-            if analyzer.currLevelAfterString(part) == 0:
+            lastComponent += part
+            lookAheadCharacter = None
+            if index < len(separated) - 1:
+                for lookAheadIndex in range(index + 1, len(separated)):
+                    nextPart = separated[lookAheadIndex].strip()
+                    if len(nextPart) > 0:
+                        lookAheadCharacter = nextPart[0]
+                        break
+            bracketLevelAfterPart = analyzer.currLevelAfterString(part)
+            if lookAheadCharacter != '(' \
+            and bracketLevelAfterPart == 0:
                 components[-1] = lastComponent.strip()
                 if len(separated) > index + 1:
-                    remainder = ' '.join(separated[index + 1:])
+                    remainder = ''.join(separated[index + 1:])
                 else:
                     remainder = ""
                 break

@@ -159,10 +159,10 @@ def dimensionStringFromDeclarationMatch(symbolName, paramDeclMatch):
 		return dimensionStr
 	return nextDimensionString(paramDeclMatch.group(2), startAt=symbolNameIndex + len(symbolName))
 
-def symbolNamesFromDeclarationMatch(match):
+def symbolNamesFromSpecificationTuple(specTuple):
 	return [
         symbolSpec.split('(')[0].strip()
-        for symbolSpec in re.split(r"(" + RegExPatterns.Instance().attributeRegex + r")", match.group(2))
+        for symbolSpec in re.split(r"(" + RegExPatterns.Instance().attributeRegex + r")", specTuple[1])
         if symbolSpec.strip() not in ["", ","]
     ]
 
@@ -1504,7 +1504,7 @@ Currently loaded template: %s\n" %(
 		match = self.patterns.symbolDeclPattern.match(line)
 		if not match:
 			return None
-		symbolNames = symbolNamesFromDeclarationMatch(match)
+		symbolNames = symbolNamesFromSpecificationTuple(match)
 		if self.name in symbolNames:
 			return match
 		return None

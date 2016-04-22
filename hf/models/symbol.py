@@ -26,7 +26,7 @@ from tools.commons import enum, BracketAnalyzer, Singleton, UsageError, \
 	splitTextAtLeftMostOccurrence, splitIntoComponentsAndRemainder, getComponentNameAndBracketContent
 from tools.patterns import RegExPatterns
 from tools.analysis import SymbolDependencyAnalyzer, SymbolType
-from machinery.commons import purgeDimensionAndGetAdjustedLine, ConversionOptions
+from machinery.commons import purgeDimensionAndGetAdjustedLine, ConversionOptions, parseSpecification
 
 Init = enum(
 	"NOTHING_LOADED",
@@ -134,20 +134,30 @@ def symbolNamesFromSpecificationTuple(specTuple):
         for symbolSpec in specTuple[1]
     ])
 
+def rightHandSpecificationFromDataObjectTuple(dataObjectTuple):
+	return "%s(%s)" %(dataObjectTuple[0], dataObjectTuple[1]) \
+		if dataObjectTuple[1] \
+		else dataObjectTuple[0]
+
 def purgeFromDeclarationSettings(line, dependantSymbols, patterns, purgeList=['intent'], withAndWithoutIntent=True):
+	if 'dimension' in purgeList:
+		raise Exception("dimension attributes cannot be purged reliably with this function")
+	
 	declarationDirectives = ""
 	symbolDeclarationStr = ""
-	match = patterns.symbolDeclPattern.match(line)
-	if not match:
+	specTuple = parseSpecification()
+	if not specTuple[0]:
 		raise Exception("When trying to extract a device declaration: This is not a valid declaration: %s" %(line))
-	declarationDirectives = match.group(1)
-	symbolDeclarationStr = match.group(2)
-
+	declarationDirectives = specTuple[0]
+	symbolDeclarationStr = ", ".join(
+		rightHandSpecificationFromDataObjectTuple(dataObjectTuple)
+		for dataObjectTuple in specTuple[1]
+	)
+	
 	if not withAndWithoutIntent:
 		return declarationDirectives, symbolDeclarationStr
 
 	purgedDeclarationDirectives = declarationDirectives
-
 	for keywordToPurge in purgeList:
 		match = re.match(r"(.*?)\s*(,?)\s*" + keywordToPurge + r"\s*\(.*?\)\s*(,?)\s*(.*)", purgedDeclarationDirectives, re.IGNORECASE)
 		if not match:
@@ -155,7 +165,6 @@ def purgeFromDeclarationSettings(line, dependantSymbols, patterns, purgeList=['i
 		if match:
 			sepChar = ", " if match.group(2) != "" and match.group(3) != "" else " "
 			purgedDeclarationDirectives = match.group(1) + sepChar + match.group(4)
-
 	return purgedDeclarationDirectives, declarationDirectives, symbolDeclarationStr
 
 def getReorderedDomainsAccordingToDeclaration(domains, dimensionSizesInDeclaration, purgeUndeclared=False):
@@ -1468,14 +1477,14 @@ Currently loaded template: %s\n" %(
 			return None
 		return [entry.firstChild.nodeValue for entry in parentNodes[0].childNodes]
 
-	def getDeclarationMatch(self, line):
-		match = self.patterns.symbolDeclPattern.match(line)
-		if not match:
-			return None
-		symbolNames = symbolNamesFromSpecificationTuple(match)
+	def getSpecificationTuple(self, line):
+		specTuple = parseSpecification(line)
+		if not specTuple[0]:
+			return specTuple
+		symbolNames = symbolNamesFromSpecificationTuple(specTuple)
 		if self.name in symbolNames:
-			return match
-		return None
+			return specTuple
+		return None, None, None
 
 	def domPP(self):
 		domPPEntries = self.getTemplateEntryNodeValues("domPP")

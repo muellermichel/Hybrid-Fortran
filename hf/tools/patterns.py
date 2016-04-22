@@ -42,17 +42,6 @@ class RegExPatterns:
         'dimensionPattern': r'(.*?),?\s*dimension\s*\(\s*(.*?)\s*\)(.*)',
         'multiSpecPattern': r'^(.*?)::(.*)',
         'standardTypePattern':r'^\s*((?:double\s+precision|real|integer|character|logical|complex)\s*(?:\(\s*[\w\,\s=*:]*\s*\))?).*',
-        'symbolDeclPattern': r"""
-            ^\s*(
-                (?:double\s+precision|real|integer|character|logical|complex)\s*        #intrinsic types
-                (?:\(\s*[\w\,\s=*:]*\s*\))?\s*                                          #type initialization expression (usually the byte length)
-                (?:\s*\,\s*""" + attributeRegex + r""")*                                #arbitrarily many additional attributes; Also handle macro calls by allowing brackets within brackets
-            )\s*(?:\:\:)?\s*(                                                           #double colon to specify multiple data objects on the same line
-                (?:""" + attributeRegex + r"""\s*\,?\s*)+                               #data objects
-            )(
-                .*                                                                      #everything that comes after the data object names, such as parameter definitions (my_param = 19)
-            )\s*$
-        """,
         'dataStatementPattern': r'^\s*data\s+.*',
         'declarationKindPattern': r'(.*?)\s*kind\s*=\s*(\w*)\s*(.*)',
         'pointerAssignmentPattern': r"^\s*\w+\s*\=\>\s*\w+.*",

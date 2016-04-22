@@ -24,7 +24,7 @@ from models.symbol import *
 from tools.commons import UsageError, BracketAnalyzer
 from tools.analysis import SymbolDependencyAnalyzer, getAnalysisForSymbol, getArguments
 from tools.patterns import RegExPatterns
-from machinery.commons import FortranRoutineArgumentParser, FortranCodeSanitizer
+from machinery.commons import FortranRoutineArgumentParser, FortranCodeSanitizer, parseSpecification
 
 currFile = None
 currLineNo = None
@@ -336,12 +336,12 @@ class CallGraphParser(object):
             importMatch1 = self.patterns.selectiveImportPattern.match(line)
             importMatch2 = self.patterns.singleMappedImportPattern.match(line)
             importMatch3 = self.patterns.importAllPattern.match(line)
-            declarationMatch = self.patterns.symbolDeclPattern.match(line)
+            specTuple = parseSpecification(line)
             specificationStatementMatch = self.patterns.specificationStatementPattern.match(line)
             if not ( \
                 line.strip() == "" \
                 or importMatch1 or importMatch2 or importMatch3 \
-                or declarationMatch
+                or specTuple[0]
                 or specificationStatementMatch
             ):
                 if self.state == "inside_branch":
@@ -850,10 +850,10 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
             selectiveImportMatch = self.patterns.selectiveImportPattern.match(line)
             if selectiveImportMatch:
                 self.processImportMatch(selectiveImportMatch)
-            genericSymbolDeclMatch = self.patterns.symbolDeclPattern.match(line)
-            if genericSymbolDeclMatch and not "device" in genericSymbolDeclMatch.group(1):
+            specTuple = parseSpecification(line)
+            if specTuple[0] and not "device" in specTuple[0]:
                 #if symbol is declared device type, let user handle it
-                symbolNames = symbolNamesFromSpecificationTuple(genericSymbolDeclMatch)
+                symbolNames = symbolNamesFromSpecificationTuple(specTuple)
                 symbolNamesWithoutDomainDependantSpecs = [
                     symbolName.strip()
                     for symbolName in symbolNames
@@ -864,7 +864,7 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
                     or not re.match(r'^\w*$', symbolName):
                         raise Exception(
                             "Either Hybrid Fortran's declaration parser is broken or you have used a Fortran intrinsic keyword as a symbol name: %s; Matched specification: %s; Matched symbol list: %s" %(
-                                symbolName, genericSymbolDeclMatch.group(1), genericSymbolDeclMatch.group(2)
+                                symbolName, specTuple[0], specTuple[1]
                             )
                         )
                 if len(symbolNamesWithoutDomainDependantSpecs) > 0:
@@ -878,9 +878,9 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
             matchesAndSymbolByScopeName = matchesAndSymbolBySymbolNameAndScopeName.get(symbol.name, {})
             matchesAndSymbol = [None, None, symbol]
             if not isInsideSubroutineCall:
-                declMatch = symbol.getDeclarationMatch(line)
-                if declMatch:
-                    matchesAndSymbol[0] = declMatch
+                specTuple = symbol.getSpecificationTuple(line)
+                if specTuple[0]:
+                    matchesAndSymbol[0] = specTuple
                     matchesAndSymbolByScopeName[symbol.nameOfScope] = matchesAndSymbol
                     matchesAndSymbolBySymbolNameAndScopeName[symbol.name] = matchesAndSymbolByScopeName
                     continue

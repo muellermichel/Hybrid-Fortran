@@ -27,7 +27,7 @@ from tools.metadata import *
 from tools.commons import UsageError, BracketAnalyzer, stacktrace
 from tools.analysis import SymbolDependencyAnalyzer, getAnalysisForSymbol, getArguments
 from machinery.parser import H90CallGraphAndSymbolDeclarationsParser, getSymbolsByName, currFile, currLineNo
-from machinery.commons import FortranCodeSanitizer, ConversionOptions
+from machinery.commons import FortranCodeSanitizer, ConversionOptions, parseSpecification
 
 def getSymbolsByModuleNameAndSymbolName(cgDoc, moduleNodesByName, symbolAnalysisByRoutineNameAndSymbolName={}):
     symbolsByModuleNameAndSymbolName = {}
@@ -404,14 +404,14 @@ This is not allowed for implementations using %s.\
         importMatch1 = self.patterns.selectiveImportPattern.match(line)
         importMatch2 = self.patterns.singleMappedImportPattern.match(line)
         importMatch3 = self.patterns.importAllPattern.match(line)
-        declarationMatch = self.patterns.symbolDeclPattern.match(line)
+        specTuple = parseSpecification(line)
         specificationStatementMatch = self.patterns.specificationStatementPattern.match(line)
         if not ( \
             line.strip() == "" \
             or importMatch1 \
             or importMatch2 \
             or importMatch3 \
-            or declarationMatch \
+            or specTuple[0] \
             or specificationStatementMatch \
         ):
             if self.state == "inside_branch":

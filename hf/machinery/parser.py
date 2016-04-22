@@ -907,9 +907,9 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
                     str(matchesAndSymbolByScopeName)
                 ))
             symbol = matchesAndSymbolInScope[2]
-            if matchesAndSymbolInScope[0]:
+            if isinstance(matchesAndSymbolInScope[0], tuple):
                 self.symbolsOnCurrentLine.append(symbol)
-                self.processSymbolDeclMatch(matchesAndSymbolInScope[0], symbol)
+                self.processSymbolSpecification(matchesAndSymbolInScope[0], symbol)
             elif matchesAndSymbolInScope[1]:
                 self.importsOnCurrentLine.append(symbol)
                 self.processKnownSymbolImportMatch(matchesAndSymbolInScope[1], symbol)
@@ -958,13 +958,13 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
                 sourceSymbolName = symbolNameInScope
             self.processImport(parentNode, uid, moduleName, sourceSymbolName, symbolNameInScope)
 
-    def processSymbolDeclMatch(self, paramDeclMatch, symbol):
+    def processSymbolSpecification(self, specTuple, symbol):
         '''process everything that happens per h90 declaration symbol'''
         logging.debug("processing symbol declaration for %s" %(symbol))
         isInModuleScope = self.currSubprocName in [None, ""]
         symbol.isMatched = True
         symbol.loadDeclaration(
-            paramDeclMatch,
+            specTuple,
             self.patterns,
             self.currArguments if isinstance(self.currArguments, list) else [],
             self.currModuleName if isInModuleScope else self.currSubprocName

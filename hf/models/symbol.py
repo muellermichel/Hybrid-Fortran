@@ -926,7 +926,7 @@ EXAMPLE:\n\
 		self.initLevel = max(self.initLevel, Init.ROUTINENODE_ATTRIBUTES_LOADED)
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] routine node attributes loaded for symbol %s. Domains at this point: %s" %(self.name, str(self.domains)))
 
-	def loadDeclaration(self, paramDeclMatch, patterns, currentRoutineArguments, currParentName):
+	def loadDeclaration(self, specTuple, patterns, currentRoutineArguments, currParentName):
 		if self.initLevel < Init.TEMPLATE_LOADED:
 			raise Exception(
 				"Cannot load declaration for %s at init level %s" %(
@@ -944,16 +944,24 @@ EXAMPLE:\n\
 		self.nameOfScope = currParentName
 		self.isDeclaredExplicitely = True
 
-		declarationDirectives, symbolDeclarationStr = purgeFromDeclarationSettings( \
-			paramDeclMatch.group(0), \
-			[self], \
-			patterns, \
-			withAndWithoutIntent=False \
+		declarationLine = "%s :: %s %s" %(
+			specTuple[0],
+			", ".join([
+				rightHandSpecificationFromDataObjectTuple(doTuple)
+				for doTuple in specTuple[1]
+			]),
+			specTuple[2]
+		)
+		declarationDirectives, _ = purgeFromDeclarationSettings(
+			declarationLine,
+			[self],
+			patterns,
+			withAndWithoutIntent=False
 		)
 		self.declarationPrefix = purgeDimensionAndGetAdjustedLine(declarationDirectives.rstrip() + " " + "::")
 
 		#   get and check intent                                      #
-		intentMatch = patterns.intentPattern.match(paramDeclMatch.group(1))
+		intentMatch = patterns.intentPattern.match(specTuple[0])
 		newIntent = None
 		if intentMatch and intentMatch.group(1).strip() != "":
 			newIntent = intentMatch.group(1)
@@ -965,12 +973,12 @@ EXAMPLE:\n\
 			self.intent = newIntent
 
 		#   check whether this is a pointer
-		self.isPointer = self.pointerDeclarationPattern.match(paramDeclMatch.group(0)) != None
+		self.isPointer = self.pointerDeclarationPattern.match(declarationLine) != None
 
 		#   look at declaration of symbol and get its                 #
 		#   dimensions.                                               #
-		dimensionStr = dimensionStringFromSpecification(self.name, paramDeclMatch)
-		remainder = paramDeclMatch.group(3)
+		dimensionStr = dimensionStringFromSpecification(self.name, specTuple)
+		remainder = specTuple[2]
 		self.declarationSuffix = remainder.strip()
 		dimensionSizes = [sizeStr.strip() for sizeStr in dimensionStr.split(',') if sizeStr.strip() != ""]
 		if self.isAutoDom:
@@ -1194,13 +1202,6 @@ Current Domains: %s\n" %(
 					str(self.parallelInactiveDims)
 				)
 			)
-
-	def getAdjustedDeclarationLine(self, paramDeclMatch, omitRemainder=False):
-		prefix = paramDeclMatch.group(1)
-		postfix = paramDeclMatch.group(3)
-		if omitRemainder:
-			return prefix + str(self)
-		return prefix + str(self) + postfix
 
 	def getSanitizedDeclarationPrefix(self, purgeList=None):
 		if self.declarationPrefix in [None, ""]:

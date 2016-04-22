@@ -399,8 +399,7 @@ class RoutineSpecificationRegion(Region):
 					continue
 				if symbol.isCompacted:
 					continue #compacted symbols are handled as part of symbolsToAdd
-				match = symbol.getSpecificationTuple(line)
-				if match:
+				if symbol.getSpecificationTuple(line)[0]:
 					declaredSymbolsByScopedName[symbol.nameInScope()] = symbol
 					continue
 				match = symbol.importPattern.match(line)

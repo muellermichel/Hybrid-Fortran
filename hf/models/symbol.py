@@ -22,7 +22,8 @@ import re, sys, copy
 import logging
 import pdb
 from tools.metadata import *
-from tools.commons import enum, BracketAnalyzer, Singleton, UsageError, splitTextAtLeftMostOccurrence
+from tools.commons import enum, BracketAnalyzer, Singleton, UsageError, \
+	splitTextAtLeftMostOccurrence, splitIntoComponentsAndRemainder, getComponentNameAndBracketContent
 from tools.patterns import RegExPatterns
 from tools.analysis import SymbolDependencyAnalyzer, SymbolType
 from machinery.commons import purgeDimensionAndGetAdjustedLine, ConversionOptions
@@ -109,62 +110,29 @@ DeclarationType = enum(
 	"LOCAL_SCALAR"
 )
 
-def dimensionStringFromDeclarationMatch(symbolName, paramDeclMatch):
-	def isWord(s):
-		for c in s:
-			o = ord(c)
-			if (o > 47 and o <= 57) \
-			or (o > 64 and o <= 90) \
-			or (o > 96 and o <= 122):
-				continue
-			break
-		else:
-			return True
-		return False
-
-	def nextDimensionString(text, startAt=0):
-		#there should only be whitespace before leftBracketIndex
-		numWhitespaceCharacters = len(text[startAt:]) - len(text[startAt:].lstrip())
-		leftBracketIndex = text.find("(", startAt)
-		if leftBracketIndex < 0 \
-		or len(text) <= leftBracketIndex + 1 \
-		or leftBracketIndex > numWhitespaceCharacters + startAt:
-			return ""
-		rightBracketIndex = text.find(")", leftBracketIndex + 1)
-		if rightBracketIndex < 0:
-			raise Exception("no closing bracket found for dimension attribute")
-		return text[leftBracketIndex + 1:rightBracketIndex]
-
-	#This function is called ~30k times in hybrid asuca - we don't use Regex again here in order to optimize about 15% of preprocessing time
-	symbolNameIndex = -1
-	startAt = 0
-	while True:
-		symbolNameIndex = paramDeclMatch.group(2).find(symbolName, startAt)
-		if (symbolNameIndex > 0 and isWord(paramDeclMatch.group(2)[symbolNameIndex - 1])) \
-		or ( \
-			len(paramDeclMatch.group(2)) > symbolNameIndex + len(symbolName) \
-			and isWord(paramDeclMatch.group(2)[symbolNameIndex + len(symbolName)]) \
-		):
-			#symbolName is not isolated, need to continue search
-			startAt = symbolNameIndex + len(symbolName)
-			continue
-		break
-	if symbolNameIndex < 0:
-		raise Exception("symbol %s does not seem to be declared on line '%s'" %(symbolName, paramDeclMatch.group(0)))
-	dimensionIndex = paramDeclMatch.group(1).find("dimension")
-	if dimensionIndex >= 0:
-		dimensionStr = nextDimensionString(paramDeclMatch.group(1), startAt=dimensionIndex + len("dimension"))
-		if dimensionStr == "":
-			raise Exception("dimension attribute without content")
-		return dimensionStr
-	return nextDimensionString(paramDeclMatch.group(2), startAt=symbolNameIndex + len(symbolName))
+def dimensionStringFromSpecification(symbolName, specTuple):
+	if specTuple[0] == None:
+		raise Exception("no declaration found")
+	if specTuple[0].find("dimension") >= 0:
+		declarationComponents, _ = splitIntoComponentsAndRemainder(specTuple[0])
+		for component in declarationComponents:
+			componentName, bracketContent = getComponentNameAndBracketContent(component)
+			if componentName == "dimension":
+				if bracketContent in [None, ""]:
+					raise Exception("dimension attribute without content")
+				return bracketContent
+	if specTuple[1] == None:
+		raise Exception("symbol %s not found in specification tuple %s" %(symbolName, specTuple))	
+	for symbolSpec in specTuple[1]:
+		if symbolSpec[0] == symbolName:
+			return symbolSpec[1]
+	raise Exception("symbol %s not found in specification tuple %s" %(symbolName, specTuple))
 
 def symbolNamesFromSpecificationTuple(specTuple):
-	return [
-        symbolSpec.split('(')[0].strip()
-        for symbolSpec in re.split(r"(" + RegExPatterns.Instance().attributeRegex + r")", specTuple[1])
-        if symbolSpec.strip() not in ["", ","]
-    ]
+	return tuple([
+        symbolSpec[0]
+        for symbolSpec in specTuple[1]
+    ])
 
 def purgeFromDeclarationSettings(line, dependantSymbols, patterns, purgeList=['intent'], withAndWithoutIntent=True):
 	declarationDirectives = ""
@@ -992,7 +960,7 @@ EXAMPLE:\n\
 
 		#   look at declaration of symbol and get its                 #
 		#   dimensions.                                               #
-		dimensionStr = dimensionStringFromDeclarationMatch(self.name, paramDeclMatch)
+		dimensionStr = dimensionStringFromSpecification(self.name, paramDeclMatch)
 		remainder = paramDeclMatch.group(3)
 		self.declarationSuffix = remainder.strip()
 		dimensionSizes = [sizeStr.strip() for sizeStr in dimensionStr.split(',') if sizeStr.strip() != ""]

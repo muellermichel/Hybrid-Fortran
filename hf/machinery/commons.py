@@ -19,7 +19,8 @@
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
 import re, logging
-from tools.commons import BracketAnalyzer, Singleton, UsageError, findRightMostOccurrenceNotInsideQuotes, splitIntoComponentsAndRemainder
+from tools.commons import BracketAnalyzer, Singleton, UsageError, findRightMostOccurrenceNotInsideQuotes, \
+    splitIntoComponentsAndRemainder, getComponentNameAndBracketContent
 from tools.patterns import RegExPatterns
 
 def purgeDimensionAndGetAdjustedLine(line):
@@ -37,24 +38,34 @@ def getAccessorsAndRemainder(accessorString):
     return currBracketAnalyzer.getListOfArgumentsInOpenedBracketsAndRemainder(symbolAccessString_match.group(1))
 
 def parseSpecification(line):
+    def parseDataObjectsAndRemainder(specRightHandSide):
+        dataObjects, remainder = splitIntoComponentsAndRemainder(specRightHandSide)
+        if len(dataObjects) == 0:
+            raise UsageError("no data objects defined on this line")
+        if len(dataObjects) > 1 and remainder.strip() != "":
+            raise UsageError("invalid right hand side specification")
+        parsedDataObjects = []
+        for dataObject in dataObjects:
+            parsedDataObjects.append(getComponentNameAndBracketContent(dataObject))
+        return tuple(parsedDataObjects), remainder
+
     patterns = RegExPatterns.Instance()
     multiSpecMatch = patterns.multiSpecPattern.match(line)
     if multiSpecMatch:
         declarationComponents, remainder = splitIntoComponentsAndRemainder(multiSpecMatch.group(1))
         if len(declarationComponents) == 0 or not patterns.standardTypePattern.match(declarationComponents[0]):
             return None, None, None
-        if remainder.strip() != "":
-            raise UsageError("invalid component before multispec split")
-        return ", ".join(declarationComponents), multiSpecMatch.group(2).strip(), ""
+        parsedDataObjects, _ = parseDataObjectsAndRemainder(multiSpecMatch.group(2))
+        return ", ".join(declarationComponents), parsedDataObjects, ""
     declarationComponents, remainder = splitIntoComponentsAndRemainder(line)
     if remainder.strip() == "" or len(declarationComponents) == 0:
         return None, None, None
     if len(declarationComponents) == 0 or not patterns.standardTypePattern.match(declarationComponents[0]):
         return None, None, None
-    dataObjectSpecifications, remainder = splitIntoComponentsAndRemainder(remainder)
-    if len(dataObjectSpecifications) != 1:
+    parsedDataObjects, remainder = parseDataObjectsAndRemainder(remainder)
+    if len(parsedDataObjects) != 1:
         raise UsageError("invalid number of data objects specified on this declaration line")
-    return ", ".join(declarationComponents), dataObjectSpecifications[0], remainder
+    return ", ".join(declarationComponents), parsedDataObjects, remainder
 
 def getSymbolAccessStringAndRemainder(
     symbol,

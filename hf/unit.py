@@ -159,51 +159,51 @@ class TestMachineryAlgorithms(unittest.TestCase):
 		)
 		self.assertEqual(
 			parseSpecification("real a"),
-			("real", "a", "")
+			("real", (("a", None),), "")
 		)
 		self.assertEqual(
 			parseSpecification("real, attribute a"),
-			("real, attribute", "a", "")
+			("real, attribute", (("a", None),), "")
 		)
 		self.assertEqual(
 			parseSpecification("real, attribute a(m, n)"),
-			("real, attribute", "a(m, n)", "")
+			("real, attribute", (("a", "m, n"),), "")
 		)
 		self.assertEqual(
 			parseSpecification("real, attribute a(m * (n + 1))"),
-			("real, attribute", "a(m * (n + 1))", "")
+			("real, attribute", (("a", "m * (n + 1)"),), "")
 		)
 		self.assertEqual(
 			parseSpecification("real, attribute a (m * (n + 1))"),
-			("real, attribute", "a (m * (n + 1))", "")
+			("real, attribute", (("a", "m * (n + 1)"),), "")
 		)
 		self.assertEqual(
 			parseSpecification("real, attribute(m, n) a"),
-			("real, attribute(m, n)", "a", "")
+			("real, attribute(m, n)", (("a", None),), "")
 		)
 		self.assertEqual(
 			parseSpecification("real, attribute(m * (n + 1)) a"),
-			("real, attribute(m * (n + 1))", "a", "")
+			("real, attribute(m * (n + 1))", (("a", None),), "")
 		)
 		self.assertEqual(
 			parseSpecification("real, attribute (m * (n + 1)) a"),
-			("real, attribute (m * (n + 1))", "a", "")
+			("real, attribute (m * (n + 1))", (("a", None),), "")
 		)
 		self.assertEqual(
 			parseSpecification("real, attribute :: a, b"),
-			("real, attribute", "a, b", "")
+			("real, attribute", (("a", None), ("b", None)), "")
 		)
 		self.assertEqual(
 			parseSpecification("real, attribute :: a(m, n), b"),
-			("real, attribute", "a(m, n), b", "")
+			("real, attribute", (("a", "m, n"), ("b", None)), "")
 		)
 		self.assertEqual(
 			parseSpecification("real, attribute a = 1.0d0"),
-			("real, attribute", "a", "= 1.0d0")
+			("real, attribute", (("a", None),), "= 1.0d0")
 		)
 		self.assertEqual(
 			parseSpecification("real, attribute a= 1.0d0"),
-			("real, attribute", "a", "= 1.0d0")
+			("real, attribute", (("a", None),), "= 1.0d0")
 		)
 
 class TestSymbolAlgorithms(unittest.TestCase):
@@ -211,9 +211,9 @@ class TestSymbolAlgorithms(unittest.TestCase):
 		def symbolNamesFromDeclaration(declaration):
 			from models.symbol import symbolNamesFromSpecificationTuple
 			from machinery.commons import parseSpecification
-			return tuple(symbolNamesFromSpecificationTuple(
+			return symbolNamesFromSpecificationTuple(
 				parseSpecification(declaration)
-			))
+			)
 		self.assertEqual(
 			symbolNamesFromDeclaration("real :: a, b, c"),
 			("a", "b", "c")
@@ -237,19 +237,19 @@ class TestSymbolAlgorithms(unittest.TestCase):
 
 	def testDimensionString(self):
 		def dimensionStringFromDeclaration(symbolName, declaration):
-			from models.symbol import dimensionStringFromDeclarationMatch
-			from tools.patterns import RegExPatterns
-			return dimensionStringFromDeclarationMatch(
+			from models.symbol import dimensionStringFromSpecification
+			from machinery.commons import parseSpecification
+			return dimensionStringFromSpecification(
 				symbolName,
-				RegExPatterns.Instance().symbolDeclPattern.match(declaration)
+				parseSpecification(declaration)
 			)
 		self.assertEqual(
 			dimensionStringFromDeclaration("a", "real :: a, b, c"),
-			""
+			None
 		)
 		self.assertEqual(
 			dimensionStringFromDeclaration("a", "real :: a, b(n, m), c"),
-			""
+			None
 		)
 		self.assertEqual(
 			dimensionStringFromDeclaration("b", "real :: a, b(n, m), c"),
@@ -284,19 +284,19 @@ class TestSymbolAlgorithms(unittest.TestCase):
 			"n * (m + k)"
 		)
 		self.assertEqual( #testing whether a symbol being a prefix of another is handled correclty
-			dimensionStringFromDeclaration("a", "real ab, a(n, m)"),
+			dimensionStringFromDeclaration("a", "real :: ab, a(n, m)"),
 			"n, m"
 		)
 		self.assertEqual( #testing whether a symbol being a suffix of another is handled correclty
-			dimensionStringFromDeclaration("a", "real ba, a(n, m)"),
+			dimensionStringFromDeclaration("a", "real :: ba, a(n, m)"),
 			"n, m"
 		)
 		self.assertEqual(
-			dimensionStringFromDeclaration("a", "real ab,a(n, m)"),
+			dimensionStringFromDeclaration("a", "real :: ab,a(n, m)"),
 			"n, m"
 		)
 		self.assertEqual(
-			dimensionStringFromDeclaration("a", "real ba,a(n, m)"),
+			dimensionStringFromDeclaration("a", "real :: ba,a(n, m)"),
 			"n, m"
 		)
 

@@ -390,6 +390,17 @@ def splitIntoComponentsAndRemainder(string):
                 break
     return components, remainder.strip()
 
+def getComponentNameAndBracketContent(component):
+    leftBracketIndex = component.find('(')
+    if leftBracketIndex < 0:
+        return component.strip(), None
+    if leftBracketIndex == 0:
+        raise Exception("invalid component: %s" %(component))
+    rightBracketIndex = component.rfind(')')
+    if rightBracketIndex < 0 or rightBracketIndex <= leftBracketIndex + 1:
+        raise Exception("invalid component: %s" %(component))
+    return component[:leftBracketIndex].strip(), component[leftBracketIndex+1:rightBracketIndex]
+
 class Singleton:
     """
     A non-thread-safe helper class to ease implementing singletons.

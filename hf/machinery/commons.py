@@ -48,8 +48,8 @@ def parseSpecification(line):
         declarationComponents, remainder = splitIntoComponentsAndRemainder(multiSpecMatch.group(1))
         if len(declarationComponents) == 0 or not patterns.standardTypePattern.match(declarationComponents[0]):
             return None, None, None
-        parsedDataObjects, _ = parseDataObjectsAndRemainder(multiSpecMatch.group(2))
-        return ", ".join(declarationComponents), parsedDataObjects, ""
+        parsedDataObjects, remainder = parseDataObjectsAndRemainder(multiSpecMatch.group(2))
+        return ", ".join(declarationComponents), parsedDataObjects, remainder
     declarationComponents, remainder = splitIntoComponentsAndRemainder(line)
     if remainder.strip() == "" or len(declarationComponents) == 0:
         return None, None, None

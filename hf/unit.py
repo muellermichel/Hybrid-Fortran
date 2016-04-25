@@ -321,45 +321,45 @@ class TestSymbolAlgorithms(unittest.TestCase):
 			"n, m"
 		)
 
-	def testPurgeFromDeclarationSettings(self):
-		from models.symbol import purgeFromDeclarationSettings
+	def testsplitAndPurgeSpecification(self):
+		from models.symbol import splitAndPurgeSpecification
 		self.assertEqual(
-			purgeFromDeclarationSettings(
+			splitAndPurgeSpecification(
 				"real, intent(in) :: a, b",
 				purgeList=['intent']
 			),
 			("real", "real, intent(in)", "a, b")
 		)
 		self.assertEqual(
-			purgeFromDeclarationSettings(
+			splitAndPurgeSpecification(
 				"real, intent(in) a",
 				purgeList=['intent']
 			),
 			("real", "real, intent(in)", "a")
 		)
 		self.assertEqual(
-			purgeFromDeclarationSettings(
+			splitAndPurgeSpecification(
 				"real(8), intent(in) :: a, b",
 				purgeList=['intent']
 			),
 			("real(8)", "real(8), intent(in)", "a, b")
 		)
 		self.assertEqual(
-			purgeFromDeclarationSettings(
+			splitAndPurgeSpecification(
 				"real(8), intent(in) a",
 				purgeList=['intent']
 			),
 			("real(8)", "real(8), intent(in)", "a")
 		)
 		self.assertEqual(
-			purgeFromDeclarationSettings(
+			splitAndPurgeSpecification(
 				"real(8), dimension(n * (m + 1)) :: a, b",
 				purgeList=['intent', 'dimension']
 			),
 			("real(8)", "real(8), dimension(n * (m + 1))", "a, b")
 		)
 		self.assertEqual(
-			purgeFromDeclarationSettings(
+			splitAndPurgeSpecification(
 				"real(8), dimension(n * (m + 1)) a",
 				purgeList=['intent', 'dimension']
 			),

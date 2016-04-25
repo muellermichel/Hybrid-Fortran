@@ -22,7 +22,7 @@ import weakref, copy, re
 from tools.commons import enum, UsageError, OrderedDict
 from tools.metadata import getArguments
 from tools.patterns import RegExPatterns
-from machinery.commons import ConversionOptions, getSymbolAccessStringAndRemainder, purgeDimensionAndGetAdjustedLine
+from machinery.commons import ConversionOptions, getSymbolAccessStringAndRemainder
 from symbol import DeclarationType, FrameworkArray
 
 RegionType = enum(

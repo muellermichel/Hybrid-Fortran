@@ -26,7 +26,7 @@ from tools.commons import enum, BracketAnalyzer, Singleton, UsageError, \
 	splitTextAtLeftMostOccurrence, splitIntoComponentsAndRemainder, getComponentNameAndBracketContent
 from tools.patterns import RegExPatterns
 from tools.analysis import SymbolDependencyAnalyzer, SymbolType
-from machinery.commons import purgeDimensionAndGetAdjustedLine, ConversionOptions, parseSpecification
+from machinery.commons import ConversionOptions, parseSpecification
 
 Init = enum(
 	"NOTHING_LOADED",
@@ -139,7 +139,20 @@ def rightHandSpecificationFromDataObjectTuple(dataObjectTuple):
 		if dataObjectTuple[1] \
 		else dataObjectTuple[0]
 
-def purgeFromDeclarationSettings(line, purgeList=['intent']):
+def purgeFromDeclarationDirectives(directives, purgeList):
+	declarationComponents, remainder = splitIntoComponentsAndRemainder(directives)
+	purgedDeclarationDirectives = ""
+	for component in declarationComponents:
+		for keywordToPurge in purgeList:
+			if component.find(keywordToPurge) == 0:
+				break
+		else:
+			if purgedDeclarationDirectives != "":
+				component += ", "
+			purgedDeclarationDirectives += component
+	return (purgedDeclarationDirectives + " " + remainder.strip()).strip()
+
+def splitAndPurgeSpecification(line, purgeList=['intent']):
 	declarationDirectives = ""
 	symbolDeclarationStr = ""
 	specTuple = parseSpecification(line)
@@ -150,17 +163,7 @@ def purgeFromDeclarationSettings(line, purgeList=['intent']):
 		rightHandSpecificationFromDataObjectTuple(dataObjectTuple)
 		for dataObjectTuple in specTuple[1]
 	)
-	declarationComponents, _ = splitIntoComponentsAndRemainder(declarationDirectives)
-	purgedDeclarationDirectives = ""
-	for index, component in enumerate(declarationComponents):
-		for keywordToPurge in purgeList:
-			if component.find(keywordToPurge) == 0:
-				break
-		else:
-			if index != 0:
-				component += ", "
-			purgedDeclarationDirectives += component
-	return purgedDeclarationDirectives, declarationDirectives, symbolDeclarationStr
+	return purgeFromDeclarationDirectives(declarationDirectives, purgeList), declarationDirectives, symbolDeclarationStr
 
 def getReorderedDomainsAccordingToDeclaration(domains, dimensionSizesInDeclaration, purgeUndeclared=False):
 	def getNextUnusedIndexForDimensionSize(domainSize, dimensionSizesInDeclaration, usedIndices):
@@ -498,7 +501,7 @@ EXAMPLE:\n\
 			declarationPrefix = declarationPrefix.rstrip() + " ::"
 		if len(purgeList) != 0:
 			patterns = RegExPatterns.Instance()
-			declarationDirectivesWithoutIntent, _,  symbolDeclarationStr = purgeFromDeclarationSettings(
+			declarationDirectivesWithoutIntent, _,  symbolDeclarationStr = splitAndPurgeSpecification(
 				declarationPrefix + " " + str(self),
 				purgeList=purgeList
 			)
@@ -945,7 +948,7 @@ EXAMPLE:\n\
 			specTuple[2]
 		)
 		declarationDirectives = specTuple[0]
-		self.declarationPrefix = purgeDimensionAndGetAdjustedLine(declarationDirectives.rstrip() + " " + "::")
+		self.declarationPrefix = purgeFromDeclarationDirectives(declarationDirectives.rstrip() + " " + "::", ["dimension"])
 
 		#   get and check intent                                      #
 		intentMatch = patterns.intentPattern.match(specTuple[0])

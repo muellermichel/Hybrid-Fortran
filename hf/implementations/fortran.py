@@ -19,7 +19,7 @@
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
 import os, logging
-from models.symbol import Symbol, DeclarationType, purgeFromDeclarationSettings
+from models.symbol import Symbol, DeclarationType, splitAndPurgeSpecification
 from models.region import RegionType, ParallelRegion, CallRegion
 from tools.analysis import getAnalysisForSymbol
 from tools.patterns import RegExPatterns
@@ -433,7 +433,7 @@ class DeviceDataFortranImplementation(FortranImplementation):
 			return adjustedLine + "\n"
 
 		#$$$ generalize this using using symbol.getSanitizedDeclarationPrefix with a new 'intent' parameter
-		purgedDeclarationDirectives, declarationDirectives, symbolDeclarationStr = purgeFromDeclarationSettings(
+		purgedDeclarationDirectives, declarationDirectives, symbolDeclarationStr = splitAndPurgeSpecification(
 			line,
 			purgeList=['intent', 'allocatable', 'dimension']
 		)

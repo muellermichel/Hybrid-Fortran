@@ -23,13 +23,6 @@ from tools.commons import BracketAnalyzer, Singleton, UsageError, findRightMostO
     splitIntoComponentsAndRemainder, getComponentNameAndBracketContent
 from tools.patterns import RegExPatterns
 
-def purgeDimensionAndGetAdjustedLine(line):
-    match = RegExPatterns.Instance().dimensionPattern.match(line)
-    if not match:
-        return line
-    else:
-        return match.group(1) + match.group(3)
-
 def getAccessorsAndRemainder(accessorString):
     symbolAccessString_match = RegExPatterns.Instance().symbolAccessPattern.match(accessorString)
     if not symbolAccessString_match:

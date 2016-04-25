@@ -300,6 +300,36 @@ class TestSymbolAlgorithms(unittest.TestCase):
 			"n, m"
 		)
 
+	def testPurgeFromDeclarationSettings(self):
+		from models.symbol import purgeFromDeclarationSettings
+		self.assertEqual(
+			purgeFromDeclarationSettings(
+				"real, intent(in) :: a, b",
+				purgeList=['intent']
+			),
+			("real", "real, intent(in)", "a, b")
+		)
+		self.assertEqual(
+			purgeFromDeclarationSettings(
+				"real, intent(in) a",
+				purgeList=['intent']
+			),
+			("real", "real, intent(in)", "a")
+		)
+		self.assertEqual(
+			purgeFromDeclarationSettings(
+				"real(8), intent(in) :: a, b",
+				purgeList=['intent']
+			),
+			("real(8)", "real(8), intent(in)", "a, b")
+		)
+		self.assertEqual(
+			purgeFromDeclarationSettings(
+				"real(8), intent(in) a",
+				purgeList=['intent']
+			),
+			("real(8)", "real(8), intent(in)", "a")
+		)
 
 if __name__ == '__main__':
 	unittest.main()

@@ -435,10 +435,7 @@ class DeviceDataFortranImplementation(FortranImplementation):
 		#$$$ generalize this using using symbol.getSanitizedDeclarationPrefix with a new 'intent' parameter
 		purgedDeclarationDirectives, declarationDirectives,  symbolDeclarationStr = purgeFromDeclarationSettings(
 			line,
-			dependantSymbols,
-			self.patterns,
-			purgeList=['intent', 'allocatable', 'dimension'],
-			withAndWithoutIntent=True
+			purgeList=['intent', 'allocatable', 'dimension']
 		)
 
 		deviceType = "device"

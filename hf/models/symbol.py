@@ -122,7 +122,7 @@ def dimensionStringFromSpecification(symbolName, specTuple):
 					raise Exception("dimension attribute without content")
 				return bracketContent
 	if specTuple[1] == None:
-		raise Exception("symbol %s not found in specification tuple %s" %(symbolName, specTuple))	
+		raise Exception("symbol %s not found in specification tuple %s" %(symbolName, specTuple))
 	for symbolSpec in specTuple[1]:
 		if symbolSpec[0] == symbolName:
 			return symbolSpec[1]
@@ -139,13 +139,13 @@ def rightHandSpecificationFromDataObjectTuple(dataObjectTuple):
 		if dataObjectTuple[1] \
 		else dataObjectTuple[0]
 
-def purgeFromDeclarationSettings(line, dependantSymbols, patterns, purgeList=['intent'], withAndWithoutIntent=True):
+def purgeFromDeclarationSettings(line, purgeList=['intent']):
 	if 'dimension' in purgeList:
 		raise Exception("dimension attributes cannot be purged reliably with this function")
-	
+
 	declarationDirectives = ""
 	symbolDeclarationStr = ""
-	specTuple = parseSpecification()
+	specTuple = parseSpecification(line)
 	if not specTuple[0]:
 		raise Exception("When trying to extract a device declaration: This is not a valid declaration: %s" %(line))
 	declarationDirectives = specTuple[0]
@@ -153,9 +153,6 @@ def purgeFromDeclarationSettings(line, dependantSymbols, patterns, purgeList=['i
 		rightHandSpecificationFromDataObjectTuple(dataObjectTuple)
 		for dataObjectTuple in specTuple[1]
 	)
-	
-	if not withAndWithoutIntent:
-		return declarationDirectives, symbolDeclarationStr
 
 	purgedDeclarationDirectives = declarationDirectives
 	for keywordToPurge in purgeList:
@@ -165,7 +162,7 @@ def purgeFromDeclarationSettings(line, dependantSymbols, patterns, purgeList=['i
 		if match:
 			sepChar = ", " if match.group(2) != "" and match.group(3) != "" else " "
 			purgedDeclarationDirectives = match.group(1) + sepChar + match.group(4)
-	return purgedDeclarationDirectives, declarationDirectives, symbolDeclarationStr
+	return purgedDeclarationDirectives.strip(), declarationDirectives, symbolDeclarationStr
 
 def getReorderedDomainsAccordingToDeclaration(domains, dimensionSizesInDeclaration, purgeUndeclared=False):
 	def getNextUnusedIndexForDimensionSize(domainSize, dimensionSizesInDeclaration, usedIndices):
@@ -505,10 +502,7 @@ EXAMPLE:\n\
 			patterns = RegExPatterns.Instance()
 			declarationDirectivesWithoutIntent, _,  symbolDeclarationStr = purgeFromDeclarationSettings(
 				declarationPrefix + " " + str(self),
-				[self],
-				patterns,
-				purgeList=purgeList,
-				withAndWithoutIntent=True
+				purgeList=purgeList
 			)
 			declarationPrefix = declarationDirectivesWithoutIntent
 		return declarationPrefix.strip()
@@ -952,12 +946,7 @@ EXAMPLE:\n\
 			]),
 			specTuple[2]
 		)
-		declarationDirectives, _ = purgeFromDeclarationSettings(
-			declarationLine,
-			[self],
-			patterns,
-			withAndWithoutIntent=False
-		)
+		declarationDirectives = specTuple[0]
 		self.declarationPrefix = purgeDimensionAndGetAdjustedLine(declarationDirectives.rstrip() + " " + "::")
 
 		#   get and check intent                                      #

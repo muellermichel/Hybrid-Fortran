@@ -144,7 +144,7 @@ def purgeFromDeclarationDirectives(directives, purgeList):
 	purgedDeclarationDirectives = ""
 	for component in declarationComponents:
 		for keywordToPurge in purgeList:
-			if component.find(keywordToPurge) == 0:
+			if component.lower().find(keywordToPurge) == 0:
 				break
 		else:
 			if purgedDeclarationDirectives != "":

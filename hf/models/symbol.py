@@ -140,9 +140,6 @@ def rightHandSpecificationFromDataObjectTuple(dataObjectTuple):
 		else dataObjectTuple[0]
 
 def purgeFromDeclarationSettings(line, purgeList=['intent']):
-	if 'dimension' in purgeList:
-		raise Exception("dimension attributes cannot be purged reliably with this function")
-
 	declarationDirectives = ""
 	symbolDeclarationStr = ""
 	specTuple = parseSpecification(line)
@@ -153,16 +150,17 @@ def purgeFromDeclarationSettings(line, purgeList=['intent']):
 		rightHandSpecificationFromDataObjectTuple(dataObjectTuple)
 		for dataObjectTuple in specTuple[1]
 	)
-
-	purgedDeclarationDirectives = declarationDirectives
-	for keywordToPurge in purgeList:
-		match = re.match(r"(.*?)\s*(,?)\s*" + keywordToPurge + r"\s*\(.*?\)\s*(,?)\s*(.*)", purgedDeclarationDirectives, re.IGNORECASE)
-		if not match:
-			match = re.match(r"(.*?)\s*(,?)\s*" + keywordToPurge + r"\s*(,?)\s*(.*)", purgedDeclarationDirectives, re.IGNORECASE)
-		if match:
-			sepChar = ", " if match.group(2) != "" and match.group(3) != "" else " "
-			purgedDeclarationDirectives = match.group(1) + sepChar + match.group(4)
-	return purgedDeclarationDirectives.strip(), declarationDirectives, symbolDeclarationStr
+	declarationComponents, _ = splitIntoComponentsAndRemainder(declarationDirectives)
+	purgedDeclarationDirectives = ""
+	for index, component in enumerate(declarationComponents):
+		for keywordToPurge in purgeList:
+			if component.find(keywordToPurge) == 0:
+				break
+		else:
+			if index != 0:
+				component += ", "
+			purgedDeclarationDirectives += component
+	return purgedDeclarationDirectives, declarationDirectives, symbolDeclarationStr
 
 def getReorderedDomainsAccordingToDeclaration(domains, dimensionSizesInDeclaration, purgeUndeclared=False):
 	def getNextUnusedIndexForDimensionSize(domainSize, dimensionSizesInDeclaration, usedIndices):
@@ -969,7 +967,7 @@ EXAMPLE:\n\
 		dimensionStr = dimensionStringFromSpecification(self.name, specTuple)
 		remainder = specTuple[2]
 		self.declarationSuffix = remainder.strip()
-		dimensionSizes = [sizeStr.strip() for sizeStr in dimensionStr.split(',') if sizeStr.strip() != ""]
+		dimensionSizes = [sizeStr.strip() for sizeStr in dimensionStr.split(',') if sizeStr.strip() != ""] if dimensionStr != None else []
 		if self.isAutoDom:
 			logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] reordering domains for symbol %s with autoDom option." %(self.name))
 		if self.isAutoDom and self.isPointer:

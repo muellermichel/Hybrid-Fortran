@@ -433,7 +433,7 @@ class DeviceDataFortranImplementation(FortranImplementation):
 			return adjustedLine + "\n"
 
 		#$$$ generalize this using using symbol.getSanitizedDeclarationPrefix with a new 'intent' parameter
-		purgedDeclarationDirectives, declarationDirectives,  symbolDeclarationStr = purgeFromDeclarationSettings(
+		purgedDeclarationDirectives, declarationDirectives, symbolDeclarationStr = purgeFromDeclarationSettings(
 			line,
 			purgeList=['intent', 'allocatable', 'dimension']
 		)

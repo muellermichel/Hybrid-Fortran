@@ -139,6 +139,27 @@ class TestCommonTools(unittest.TestCase):
 		)
 		self.assertEqual(remainder, "b")
 
+		components, remainder = splitIntoComponentsAndRemainder("a, b, b(n * (m + 1))")
+		self.assertEqual(
+			tuple(components),
+			("a", "b", "b(n * (m + 1))")
+		)
+		self.assertEqual(remainder, "")
+
+		components, remainder = splitIntoComponentsAndRemainder("a, b(n * (m + 1)), b")
+		self.assertEqual(
+			tuple(components),
+			("a", "b(n * (m + 1))", "b")
+		)
+		self.assertEqual(remainder, "")
+
+		components, remainder = splitIntoComponentsAndRemainder("a,b(n * (m + 1)),b")
+		self.assertEqual(
+			tuple(components),
+			("a", "b(n * (m + 1))", "b")
+		)
+		self.assertEqual(remainder, "")
+
 		components, remainder = splitIntoComponentsAndRemainder("a, b ::b")
 		self.assertEqual(
 			tuple(components),
@@ -329,6 +350,20 @@ class TestSymbolAlgorithms(unittest.TestCase):
 				purgeList=['intent']
 			),
 			("real(8)", "real(8), intent(in)", "a")
+		)
+		self.assertEqual(
+			purgeFromDeclarationSettings(
+				"real(8), dimension(n * (m + 1)) :: a, b",
+				purgeList=['intent', 'dimension']
+			),
+			("real(8)", "real(8), dimension(n * (m + 1))", "a, b")
+		)
+		self.assertEqual(
+			purgeFromDeclarationSettings(
+				"real(8), dimension(n * (m + 1)) a",
+				purgeList=['intent', 'dimension']
+			),
+			("real(8)", "real(8), dimension(n * (m + 1))", "a")
 		)
 
 if __name__ == '__main__':

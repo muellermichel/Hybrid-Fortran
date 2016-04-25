@@ -148,7 +148,7 @@ def purgeFromDeclarationDirectives(directives, purgeList):
 				break
 		else:
 			if purgedDeclarationDirectives != "":
-				component += ", "
+				purgedDeclarationDirectives += ", "
 			purgedDeclarationDirectives += component
 	return (purgedDeclarationDirectives + " " + remainder.strip()).strip()
 

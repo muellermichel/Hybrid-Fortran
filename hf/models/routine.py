@@ -20,7 +20,7 @@
 
 import copy, weakref
 from models.region import RegionType, RoutineSpecificationRegion, ParallelRegion, CallRegion
-from models.symbol import FrameworkArray, DeclarationType
+from models.symbol import FrameworkArray, DeclarationType, limitLength
 from machinery.commons import ConversionOptions
 from tools.commons import UsageError
 
@@ -64,7 +64,7 @@ class Routine(object):
 		self._programmerArguments = copy.copy(arguments)
 
 	def nameInScope(self):
-		return self.name
+		return limitLength(self.name)
 
 class AnalyzableRoutine(Routine):
 	def __init__(self, name, module, routineNode, parallelRegionTemplates, implementation):
@@ -230,9 +230,8 @@ This is not allowed for implementations using %s.\
 		)
 		compactedArrayList = []
 		if len(toBeCompacted) > 0:
-			compactedArrayName = "hfimp_%s" %(self.name)
 			compactedArray = FrameworkArray(
-				compactedArrayName,
+				self.name,
 				declarationPrefix,
 				domains=[("hfauto", str(len(toBeCompacted)))],
 				isOnDevice=True
@@ -330,9 +329,8 @@ This is not allowed for implementations using %s.\
 				self._packedRealSymbolsByCalleeName[callee.name] = toBeCompacted
 			compactedArrayList = []
 			if len(toBeCompacted) > 0:
-				compactedArrayName = "hfimp_%s" %(callee.name)
 				compactedArray = FrameworkArray(
-					compactedArrayName,
+					callee.name,
 					declarationPrefix,
 					domains=[("hfauto", str(len(toBeCompacted)))],
 					isOnDevice=True

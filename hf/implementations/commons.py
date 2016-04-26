@@ -22,6 +22,9 @@ from tools.commons import UsageError
 from tools.metadata import appliesTo, getDomainsWithParallelRegionTemplate, getReductionScalarsByOperator, getTemplate
 import logging
 
+def synthesizedKernelName(routineName, kernelNumber):
+	return "hfk%i_%s" %(kernelNumber, routineName)
+
 def getImportStatements(symbols):
     return "\n".join(
         "use %s, only : %s => %s" %(

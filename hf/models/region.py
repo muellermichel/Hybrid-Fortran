@@ -23,7 +23,7 @@ from tools.commons import enum, UsageError, OrderedDict
 from tools.metadata import getArguments
 from tools.patterns import RegExPatterns
 from machinery.commons import ConversionOptions, getSymbolAccessStringAndRemainder
-from symbol import DeclarationType, FrameworkArray
+from symbol import DeclarationType, FrameworkArray, frameworkArrayName, limitLength
 
 RegionType = enum(
 	"MODULE_DECLARATION",
@@ -206,9 +206,11 @@ class CallRegion(Region):
 		calleesWithPackedReals = parentRoutine._packedRealSymbolsByCalleeName.keys()
 		for calleeName in calleesWithPackedReals:
 			for idx, symbol in enumerate(sorted(parentRoutine._packedRealSymbolsByCalleeName[calleeName])):
-				#$$$ clean this up, the hf_imp prefix should be decided within the symbol class
-				text += "hfimp_%s(%i) = %s" %(calleeName, idx+1, symbol.nameInScope()) + \
-					 " ! type %i symbol compaction for callee %s\n" %(symbol.declarationType, calleeName)
+				text += "%s(%i) = %s" %(
+					limitLength(frameworkArrayName(calleeName)),
+					idx+1,
+					symbol.nameInScope()
+				) + " ! type %i symbol compaction for callee %s\n" %(symbol.declarationType, calleeName)
 
 		parallelRegionPosition = None
 		if hasattr(self._callee, "implementation"):
@@ -224,11 +226,11 @@ class CallRegion(Region):
 					self._callee.parallelRegionTemplates[0],
 					calleeNode=self._callee.node
 				),
-				self._callee.name,
+				self._callee.nameInScope(),
 				self._callee.implementation.kernelCallConfig()
 			)
 		else:
-			text += "call " + self._callee.name
+			text += "call " + self._callee.nameInScope()
 
 		text += "("
 		if hasattr(self._callee, "implementation"):
@@ -524,9 +526,8 @@ class RoutineSpecificationRegion(Region):
 			if len(toBeCompacted) > 0:
 				#TODO: generalize for cases where we don't want this to be on the device
 				#(e.g. put this into Implementation class)
-				compactedArrayName = "hfimp_%s" %(callee.name)
 				compactedArray = FrameworkArray(
-					compactedArrayName,
+					callee.name,
 					self._compactionDeclarationPrefixByCalleeName[callee.name],
 					domains=[("hfauto", str(len(toBeCompacted)))],
 					isOnDevice=True
@@ -549,9 +550,11 @@ class RoutineSpecificationRegion(Region):
 		)
 
 		for idx, symbol in enumerate(self._currAdditionalCompactedSubroutineParameters):
-			#$$$ clean this up, the hf_imp prefix should be decided within the symbol class
-			text += "%s = hfimp_%s(%i)" %(symbol.nameInScope(), parentRoutine.name, idx+1) + \
-					 " ! additional type %i symbol compaction\n" %(symbol.declarationType)
+			text += "%s = %s(%i)" %(
+				symbol.nameInScope(),
+				limitLength(frameworkArrayName(parentRoutine.name)),
+				idx+1
+			) + " ! additional type %i symbol compaction\n" %(symbol.declarationType)
 
 		return self._sanitize(text, skipDebugPrint)
 

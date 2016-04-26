@@ -110,6 +110,12 @@ DeclarationType = enum(
 	"LOCAL_SCALAR"
 )
 
+def limitLength(name):
+	return name[:min(len(name), 31)] #cut after 31 chars because of Fortran 90 limitation
+
+def frameworkArrayName(calleeName):
+	return "hfimp_%s" %(calleeName)
+
 def dimensionStringFromSpecification(symbolName, specTuple):
 	if specTuple[0] == None:
 		raise Exception("no declaration found")
@@ -515,9 +521,6 @@ EXAMPLE:\n\
 		return uniqueIdentifier(self.name, self.routineNode.getAttribute("name"))
 
 	def nameInScope(self, useDeviceVersionIfAvailable=True):
-		def limitLength(name):
-			return name[:min(len(name), 31)] #cut after 31 chars because of Fortran 90 limitation
-
 		#Give a symbol representation that is guaranteed to *not* collide with any local namespace (as long as programmer doesn't use any 'hfXXX' pre- or postfixes)
 		def automaticName(symbol):
 			if symbol.analysis and symbol.routineNode:
@@ -1528,14 +1531,14 @@ class ImplicitForeignModuleSymbol(Symbol):
 		self.sourceSymbol = sourceSymbol
 
 class FrameworkArray(Symbol):
-	def __init__(self, name, declarationPrefix, domains, isOnDevice):
-		if not name or name == "":
+	def __init__(self, calleeName, declarationPrefix, domains, isOnDevice):
+		if not calleeName or calleeName == "":
 			raise Exception("Name required for initializing framework array")
 		if not declarationPrefix or declarationPrefix == "":
 			raise Exception("Declaration prefix required for initializing framework array")
 		if len(domains) != 1:
 			raise Exception("Currently unsupported non-1D-array specified as framework array")
-		Symbol.__init__(self, name)
+		Symbol.__init__(self, frameworkArrayName(calleeName))
 		self.domains = domains
 		self.isMatched = True
 		self.isOnDevice = isOnDevice

@@ -41,6 +41,7 @@ class RegExPatterns:
         'intentPattern': r'.*?intent\s*\(\s*(in|out|inout)\s*\).*',
         'dimensionPattern': r'(.*?),?\s*dimension\s*\(\s*(.*?)\s*\)(.*)',
         'multiSpecPattern': r'^(.*?)::(.*)',
+        'doublePrecisionPattern': r'^\s*double\s+precision\s+(.*)',
         'standardTypePattern':r'^\s*((?:double\s+precision|real|integer|character|logical|complex)\s*(?:\(\s*[\w\,\s=*:]*\s*\))?).*',
         'dataStatementPattern': r'^\s*data\s+.*',
         'declarationKindPattern': r'(.*?)\s*kind\s*=\s*(\w*)\s*(.*)',

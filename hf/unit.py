@@ -234,6 +234,22 @@ class TestMachineryAlgorithms(unittest.TestCase):
 			parseSpecification("real, attribute::a= 1.0d0"),
 			("real, attribute", (("a", None),), "= 1.0d0")
 		)
+		self.assertEqual(
+			parseSpecification("double precision a"),
+			("double precision", (("a", None),), "")
+		)
+		self.assertEqual(
+			parseSpecification("double precision :: a"),
+			("double precision", (("a", None),), "")
+		)
+		self.assertEqual(
+			parseSpecification("double precision, attribute :: a = 1.0d0"),
+			("double precision, attribute", (("a", None),), "= 1.0d0")
+		)
+		self.assertEqual(
+			parseSpecification("double precision, attribute a = 1.0d0"),
+			("double precision, attribute", (("a", None),), "= 1.0d0")
+		)
 
 class TestSymbolAlgorithms(unittest.TestCase):
 	def testSymbolNamesFromDeclaration(self):

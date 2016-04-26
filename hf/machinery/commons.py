@@ -44,13 +44,31 @@ def parseSpecification(line):
 
     patterns = RegExPatterns.Instance()
     multiSpecMatch = patterns.multiSpecPattern.match(line)
+    declarationComponents, remainder = None, None
     if multiSpecMatch:
-        declarationComponents, remainder = splitIntoComponentsAndRemainder(multiSpecMatch.group(1))
+        doublePrecisionMatch = patterns.doublePrecisionPattern.match(multiSpecMatch.group(1))
+        if doublePrecisionMatch:
+            #double precision type, because of the space in the type name, doesn't work with the default method :(
+            declarationComponents, _ = splitIntoComponentsAndRemainder(doublePrecisionMatch.group(1))
+            declarationComponents.insert(0, "double precision")
+        else:
+            declarationComponents, _ = splitIntoComponentsAndRemainder(multiSpecMatch.group(1))
         if len(declarationComponents) == 0 or not patterns.standardTypePattern.match(declarationComponents[0]):
             return None, None, None
         parsedDataObjects, remainder = parseDataObjectsAndRemainder(multiSpecMatch.group(2))
         return ", ".join(declarationComponents), parsedDataObjects, remainder
-    declarationComponents, remainder = splitIntoComponentsAndRemainder(line)
+
+    doublePrecisionMatch = patterns.doublePrecisionPattern.match(line)
+    if doublePrecisionMatch:
+        #double precision type, because of the space in the type name, doesn't work with the default method :(
+        declarationComponents, remainder = splitIntoComponentsAndRemainder(doublePrecisionMatch.group(1))
+        remainder = remainder.strip()
+        if remainder == "" and len(declarationComponents) > 0:
+            remainder = declarationComponents[-1]
+            declarationComponents = declarationComponents[:-1]
+        declarationComponents.insert(0, "double precision")
+    else:
+        declarationComponents, remainder = splitIntoComponentsAndRemainder(line)
     if remainder.strip() == "" or len(declarationComponents) == 0:
         return None, None, None
     if len(declarationComponents) == 0 or not patterns.standardTypePattern.match(declarationComponents[0]):

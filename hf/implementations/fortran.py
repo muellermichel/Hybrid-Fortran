@@ -763,7 +763,7 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 		kernelRoutinesByName = {}
 		for kernelNumber, template in enumerate(routine.parallelRegionTemplates):
 			parallelRegion = parallelRegions[kernelNumber]
-			kernelName = "%s_hfkernel%i" %(routine.name, kernelNumber)
+			kernelName = synthesizedKernelName(routine.name, kernelNumber)
 			kernelRoutine = routine.createCloneWithMetadata(kernelName)
 			kernelRoutine.resetRegions(routine.regions[0].clone())
 			kernelRoutine.addRegion(parallelRegion)
@@ -779,7 +779,7 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 			if not isinstance(region, ParallelRegion):
 				kernelWrapperRegions.append(region)
 				continue
-			kernelName = "%s_hfkernel%i" %(routine.name, parallelRegionIndex)
+			kernelName = synthesizedKernelName(routine.name, parallelRegionIndex)
 			kernelRoutine = kernelRoutinesByName[kernelName]
 			callRegion = CallRegion(routine)
 			callRegion.loadPassedInSymbolsByName(kernelRoutine.symbolsByName)

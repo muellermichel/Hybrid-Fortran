@@ -860,7 +860,7 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
                     if uniqueIdentifier(symbolName, scopeName) not in self.currSymbolsByName
                 ]
                 for symbolName in symbolNamesWithoutDomainDependantSpecs:
-                    if symbolName in ["intent", "dimension", "__device", "device", "type", "double precision", "real", "integer", "character", "logical", "complex"] \
+                    if symbolName.lower() in ["intent", "dimension", "__device", "device", "type", "double precision", "real", "integer", "character", "logical", "complex"] \
                     or not re.match(r'^\w*$', symbolName):
                         raise Exception(
                             "Either Hybrid Fortran's declaration parser is broken or you have used a Fortran intrinsic keyword as a symbol name: %s; Matched specification: %s; Matched symbol list: %s" %(

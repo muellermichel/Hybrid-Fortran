@@ -843,10 +843,10 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
             self.parallelRegionTemplatesByProcName.get(self.currSubprocName, [])
         )
 
-    def analyseSymbolInformationOnCurrentLine(self, line, isModuleSpecification=False, isInsideSubroutineCall=False, useUnspecificMatching=False):
+    def analyseSymbolInformationOnCurrentLine(self, line, isModuleSpecification=False, isInsideSubroutineCall=False, isInSubroutineBody=False):
         scopeName = self.currModuleName if isModuleSpecification else self.currSubprocName
 
-        if not isInsideSubroutineCall:
+        if not isInsideSubroutineCall and not isInSubroutineBody:
             selectiveImportMatch = self.patterns.selectiveImportPattern.match(line)
             if selectiveImportMatch:
                 self.processImportMatch(selectiveImportMatch)
@@ -877,7 +877,7 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
         for symbol in self.currSymbolsByName.values():
             matchesAndSymbolByScopeName = matchesAndSymbolBySymbolNameAndScopeName.get(symbol.name, {})
             matchesAndSymbol = [None, None, symbol]
-            if not isInsideSubroutineCall:
+            if not isInsideSubroutineCall and not isInSubroutineBody:
                 specTuple = symbol.getSpecificationTuple(line)
                 if specTuple[0]:
                     matchesAndSymbol[0] = specTuple
@@ -891,7 +891,7 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
                     matchesAndSymbolByScopeName[symbol.nameOfScope] = matchesAndSymbol
                     matchesAndSymbolBySymbolNameAndScopeName[symbol.name] = matchesAndSymbolByScopeName
                     continue
-            if (useUnspecificMatching or isInsideSubroutineCall) and symbol.splitTextAtLeftMostOccurrence(line)[1] != "":
+            if (isInSubroutineBody or isInsideSubroutineCall) and symbol.splitTextAtLeftMostOccurrence(line)[1] != "":
                 matchesAndSymbolByScopeName[symbol.nameOfScope] = matchesAndSymbol
                 matchesAndSymbolBySymbolNameAndScopeName[symbol.name] = matchesAndSymbolByScopeName
 

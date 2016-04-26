@@ -461,7 +461,8 @@ class RoutineSpecificationRegion(Region):
 			]).strip() + "\n"
 		if len(self._dataSpecificationLines) > 0 and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
 			text += "!<----- data specifications: --\n"
-		text += "\n".join(self._dataSpecificationLines)
+		if len(self._dataSpecificationLines) > 0:
+			text += "\n".join(self._dataSpecificationLines) + "\n"
 		if textAfterDeclarations != "" and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
 			text += "!<----- after declarations: --\n"
 		text += textAfterDeclarations

@@ -1426,8 +1426,6 @@ Please specify the domains and their sizes with domName and domSize attributes i
 		if (not self.isUsingDevicePostfix and len(offsets) == len(self.domains) and not all([offset == ':' for offset in offsets]))\
 		or (self.intent == "in" and len(offsets) == len(self.domains) and not any([offset == ':' for offset in offsets])):
 			symbolNameUsedInAccessor = self.nameInScope(useDeviceVersionIfAvailable=False) #not on device or scalar accesses to symbol that can't change
-		elif self.isUsingDevicePostfix and len(offsets) > 0 and any([offset == ':' for offset in offsets]) and not all([offset == ':' for offset in offsets]):
-			raise Exception("Cannot reshape the array %s at this point, it needs to be accessed either at a single value or for the entire array; offsets: %s" %(self, offsets))
 		else:
 			symbolNameUsedInAccessor = self.nameInScope()
 		result += symbolNameUsedInAccessor

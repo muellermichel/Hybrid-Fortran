@@ -16,9 +16,43 @@
 ! along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.'
 
 module my_module
-real, dimension(:, :, :), allocatable :: a, b, c, d, a2, b2, c2, d2, used_in_acc_routine
-real, parameter :: some_const = 1.0d0
-@domainDependant{attribute(host), domName(x,y,z), domSize(NX,NY,NZ)}
-a, b, c, d, a2, b2, c2, d2, used_in_acc_routine
-@end domainDependant
+	real, dimension(:, :, :), allocatable :: a, b, c, d, a2, b2, c2, d2, used_in_acc_routine
+	real, parameter :: some_const = 1.0d0
+	@domainDependant{attribute(host), domName(x,y,z), domSize(NX,NY,NZ)}
+	a, b, c, d, a2, b2, c2, d2, used_in_acc_routine
+	@end domainDependant
+contains
+	subroutine assert_values(test_array, expected_value)
+		implicit none
+		real, dimension(NX, NY, NZ), intent(in) :: test_array
+		real(8), intent(in) :: expected_value
+		integer :: fail_x, fail_y, fail_z
+		integer :: x, y, z
+		logical test
+
+		@domainDependant{attribute(host), domName(x,y,z), domSize(NX,NY,NZ), domPP(DOM), accPP(AT)}
+		test_array
+		@end domainDependant
+
+		test = .TRUE.
+		do y=1,NY
+		do x=1,NX
+		do z=1,NZ
+		  if (test .EQ. .TRUE. .AND. test_array(x,y,z) .NE. expected_value) then
+			test = .FALSE.
+			fail_x = x
+			fail_y = y
+			fail_z = z
+		  end if
+		end do
+		end do
+		end do
+		if (test .EQ. .TRUE.) then
+		  write(0,*) "test ok"
+		else
+		  write(0,*) "test failed"
+		  write(0,*) "fails at", fail_x, fail_y, fail_z, "test_array:", test_array(fail_x,fail_y,fail_z)
+		  stop 2
+		end if
+	end subroutine
 end module

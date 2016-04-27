@@ -1,0 +1,78 @@
+! Copyright (C) 2016 Michel Müller, Tokyo Institute of Technology
+
+! This file is part of Hybrid Fortran.
+
+! Hybrid Fortran is free software: you can redistribute it and/or modify
+! it under the terms of the GNU Lesser General Public License as published by
+! the Free Software Foundation, either version 3 of the License, or
+! (at your option) any later version.
+
+! Hybrid Fortran is distributed in the hope that it will be useful,
+! but WITHOUT ANY WARRANTY; without even the implied warranty of
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+! GNU Lesser General Public License for more details.
+
+! You should have received a copy of the GNU Lesser General Public License
+! along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.'
+
+module kernels7
+contains
+
+  ! This is a test of "quotes" in 'comments', also "a bit 'stranger'" 'one"s"'
+  ! Here we've got another test (single quote character in text)
+  subroutine wrapper7()
+    implicit none
+
+    @domainDependant{} ! This is another test of "quotes" in 'comments', also "a bit 'stranger'" 'one"s"'
+    @end domainDependant ! Here we've got another test (single quote character in text)
+
+    call add7()
+    call checkInMiddleOfDataRegion()
+    call mult7()
+  end subroutine
+
+  subroutine checkInMiddleOfDataRegion()
+    use my_module, only: c, assert_values
+    @if{architecture(GPU)}
+    use my_module, only: c_hfdev
+    @end if
+
+    @if{architecture(GPU)}
+    c(:,:,:) = c_hfdev(:,:,:)
+    @end if
+    call assert_values(c, 3.0d0)
+  end subroutine
+
+  subroutine add7()
+    use my_module, only: a, b, c
+    implicit none
+    integer :: z
+
+    @domainDependant{attribute(autoDom, present)}
+    a, b, c
+    @end domainDependant
+
+    @parallelRegion{domName(x,y), domSize(NX, NY)}
+    do z=1,NZ
+      c(z) = a(z) + b(z)
+    end do
+    @end parallelRegion
+  end subroutine
+
+  subroutine mult7()
+    use my_module, only: a, b, d
+    implicit none
+    integer :: z
+
+    @domainDependant{attribute(autoDom, present)}
+    a, b, d
+    @end domainDependant
+
+    @parallelRegion{domName(x,y), domSize(NX, NY)}
+    do z=1,NZ
+      d(z) = a(z) * b(z)
+    end do
+    @end parallelRegion
+  end subroutine
+
+end module kernels7

@@ -386,7 +386,7 @@ class DeviceDataFortranImplementation(FortranImplementation):
 		try:
 			_, _, _ = _checkDeclarationConformity(dependantSymbols)
 		except UsageError as e:
-			raise UsageError("In %s: %s; symbols: %s" %(line.strip(), str(e), dependantSymbols))
+			raise UsageError("In %s: %s; symbols: %s" %(line.strip() if line else "automated additions", str(e), dependantSymbols))
 
 		for symbol in dependantSymbols:
 			self.updateSymbolDeviceState(symbol, RegionType.OTHER, parallelRegionPosition, postTransfer=True)

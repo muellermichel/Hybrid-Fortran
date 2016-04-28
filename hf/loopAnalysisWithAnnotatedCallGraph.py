@@ -61,7 +61,7 @@ def addTemplateRelation(routineNode, templateRelation):
 	templateID = templateRelation.getAttribute("id")
 	newTemplateRelationNode = doc.createElement("templateRelation")
 	newTemplateRelationNode.setAttribute("id", templateID)
-	if (not firstDuplicateChild(parallelRegionNode, newTemplateRelationNode)):
+	if not firstDuplicateChild(parallelRegionNode, newTemplateRelationNode, ignoreIDs=False):
 		parallelRegionNode.appendChild(newTemplateRelationNode)
 
 def addAttributeToAllCallGraphAncestors(routines, callNodesByCalleeName, routineNode, attributeName, attributeValue):
@@ -87,7 +87,6 @@ This is not allowed in Hybrid Fortran. Please turn this subroutine into a kernel
 				addTemplateRelation(routine, templateRelation)
 			addAttributeToAllCallGraphAncestors(routines, callNodesByCalleeName, callerNode, attributeName, attributeValue)
 			break
-
 
 def addAttributeToAllCallGraphHeirs(routines, callNodesByCallerName, routineNode, attributeName, attributeValue):
 	routineName = routineNode.getAttribute("name")

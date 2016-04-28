@@ -241,7 +241,7 @@ def setDomainDependants(doc, parent, specificationText, entryText):
 def deduplicateRelations(parent):
     pass
 
-def hasDuplicateAttributes(node1, node2):
+def hasDuplicateAttributes(node1, node2, ignoreIDs=True):
     if hasattr(node1, "tagName") and ((not hasattr(node2, "tagName")) or node1.tagName != node2.tagName):
         return False
     if not node2.attributes or len(node2.attributes) == 0:
@@ -255,7 +255,7 @@ def hasDuplicateAttributes(node1, node2):
     for (name, value) in node1.attributes.items():
         #we don't care for id attributes. That is, if two otherwise identical nodes have different ids,
         #they shall not be called unique.
-        if name == "id":
+        if ignoreIDs and name == "id":
             continue
         newAttributeValue = node2.getAttribute(name)
         if (value != newAttributeValue):
@@ -265,7 +265,7 @@ def hasDuplicateAttributes(node1, node2):
         return True
     return False
 
-def firstDuplicateChild(parent, newNode, cgDoc=None):
+def firstDuplicateChild(parent, newNode, cgDoc=None, ignoreIDs=True):
     '''Get first duplicate for the newNode within parent's childNodes'''
     ## trying to make this faster, but with th erecursiveness it's tricky
     # currAttributes = OrderedDict()
@@ -289,7 +289,7 @@ def firstDuplicateChild(parent, newNode, cgDoc=None):
 
     nodesWithDuplicateAttributes = []
     for childNode in parent.childNodes:
-        if hasDuplicateAttributes(childNode, newNode):
+        if hasDuplicateAttributes(childNode, newNode, ignoreIDs):
             nodesWithDuplicateAttributes.append(childNode)
     if len(nodesWithDuplicateAttributes) == 0:
         return None

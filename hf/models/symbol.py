@@ -965,12 +965,12 @@ EXAMPLE:\n\
 		if newIntent not in ["", None, "unspecified"]:
 			self.intent = newIntent
 
-		#   check whether this is a pointer
-		self.hasUndecidedDomainSizes = self.pointerOrAllocatablePattern.match(declarationLine) != None
+		#   check whether the symbol has undecided domains
+		dimensionStr = dimensionStringFromSpecification(self.name, specTuple)
+		self.hasUndecidedDomainSizes = self.pointerOrAllocatablePattern.match(declarationLine) != None and ":" in dimensionStr
 
 		#   look at declaration of symbol and get its                 #
 		#   dimensions.                                               #
-		dimensionStr = dimensionStringFromSpecification(self.name, specTuple)
 		remainder = specTuple[2]
 		self.declarationSuffix = remainder.strip()
 		dimensionSizes = [sizeStr.strip() for sizeStr in dimensionStr.split(',') if sizeStr.strip() != ""] if dimensionStr != None else []

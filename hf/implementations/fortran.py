@@ -435,7 +435,7 @@ class DeviceDataFortranImplementation(FortranImplementation):
 		#$$$ generalize this using using symbol.getSanitizedDeclarationPrefix with a new 'intent' parameter
 		purgedDeclarationDirectives, declarationDirectives, symbolDeclarationStr = splitAndPurgeSpecification(
 			line,
-			purgeList=['intent', 'allocatable', 'dimension', 'save']
+			purgeList=['intent', 'dimension', 'save']
 		)
 
 		deviceType = "device"
@@ -482,14 +482,14 @@ class DeviceDataFortranImplementation(FortranImplementation):
 				continue
 			if symbol.isPresent:
 				continue
+			if (routineIsKernelCaller or symbol.isToBeTransfered) and symbol.hasUndecidedDomainSizes:
+				deviceInitStatements += "allocate(%s)\n" %(symbol.allocationRepresentation())
 			if (symbol.intent in ["in", "inout"] or symbol.declarationType == DeclarationType.MODULE_ARRAY) \
 			and (routineIsKernelCaller or symbol.isToBeTransfered):
 				symbol.isUsingDevicePostfix = False
 				originalStr = symbol.selectAllRepresentation()
 				symbol.isUsingDevicePostfix = True
 				deviceStr = symbol.selectAllRepresentation()
-				if symbol.hasUndecidedDomainSizes:
-					deviceInitStatements += "allocate(%s)\n" %(symbol.allocationRepresentation())
 				deviceInitStatements += deviceStr + " = " + originalStr + "\n"
 			elif (routineIsKernelCaller or symbol.isToBeTransfered):
 				deviceInitStatements += symbol.selectAllRepresentation() + " = 0\n"
@@ -498,6 +498,8 @@ class DeviceDataFortranImplementation(FortranImplementation):
 	def subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, isSubroutineEnd):
 		deviceInitStatements = ""
 		for symbol in dependantSymbols:
+			if not symbol.domains or len(symbol.domains) == 0:
+				continue
 			if not symbol.isOnDevice:
 				continue
 			if symbol.isPresent:
@@ -509,8 +511,8 @@ class DeviceDataFortranImplementation(FortranImplementation):
 				symbol.isUsingDevicePostfix = True
 				deviceStr = symbol.selectAllRepresentation()
 				deviceInitStatements += originalStr + " = " + deviceStr + "\n"
-				if symbol.hasUndecidedDomainSizes:
-					deviceInitStatements += "deallocate(%s)\n" %(symbol.nameInScope())
+			if (routineIsKernelCaller or symbol.isToBeTransfered) and symbol.hasUndecidedDomainSizes:
+				deviceInitStatements += "deallocate(%s)\n" %(symbol.nameInScope())
 		return deviceInitStatements + FortranImplementation.subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, isSubroutineEnd)
 
 class PGIOpenACCFortranImplementation(DeviceDataFortranImplementation):

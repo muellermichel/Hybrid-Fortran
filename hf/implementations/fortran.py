@@ -488,7 +488,7 @@ class DeviceDataFortranImplementation(FortranImplementation):
 				originalStr = symbol.selectAllRepresentation()
 				symbol.isUsingDevicePostfix = True
 				deviceStr = symbol.selectAllRepresentation()
-				if symbol.isPointer:
+				if symbol.hasUndecidedDomainSizes:
 					deviceInitStatements += "allocate(%s)\n" %(symbol.allocationRepresentation())
 				deviceInitStatements += deviceStr + " = " + originalStr + "\n"
 			elif (routineIsKernelCaller or symbol.isToBeTransfered):
@@ -509,7 +509,7 @@ class DeviceDataFortranImplementation(FortranImplementation):
 				symbol.isUsingDevicePostfix = True
 				deviceStr = symbol.selectAllRepresentation()
 				deviceInitStatements += originalStr + " = " + deviceStr + "\n"
-				if symbol.isPointer:
+				if symbol.hasUndecidedDomainSizes:
 					deviceInitStatements += "deallocate(%s)\n" %(symbol.nameInScope())
 		return deviceInitStatements + FortranImplementation.subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, isSubroutineEnd)
 

@@ -222,7 +222,7 @@ def deviceVersionIdentifier(symbolName):
 
 MERGEABLE_DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES = {
 	"isDeclaredExplicitely": False,
-	"isPointer": False,
+	"hasUndecidedDomainSizes": False,
 	"isMatched": False,
 	"declarationPrefix": None,
 	"_sourceModuleIdentifier": None,
@@ -266,7 +266,7 @@ class Symbol(object):
 		self.analysis = analysis
 		self.importPattern = self.patterns.get(r'^\s*use\s*(\w*)\s*,\s*only\s*.*?\W\s*' + re.escape(name) + r'(?:\W|$).*')
 		self.importMapPattern = self.patterns.get(r'.*?\W' + re.escape(name) + r'\s*\=\>\s*(\w*).*')
-		self.pointerDeclarationPattern = self.patterns.get(r'\s*(?:double\s+precision|real|integer|logical).*?pointer.*?[\s,:]+' + re.escape(name))
+		self.pointerOrAllocatablePattern = self.patterns.get(r'\s*(?:double\s+precision|real|integer|character|logical|complex).*?(?:pointer|allocatable).*?[\s,:]+' + re.escape(name))
 		self.initLevel = Init.NOTHING_LOADED
 		self.routineNode = None
 		self.declarationSuffix = None
@@ -728,7 +728,7 @@ EXAMPLE:\n\
 			domainDependantEntryNode.setAttribute("sourceSymbol", self.sourceSymbol)
 		domainDependantEntryNode.setAttribute("isDeclaredExplicitely", "yes" if self.isDeclaredExplicitely else "no")
 		domainDependantEntryNode.setAttribute("isUsingDevicePostfix", "yes" if self.isUsingDevicePostfix else "no")
-		domainDependantEntryNode.setAttribute("isPointer", "yes" if self.isPointer else "no")
+		domainDependantEntryNode.setAttribute("hasUndecidedDomainSizes", "yes" if self.hasUndecidedDomainSizes else "no")
 		if self.domains and len(self.domains) > 0:
 			domainDependantEntryNode.setAttribute(
 				"declaredDimensionSizes", ",".join(
@@ -748,7 +748,7 @@ EXAMPLE:\n\
 		self.sourceSymbol = domainDependantEntryNode.getAttribute("sourceSymbol") if self.sourceSymbol in [None, ''] else self.sourceSymbol
 		if self.isModuleSymbol:
 			self._sourceModuleIdentifier = "HF90_LOCAL_MODULE" if self._sourceModuleIdentifier in [None, ''] else self._sourceModuleIdentifier
-		self.isPointer = domainDependantEntryNode.getAttribute("isPointer") == "yes"
+		self.hasUndecidedDomainSizes = domainDependantEntryNode.getAttribute("hasUndecidedDomainSizes") == "yes"
 		self.isUsingDevicePostfix = domainDependantEntryNode.getAttribute("isUsingDevicePostfix") == "yes"
 		self.isDeclaredExplicitely = domainDependantEntryNode.getAttribute("isDeclaredExplicitely") == "yes"
 		declaredDimensionSizes = domainDependantEntryNode.getAttribute("declaredDimensionSizes")
@@ -876,7 +876,7 @@ EXAMPLE:\n\
 			logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] adding domain %s to symbol %s; Domains now: %s" %(
 				str((dependantDomName, dependantDomSize)), self.name, self.domains
 			))
-		if self.isAutoDom and not self.isPointer:
+		if self.isAutoDom and not self.hasUndecidedDomainSizes:
 			alreadyEstablishedDomSizes = [domSize for (domName, domSize) in self.domains]
 			logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] Symbol %s is an autoDom symbol: Checking already established domains %s against previous dimensions: %s. parallelRegionDomNamesBySize: %s, alreadyEstablishedDomSizes: %s, domNameBySize: %s" %(
 				self.name, str(self.domains), str(dimsBeforeReset), str(parallelRegionDomNamesBySize), str(alreadyEstablishedDomSizes), str(domNameBySize)
@@ -966,7 +966,7 @@ EXAMPLE:\n\
 			self.intent = newIntent
 
 		#   check whether this is a pointer
-		self.isPointer = self.pointerDeclarationPattern.match(declarationLine) != None
+		self.hasUndecidedDomainSizes = self.pointerOrAllocatablePattern.match(declarationLine) != None
 
 		#   look at declaration of symbol and get its                 #
 		#   dimensions.                                               #
@@ -976,7 +976,7 @@ EXAMPLE:\n\
 		dimensionSizes = [sizeStr.strip() for sizeStr in dimensionStr.split(',') if sizeStr.strip() != ""] if dimensionStr != None else []
 		if self.isAutoDom:
 			logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] reordering domains for symbol %s with autoDom option." %(self.name))
-		if self.isAutoDom and self.isPointer:
+		if self.isAutoDom and self.hasUndecidedDomainSizes:
 			if len(self.domains) == 0:
 				for dimensionSize in dimensionSizes:
 					self.domains.append(("HF_GENERIC_UNKNOWN_DIM", dimensionSize))
@@ -1027,12 +1027,12 @@ template for symbol %s - automatically inserting it for domain name %s\n"
 		# at this point we may not go further if the parallel region data
 		# has not yet been analyzed.
 		if not self.parallelRegionPosition:
-			if not self.isPointer:
+			if not self.hasUndecidedDomainSizes:
 				self.domains = getReorderedDomainsAccordingToDeclaration(self.domains, dimensionSizes, purgeUndeclared=True)
 			self.checkIntegrityOfDomains()
 			return
 
-		if not self.isPointer:
+		if not self.hasUndecidedDomainSizes:
 			#   compare the declared dimensions with those in the         #
 			#   'parallelActive' set using the declared domain sizes.     #
 			#   If there are any matches                                  #
@@ -1080,7 +1080,7 @@ template for symbol %s - automatically inserting it for domain name %s\n"
 			if dependantDomSize not in dimensionSizes:
 				raise Exception("Symbol %s's dependant non-parallel domain size %s is not declared as one of its dimensions." %(self.name, dependantDomSize))
 			dimensionSizesMatchedInTemplate.append(dependantDomSize)
-			if self.isPointer:
+			if self.hasUndecidedDomainSizes:
 				continue
 			for (domName, domSize) in self.domains:
 				if dependantDomSize == domSize:
@@ -1092,7 +1092,7 @@ template for symbol %s - automatically inserting it for domain name %s\n"
 				continue
 			if dependantDomSize in dimensionSizes:
 				dimensionSizesMatchedInTemplate.append(dependantDomSize)
-		if self.isAutoDom and not self.isPointer:
+		if self.isAutoDom and not self.hasUndecidedDomainSizes:
 			for dimSize in self.parallelInactiveDims:
 				for (domName, domSize) in self.domains:
 					if dimSize == domSize:
@@ -1117,7 +1117,7 @@ all dimensions in the @domainDependant specification.\nNumber of declared dimens
 Parallel region position: %s"
 				%(self.name, len(dimensionSizes), str(dimensionSizes), len(dimensionSizesMatchedInTemplate), str(dimensionSizesMatchedInTemplate), self.parallelRegionPosition)
 			)
-		if not self.isPointer:
+		if not self.hasUndecidedDomainSizes:
 			self.domains = getReorderedDomainsAccordingToDeclaration(self.domains, dimensionSizes)
 		self.checkIntegrityOfDomains()
 		self.initLevel = max(self.initLevel, Init.DECLARATION_LOADED)
@@ -1286,7 +1286,7 @@ Please specify the domains and their sizes with domName and domSize attributes i
 			for i in range(len(self.domains)):
 				if i != 0:
 					result += ","
-				if self.isPointer:
+				if self.hasUndecidedDomainSizes:
 					result += ":"
 				else:
 					(domName, domSize) = self.domains[i]

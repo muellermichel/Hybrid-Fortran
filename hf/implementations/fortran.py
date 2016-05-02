@@ -948,6 +948,8 @@ end if\n" %(calleeNode.getAttribute('name'))
 		mergeSymbols(routineDeclarations, indexedModuleSymbols[1])
 		mergeSymbols(additionalDummies, indexedModuleSymbols[0])
 		mergeSymbols(additionalDummies, indexedModuleSymbols[1])
+		for symbol in routineImports + indexedModuleSymbols[0].values() + routineDeclarations + indexedModuleSymbols[1].values() + additionalDummies:
+			symbol.isPresent = True
 		return (
 			sorted(routineImports + indexedModuleSymbols[0].values()),
 			sorted(routineDeclarations + indexedModuleSymbols[1].values()),

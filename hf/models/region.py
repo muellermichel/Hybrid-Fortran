@@ -475,7 +475,7 @@ class RoutineSpecificationRegion(Region):
 				], [])) + len(self._symbolsToAdd) + len(parentRoutine._packedRealSymbolsByCalleeName.keys())
 			)
 			if numberOfAdditionalDeclarations > 0:
-				text += "\n! ****** additional symbols inserted by framework to emulate device support of language features\n"
+				text += "!<----- auto emul symbols : --\n"
 			defaultPurgeList = ['intent', 'public', 'parameter', 'allocatable']
 			for symbol in self._symbolsToAdd:
 				purgeList = defaultPurgeList
@@ -541,15 +541,15 @@ class RoutineSpecificationRegion(Region):
 						parentRoutine.node.getAttribute('parallelRegionPosition')
 					).rstrip() + " ! compaction array added for callee %s\n" %(callee.name)
 
-			if numberOfAdditionalDeclarations > 0:
-				text += "! ****** end additional symbols\n\n"
-
-			text += parentRoutine.implementation.declarationEnd(
+			declarationEndText = parentRoutine.implementation.declarationEnd(
 				parentRoutine.symbolsByName.values() + parentRoutine.additionalImports,
 				parentRoutine.isCallingKernel,
 				parentRoutine.node,
 				parentRoutine.parallelRegionTemplates
 			)
+			if len(declarationEndText) > 0:
+				text += "!<----- impl. specific decl end : --\n"
+				text += declarationEndText
 
 			for idx, symbol in enumerate(self._currAdditionalCompactedSubroutineParameters):
 				text += "%s = %s(%i)" %(

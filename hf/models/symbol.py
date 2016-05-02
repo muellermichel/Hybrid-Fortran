@@ -229,13 +229,11 @@ MERGEABLE_DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES = {
 	"_sourceSymbol": None,
 	"parallelRegionTemplates": None,
 	"declaredDimensionSizes": None,
-	"_isPresent": False,
 	"isAutoDom": False, #MMU 2015-11-6: At this point we can still not make autoDom the default. It would generate the following error in ASUCA:
 #                        Error when parsing file /work1/t2g-kaken-S/mueller/asuca/hybrid/asuca-kij/./build/hf_preprocessed/physics.h90 on line 475:
 #                        There are multiple known dimension sizes for domain i. Cannot insert domain for autoDom symbol densrjd. Please use explicit declaration;
 #                        Debug Print: None; Print of line:
 #                        real(rp):: densrjd(nz)
-	"_isToBeTransfered": False,
 	"_isHostSymbol": False,
 	"isCompacted": False,
 	"domPPName": None,
@@ -398,6 +396,20 @@ class Symbol(object):
 			return True #as a general rule in HF, if we have a kernel in our subroutine, all symbols are to be already present on the device
 		return self._isPresent
 
+	@isPresent.setter
+	def isPresent(self, _isPresent):
+		self._isPresent = _isPresent
+
+	@property
+	def isToBeTransfered(self):
+		if self.parallelRegionPosition == "within":
+			return False
+		return self._isToBeTransfered
+
+	@isToBeTransfered.setter
+	def isToBeTransfered(self, _isToBeTransfered):
+		self._isToBeTransfered = _isToBeTransfered
+
 	@property
 	def isArray(self):
 		if self.domains and len(self.domains) > 0:
@@ -409,12 +421,6 @@ class Symbol(object):
 			DeclarationType.MODULE_ARRAY_PASSED_IN_AS_ARGUMENT,
 			DeclarationType.OTHER_ARRAY
 		]
-
-	@property
-	def isToBeTransfered(self):
-		if self.parallelRegionPosition == "within":
-			return False
-		return self._isToBeTransfered
 
 	@property
 	def numOfParallelDomains(self):
@@ -579,6 +585,8 @@ EXAMPLE:\n\
 		self._nameOfScopeOverride = None
 		self._nameInScope = None
 		self.isEmulatingSymbolThatWasActiveInCurrentScope = False
+		self.isPresent = False
+		self.isToBeTransfered = False
 		loadAttributesFromObject(MERGEABLE_DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES)
 		loadAttributesFromObject(MERGEABLE_DEFAULT_SYMBOL_INSTANCE_DOMAIN_ATTRIBUTES)
 
@@ -677,6 +685,8 @@ EXAMPLE:\n\
 				self.domains = getMergedDomains()
 			else:
 				setattr(self, domainAttributeName, getMergedCollection(domainAttributeName))
+		self.isPresent = self.isPresent or otherSymbol.isPresent
+		self.isToBeTransfered = (not self.isPresent) and (self.isToBeTransfered or otherSymbol.isToBeTransfered)
 		self.initLevel = max(self.initLevel, otherSymbol.initLevel)
 		self._nameInScope = None
 
@@ -700,11 +710,11 @@ EXAMPLE:\n\
 
 	def setOptionsFromAttributes(self, attributes):
 		if "present" in attributes:
-			self._isPresent = True
+			self.isPresent = True
 		if "autoDom" in attributes:
 			self.isAutoDom = True
 		if "host" in attributes:
-			self._isHostSymbol = True
+			self.isHostSymbol = True
 		if "transferHere" in attributes:
 			if self._isPresent:
 				raise Exception("Symbol %s has contradicting attributes 'transferHere' and 'present'" %(self))

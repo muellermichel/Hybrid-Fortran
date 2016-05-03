@@ -559,6 +559,8 @@ class RoutineSpecificationRegion(Region):
 				) + " ! additional type %i symbol compaction\n" %(symbol.declarationType)
 		except UsageError as e:
 			raise UsageError("Implementing %s: %s" %(parentRoutine.name, str(e)))
+		except Exception as e:
+			raise Exception("Implementing %s: %s" %(parentRoutine.name, str(e)))
 
 		return self._sanitize(text, skipDebugPrint)
 

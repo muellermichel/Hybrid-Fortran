@@ -392,9 +392,11 @@ class Symbol(object):
 
 	@property
 	def isPresent(self):
+		if self._isPresent and not self._isToBeTransfered:
+			return True
 		if self.parallelRegionPosition in ["within", "outside"]:
 			return True #as a general rule in HF, if we have a kernel in our subroutine, all symbols are to be already present on the device
-		return self._isPresent
+		return False
 
 	@isPresent.setter
 	def isPresent(self, _isPresent):
@@ -402,8 +404,6 @@ class Symbol(object):
 
 	@property
 	def isToBeTransfered(self):
-		if self.parallelRegionPosition == "within":
-			return False
 		return self._isToBeTransfered
 
 	@isToBeTransfered.setter
@@ -1268,8 +1268,8 @@ Current Domains: %s\n" %(
 				result = result + ","
 			dimSize = domain[1]
 			if dimSize == ":":
-				raise Exception("Cannot generate allocation call for symbol %s on the device - one or more dimension sizes are unknown at this point. \
-Please specify the domains and their sizes with domName and domSize attributes in the corresponding @domainDependant directive." %(self.name))
+				raise Exception("Cannot generate allocation call for symbol %s on the device - one or more dimension sizes (%s) are unknown at this point. \
+Please specify the domains and their sizes with domName and domSize attributes in the corresponding @domainDependant directive." %(self.name, self.domains))
 			result += dimSize
 		if needsAdditionalClosingBracket:
 			result += ")"

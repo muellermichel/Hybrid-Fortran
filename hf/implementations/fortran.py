@@ -313,11 +313,20 @@ Symbols vs transferHere attributes:\n%s" %(str([(symbol.name, symbol.transferHer
 Symbols vs host attributes:\n%s" %(str([(symbol.name, symbol.isHostSymbol) for symbol in dependantSymbols])) \
 			)
 	if copyHere == "yes" and alreadyOnDevice == "yes":
-		raise UsageError("Symbols with 'present' attribute cannot appear on the same specification line as symbols with 'transferHere' attribute.")
+		raise UsageError("Symbols with 'present' attribute cannot appear on the same specification line as symbols with 'transferHere' attribute.\nPresent Symbols: %s\nTransfer Symbols: %s" %(
+			[symbol.name for symbols in dependantSymbols if symbol.domains and len(symbol.domains) > 0 and symbol.isPresent],
+			[symbol.name for symbols in dependantSymbols if symbol.domains and len(symbol.domains) > 0 and symbol.isToBeTransfered],
+		))
 	if copyHere == "yes" and isOnHost == "yes":
-		raise UsageError("Symbols with 'transferHere' attribute cannot appear on the same specification line as symbols with 'host' attribute.")
+		raise UsageError("Symbols with 'transferHere' attribute cannot appear on the same specification line as symbols with 'host' attribute.\nHost Symbols: %s\nTransfer Symbols: %s" %(
+			[symbol.name for symbols in dependantSymbols if symbol.domains and len(symbol.domains) > 0 and symbol.isHostSymbol],
+			[symbol.name for symbols in dependantSymbols if symbol.domains and len(symbol.domains) > 0 and symbol.isToBeTransfered],
+		))
 	if alreadyOnDevice == "yes" and isOnHost == "yes":
-		raise UsageError("Symbols with 'present' attribute cannot appear on the same specification line as symbols with 'host' attribute.")
+		raise UsageError("Symbols with 'present' attribute cannot appear on the same specification line as symbols with 'host' attribute.\nHost Symbols: %s\nPresent Symbols: %s" %(
+			[symbol.name for symbols in dependantSymbols if symbol.domains and len(symbol.domains) > 0 and symbol.isHostSymbol],
+			[symbol.name for symbols in dependantSymbols if symbol.domains and len(symbol.domains) > 0 and symbol.isPresent],
+		))
 
 	return alreadyOnDevice, copyHere, isOnHost
 

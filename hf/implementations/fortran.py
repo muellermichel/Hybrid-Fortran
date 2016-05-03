@@ -492,7 +492,15 @@ class DeviceDataFortranImplementation(FortranImplementation):
 			if symbol.isPresent:
 				continue
 			if (routineIsKernelCaller or symbol.isToBeTransfered) and symbol.hasUndecidedDomainSizes:
-				deviceInitStatements += "allocate(%s)\n" %(symbol.allocationRepresentation())
+				try:
+					deviceInitStatements += "allocate(%s)\n" %(symbol.allocationRepresentation())
+				except Exception as e:
+					raise Exception("Cannot allocate symbol %s (domains %s) here. Routine is kernel caller: %s, symbol to be transferred: %s" %(
+						symbol.name,
+						symbol.domains,
+						routineIsKernelCaller,
+						symbol.isToBeTransfered
+					))
 			if (symbol.intent in ["in", "inout"] or symbol.declarationType == DeclarationType.MODULE_ARRAY) \
 			and (routineIsKernelCaller or symbol.isToBeTransfered):
 				symbol.isUsingDevicePostfix = False

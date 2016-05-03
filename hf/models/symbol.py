@@ -686,7 +686,7 @@ EXAMPLE:\n\
 			else:
 				setattr(self, domainAttributeName, getMergedCollection(domainAttributeName))
 		self.isPresent = self.isPresent or otherSymbol.isPresent
-		self.isToBeTransfered = (not self.isPresent) and (self.isToBeTransfered or otherSymbol.isToBeTransfered)
+		self.isToBeTransfered = self.isToBeTransfered
 		self.initLevel = max(self.initLevel, otherSymbol.initLevel)
 		self._nameInScope = None
 

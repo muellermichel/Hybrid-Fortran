@@ -491,7 +491,7 @@ class DeviceDataFortranImplementation(FortranImplementation):
 				continue
 			if symbol.isPresent:
 				continue
-			if (routineIsKernelCaller or symbol.isToBeTransfered) and symbol.hasUndecidedDomainSizes:
+			if (routineIsKernelCaller or symbol.isToBeTransfered) and symbol.hasUndecidedDomainSizes and not ":" in [dimSize for _, dimSize in symbol.domains]:
 				try:
 					deviceInitStatements += "allocate(%s)\n" %(symbol.allocationRepresentation())
 				except Exception as e:

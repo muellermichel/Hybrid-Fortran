@@ -474,7 +474,7 @@ class RoutineSpecificationRegion(Region):
 					for kname in self._additionalParametersByKernelName
 				], [])) + len(self._symbolsToAdd) + len(parentRoutine._packedRealSymbolsByCalleeName.keys())
 			)
-			if numberOfAdditionalDeclarations > 0:
+			if numberOfAdditionalDeclarations > 0 and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
 				text += "!<----- auto emul symbols : --\n"
 			defaultPurgeList = ['intent', 'public', 'parameter', 'allocatable']
 			for symbol in self._symbolsToAdd:

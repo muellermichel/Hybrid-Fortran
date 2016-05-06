@@ -92,6 +92,7 @@ contains
   subroutine data_region_wrapper8()
     use kernels8, only: wrapper8
     use my_module, only: a_dyn, b_dyn, c_dyn, d_dyn
+    use my_module, only: nx, ny, nz !still have to do this import manually currently - this should not be necessary anymore in later versions of HF
     implicit none
 
     @domainDependant{attribute(autoDom,transferHere)}
@@ -208,7 +209,7 @@ program main
   c_dyn(:,:,:) = 0.0d0
   d_dyn(:,:,:) = 0.0d0
   call data_region_wrapper8()
-  write(0,*) "calculation8complete"
+  write(0,*) "calculation8 complete"
   call assert_values(c_dyn, 3.0d0)
   call assert_values(d_dyn, 2.0d0)
   deallocate(a_dyn)

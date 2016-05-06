@@ -919,7 +919,7 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
             else:
                 self.symbolsOnCurrentLine.append(symbol)
 
-    def processImport(self, parentNode, uid, moduleName, sourceSymbolName, symbolNameInScope):
+    def processImport(self, parentNode, uidLocal, uidSource, moduleName, sourceSymbolName, symbolNameInScope):
         k = (moduleName, symbolNameInScope)
         if self.currRoutineImportsDict != None:
             self.currRoutineImportsDict[k] = sourceSymbolName
@@ -946,7 +946,8 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
         symbolList = importMatch.group(2).split(',')
         for symbolName in symbolList:
             stripped = symbolName.strip()
-            uid = uniqueIdentifier(stripped, scopeName)
+            uidLocal = uniqueIdentifier(stripped, scopeName)
+            uidSource = uniqueIdentifier(stripped, moduleName)
             mappedImportMatch = self.patterns.singleMappedImportPattern.match(stripped)
             sourceSymbolName = None
             symbolNameInScope = None
@@ -956,7 +957,7 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
             else:
                 symbolNameInScope = stripped
                 sourceSymbolName = symbolNameInScope
-            self.processImport(parentNode, uid, moduleName, sourceSymbolName, symbolNameInScope)
+            self.processImport(parentNode, uidLocal, uidSource, moduleName, sourceSymbolName, symbolNameInScope)
 
     def processSymbolSpecification(self, specTuple, symbol):
         '''process everything that happens per h90 declaration symbol'''
@@ -1197,15 +1198,16 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
                 continue
             symbol.storeDomainDependantEntryNodeAttributes(entryNode)
 
-    def processImport(self, parentNode, uid, moduleName, sourceSymbol, symbolInScope):
+    def processImport(self, parentNode, uidLocal, uidSource, moduleName, sourceSymbol, symbolInScope):
         super(H90XMLSymbolDeclarationExtractor, self).processImport(
             parentNode,
-            uid,
+            uidLocal,
+            uidSource,
             moduleName,
             sourceSymbol,
             symbolInScope
         )
-        if self.currSymbolsByName.get(uid) != None:
+        if self.currSymbolsByName.get(uidLocal) != None:
             return #this already has an @domaindependant directive - don't do anything further.
         if not self.symbolsByModuleNameAndSymbolName:
             return #in case we run this at a point where foreign symbol analysis is not available yet
@@ -1220,7 +1222,7 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
             )
         if not moduleSymbolsByName:
            return
-        moduleSymbol = moduleSymbolsByName.get(uid)
+        moduleSymbol = moduleSymbolsByName.get(uidSource)
         if not moduleSymbol and moduleSymbolParsingRequired:
             raise UsageError(
                 "No symbol information for symbol %s in module %s. Please make Hybrid Fortran aware of this symbol by declaring it in a @domainDependant{attribute(host)} directive in the module specification part." %(
@@ -1257,8 +1259,8 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
             symbol.isHostSymbol = True
         else:
             symbol.isModuleSymbol = False
-        if uid != symbol.uniqueIdentifier:
-            raise Exception("unique identifier (%s) does not match expectation (%s)" %(uid, symbol.uniqueIdentifier))
+        if symbol.uniqueIdentifier not in [uidLocal, uidSource]:
+            raise Exception("unique identifiers (%s, %s) does not match expectation (%s)" %(uidLocal, uidSource, symbol.uniqueIdentifier))
         self.currSymbolsByName[symbol.uniqueIdentifier] = symbol
 
     def processModuleEndMatch(self, moduleEndMatch):

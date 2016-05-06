@@ -89,11 +89,24 @@ contains
     call wrapper7()
   end subroutine
 
+  subroutine data_region_wrapper8()
+    use kernels8, only: wrapper8
+    use my_module, only: a_dyn, b_dyn, c_dyn, d_dyn
+    implicit none
+
+    @domainDependant{attribute(autoDom,transferHere)}
+    a_dyn, b_dyn, c_dyn, d_dyn
+    @end domainDependant
+
+    call wrapper8()
+  end subroutine
+
+
 end module example
 
 program main
-  use example, only: data_region_wrapper, data_region_wrapper2, data_region_wrapper4, data_region_wrapper5, data_region_wrapper7
-  use my_module, only: a, b, a2, b2, c, d, c2, d2, used_in_acc_routine, assert_values
+  use example
+  use my_module, only: a, b, a2, b2, c, d, c2, d2, used_in_acc_routine, assert_values, a_dyn, b_dyn, c_dyn, d_dyn, nx, ny, nz
   use kernels3, only: outer_wrapper3
   use kernels5, only: kernels5_initialize, kernels5_cleanup
 !   use kernels6, only: kernels6_initialize, kernels6_cleanup
@@ -178,14 +191,39 @@ program main
   c(:,:,:) = 0.0d0
   d(:,:,:) = 0.0d0
   call data_region_wrapper7()
-  write(0,*) "calculation1 complete"
+  write(0,*) "calculation7 complete"
   call assert_values(c, 3.0d0)
   call assert_values(d, 2.0d0)
+
+
+  nx = NX
+  ny = NY
+  nz = NZ
+  allocate(a_dyn(DOM(nx,ny,nz)))
+  allocate(b_dyn(DOM(nx,ny,nz)))
+  allocate(c_dyn(DOM(nx,ny,nz)))
+  allocate(d_dyn(DOM(nx,ny,nz)))
+  a_dyn(:,:,:) = 1.0d0
+  b_dyn(:,:,:) = 2.0d0
+  c_dyn(:,:,:) = 0.0d0
+  d_dyn(:,:,:) = 0.0d0
+  call data_region_wrapper8()
+  write(0,*) "calculation8complete"
+  call assert_values(c_dyn, 3.0d0)
+  call assert_values(d_dyn, 2.0d0)
+  deallocate(a_dyn)
+  deallocate(b_dyn)
+  deallocate(c_dyn)
+  deallocate(d_dyn)
 
   deallocate(a)
   deallocate(b)
   deallocate(c)
   deallocate(d)
+  deallocate(a2)
+  deallocate(b2)
+  deallocate(c2)
+  deallocate(d2)
 
   stop
 end program main

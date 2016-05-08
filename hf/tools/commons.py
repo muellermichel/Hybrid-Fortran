@@ -178,11 +178,11 @@ def setupDeferredLogging(filename, logLevel, showDeferredLogging=True):
 def progressIndicatorReset(stream):
     stream.write("\n")
 
-def printProgressIndicator(stream, currentlyAtText, currentlyAtNum, totalNum, description):
+def printProgressIndicator(stream, fileName, lineNum, totalNum, description):
     stream.write("\r%s: %d%% done.%s" %(
         description,
-        round(currentlyAtNum * 100.0/totalNum),
-        " Currently processing: " + currentlyAtText if currentlyAtText != "" else ""
+        round(lineNum * 100.0/totalNum),
+        " Currently processing: " + os.path.basename(fileName) if fileName != "" else ""
     )) #\r returns to beginning of current line
     stream.write("\033[K") #clear rest of current line
     stream.flush()

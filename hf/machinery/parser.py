@@ -1223,15 +1223,8 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
         if not moduleSymbolsByName:
            return
         moduleSymbol = moduleSymbolsByName.get(uidSource)
-        if not moduleSymbol and moduleSymbolParsingRequired:
-            raise UsageError(
-                "No symbol information for symbol %s in module %s. Please make Hybrid Fortran aware of this symbol by declaring it in a @domainDependant{attribute(host)} directive in the module specification part." %(
-                    sourceSymbol,
-                    moduleName
-                )
-            )
         if not moduleSymbol:
-            return
+            return #probably we're dealing with a routine - just ignore it.
         relationNode, templateNode = setTemplateInfos(
             self.cgDoc,
             parentNode,

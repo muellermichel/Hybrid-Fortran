@@ -171,7 +171,7 @@ except Exception as e:
 #   Finally, do the conversion based on all the information above.
 for fileNum, fileInDir in enumerate(filesInDir):
 	outputPath = os.path.join(os.path.normpath(options.outputDir), os.path.splitext(os.path.basename(fileInDir))[0] + ".P90.temp")
-	printProgressIndicator(sys.stderr, os.path.basename(fileInDir), fileNum + 1, len(filesInDir), "Converting to Standard Fortran")
+	printProgressIndicator(sys.stderr, fileInDir, fileNum + 1, len(filesInDir), "Converting to Standard Fortran")
 	outputStream = FileIO(outputPath, mode="wb")
 	try:
 		converter = H90toF90Converter(

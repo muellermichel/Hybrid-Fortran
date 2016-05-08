@@ -49,26 +49,25 @@ def implementSymbolAccessStringAndRemainder(line, suffix, symbol, iterators=[], 
 def implementLine(line, symbols, parentRoutine, iterators=[], parallelRegionTemplate=None, callee=None):
 	adjustedLine = line
 	for symbol in symbols:
-		currSymbol = symbol
 		lineSections = []
 		work = adjustedLine
-		prefix, matchedSymbolName, remainder = currSymbol.splitTextAtLeftMostOccurrence(work)
+		prefix, matchedSymbolName, remainder = symbol.splitTextAtLeftMostOccurrence(work)
 		while matchedSymbolName != "":
 			lineSections.append(prefix)
 			symbolAccessString, remainder = implementSymbolAccessStringAndRemainder(
 				work,
 				remainder,
-				currSymbol,
+				symbol,
 				iterators,
 				parallelRegionTemplate,
 				callee
 			)
 			lineSections.append(symbolAccessString)
 			work = remainder
-			prefix, matchedSymbolName, remainder = currSymbol.splitTextAtLeftMostOccurrence(work)
+			prefix, matchedSymbolName, remainder = symbol.splitTextAtLeftMostOccurrence(work)
 		if len(lineSections) == 0:
 			raise Exception("symbol %s expected on line '%s' for %s - no match" %(
-				currSymbol.name,
+				symbol.name,
 				line,
 				parentRoutine.name
 			))
@@ -82,6 +81,7 @@ class Region(object):
 	def __init__(self, routine):
 		self._linesAndSymbols = []
 		self._parentRegion = None
+		self._routineRef = None
 		self.loadParentRoutine(routine)
 
 	@property

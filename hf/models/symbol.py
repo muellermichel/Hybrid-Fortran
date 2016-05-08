@@ -561,7 +561,7 @@ EXAMPLE:\n\
 		return limitLength(self._nameInScope)
 
 	def splitTextAtLeftMostOccurrence(self, text):
-		return splitTextAtLeftMostOccurrence([deviceVersionIdentifier(self._nameInScope), self._nameInScope], text)
+		return splitTextAtLeftMostOccurrence([self.name], text)
 
 	def isDummySymbolForRoutine(self, routineName):
 		if not self.analysis:

@@ -27,6 +27,7 @@ contains
     @end domainDependant ! Here we've got another test (single quote character in text)
 
     call add7()
+    write(0,*) "testing in the middle of wrapper7"
     call checkInMiddleOfDataRegion()
     call mult7()
   end subroutine

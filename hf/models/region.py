@@ -423,6 +423,8 @@ class RoutineSpecificationRegion(Region):
 				for (sourceModule, nameInScope) in self._allImports:
 					sourceName = self._allImports[(sourceModule, nameInScope)]
 					symbol = parentRoutine.symbolsByName.get(sourceName)
+					if symbol != None and symbol.sourceModule == parentRoutine._parentModule().name:
+						continue
 					if symbol != None:
 						text += getImportLine([symbol], parentRoutine)
 					else:

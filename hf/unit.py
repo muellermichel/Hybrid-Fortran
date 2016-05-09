@@ -43,6 +43,10 @@ class TestCommonTools(unittest.TestCase):
 			splitTextAtLeftMostOccurrence("a", "bcd a 123"),
 			("bcd ", "a", " 123")
 		)
+		self.assertEqual(
+			splitTextAtLeftMostOccurrence("l", "cll(:,:) = cll_hfdev(:,:)"),
+			("cll(:,:) = cll_hfdev(:,:)", "", "")
+		)
 
 	def testTextSplittingQuoted(self):
 		from tools.commons import splitTextAtLeftMostOccurrence

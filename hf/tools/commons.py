@@ -321,8 +321,8 @@ def findLeftMostOccurrenceNotInsideQuotes(stringToMatch, stringToSearch, leftSta
             break
         matchEndIndex = matchIndex + len(stringToMatch)
         if not indexesWithinQuotes[nextLeftStart:][matchIndex] \
-        and (not filterOutEmbeddings or matchIndex < 1 or re.match(r'\W', currSlice[matchIndex - 1])) \
-        and (not filterOutEmbeddings or len(currSlice) <= matchEndIndex or re.match(r'\W', currSlice[matchEndIndex])):
+        and (not filterOutEmbeddings or nextLeftStart + matchIndex < 1 or re.match(r'\W', stringToSearch[nextLeftStart + matchIndex - 1])) \
+        and (not filterOutEmbeddings or len(stringToSearch) <= nextLeftStart + matchEndIndex or re.match(r'\W', stringToSearch[nextLeftStart + matchEndIndex])):
             break
         nextLeftStart += matchIndex + 1
         matchIndex = -1

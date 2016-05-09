@@ -25,15 +25,22 @@ import logging
 def synthesizedKernelName(routineName, kernelNumber):
 	return "hfk%i_%s" %(kernelNumber, routineName)
 
-def getImportStatements(symbols):
-    return "\n".join(
-        "use %s, only : %s => %s" %(
-            symbol.sourceModule,
-            symbol.nameInScope(),
-            symbol.sourceSymbol if symbol.sourceSymbol not in [None, ""] else symbol.name
-        )
-        for symbol in symbols
-    )
+def getImportStatements(symbols, forceHostVersion=False):
+	def getSourceSymbol(symbol):
+		if forceHostVersion:
+			return symbol.name
+		if symbol.sourceSymbol not in [None, ""]:
+			return symbol.sourceSymbol
+		return symbol.name
+
+	return "\n".join(
+		"use %s, only : %s => %s" %(
+			symbol.sourceModule,
+			symbol.nameInScope() if not forceHostVersion else symbol.name,
+			getSourceSymbol(symbol)
+		)
+		for symbol in symbols
+	)
 
 def getReductionClause(parallelRegionTemplate):
 	reductionScalarsByOperator = getReductionScalarsByOperator(parallelRegionTemplate)

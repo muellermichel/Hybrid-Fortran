@@ -392,7 +392,9 @@ class Symbol(object):
 
 	@property
 	def isPresent(self):
-		if self._isPresent and not self._isToBeTransfered:
+		if self._isToBeTransfered:
+			return False
+		if self._isPresent:
 			return True
 		if self.parallelRegionPosition in ["within", "outside"]:
 			return True #as a general rule in HF, if we have a kernel in our subroutine, all symbols are to be already present on the device

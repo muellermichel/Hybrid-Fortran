@@ -374,8 +374,7 @@ This is not allowed for implementations using %s.\
 	def _implementAdditionalImports(self):
 		if not self._additionalImports or len(self._additionalImports) == 0:
 			return self.implementation.additionalIncludes()
-		return self.implementation.adjustImportForDevice(
-			None,
+		return self.implementation.getImportSpecification(
 			self._additionalImports,
 			RegionType.KERNEL_CALLER_DECLARATION if self.isCallingKernel else RegionType.OTHER,
 			self.node.getAttribute('parallelRegionPosition'),

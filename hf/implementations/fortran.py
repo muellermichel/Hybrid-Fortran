@@ -96,10 +96,8 @@ class FortranImplementation(object):
 	def subroutineCallInvocationPrefix(self, subroutineName, parallelRegionTemplate):
 		return 'call %s' %(subroutineName)
 
-	def adjustImportForDevice(self, line, dependantSymbols, regionType, parallelRegionPosition, parallelRegionTemplates):
-		if line == None:
-			return getImportStatements(dependantSymbols)
-		return line
+	def getImportSpecification(self, dependantSymbols, regionType, parallelRegionPosition, parallelRegionTemplates):
+		return getImportStatements(dependantSymbols)
 
 	def adjustDeclarationForDevice(self, line, dependantSymbols, regionType, parallelRegionPosition):
 		return line
@@ -391,31 +389,24 @@ class DeviceDataFortranImplementation(FortranImplementation):
 			symbol.isUsingDevicePostfix
 		))
 
-	def adjustImportForDevice(self, line, dependantSymbols, regionType, parallelRegionPosition, parallelRegionTemplates):
+	def getImportSpecification(self, dependantSymbols, regionType, parallelRegionPosition, parallelRegionTemplates):
 		for symbol in dependantSymbols:
 			self.updateSymbolDeviceState(symbol, RegionType.OTHER, parallelRegionPosition, postTransfer=True)
 		try:
 			_, _, _ = _checkDeclarationConformity(dependantSymbols)
 		except UsageError as e:
-			raise UsageError("In %s: %s; symbols: %s" %(line.strip() if line else "automated imports", str(e), dependantSymbols))
+			raise UsageError("In imports: %s; symbols: %s" %(str(e), dependantSymbols))
+
 		if parallelRegionPosition in ["within", "outside"]:
 			return ""
-
-		adjustedLine = line
-		if adjustedLine == None \
-		or (len(dependantSymbols) > 0 and dependantSymbols[0].isPresent):
-			#amend import or convert to device symbol version for already present symbols
-			adjustedLine = getImportStatements(dependantSymbols)
-			return adjustedLine + "\n"
-
-		if len(dependantSymbols) > 0 \
-		and (dependantSymbols[0].isPresent or dependantSymbols[0].isHostSymbol):
-			return adjustedLine + "\n"
-
-		if (len(dependantSymbols) > 0 and dependantSymbols[0].isToBeTransfered) \
-		or regionType == RegionType.KERNEL_CALLER_DECLARATION:
-			adjustedLine += getImportStatements(dependantSymbols)
-		return adjustedLine + "\n"
+		if len(dependantSymbols) == 0:
+			return ""
+		if dependantSymbols[0].isPresent or dependantSymbols[0].isHostSymbol:
+			return getImportStatements(dependantSymbols) + "\n"
+		if dependantSymbols[0].isToBeTransfered or regionType == RegionType.KERNEL_CALLER_DECLARATION:
+			return getImportStatements(dependantSymbols) + "\n" \
+				+ getImportStatements(dependantSymbols, forceHostVersion=True) + "\n" #need both versions available for transfer
+		return getImportStatements(dependantSymbols) + "\n"
 
 	def adjustDeclarationForDevice(self, line, dependantSymbols, regionType, parallelRegionPosition):
 		def declarationStatements(dependantSymbols, declarationDirectives, deviceType):

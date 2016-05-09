@@ -179,8 +179,7 @@ This is not allowed for implementations using %s.\
     def processModuleSymbolImportAndGetAdjustedLine(self, line, symbols):
         if len(symbols) == 0:
             return line
-        return self.implementation.adjustImportForDevice(
-            line,
+        return self.implementation.getImportSpecification(
             symbols,
             RegionType.MODULE_DECLARATION,
             parallelRegionPosition=None,

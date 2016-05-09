@@ -356,9 +356,8 @@ class RoutineSpecificationRegion(Region):
 		self._allImports = copy.copy(allImports)
 
 	def implemented(self, skipDebugPrint=False):
-		def getImportLine(line, importedSymbols, parentRoutine):
-			return parentRoutine.implementation.adjustImportForDevice(
-				line,
+		def getImportLine(importedSymbols, parentRoutine):
+			return parentRoutine.implementation.getImportSpecification(
 				importedSymbols,
 				RegionType.KERNEL_CALLER_DECLARATION if parentRoutine.isCallingKernel else RegionType.OTHER,
 				parentRoutine.node.getAttribute('parallelRegionPosition'),
@@ -425,14 +424,14 @@ class RoutineSpecificationRegion(Region):
 					sourceName = self._allImports[(sourceModule, nameInScope)]
 					symbol = parentRoutine.symbolsByName.get(sourceName)
 					if symbol != None:
-						text += getImportLine(None, [symbol], parentRoutine)
+						text += getImportLine([symbol], parentRoutine)
 					else:
-						importText = "use %s, only: %s => %s" %(sourceModule, nameInScope, sourceName) \
+						text += "use %s, only: %s => %s" %(sourceModule, nameInScope, sourceName) \
 							if nameInScope != sourceName \
 							else "use %s, only: %s" %(sourceModule, nameInScope)
 						if ConversionOptions.Instance().debugPrint and not skipDebugPrint:
-							importText += " ! resynthesizing user input - no associated HF aware symbol found"
-						text += getImportLine(importText, [], parentRoutine)
+							text += " ! resynthesizing user input - no associated HF aware symbol found"
+						text += "\n"
 
 			if textBeforeImports != "" and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
 				text += "!<----- other imports and specs: ------\n"

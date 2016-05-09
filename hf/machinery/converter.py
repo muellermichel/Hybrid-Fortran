@@ -645,14 +645,3 @@ This is not allowed for implementations using %s.\
             self.preparedBy = inspect.getouterframes(inspect.currentframe(), 2)[1][3]
         self.prepareLineCalledForCurrentLine = True
         self.putLine(line)
-
-    #TODO: remove tab argument everywhere
-    def prepareAdditionalLine(self, line, tab, isInsertedBeforeCurrentLine=False):
-        if not isInsertedBeforeCurrentLine and not self.prepareLineCalledForCurrentLine:
-            raise Exception(
-                "Line has not yet been prepared - there is an error in the transpiler logic. Please contact the Hybrid Fortran maintainers. Parser state: %s; before branch: %s" %(
-                    self.state,
-                    self.stateBeforeBranch
-                )
-            )
-        self.putLine(line)

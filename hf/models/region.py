@@ -23,7 +23,7 @@ from tools.commons import enum, UsageError, OrderedDict
 from tools.metadata import getArguments
 from tools.patterns import RegExPatterns
 from machinery.commons import ConversionOptions, getSymbolAccessStringAndRemainder
-from symbol import DeclarationType, FrameworkArray, frameworkArrayName, limitLength
+from symbol import DeclarationType, FrameworkArray, frameworkArrayName, limitLength, uniqueIdentifier
 
 RegionType = enum(
 	"MODULE_DECLARATION",
@@ -378,7 +378,7 @@ class RoutineSpecificationRegion(Region):
 				parentRoutine.name
 			))
 
-		importedSymbolsByScopedName = {}
+		importsFound = False
 		declaredSymbolsByScopedName = OrderedDict()
 		textBeforeImports = ""
 		textBeforeDeclarations = ""
@@ -389,7 +389,7 @@ class RoutineSpecificationRegion(Region):
 		)
 		for (line, symbols) in self._linesAndSymbols:
 			if not symbols or len(symbols) == 0:
-				if len(importedSymbolsByScopedName.keys()) == 0:
+				if not importsFound:
 					textBeforeImports += line.strip() + "\n"
 				elif len(declaredSymbolsByScopedName.keys()) == 0:
 					textBeforeDeclarations += line.strip() + "\n"
@@ -408,7 +408,7 @@ class RoutineSpecificationRegion(Region):
 				if not match:
 					match = symbol.importMapPattern.match(line)
 				if match:
-					importedSymbolsByScopedName[symbol.nameInScope()] = symbol
+					importsFound = True
 					continue
 				raise Exception("symbol %s expected to be referenced in line '%s', but all matchings have failed" %(
 					symbol.name,
@@ -418,28 +418,21 @@ class RoutineSpecificationRegion(Region):
 		text = ""
 
 		try:
-			importsRequiredDict = copy.copy(self._allImports)
-			if len(importedSymbolsByScopedName.keys()) > 0:
-				if ConversionOptions.Instance().debugPrint and not skipDebugPrint:
-					text += "!<----- synthesized imports 1: --\n"
-				text += getImportLine(None, importedSymbolsByScopedName.values(), parentRoutine)
-				if importsRequiredDict:
-					for symbol in importedSymbolsByScopedName.values():
-						k = (symbol.sourceModule, symbol.nameInScope())
-						if k in importsRequiredDict:
-							del importsRequiredDict[k]
-			if importsRequiredDict:
-				if len(importsRequiredDict.keys()) > 0 and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
-					text += "!<----- synthesized imports 2: --\n"
-				for (sourceModule, nameInScope) in importsRequiredDict:
-					sourceName = importsRequiredDict[(sourceModule, nameInScope)]
-					text += getImportLine(
-						"use %s, only: %s => %s" %(sourceModule, nameInScope, sourceName) \
+			if self._allImports:
+				if len(self._allImports.keys()) > 0 and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
+					text += "!<----- synthesized imports --\n"
+				for (sourceModule, nameInScope) in self._allImports:
+					sourceName = self._allImports[(sourceModule, nameInScope)]
+					symbol = parentRoutine.symbolsByName.get(sourceName)
+					if symbol != None:
+						text += getImportLine(None, [symbol], parentRoutine)
+					else:
+						importText = "use %s, only: %s => %s" %(sourceModule, nameInScope, sourceName) \
 							if nameInScope != sourceName \
-							else "use %s, only: %s" %(sourceModule, nameInScope),
-						[],
-						parentRoutine
-					)
+							else "use %s, only: %s" %(sourceModule, nameInScope)
+						if ConversionOptions.Instance().debugPrint and not skipDebugPrint:
+							importText += " ! resynthesizing user input - no associated HF aware symbol found"
+						text += getImportLine(importText, [], parentRoutine)
 
 			if textBeforeImports != "" and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
 				text += "!<----- other imports and specs: ------\n"

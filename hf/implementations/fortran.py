@@ -394,6 +394,10 @@ class DeviceDataFortranImplementation(FortranImplementation):
 	def adjustImportForDevice(self, line, dependantSymbols, regionType, parallelRegionPosition, parallelRegionTemplates):
 		for symbol in dependantSymbols:
 			self.updateSymbolDeviceState(symbol, RegionType.OTHER, parallelRegionPosition, postTransfer=True)
+		try:
+			_, _, _ = _checkDeclarationConformity(dependantSymbols)
+		except UsageError as e:
+			raise UsageError("In %s: %s; symbols: %s" %(line.strip() if line else "automated imports", str(e), dependantSymbols))
 		if parallelRegionPosition in ["within", "outside"]:
 			return ""
 

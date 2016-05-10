@@ -411,7 +411,7 @@ class DeviceDataFortranImplementation(FortranImplementation):
 	def adjustDeclarationForDevice(self, line, dependantSymbols, regionType, parallelRegionPosition):
 		def declarationStatements(dependantSymbols, declarationDirectives, deviceType):
 			return "\n".join(
-				"%s, %s :: %s" %(declarationDirectives, deviceType, str(symbol))
+				"%s, %s :: %s" %(declarationDirectives, deviceType, symbol.domainRepresentation())
 				for symbol in dependantSymbols
 			)
 

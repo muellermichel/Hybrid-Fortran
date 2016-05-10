@@ -291,7 +291,7 @@ class Symbol(object):
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] initialized")
 
 	def __repr__(self):
-		return self.domainRepresentation()
+		return self.name
 
 	def __eq__(self, other):
 		if other == None:

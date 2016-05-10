@@ -20,7 +20,7 @@
 
 import copy, weakref
 from models.region import RegionType, RoutineSpecificationRegion, ParallelRegion, CallRegion
-from models.symbol import FrameworkArray, DeclarationType, limitLength
+from models.symbol import FrameworkArray, DeclarationType, ScopeError, limitLength
 from machinery.commons import ConversionOptions
 from tools.commons import UsageError
 
@@ -162,6 +162,9 @@ This is not allowed for implementations using %s.\
 				self.node.getAttribute("parallelRegionPosition")
 			)
 
+	def _loadAdditionalArgumentSymbols(self, additionalArgumentSymbols):
+		self._additionalArguments = copy.copy(additionalArgumentSymbols)
+
 	def _listCompactedSymbolsAndDeclarationPrefixAndOtherSymbols(self, additionalImports):
 		toBeCompacted = []
 		otherImports = []
@@ -238,7 +241,7 @@ This is not allowed for implementations using %s.\
 			)
 			compactedArrayList = [compactedArray]
 		additionalSubroutineParameters = sorted(otherImports + compactedArrayList)
-		self.loadAdditionalArgumentSymbols(additionalSubroutineParameters)
+		self._loadAdditionalArgumentSymbols(additionalSubroutineParameters)
 
 		#analyse whether this routine is calling other routines that have a parallel region within
 		#+ analyse the additional symbols that come up there
@@ -336,7 +339,7 @@ This is not allowed for implementations using %s.\
 					isOnDevice=True
 				)
 				compactedArrayList = [compactedArray]
-			callee.loadAdditionalArgumentSymbols(sorted(notToBeCompacted + compactedArrayList))
+			callee._loadAdditionalArgumentSymbols(sorted(notToBeCompacted + compactedArrayList))
 
 		#load into the specification region
 		self.regions[0].loadAdditionalContext(
@@ -446,9 +449,6 @@ This is not allowed for implementations using %s.\
 	def loadSymbolsByName(self, symbolsByName):
 		self.symbolsByName = copy.copy(symbolsByName)
 
-	def loadAdditionalArgumentSymbols(self, additionalArgumentSymbols):
-		self._additionalArguments = copy.copy(additionalArgumentSymbols)
-
 	def loadAllImports(self, allImports):
 		self._allImports = copy.copy(allImports)
 
@@ -498,6 +498,8 @@ This is not allowed for implementations using %s.\
 			]
 		except UsageError as e:
 			raise UsageError("Error in %s: %s" %(self.name, str(e)))
+		except ScopeError as e:
+			raise ScopeError("Error in %s: %s" %(self.name, str(e)))
 		return "\n".join([
 			text
 			for (index, text) in purgedRoutineElements

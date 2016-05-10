@@ -250,6 +250,9 @@ MERGEABLE_DEFAULT_SYMBOL_INSTANCE_DOMAIN_ATTRIBUTES = {
 	"aggregatedRegionDomNames": []
 }
 
+class ScopeError(Exception):
+    pass
+
 class Symbol(object):
 	def __init__(self, name, template=None, patterns=None, symbolEntry=None, scopeNode=None, analysis=None, parallelRegionTemplates=[]):
 		if not name or name == "":
@@ -528,7 +531,7 @@ EXAMPLE:\n\
 			raise Exception("routine node needs to be loaded at this point")
 		return uniqueIdentifier(self.name, self.routineNode.getAttribute("name"))
 
-	def nameInScope(self, useDeviceVersionIfAvailable=True):
+	def updateNameInScope(self):
 		#Give a symbol representation that is guaranteed to *not* collide with any local namespace (as long as programmer doesn't use any 'hfXXX' pre- or postfixes)
 		def automaticName(symbol):
 			if symbol.analysis and symbol.routineNode:
@@ -549,6 +552,7 @@ EXAMPLE:\n\
 				referencingName = symbol.uniqueIdentifier
 			return referencingName
 
+		self._nameInScope = None
 		if (self.routineNode and self.sourceModule in [
 			"HF90_LOCAL_MODULE",
 			self.routineNode.getAttribute("name")
@@ -558,6 +562,10 @@ EXAMPLE:\n\
 			self._nameInScope = self.name
 		if self._nameInScope == None:
 			self._nameInScope = automaticName(self)
+
+	def nameInScope(self, useDeviceVersionIfAvailable=True):
+		if self._nameInScope == None:
+			raise ScopeError("name in scope undefined at this point for %s" %(self.name))
 		if useDeviceVersionIfAvailable and self.isUsingDevicePostfix:
 			return limitLength(deviceVersionIdentifier(self._nameInScope))
 		return limitLength(self._nameInScope)
@@ -708,7 +716,7 @@ EXAMPLE:\n\
 	# to be called when a previously loaded symbol is used in a new scope
 	def resetScope(self, newScopeName):
 		self._nameOfScopeOverride = newScopeName
-		self._nameInScope = None
+		self.updateNameInScope()
 
 	def setOptionsFromAttributes(self, attributes):
 		if "present" in attributes:

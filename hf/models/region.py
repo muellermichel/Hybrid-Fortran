@@ -178,6 +178,9 @@ class CallRegion(Region):
 
 	def loadPassedInSymbolsByName(self, symbolsByName):
 		self._passedInSymbolsByName = copy.copy(symbolsByName)
+		parentRoutine = self._routineRef()
+		for symbol in symbolsByName.values():
+			symbol.resetScope(parentRoutine.name)
 		self._passedInSymbolsByNameInScope = dict(
 			(symbol.nameInScope(), symbol)
 			for symbol in symbolsByName.values()

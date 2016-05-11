@@ -18,7 +18,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
-import copy, weakref
+import copy, weakref, traceback
 from models.region import RegionType, RoutineSpecificationRegion, ParallelRegion, CallRegion
 from models.symbol import FrameworkArray, DeclarationType, ScopeError, limitLength
 from machinery.commons import ConversionOptions
@@ -143,6 +143,8 @@ This is not allowed for implementations using %s.\
 
 	def _updateSymbolReferences(self):
 		#scoped name could have changed through splitting / merging
+		for symbol in self.symbolsByName.values():
+			symbol.resetScope(self.name)
 		updatedSymbolsByName = dict(
 			(symbol.nameInScope(useDeviceVersionIfAvailable=False), symbol)
 			for symbol in self.symbolsByName.values()
@@ -262,7 +264,6 @@ This is not allowed for implementations using %s.\
 				for symbol in additionalImportsForDeviceCompatibility \
 				+ additionalDeclarationsForDeviceCompatibility \
 				+ additionalDummies:
-					symbol.resetScope(self.name)
 					symbolsByUniqueNameToBeUpdated[symbol.uniqueIdentifier] = symbol
 				if 'DEBUG_PRINT' in callee.implementation.optionFlags:
 					tentativeAdditionalImports = getModuleArraysForCallee(
@@ -499,7 +500,7 @@ This is not allowed for implementations using %s.\
 		except UsageError as e:
 			raise UsageError("Error in %s: %s" %(self.name, str(e)))
 		except ScopeError as e:
-			raise ScopeError("Error in %s: %s" %(self.name, str(e)))
+			raise ScopeError("Error in %s: %s;\nTraceback: %s" %(self.name, str(e), traceback.format_exc()))
 		return "\n".join([
 			text
 			for (index, text) in purgedRoutineElements

@@ -879,6 +879,7 @@ end if\n" %(calleeNode.getAttribute('name'))
 				name = symbol.nameInScope(useDeviceVersionIfAvailable=False)
 				if name in index:
 					symbol.merge(index[name])
+					symbol.resetScope(currRoutine.name)
 					del index[name]
 
 		def getAdditionalImportsAndDeclarationsForParentScope(parentNode, argumentSymbolNames):
@@ -906,6 +907,7 @@ end if\n" %(calleeNode.getAttribute('name'))
 						parallelRegionTemplates=callee.parallelRegionTemplates
 					)
 					symbol.loadRoutineNodeAttributes(parentNode, callee.parallelRegionTemplates)
+				symbol.resetScope(currRoutine.name)
 				if symbol.isDummySymbolForRoutine(routineName=parentNode.getAttribute('name')):
 					continue #already passed manually
 				isModuleSymbol = symbol.declarationType in [
@@ -931,7 +933,6 @@ end if\n" %(calleeNode.getAttribute('name'))
 				]:
 					logging.debug("dummy added for %s" %(symbol))
 					additionalDummies.append(symbol)
-				symbol.resetScope(callee.name)
 			return additionalImports, additionalDeclarations, additionalDummies
 
 		if callee.node.getAttribute("parallelRegionPosition") != "within" or not callee.parallelRegionTemplates:

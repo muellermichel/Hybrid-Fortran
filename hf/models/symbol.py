@@ -1556,10 +1556,12 @@ class FrameworkArray(Symbol):
 			raise Exception("Declaration prefix required for initializing framework array")
 		if len(domains) != 1:
 			raise Exception("Currently unsupported non-1D-array specified as framework array")
-		Symbol.__init__(self, frameworkArrayName(calleeName))
+		identifier = frameworkArrayName(calleeName)
+		Symbol.__init__(self, identifier)
 		self.domains = domains
 		self.isMatched = True
 		self.isOnDevice = isOnDevice
 		self.isConstant = True
 		self.declarationPrefix = declarationPrefix
 		self._declarationTypeOverride = DeclarationType.FRAMEWORK_ARRAY
+		self._nameInScope = identifier

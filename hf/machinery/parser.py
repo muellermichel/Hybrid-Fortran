@@ -918,6 +918,7 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
                 self.symbolsOnCurrentLine.append(symbol)
             else:
                 self.symbolsOnCurrentLine.append(symbol)
+            symbol.isEmulatingSymbolThatWasActiveInCurrentScope = True
 
     def processImport(self, parentNode, uidLocal, uidSource, moduleName, sourceSymbolName, symbolNameInScope):
         k = (moduleName, symbolNameInScope)

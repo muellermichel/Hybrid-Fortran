@@ -931,6 +931,7 @@ end if\n" %(calleeNode.getAttribute('name'))
 				]:
 					logging.debug("dummy added for %s" %(symbol))
 					additionalDummies.append(symbol)
+				symbol.resetScope(callee.name)
 			return additionalImports, additionalDeclarations, additionalDummies
 
 		if callee.node.getAttribute("parallelRegionPosition") != "within" or not callee.parallelRegionTemplates:

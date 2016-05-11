@@ -224,7 +224,7 @@ MERGEABLE_DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES = {
 	"isDeclaredExplicitely": False,
 	"hasUndecidedDomainSizes": False,
 	"isMatched": False,
-	"declarationPrefix": None,
+	"_declarationPrefix": None,
 	"_sourceModuleIdentifier": None,
 	"_sourceSymbol": None,
 	"parallelRegionTemplates": None,
@@ -344,6 +344,14 @@ class Symbol(object):
 	@sourceModule.setter
 	def sourceModule(self, _sourceModuleIdentifier):
 		self._sourceModuleIdentifier = _sourceModuleIdentifier
+
+	@property
+	def declarationPrefix(self):
+		return self._declarationPrefix
+
+	@declarationPrefix.setter
+	def declarationPrefix(self, _declarationPrefix):
+		self._declarationPrefix = _declarationPrefix
 
 	@property
 	def isArgument(self):

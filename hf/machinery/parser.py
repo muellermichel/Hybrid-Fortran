@@ -880,6 +880,7 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
             if not isInsideSubroutineCall and not isInSubroutineBody:
                 specTuple = symbol.getSpecificationTuple(line)
                 if specTuple[0]:
+                    symbol.resetScope(scopeName)
                     matchesAndSymbol[0] = specTuple
                     matchesAndSymbolByScopeName[symbol.nameOfScope] = matchesAndSymbol
                     matchesAndSymbolBySymbolNameAndScopeName[symbol.name] = matchesAndSymbolByScopeName
@@ -892,6 +893,7 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
                     matchesAndSymbolBySymbolNameAndScopeName[symbol.name] = matchesAndSymbolByScopeName
                     continue
             if (isInSubroutineBody or isInsideSubroutineCall) and symbol.splitTextAtLeftMostOccurrence(line)[1] != "":
+                symbol.resetScope(scopeName)
                 matchesAndSymbolByScopeName[symbol.nameOfScope] = matchesAndSymbol
                 matchesAndSymbolBySymbolNameAndScopeName[symbol.name] = matchesAndSymbolByScopeName
 

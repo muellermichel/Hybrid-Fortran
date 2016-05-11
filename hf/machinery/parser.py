@@ -946,8 +946,6 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
         symbolList = importMatch.group(2).split(',')
         for symbolName in symbolList:
             stripped = symbolName.strip()
-            uidLocal = uniqueIdentifier(stripped, scopeName)
-            uidSource = uniqueIdentifier(stripped, moduleName)
             mappedImportMatch = self.patterns.singleMappedImportPattern.match(stripped)
             sourceSymbolName = None
             symbolNameInScope = None
@@ -957,6 +955,8 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
             else:
                 symbolNameInScope = stripped
                 sourceSymbolName = symbolNameInScope
+            uidLocal = uniqueIdentifier(symbolNameInScope, scopeName)
+            uidSource = uniqueIdentifier(sourceSymbolName, moduleName)
             self.processImport(parentNode, uidLocal, uidSource, moduleName, sourceSymbolName, symbolNameInScope)
 
     def processSymbolSpecification(self, specTuple, symbol):

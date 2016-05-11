@@ -1,5 +1,35 @@
 import unittest
 
+def tupleFromMatch(match):
+	if not match:
+		return ()
+	return match.groups()
+
+class TestPatterns(unittest.TestCase):
+	def testImportPatterns(self):
+		from tools.patterns import RegExPatterns
+		patterns = RegExPatterns.Instance()
+		self.assertEqual(
+			tupleFromMatch(patterns.selectiveImportPattern.match("useme, only: some, distraction")),
+			()
+		)
+		self.assertEqual(
+			tupleFromMatch(patterns.selectiveImportPattern.match("use my_module")),
+			()
+		)
+		self.assertEqual(
+			tupleFromMatch(patterns.selectiveImportPattern.match("use my_module, only: a, ab, ba")),
+			("my_module", "a, ab, ba")
+		)
+		self.assertEqual(
+			tupleFromMatch(patterns.selectiveImportPattern.match("use my_module, only: a, ab=>my_ba, ba")),
+			("my_module", "a, ab=>my_ba, ba")
+		)
+		self.assertEqual(
+			tupleFromMatch(patterns.selectiveImportPattern.match("use my_module, only: a, ab => my_ba, ba")),
+			("my_module", "a, ab => my_ba, ba")
+		)
+
 class TestCommonTools(unittest.TestCase):
 	def testTextSplittingBasic(self):
 		from tools.commons import splitTextAtLeftMostOccurrence

@@ -60,7 +60,7 @@ class RegExPatterns:
         'symbolAccessPattern': r'\s*\((.*)',
         'symbolNamePattern': r'\s*(\w*)((?:\W.*)|\Z)',
         'argumentPattern': r'\s*(?:subroutine|call)?\s*(?:\w*)\s*\((.*)',
-        'selectiveImportPattern': r'^\s*use\s*(\w*)[,\s]*only\s*\:\s*([=>,\s\w]*)(?:\s.*|$)',
+        'selectiveImportPattern': r'^\s*use\s+(\w*)[,\s]*only\s*\:\s*([=>,\s\w]*)(?:\s.*|$)',
         'importAllPattern': r'^\s*use\s*\w*\s*$',
         'singleMappedImportPattern': r'\s*(\w*)\s*=>\s*(\w*)\s*',
         'callArgumentPattern': r'\s*(\w*)\s*(.*)',

@@ -375,7 +375,7 @@ class Symbol(object):
 			return self._nameOfScopeOverride
 		if self.routineNode:
 			return self.routineNode.getAttribute('name')
-		return None
+		raise Exception("undefined name of scope for %s" %(self.name))
 
 	@nameOfScope.setter
 	def nameOfScope(self, _nameOfScopeOverride):
@@ -537,7 +537,7 @@ EXAMPLE:\n\
 	def uniqueIdentifier(self):
 		if not self.routineNode:
 			raise Exception("routine node needs to be loaded at this point")
-		return uniqueIdentifier(self.name, self.routineNode.getAttribute("name"))
+		return uniqueIdentifier(self.name, self.nameOfScope)
 
 	def updateNameInScope(self):
 		#Give a symbol representation that is guaranteed to *not* collide with any local namespace (as long as programmer doesn't use any 'hfXXX' pre- or postfixes)
@@ -723,8 +723,9 @@ EXAMPLE:\n\
 
 	# to be called when a previously loaded symbol is used in a new scope
 	def resetScope(self, newScopeName):
-		self._nameOfScopeOverride = newScopeName
-		self.updateNameInScope()
+		pass
+		# self._nameOfScopeOverride = newScopeName
+		# self.updateNameInScope()
 
 	def setOptionsFromAttributes(self, attributes):
 		if "present" in attributes:
@@ -927,6 +928,7 @@ EXAMPLE:\n\
 		self.routineNode = moduleNode #MMU 2015-11-18: $$$ This needs to be commented or rethought
 		self.loadTemplateAttributes()
 		self.initLevel = max(self.initLevel, Init.ROUTINENODE_ATTRIBUTES_LOADED)
+		self.updateNameInScope()
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] symbol attributes loaded from module node. Domains at this point: %s. Init Level: %s" %(str(self.domains), str(self.initLevel)))
 
 	def loadRoutineNodeAttributes(self, routineNode, parallelRegionTemplates):
@@ -949,6 +951,7 @@ EXAMPLE:\n\
 				raise Exception("Invalid parallel region position definition ('%s') for routine %s" %(parallelRegionPosition, routineName))
 			parallelRegionTemplatesUsedForLoading = parallelRegionTemplates
 		self.loadTemplateAttributes(parallelRegionTemplatesUsedForLoading)
+		self.updateNameInScope()
 		self.initLevel = max(self.initLevel, Init.ROUTINENODE_ATTRIBUTES_LOADED)
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] routine node attributes loaded for symbol %s. Domains at this point: %s" %(self.name, str(self.domains)))
 

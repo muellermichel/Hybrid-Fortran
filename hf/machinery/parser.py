@@ -875,7 +875,19 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
 
         matchesAndSymbolBySymbolNameAndScopeName = {}
         for symbol in self.currSymbolsByName.values():
-            matchesAndSymbolByScopeName = matchesAndSymbolBySymbolNameAndScopeName.get(symbol.name, {})
+            if symbol.nameOfScope not in [self.currSubprocName, self.currModuleName]:
+                raise Exception("symbol with invalid scope (%s) present on line %i in %s (%s): %s" %(
+                    symbol.nameOfScope,
+                    currLineNo,
+                    scopeName,
+                    self.currModuleName,
+                    symbol.name
+                ))
+            matchesAndSymbolByScopeName = matchesAndSymbolBySymbolNameAndScopeName.get(symbol.name)
+            if not matchesAndSymbolByScopeName:
+                matchesAndSymbolByScopeName = {}
+            elif matchesAndSymbolByScopeName.get(self.currSubprocName) != None:
+                continue #we don't override if this symbol is already matched and is local
             matchesAndSymbol = [None, None, symbol]
             if not isInsideSubroutineCall and not isInSubroutineBody:
                 specTuple = symbol.getSpecificationTuple(line)
@@ -1011,6 +1023,22 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
         else:
             raise Exception("Invalid branch setting definition: Currently only parallelRegion and architecture setting accepted.")
 
+    def processInsideDomainDependantRegionState(self, line):
+        super(H90CallGraphAndSymbolDeclarationsParser, self).processInsideDomainDependantRegionState(line)
+        if (self.state != 'inside_branch' and self.state != 'inside_domainDependantRegion') or (self.state == "inside_branch" and self.stateBeforeBranch != "inside_domainDependantRegion"):
+            return
+        if self.currSubprocName == None:
+            return
+        for entry in line.split(','):
+            stripped = entry.strip()
+            if stripped == "":
+                continue
+            uid = uniqueIdentifier(stripped, self.currSubprocName)
+            symbol = self.currSymbolsByName.get(uid)
+            if symbol == None:
+                raise Exception("symbol %s not found in scope %s" %(stripped, self.currSubprocName))
+            symbol.isMatched = True
+
     def processInsideBranch(self, line):
         super(H90CallGraphAndSymbolDeclarationsParser, self).processInsideBranch(line)
         if self.patterns.branchEndPattern.match(line):
@@ -1099,8 +1127,6 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
         dependants = self.currSymbolsByName.keys()
         unmatched = []
         for dependant in dependants:
-            if self.currSymbolsByName[dependant].isModuleSymbol:
-                continue
             if self.currSymbolsByName[dependant].isMatched or (routineNode and routineNode.getAttribute('parallelRegionPosition') in [None, '']):
                 logging.debug("removing %s from active symbols" %(dependant))
                 del self.currSymbolsByName[dependant]
@@ -1112,6 +1138,8 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
                 self.currSymbolsByName[dependant].isModuleSymbol = True
                 logging.debug("removing %s from active symbols" %(dependant))
                 del self.currSymbolsByName[dependant]
+                continue
+            if self.currSymbolsByName[dependant].isModuleSymbol:
                 continue
             unmatched.append(dependant)
         if not routineNode:

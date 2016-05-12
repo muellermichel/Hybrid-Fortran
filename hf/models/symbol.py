@@ -1229,7 +1229,7 @@ Current Domains: %s\n" %(
 
 	def getSanitizedDeclarationPrefix(self, purgeList=None):
 		if self.declarationPrefix in [None, ""]:
-			raise Exception("Cannot generate declaration prefix for %s" %(str(self)))
+			raise ScopeError("Cannot generate declaration prefix for %s (from %s)" %(self, self.nameOfScope))
 		if purgeList == None:
 			purgeList = ['intent', 'public', 'parameter']
 		result = self._getPurgedDeclarationPrefix(purgeList)

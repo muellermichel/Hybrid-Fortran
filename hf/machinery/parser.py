@@ -1127,7 +1127,11 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
         dependants = self.currSymbolsByName.keys()
         unmatched = []
         for dependant in dependants:
-            if self.currSymbolsByName[dependant].isMatched or (routineNode and routineNode.getAttribute('parallelRegionPosition') in [None, '']):
+            $$$ -> inspect error here
+            if self.currSymbolsByName[dependant].nameOfScope == self.currModuleName:
+                continue
+            if self.currSymbolsByName[dependant].isMatched \
+            or (routineNode and routineNode.getAttribute('parallelRegionPosition') in [None, '']):
                 logging.debug("removing %s from active symbols" %(dependant))
                 del self.currSymbolsByName[dependant]
                 continue
@@ -1138,8 +1142,6 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
                 self.currSymbolsByName[dependant].isModuleSymbol = True
                 logging.debug("removing %s from active symbols" %(dependant))
                 del self.currSymbolsByName[dependant]
-                continue
-            if self.currSymbolsByName[dependant].isModuleSymbol:
                 continue
             unmatched.append(dependant)
         if not routineNode:

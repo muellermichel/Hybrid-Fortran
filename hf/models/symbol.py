@@ -573,7 +573,7 @@ EXAMPLE:\n\
 
 	def nameInScope(self, useDeviceVersionIfAvailable=True):
 		if self._nameInScope == None:
-			raise ScopeError("name in scope undefined at this point for %s" %(self.name))
+			raise ScopeError("name in scope undefined at this point for %s; scope name: %s" %(self.name, self.nameOfScope))
 		if useDeviceVersionIfAvailable and self.isUsingDevicePostfix:
 			return limitLength(deviceVersionIdentifier(self._nameInScope))
 		return limitLength(self._nameInScope)

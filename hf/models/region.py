@@ -144,14 +144,13 @@ class CallRegion(Region):
 		super(CallRegion, self).__init__(routine)
 		self._callee = None
 		self._passedInSymbolsByName = None
-		self._passedInSymbolsByNameInScope = None
 
 	def _adjustedArguments(self, arguments):
 		def adjustArgument(argument, parallelRegionTemplate, iterators):
 			symbolMatch = RegExPatterns.Instance().symbolNamePattern.match(argument)
 			if not symbolMatch:
 				return argument
-			symbol = self._passedInSymbolsByNameInScope.get(symbolMatch.group(1))
+			symbol = self._passedInSymbolsByName.get(symbolMatch.group(1))
 			if not symbol:
 				return argument
 			symbolAccessString, remainder = getSymbolAccessStringAndRemainder(
@@ -179,19 +178,12 @@ class CallRegion(Region):
 	def loadPassedInSymbolsByName(self, symbolsByName):
 		self._passedInSymbolsByName = copy.copy(symbolsByName)
 
-	def _updateSymbolReferencesForPassedInSymbols(self):
-		self._passedInSymbolsByNameInScope = dict(
-			(symbol.nameInScope(), symbol)
-			for symbol in self._passedInSymbolsByName.values()
-		)
-
 	def clone(self):
 		raise NotImplementedError()
 
 	def implemented(self, skipDebugPrint=False):
 		if not self._callee:
 			raise Exception("call not loaded for call region in %s" %(self._routineRef().name))
-		self._updateSymbolReferencesForPassedInSymbols()
 
 		text = ""
 		argumentSymbols = None

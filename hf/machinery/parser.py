@@ -928,7 +928,7 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
                 self.importsOnCurrentLine.append(symbol)
                 self.processKnownSymbolImportMatch(matchesAndSymbolInScope[1], symbol)
             elif isInsideSubroutineCall:
-                self.symbolsPassedInCurrentCallByName[symbol.uniqueIdentifier] = symbol
+                self.symbolsPassedInCurrentCallByName[symbol.name] = symbol
                 self.symbolsOnCurrentLine.append(symbol)
             else:
                 self.symbolsOnCurrentLine.append(symbol)

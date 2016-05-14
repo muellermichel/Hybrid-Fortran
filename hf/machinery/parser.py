@@ -1127,18 +1127,19 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
         dependants = self.currSymbolsByName.keys()
         unmatched = []
         for dependant in dependants:
-            if self.currSymbolsByName[dependant].nameOfScope == self.currModuleName:
+            symbol = self.currSymbolsByName[dependant]
+            if symbol.isModuleSymbol and symbol.nameOfScope == self.currModuleName:
                 continue
-            if self.currSymbolsByName[dependant].isMatched \
+            if symbol.isMatched \
             or (routineNode and routineNode.getAttribute('parallelRegionPosition') in [None, '']):
                 logging.debug("removing %s from active symbols" %(dependant))
                 del self.currSymbolsByName[dependant]
                 continue
-            if len(self.currSymbolsByName[dependant].domains) == 0:
+            if len(symbol.domains) == 0:
                 #scalars that haven't been declared: Assume that they're from the local module
                 #$$$ this code can probably be left away now that we analyze additional module symbols that haven't been declared domain dependant specifically within the module
-                self.currSymbolsByName[dependant].sourceModule = "HF90_LOCAL_MODULE"
-                self.currSymbolsByName[dependant].isModuleSymbol = True
+                symbol.sourceModule = "HF90_LOCAL_MODULE"
+                symbol.isModuleSymbol = True
                 logging.debug("removing %s from active symbols" %(dependant))
                 del self.currSymbolsByName[dependant]
                 continue

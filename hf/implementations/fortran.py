@@ -791,7 +791,6 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 			kernelName = synthesizedKernelName(routine.name, parallelRegionIndex)
 			kernelRoutine = kernelRoutinesByName[kernelName]
 			callRegion = CallRegion(routine)
-			callRegion.loadPassedInSymbolsByName(kernelRoutine.symbolsByName)
 			routine.loadCall(kernelRoutine, overrideRegion=callRegion)
 			kernelWrapperRegions.append(callRegion)
 			parallelRegionIndex += 1

@@ -499,8 +499,8 @@ This is not allowed for implementations using %s.\
 		purgedRoutineElements = []
 		try:
 			self._checkParallelRegions()
-			self._updateSymbolReferences()
 			self._prepareAdditionalContext()
+			self._updateSymbolReferences()
 			self._updateSymbolState()
 			implementedRoutineElements = [self._implementHeader(), self._implementAdditionalImports()]
 			implementedRoutineElements += [region.implemented() for region in self._regions]

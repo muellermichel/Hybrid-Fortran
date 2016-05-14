@@ -145,10 +145,22 @@ This is not allowed for implementations using %s.\
 		#scoped name could have changed through splitting / merging
 		for symbol in self.symbolsByName.values():
 			symbol.resetScope(self.name)
-		updatedSymbolsByName = dict(
-			(symbol.nameInScope(useDeviceVersionIfAvailable=False), symbol)
-			for symbol in self.symbolsByName.values()
-		)
+		symbolsByNameAndScopeName = {}
+		for symbol in self.symbolsByName.values():
+			symbolsByScopeName = symbolsByNameAndScopeName.get(symbol.name, {})
+			symbolsByScopeName[symbol.nameOfScope] = symbol
+			symbolsByNameAndScopeName[symbol.name] = symbolsByScopeName
+		parentModuleName = self._parentModule().name
+		updatedSymbolsByName = {}
+		for symbolsByScopeName in symbolsByNameAndScopeName.values():
+			symbol = symbolsByScopeName.get(self.name)
+			if not symbol:
+				symbol = symbolsByScopeName.get(parentModuleName)
+			if not symbol:
+				symbol = symbolsByScopeName[symbolsByScopeName.keys()[0]]
+				symbol.nameOfScope = self.name
+			symbol.updateNameInScope()
+			updatedSymbolsByName[symbol.nameInScope(useDeviceVersionIfAvailable=False)] = symbol
 		self.symbolsByName = updatedSymbolsByName
 
 	def _updateSymbolState(self):

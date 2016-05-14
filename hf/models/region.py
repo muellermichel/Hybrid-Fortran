@@ -178,12 +178,11 @@ class CallRegion(Region):
 
 	def loadPassedInSymbolsByName(self, symbolsByName):
 		self._passedInSymbolsByName = copy.copy(symbolsByName)
-		parentRoutine = self._routineRef()
-		for symbol in symbolsByName.values():
-			symbol.resetScope(parentRoutine.name)
+
+	def _updateSymbolReferencesForPassedInSymbols(self):
 		self._passedInSymbolsByNameInScope = dict(
 			(symbol.nameInScope(), symbol)
-			for symbol in symbolsByName.values()
+			for symbol in self._passedInSymbolsByName.values()
 		)
 
 	def clone(self):
@@ -192,6 +191,7 @@ class CallRegion(Region):
 	def implemented(self, skipDebugPrint=False):
 		if not self._callee:
 			raise Exception("call not loaded for call region in %s" %(self._routineRef().name))
+		self._updateSymbolReferencesForPassedInSymbols()
 
 		text = ""
 		argumentSymbols = None

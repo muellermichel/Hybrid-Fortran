@@ -1127,7 +1127,6 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
         dependants = self.currSymbolsByName.keys()
         unmatched = []
         for dependant in dependants:
-            $$$ -> inspect error here
             if self.currSymbolsByName[dependant].nameOfScope == self.currModuleName:
                 continue
             if self.currSymbolsByName[dependant].isMatched \

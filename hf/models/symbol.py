@@ -706,7 +706,6 @@ EXAMPLE:\n\
 		self.isPresent = self.isPresent or otherSymbol.isPresent
 		self.isToBeTransfered = self.isToBeTransfered
 		self.initLevel = max(self.initLevel, otherSymbol.initLevel)
-		self._nameInScope = None
 
 	def loadTemplate(self, template):
 		if self.initLevel > Init.DEPENDANT_ENTRYNODE_ATTRIBUTES_LOADED:

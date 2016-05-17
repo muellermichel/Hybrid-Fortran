@@ -24,7 +24,7 @@ from models.symbol import *
 from tools.commons import UsageError, BracketAnalyzer
 from tools.analysis import SymbolDependencyAnalyzer, getAnalysisForSymbol, getArguments
 from tools.patterns import RegExPatterns
-from machinery.commons import FortranRoutineArgumentParser, FortranCodeSanitizer, parseSpecification
+from machinery.commons import FortranRoutineArgumentParser, FortranCodeSanitizer, parseSpecification, updateTypeParameterProperties
 
 currFile = None
 currLineNo = None
@@ -809,6 +809,7 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
 
     def createSymbolsForParent(self, parent, symbolNames, parallelRegionTemplates):
         if isinstance(self.cgDoc, ImmutableDOMDocument):
+            #please note that when this class is subclassed by the converter we can't (and shouldn't) create new symbols anymore
             raise Exception("Cannot create new symbols (%s) at this point" %(str(symbolNames)))
         _, template, entries = setDomainDependants(
             self.cgDoc,
@@ -849,7 +850,7 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
         if not isInsideSubroutineCall and not isInSubroutineBody:
             selectiveImportMatch = self.patterns.selectiveImportPattern.match(line)
             if selectiveImportMatch:
-                self.processImportMatch(selectiveImportMatch)
+                self.processImportMatch(selectiveImportMatch) #$$$ unify this with processKnownSymbolImportMatch
             specTuple = parseSpecification(line)
             if specTuple[0] and not "device" in specTuple[0]:
                 #if symbol is declared device type, let user handle it
@@ -985,6 +986,7 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
             self.currArguments if isinstance(self.currArguments, list) else [],
             self.currModuleName if isInModuleScope else self.currSubprocName
         )
+        updateTypeParameterProperties(symbol, self.currSymbolsByName.values())
 
     def processKnownSymbolImportMatch(self, importMatch, symbol):
         logging.debug("processing symbol import for %s" %(symbol))
@@ -993,6 +995,7 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
         moduleNode = self.moduleNodesByName.get(moduleName)
         if moduleNode:
             symbol.loadImportInformation(self.cgDoc, moduleNode, sourceName)
+        updateTypeParameterProperties(symbol, self.currSymbolsByName.values())
 
     def processBranchMatch(self, branchMatch):
         super(H90CallGraphAndSymbolDeclarationsParser, self).processBranchMatch(branchMatch)

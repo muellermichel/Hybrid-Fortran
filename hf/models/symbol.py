@@ -224,6 +224,8 @@ MERGEABLE_DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES = {
 	"isDeclaredExplicitely": False,
 	"hasUndecidedDomainSizes": False,
 	"isMatched": False,
+	"usedTypeParameters": [],
+	"_isTypeParameter": False,
 	"_declarationPrefix": None,
 	"_sourceModuleIdentifier": None,
 	"_sourceSymbol": None,
@@ -381,6 +383,16 @@ class Symbol(object):
 	@nameOfScope.setter
 	def nameOfScope(self, _nameOfScopeOverride):
 		self._nameOfScopeOverride = _nameOfScopeOverride
+
+	@property
+	def isTypeParameter(self):
+		return self._isTypeParameter
+
+	@isTypeParameter.setter
+	def isTypeParameter(self, _isTypeParameter):
+		self._isTypeParameter = _isTypeParameter
+		if self._isTypeParameter:
+			logging.debug("Symbol %s has been found to be a type parameter" %(self))
 
 	@property
 	def sourceSymbol(self):

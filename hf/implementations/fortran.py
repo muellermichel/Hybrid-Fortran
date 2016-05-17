@@ -19,6 +19,7 @@
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
 import os, logging
+from machinery.commons import updateTypeParameterProperties
 from models.symbol import Symbol, DeclarationType, splitAndPurgeSpecification
 from models.region import RegionType, ParallelRegion, CallRegion
 from tools.analysis import getAnalysisForSymbol
@@ -283,7 +284,7 @@ def _checkDeclarationConformity(dependantSymbols):
 			alreadyOnDevice = "no"
 		elif (symbol.isPresent and alreadyOnDevice == "no") \
 		or (not symbol.isPresent and alreadyOnDevice == "yes"):
-			raise UsageError("Declaration line contains a mix of device present, non-device-present arrays. \
+			raise UsageError("line contains a mix of device present, non-device-present arrays. \
 Symbols vs present attributes:\n%s" %(str([(symbol.name, symbol.isPresent) for symbol in dependantSymbols])) \
 			)
 	copyHere = "undefined"
@@ -295,7 +296,7 @@ Symbols vs present attributes:\n%s" %(str([(symbol.name, symbol.isPresent) for s
 		elif not symbol.isToBeTransfered and copyHere == "undefined":
 			copyHere = "no"
 		elif (symbol.isToBeTransfered and copyHere == "no") or (not symbol.isToBeTransfered and copyHere == "yes"):
-			raise UsageError("Declaration line contains a mix of transferHere / non transferHere arrays. \
+			raise UsageError("line contains a mix of transferHere / non transferHere arrays. \
 Symbols vs transferHere attributes:\n%s" %(str([(symbol.name, symbol.transferHere) for symbol in dependantSymbols])) \
 			)
 	isOnHost = "undefined"
@@ -307,7 +308,7 @@ Symbols vs transferHere attributes:\n%s" %(str([(symbol.name, symbol.transferHer
 		elif not symbol.isHostSymbol and isOnHost == "undefined":
 			isOnHost = "no"
 		elif (symbol.isHostSymbol and symbol.isHostSymbol == "no") or (not symbol.isHostSymbol and symbol.isHostSymbol == "yes"):
-			raise UsageError("Declaration line contains a mix of host / non host arrays. \
+			raise UsageError("line contains a mix of host / non host arrays. \
 Symbols vs host attributes:\n%s" %(str([(symbol.name, symbol.isHostSymbol) for symbol in dependantSymbols])) \
 			)
 	if copyHere == "yes" and alreadyOnDevice == "yes":
@@ -325,7 +326,14 @@ Symbols vs host attributes:\n%s" %(str([(symbol.name, symbol.isHostSymbol) for s
 			[symbol.name for symbols in dependantSymbols if symbol.domains and len(symbol.domains) > 0 and symbol.isHostSymbol],
 			[symbol.name for symbols in dependantSymbols if symbol.domains and len(symbol.domains) > 0 and symbol.isPresent],
 		))
-
+	isTypeParameter = "undefined"
+	for symbol in dependantSymbols:
+		if symbol.isTypeParameter and isTypeParameter == "undefined":
+			isTypeParameter = "yes"
+		elif not symbol.isTypeParameter and isTypeParameter == "undefined":
+			isTypeParameter = "no"
+		elif (symbol.isTypeParameter and isTypeParameter == "no") or (not symbol.isTypeParameter and isTypeParameter == "yes"):
+			raise UsageError("line contains a mix of type parameter / non type parameter symbols: %s" %(dependantSymbols))
 	return alreadyOnDevice, copyHere, isOnHost
 
 class DeviceDataFortranImplementation(FortranImplementation):
@@ -397,16 +405,18 @@ class DeviceDataFortranImplementation(FortranImplementation):
 		except UsageError as e:
 			raise UsageError("In imports: %s; symbols: %s" %(str(e), dependantSymbols))
 
+		if dependantSymbols[0].isTypeParameter:
+			return getImportStatements(dependantSymbols)
 		if parallelRegionPosition in ["within", "outside"]:
 			return ""
 		if len(dependantSymbols) == 0:
 			return ""
 		if dependantSymbols[0].isPresent or dependantSymbols[0].isHostSymbol:
-			return getImportStatements(dependantSymbols) + "\n"
+			return getImportStatements(dependantSymbols)
 		if dependantSymbols[0].isToBeTransfered or regionType == RegionType.KERNEL_CALLER_DECLARATION:
-			return getImportStatements(dependantSymbols) + "\n" \
-				+ getImportStatements(dependantSymbols, forceHostVersion=True) + "\n" #need both versions available for transfer
-		return getImportStatements(dependantSymbols) + "\n"
+			return getImportStatements(dependantSymbols) \
+				+ getImportStatements(dependantSymbols, forceHostVersion=True)
+		return getImportStatements(dependantSymbols)
 
 	def adjustDeclarationForDevice(self, line, dependantSymbols, regionType, parallelRegionPosition):
 		def declarationStatements(dependantSymbols, declarationDirectives, deviceType):
@@ -906,9 +916,12 @@ end if\n" %(calleeNode.getAttribute('name'))
 						parallelRegionTemplates=callee.parallelRegionTemplates
 					)
 					symbol.loadRoutineNodeAttributes(parentNode, callee.parallelRegionTemplates)
-				symbol.resetScope(currRoutine.name)
+					updateTypeParameterProperties(symbol, currRoutine.symbolsByName.values())
+				if symbol.isTypeParameter:
+					continue
 				if symbol.isDummySymbolForRoutine(routineName=parentNode.getAttribute('name')):
 					continue #already passed manually
+				symbol.resetScope(currRoutine.name)
 				isModuleSymbol = symbol.declarationType in [
 					DeclarationType.LOCAL_MODULE_SCALAR,
 					DeclarationType.MODULE_ARRAY,

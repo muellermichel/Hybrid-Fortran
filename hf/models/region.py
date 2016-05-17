@@ -324,6 +324,7 @@ class RoutineSpecificationRegion(Region):
 		self._compactionDeclarationPrefixByCalleeName = None
 		self._currAdditionalCompactedSubroutineParameters = None
 		self._allImports = None
+		self._typeParameterSymbolsByName = None
 		self._dataSpecificationLines = []
 
 	def clone(self):
@@ -333,7 +334,8 @@ class RoutineSpecificationRegion(Region):
 			self._symbolsToAdd,
 			self._compactionDeclarationPrefixByCalleeName,
 			self._currAdditionalCompactedSubroutineParameters,
-			self._allImports
+			self._allImports,
+			self._typeParameterSymbolsByName
 		)
 		return clone
 
@@ -346,13 +348,15 @@ class RoutineSpecificationRegion(Region):
 		symbolsToAdd,
 		compactionDeclarationPrefixByCalleeName,
 		currAdditionalCompactedSubroutineParameters,
-		allImports
+		allImports,
+		typeParameterSymbolsByName
 	):
 		self._additionalParametersByKernelName = copy.copy(additionalParametersByKernelName)
 		self._symbolsToAdd = copy.copy(symbolsToAdd)
 		self._compactionDeclarationPrefixByCalleeName = copy.copy(compactionDeclarationPrefixByCalleeName)
 		self._currAdditionalCompactedSubroutineParameters = copy.copy(currAdditionalCompactedSubroutineParameters)
 		self._allImports = copy.copy(allImports)
+		self._typeParameterSymbolsByName = copy.copy(typeParameterSymbolsByName)
 
 	def implemented(self, skipDebugPrint=False):
 		def getImportLine(importedSymbols, parentRoutine):
@@ -361,7 +365,7 @@ class RoutineSpecificationRegion(Region):
 				RegionType.KERNEL_CALLER_DECLARATION if parentRoutine.isCallingKernel else RegionType.OTHER,
 				parentRoutine.node.getAttribute('parallelRegionPosition'),
 				parentRoutine.parallelRegionTemplates
-			).strip() + "\n"
+			)
 
 		parentRoutine = self._routineRef()
 		declarationRegionType = RegionType.OTHER
@@ -378,7 +382,7 @@ class RoutineSpecificationRegion(Region):
 
 		importsFound = False
 		declaredSymbolsByScopedName = OrderedDict()
-		textBeforeImports = ""
+		textForImportsAndKeywords = ""
 		textBeforeDeclarations = ""
 		textAfterDeclarations = ""
 		symbolsToAddByScopedName = dict(
@@ -388,7 +392,7 @@ class RoutineSpecificationRegion(Region):
 		for (line, symbols) in self._linesAndSymbols:
 			if not symbols or len(symbols) == 0:
 				if not importsFound:
-					textBeforeImports += line.strip() + "\n"
+					textForImportsAndKeywords += line.strip() + "\n"
 				elif len(declaredSymbolsByScopedName.keys()) == 0:
 					textBeforeDeclarations += line.strip() + "\n"
 				else:
@@ -416,6 +420,12 @@ class RoutineSpecificationRegion(Region):
 		text = ""
 
 		try:
+			if len(self._typeParameterSymbolsByName.keys()) > 0 \
+			and ConversionOptions.Instance().debugPrint \
+			and not skipDebugPrint:
+				text += "!<----- type parameters --\n"
+			for typeParameterSymbol in self._typeParameterSymbolsByName.values():
+				text += getImportLine([typeParameterSymbol], parentRoutine)
 			if self._allImports:
 				if len(self._allImports.keys()) > 0 and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
 					text += "!<----- synthesized imports --\n"
@@ -434,9 +444,9 @@ class RoutineSpecificationRegion(Region):
 							text += " ! resynthesizing user input - no associated HF aware symbol found"
 						text += "\n"
 
-			if textBeforeImports != "" and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
+			if textForImportsAndKeywords != "" and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
 				text += "!<----- other imports and specs: ------\n"
-			text += textBeforeImports
+			text += textForImportsAndKeywords
 
 			if textBeforeDeclarations != "" and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
 				text += "!<----- before declarations: --\n"

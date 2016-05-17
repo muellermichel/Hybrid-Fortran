@@ -29,9 +29,10 @@ contains
   end subroutine
 
   subroutine wrapper3(a, b, c, d)
+    use my_module, only: rlength
     implicit none
-    real, dimension(NX,NY,NZ), intent(in) :: a, b
-    real, dimension(NX,NY,NZ), intent(out) :: c, d
+    real(rlength), dimension(NX,NY,NZ), intent(in) :: a, b
+    real(rlength), dimension(NX,NY,NZ), intent(out) :: c, d
 
     @domainDependant{attribute(autoDom,present)}
     a, b, c, d
@@ -42,9 +43,10 @@ contains
   end subroutine
 
   subroutine add3(a,b,c)
+    use my_module, only: rlength
     implicit none
-    real, dimension(NX,NY,NZ), intent(in) :: a, b
-    real, dimension(NX,NY,NZ), intent(out) :: c
+    real(rlength), dimension(NX,NY,NZ), intent(in) :: a, b
+    real(rlength), dimension(NX,NY,NZ), intent(out) :: c
     real, dimension(NX,NY,NZ) :: temp
     integer :: z
 
@@ -62,9 +64,10 @@ contains
   end subroutine
 
   subroutine mult3(a,b,d)
+    use my_module, only: rlength
     implicit none
-    real, dimension(NX,NY,NZ), intent(in) :: a, b
-    real, dimension(NX,NY,NZ), intent(out) :: d
+    real(rlength), dimension(NX,NY,NZ), intent(in) :: a, b
+    real(rlength), dimension(NX,NY,NZ), intent(out) :: d
     integer :: z
 
     @domainDependant{attribute(autoDom, present)}

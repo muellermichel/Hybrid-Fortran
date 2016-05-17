@@ -33,7 +33,7 @@ def getImportStatements(symbols, forceHostVersion=False):
 			return symbol.sourceSymbol
 		return symbol.name
 
-	return "\n".join(
+	result = "\n".join(
 		"use %s, only : %s => %s" %(
 			symbol.sourceModule,
 			symbol.nameInScope() if not forceHostVersion else symbol.name,
@@ -41,6 +41,9 @@ def getImportStatements(symbols, forceHostVersion=False):
 		)
 		for symbol in symbols
 	)
+	if result != "":
+		result += "\n"
+	return result
 
 def getReductionClause(parallelRegionTemplate):
 	reductionScalarsByOperator = getReductionScalarsByOperator(parallelRegionTemplate)

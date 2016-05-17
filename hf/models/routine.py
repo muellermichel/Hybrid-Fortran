@@ -354,13 +354,22 @@ This is not allowed for implementations using %s.\
 				compactedArrayList = [compactedArray]
 			callee._loadAdditionalArgumentSymbols(sorted(notToBeCompacted + compactedArrayList))
 
+		#prepare type parameters
+		typeParametersByName = {}
+		for symbol in self.symbolsByName.values():
+			for typeParameterSymbol in symbol.usedTypeParameters:
+				if typeParameterSymbol.sourceModule == self._parentModule().name:
+					continue
+				typeParametersByName[typeParameterSymbol.name] = typeParameterSymbol
+
 		#load into the specification region
 		self.regions[0].loadAdditionalContext(
 			additionalParametersByKernelName,
 			ourSymbolsToAdd,
 			compactionDeclarationPrefixByCalleeName,
 			additionalCompactedSubroutineParameters,
-			self._allImports
+			self._allImports,
+			typeParametersByName
 		)
 
 	def _implementHeader(self):

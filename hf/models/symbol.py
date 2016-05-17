@@ -224,6 +224,8 @@ MERGEABLE_DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES = {
 	"isDeclaredExplicitely": False,
 	"hasUndecidedDomainSizes": False,
 	"isMatched": False,
+	"usedTypeParameters": [],
+	"_isTypeParameter": False,
 	"_declarationPrefix": None,
 	"_sourceModuleIdentifier": None,
 	"_sourceSymbol": None,
@@ -268,6 +270,7 @@ class Symbol(object):
 		self.importPattern = self.patterns.get(r'^\s*use\s*(\w*)\s*,\s*only\s*.*?\W\s*' + re.escape(name) + r'(?:\W|$).*')
 		self.importMapPattern = self.patterns.get(r'.*?\W' + re.escape(name) + r'\s*\=\>\s*(\w*).*')
 		self.pointerOrAllocatablePattern = self.patterns.get(r'\s*(?:double\s+precision|real|integer|character|logical|complex).*?(?:pointer|allocatable).*?[\s,:]+' + re.escape(name))
+		self.typeDependencyPattern = self.patterns.get(r'.*?\W' + re.escape(name) + r'\W.*')
 		self.initLevel = Init.NOTHING_LOADED
 		self.routineNode = None
 		self.declarationSuffix = None
@@ -380,6 +383,16 @@ class Symbol(object):
 	@nameOfScope.setter
 	def nameOfScope(self, _nameOfScopeOverride):
 		self._nameOfScopeOverride = _nameOfScopeOverride
+
+	@property
+	def isTypeParameter(self):
+		return self._isTypeParameter
+
+	@isTypeParameter.setter
+	def isTypeParameter(self, _isTypeParameter):
+		self._isTypeParameter = _isTypeParameter
+		if self._isTypeParameter:
+			logging.debug("Symbol %s has been found to be a type parameter" %(self))
 
 	@property
 	def sourceSymbol(self):

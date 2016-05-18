@@ -22,7 +22,7 @@ import weakref, copy, re
 from tools.commons import enum, UsageError, OrderedDict
 from tools.metadata import getArguments
 from tools.patterns import RegExPatterns
-from machinery.commons import ConversionOptions, getSymbolAccessStringAndRemainder
+from machinery.commons import ConversionOptions, getSymbolAccessStringAndRemainder, implement
 from symbol import DeclarationType, FrameworkArray, frameworkArrayName, limitLength, uniqueIdentifier
 
 RegionType = enum(
@@ -32,50 +32,19 @@ RegionType = enum(
 )
 
 def implementSymbolAccessStringAndRemainder(line, suffix, symbol, iterators=[], parallelRegionTemplate=None, callee=None):
-	isPointerAssignment = RegExPatterns.Instance().pointerAssignmentPattern.match(line) != None
-	try:
-		symbolAccessString, remainder = getSymbolAccessStringAndRemainder(
-			symbol,
-			iterators,
-			parallelRegionTemplate,
-			suffix,
-			callee,
-			isPointerAssignment
-		)
-	except UsageError as e:
-		raise UsageError("%s; Print of Line: %s" %(str(e), line))
-	return symbolAccessString, remainder
-
-def implementLine(line, symbols, parentRoutine, iterators=[], parallelRegionTemplate=None, callee=None):
-	adjustedLine = line
-	for symbol in symbols:
-		lineSections = []
-		work = adjustedLine
-		prefix, matchedSymbolName, remainder = symbol.splitTextAtLeftMostOccurrence(work)
-		while matchedSymbolName != "":
-			lineSections.append(prefix)
-			symbolAccessString, remainder = implementSymbolAccessStringAndRemainder(
-				work,
-				remainder,
-				symbol,
-				iterators,
-				parallelRegionTemplate,
-				callee
-			)
-			lineSections.append(symbolAccessString)
-			work = remainder
-			prefix, matchedSymbolName, remainder = symbol.splitTextAtLeftMostOccurrence(work)
-		if len(lineSections) == 0:
-			raise Exception("symbol %s expected on line '%s' for %s - no match" %(
-				symbol.name,
-				line,
-				parentRoutine.name
-			))
-		#whatever is left now as "work" is the unmatched trailer of the line
-		lineSections.append(work)
-		#rebuild adjusted line - next symbol starts adjustment anew
-		adjustedLine = "".join(lineSections).strip()
-	return adjustedLine
+    isPointerAssignment = RegExPatterns.Instance().pointerAssignmentPattern.match(line) != None
+    try:
+        symbolAccessString, remainder = getSymbolAccessStringAndRemainder(
+            symbol,
+            iterators,
+            parallelRegionTemplate,
+            suffix,
+            callee,
+            isPointerAssignment
+        )
+    except UsageError as e:
+        raise UsageError("%s; Print of Line: %s" %(str(e), line))
+    return symbolAccessString, remainder
 
 class Region(object):
 	def __init__(self, routine):
@@ -132,7 +101,7 @@ class Region(object):
 		iterators = parentRoutine.implementation.getIterators(parallelRegionTemplate) \
 			if parallelRegionTemplate else []
 		text = "\n".join([
-			implementLine(line, symbols, parentRoutine, iterators, parallelRegionTemplate)
+			implement(line, symbols, implementSymbolAccessStringAndRemainder, iterators, parallelRegionTemplate)
 			for (line, symbols) in self._linesAndSymbols
 		])
 		if text == "":
@@ -433,6 +402,7 @@ class RoutineSpecificationRegion(Region):
 			for typeParameterSymbol in self._typeParameterSymbolsByName.values():
 				if typeParameterSymbol.sourceModule in moduleNamesCompletelyImported:
 					continue
+				typeParameterSymbol.updateNameInScope(forceAutomaticName=True)
 				text += getImportLine([typeParameterSymbol], parentRoutine)
 			if self._allImports:
 				if len(self._allImports.keys()) > 0 and ConversionOptions.Instance().debugPrint and not skipDebugPrint:

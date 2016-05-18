@@ -26,7 +26,7 @@ from tools.commons import enum, BracketAnalyzer, Singleton, UsageError, \
 	splitTextAtLeftMostOccurrence, splitIntoComponentsAndRemainder, getComponentNameAndBracketContent
 from tools.patterns import RegExPatterns
 from tools.analysis import SymbolDependencyAnalyzer, SymbolType
-from machinery.commons import ConversionOptions, parseSpecification
+from machinery.commons import ConversionOptions, parseSpecification, implement
 
 Init = enum(
 	"NOTHING_LOADED",
@@ -552,14 +552,14 @@ EXAMPLE:\n\
 			raise Exception("routine node needs to be loaded at this point")
 		return uniqueIdentifier(self.name, self.nameOfScope)
 
-	def updateNameInScope(self):
+	def updateNameInScope(self, forceAutomaticName=False):
 		#Give a symbol representation that is guaranteed to *not* collide with any local namespace (as long as programmer doesn't use any 'hfXXX' pre- or postfixes)
 		def automaticName(symbol):
-			if symbol.analysis and symbol.routineNode:
+			if symbol.analysis and symbol.routineNode and not forceAutomaticName:
 				aliasName = symbol.analysis.aliasNamesByRoutineName.get(symbol.nameOfScope)
 				if aliasName not in [None, '']:
 					return aliasName
-			if symbol.nameIsGuaranteedUniqueInScope:
+			if symbol.nameIsGuaranteedUniqueInScope and not forceAutomaticName:
 				return symbol.name
 			referencingName = None
 			if symbol.declarationType in [
@@ -568,20 +568,23 @@ EXAMPLE:\n\
 				DeclarationType.FOREIGN_MODULE_SCALAR,
 				DeclarationType.MODULE_ARRAY_PASSED_IN_AS_ARGUMENT
 			] and symbol._sourceModuleIdentifier not in [None, ""]:
-				referencingName = uniqueIdentifier(self.name, self._sourceModuleIdentifier)
+				referencingName = uniqueIdentifier(self.name, self.sourceModule)
 			else:
 				referencingName = symbol.uniqueIdentifier
 			return referencingName
 
+		originalModuleName = self.routineNode.getAttribute("name") if self.isModuleSymbol else self.routineNode.getAttribute('module')
 		self._nameInScope = None
-		if (self.routineNode and self.sourceModule in [
+		if forceAutomaticName:
+			self._nameInScope = automaticName(self)
+		elif (self.routineNode and self.sourceModule in [
 			"HF90_LOCAL_MODULE",
-			self.routineNode.getAttribute("name")
+			originalModuleName
 		]) \
-		or (self.sourceModule not in [None, ""] and self.routineNode and self.sourceModule == self.routineNode.getAttribute('module')) \
+		or (self.sourceModule not in [None, ""] and self.routineNode and self.sourceModule == originalModuleName) \
 		or self.isEmulatingSymbolThatWasActiveInCurrentScope:
 			self._nameInScope = self.name
-		if self._nameInScope == None:
+		else:
 			self._nameInScope = automaticName(self)
 
 	def nameInScope(self, useDeviceVersionIfAvailable=True):
@@ -1240,6 +1243,9 @@ Current Domains: %s\n" %(
 			)
 
 	def getSanitizedDeclarationPrefix(self, purgeList=None):
+		def nameInScopeImplementationFunction(work, remainder, symbol, iterators, parallelRegionTemplate, callee):
+			return symbol.nameInScope(), remainder
+
 		if self.declarationPrefix in [None, ""]:
 			raise ScopeError("Cannot generate declaration prefix for %s (from %s)" %(self, self.nameOfScope))
 		if purgeList == None:
@@ -1248,6 +1254,11 @@ Current Domains: %s\n" %(
 		kindMatch = self.patterns.declarationKindPattern.match(result)
 		if kindMatch:
 			result = kindMatch.group(1) + kindMatch.group(2) + kindMatch.group(3)
+		return implement(
+			result,
+			self.usedTypeParameters,
+			symbolImplementationFunction=nameInScopeImplementationFunction
+		)
 		return result.strip()
 
 	def getDeclarationLine(self, purgeList=None, patterns=RegExPatterns.Instance(), name_prefix="", useDomainReordering=True, skip_on_missing_declaration=False):

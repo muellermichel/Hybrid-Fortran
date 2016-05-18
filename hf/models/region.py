@@ -382,7 +382,7 @@ class RoutineSpecificationRegion(Region):
 
 		importsFound = False
 		declaredSymbolsByScopedName = OrderedDict()
-		textForImportsAndKeywords = ""
+		textForKeywords = ""
 		textBeforeDeclarations = ""
 		textAfterDeclarations = ""
 		symbolsToAddByScopedName = dict(
@@ -391,8 +391,11 @@ class RoutineSpecificationRegion(Region):
 		)
 		for (line, symbols) in self._linesAndSymbols:
 			if not symbols or len(symbols) == 0:
-				if not importsFound:
-					textForImportsAndKeywords += line.strip() + "\n"
+				allImportMatch = RegExPatterns.Instance().importAllPattern.match(line)
+				if allImportMatch:
+					importsFound = True
+				elif not importsFound:
+					textForKeywords += line.strip() + "\n"
 				elif len(declaredSymbolsByScopedName.keys()) == 0:
 					textBeforeDeclarations += line.strip() + "\n"
 				else:
@@ -420,16 +423,26 @@ class RoutineSpecificationRegion(Region):
 		text = ""
 
 		try:
+			moduleNamesCompletelyImported = [
+				sourceModule for (sourceModule, nameInScope) in self._allImports if nameInScope == None
+			] if self._allImports else []
 			if len(self._typeParameterSymbolsByName.keys()) > 0 \
 			and ConversionOptions.Instance().debugPrint \
 			and not skipDebugPrint:
 				text += "!<----- type parameters --\n"
 			for typeParameterSymbol in self._typeParameterSymbolsByName.values():
+				if typeParameterSymbol.sourceModule in moduleNamesCompletelyImported:
+					continue
 				text += getImportLine([typeParameterSymbol], parentRoutine)
 			if self._allImports:
 				if len(self._allImports.keys()) > 0 and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
 					text += "!<----- synthesized imports --\n"
 				for (sourceModule, nameInScope) in self._allImports:
+					if not nameInScope:
+						text += getImportLine(sourceModule, parentRoutine)
+						continue
+					if sourceModule in moduleNamesCompletelyImported:
+						continue
 					sourceName = self._allImports[(sourceModule, nameInScope)]
 					symbol = parentRoutine.symbolsByName.get(sourceName)
 					if symbol != None and symbol.sourceModule == parentRoutine._parentModule().name:
@@ -444,9 +457,9 @@ class RoutineSpecificationRegion(Region):
 							text += " ! resynthesizing user input - no associated HF aware symbol found"
 						text += "\n"
 
-			if textForImportsAndKeywords != "" and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
+			if textForKeywords != "" and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
 				text += "!<----- other imports and specs: ------\n"
-			text += textForImportsAndKeywords
+			text += textForKeywords
 
 			if textBeforeDeclarations != "" and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
 				text += "!<----- before declarations: --\n"

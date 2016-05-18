@@ -25,7 +25,7 @@ import logging
 def synthesizedKernelName(routineName, kernelNumber):
 	return "hfk%i_%s" %(kernelNumber, routineName)
 
-def getImportStatements(symbols, forceHostVersion=False):
+def getImportStatements(symbolsOrModuleName, forceHostVersion=False):
 	def getSourceSymbol(symbol):
 		if forceHostVersion:
 			return symbol.name
@@ -33,14 +33,21 @@ def getImportStatements(symbols, forceHostVersion=False):
 			return symbol.sourceSymbol
 		return symbol.name
 
-	result = "\n".join(
-		"use %s, only : %s => %s" %(
-			symbol.sourceModule,
-			symbol.nameInScope() if not forceHostVersion else symbol.name,
-			getSourceSymbol(symbol)
+	symbols = []
+	if isinstance(symbolsOrModuleName, list):
+		symbols = symbolsOrModuleName
+	result = ""
+	if len(symbols) > 0:
+		result = "\n".join(
+			"use %s, only : %s => %s" %(
+				symbol.sourceModule,
+				symbol.nameInScope() if not forceHostVersion else symbol.name,
+				getSourceSymbol(symbol)
+			)
+			for symbol in symbols
 		)
-		for symbol in symbols
-	)
+	elif type(symbolsOrModuleName) in [str, unicode] and symbolsOrModuleName.strip() != "":
+		result = "use %s" %(symbolsOrModuleName.strip())
 	if result != "":
 		result += "\n"
 	return result

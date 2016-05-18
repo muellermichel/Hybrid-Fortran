@@ -97,8 +97,8 @@ class FortranImplementation(object):
 	def subroutineCallInvocationPrefix(self, subroutineName, parallelRegionTemplate):
 		return 'call %s' %(subroutineName)
 
-	def getImportSpecification(self, dependantSymbols, regionType, parallelRegionPosition, parallelRegionTemplates):
-		return getImportStatements(dependantSymbols)
+	def getImportSpecification(self, dependantSymbolsOrModuleName, regionType, parallelRegionPosition, parallelRegionTemplates):
+		return getImportStatements(dependantSymbolsOrModuleName)
 
 	def adjustDeclarationForDevice(self, line, dependantSymbols, regionType, parallelRegionPosition):
 		return line
@@ -397,7 +397,10 @@ class DeviceDataFortranImplementation(FortranImplementation):
 			symbol.isUsingDevicePostfix
 		))
 
-	def getImportSpecification(self, dependantSymbols, regionType, parallelRegionPosition, parallelRegionTemplates):
+	def getImportSpecification(self, dependantSymbolsOrModuleName, regionType, parallelRegionPosition, parallelRegionTemplates):
+		dependantSymbols = []
+		if isinstance(dependantSymbolsOrModuleName, list):
+			dependantSymbols = dependantSymbolsOrModuleName
 		for symbol in dependantSymbols:
 			self.updateSymbolDeviceState(symbol, RegionType.OTHER, parallelRegionPosition, postTransfer=True)
 		try:
@@ -405,18 +408,19 @@ class DeviceDataFortranImplementation(FortranImplementation):
 		except UsageError as e:
 			raise UsageError("In imports: %s; symbols: %s" %(str(e), dependantSymbols))
 
-		if dependantSymbols[0].isTypeParameter:
-			return getImportStatements(dependantSymbols)
-		if parallelRegionPosition in ["within", "outside"]:
-			return ""
-		if len(dependantSymbols) == 0:
-			return ""
-		if dependantSymbols[0].isPresent or dependantSymbols[0].isHostSymbol:
-			return getImportStatements(dependantSymbols)
-		if dependantSymbols[0].isToBeTransfered or regionType == RegionType.KERNEL_CALLER_DECLARATION:
-			return getImportStatements(dependantSymbols) \
-				+ getImportStatements(dependantSymbols, forceHostVersion=True)
-		return getImportStatements(dependantSymbols)
+		if len(dependantSymbols) > 0:
+			if dependantSymbols[0].isTypeParameter:
+				return getImportStatements(dependantSymbols)
+			if parallelRegionPosition in ["within", "outside"]:
+				return ""
+			if len(dependantSymbols) == 0:
+				return ""
+			if dependantSymbols[0].isPresent or dependantSymbols[0].isHostSymbol:
+				return getImportStatements(dependantSymbols)
+			if dependantSymbols[0].isToBeTransfered or regionType == RegionType.KERNEL_CALLER_DECLARATION:
+				return getImportStatements(dependantSymbols) \
+					+ getImportStatements(dependantSymbols, forceHostVersion=True)
+		return getImportStatements(dependantSymbolsOrModuleName)
 
 	def adjustDeclarationForDevice(self, line, dependantSymbols, regionType, parallelRegionPosition):
 		def declarationStatements(dependantSymbols, declarationDirectives, deviceType):

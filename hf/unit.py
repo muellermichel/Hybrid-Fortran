@@ -10,23 +10,23 @@ class TestPatterns(unittest.TestCase):
 		from tools.patterns import RegExPatterns
 		patterns = RegExPatterns.Instance()
 		self.assertEqual(
-			tupleFromMatch(patterns.selectiveImportPattern.match("useme, only: some, distraction")),
+			tupleFromMatch(patterns.importPattern.match("useme, only: some, distraction")),
 			()
 		)
 		self.assertEqual(
-			tupleFromMatch(patterns.selectiveImportPattern.match("use my_module")),
+			tupleFromMatch(patterns.importPattern.match("use my_module")),
 			()
 		)
 		self.assertEqual(
-			tupleFromMatch(patterns.selectiveImportPattern.match("use my_module, only: a, ab, ba")),
+			tupleFromMatch(patterns.importPattern.match("use my_module, only: a, ab, ba")),
 			("my_module", "a, ab, ba")
 		)
 		self.assertEqual(
-			tupleFromMatch(patterns.selectiveImportPattern.match("use my_module, only: a, ab=>my_ba, ba")),
+			tupleFromMatch(patterns.importPattern.match("use my_module, only: a, ab=>my_ba, ba")),
 			("my_module", "a, ab=>my_ba, ba")
 		)
 		self.assertEqual(
-			tupleFromMatch(patterns.selectiveImportPattern.match("use my_module, only: a, ab => my_ba, ba")),
+			tupleFromMatch(patterns.importPattern.match("use my_module, only: a, ab => my_ba, ba")),
 			("my_module", "a, ab => my_ba, ba")
 		)
 

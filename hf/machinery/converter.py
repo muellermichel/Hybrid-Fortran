@@ -400,7 +400,7 @@ This is not allowed for implementations using %s.\
             self.processDomainDependantMatch(domainDependantMatch)
             return
 
-        importMatch1 = self.patterns.selectiveImportPattern.match(line)
+        importMatch1 = self.patterns.importPattern.match(line)
         importMatch2 = self.patterns.singleMappedImportPattern.match(line)
         importMatch3 = self.patterns.importAllPattern.match(line)
         specTuple = parseSpecification(line)

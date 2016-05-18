@@ -333,7 +333,7 @@ class CallGraphParser(object):
         elif templateEndMatch:
             raise UsageError("template directives are only allowed outside of subroutines")
         else:
-            importMatch1 = self.patterns.selectiveImportPattern.match(line)
+            importMatch1 = self.patterns.importPattern.match(line)
             importMatch2 = self.patterns.singleMappedImportPattern.match(line)
             importMatch3 = self.patterns.importAllPattern.match(line)
             specTuple = parseSpecification(line)
@@ -845,12 +845,17 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
         )
 
     def analyseSymbolInformationOnCurrentLine(self, line, isModuleSpecification=False, isInsideSubroutineCall=False, isInSubroutineBody=False):
-        scopeName = self.currModuleName if isModuleSpecification else self.currSubprocName
-
-        if not isInsideSubroutineCall and not isInSubroutineBody:
-            selectiveImportMatch = self.patterns.selectiveImportPattern.match(line)
+        def updateSymbolReferencesForSpecifications(line, scopeName):
+            if isInsideSubroutineCall or isInSubroutineBody:
+                return
+            selectiveImportMatch = self.patterns.importPattern.match(line)
             if selectiveImportMatch:
                 self.processImportMatch(selectiveImportMatch) #$$$ unify this with processKnownSymbolImportMatch
+                return
+            allImportMatch = self.patterns.importAllPattern.match(line)
+            if allImportMatch:
+                self.processImportMatch(allImportMatch)
+                return
             specTuple = parseSpecification(line)
             if specTuple[0] and not "device" in specTuple[0]:
                 #if symbol is declared device type, let user handle it
@@ -873,6 +878,9 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
                     for symbol in symbols:
                         self.currSymbolsByName[symbol.uniqueIdentifier] = symbol
                         logging.debug("symbol %s added to current context because of declaration %s" %(symbol, line))
+
+        scopeName = self.currModuleName if isModuleSpecification else self.currSubprocName
+        updateSymbolReferencesForSpecifications(line, scopeName)
 
         matchesAndSymbolBySymbolNameAndScopeName = {}
         for symbol in self.currSymbolsByName.values():
@@ -949,6 +957,14 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
         super(H90CallGraphAndSymbolDeclarationsParser, self).processCallPost()
 
     def processImportMatch(self, importMatch):
+        moduleName = importMatch.group(1)
+        symbolNames = None
+        if len(importMatch.groups()) >= 2:
+            symbolNames = importMatch.group(2)
+
+        if moduleName == "":
+            raise UsageError("import without module specified")
+
         parentNode = None
         isInModuleScope = self.currSubprocName in [None, ""]
         scopeName = self.currModuleName if isInModuleScope else self.currSubprocName
@@ -956,10 +972,7 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
             parentNode = self.routineNodesByProcName.get(self.currSubprocName)
         else:
             parentNode = self.moduleNodesByName[self.currModuleName]
-        moduleName = importMatch.group(1)
-        if moduleName == "":
-            raise UsageError("import without module specified")
-        symbolList = importMatch.group(2).split(',')
+        symbolList = symbolNames.split(',') if symbolNames else []
         for symbolName in symbolList:
             stripped = symbolName.strip()
             mappedImportMatch = self.patterns.singleMappedImportPattern.match(stripped)
@@ -974,6 +987,8 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
             uidLocal = uniqueIdentifier(symbolNameInScope, scopeName)
             uidSource = uniqueIdentifier(sourceSymbolName, moduleName)
             self.processImport(parentNode, uidLocal, uidSource, moduleName, sourceSymbolName, symbolNameInScope)
+        if len(symbolList) == 0:
+            self.processImport(parentNode, None, None, moduleName, None, None)
 
     def processSymbolSpecification(self, specTuple, symbol):
         '''process everything that happens per h90 declaration symbol'''
@@ -1243,6 +1258,8 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
             sourceSymbol,
             symbolInScope
         )
+        if not uidLocal or not uidSource or not sourceSymbol or not symbolInScope:
+            return
         if self.currSymbolsByName.get(uidLocal) != None:
             return #this already has an @domaindependant directive - don't do anything further.
         if not self.symbolsByModuleNameAndSymbolName:

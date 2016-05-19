@@ -1254,12 +1254,12 @@ Current Domains: %s\n" %(
 		kindMatch = self.patterns.declarationKindPattern.match(result)
 		if kindMatch:
 			result = kindMatch.group(1) + kindMatch.group(2) + kindMatch.group(3)
+
 		return implement(
 			result,
-			self.usedTypeParameters,
+			[typeParameter for typeParameter in self.usedTypeParameters if typeParameter.name in result],
 			symbolImplementationFunction=nameInScopeImplementationFunction
 		)
-		return result.strip()
 
 	def getDeclarationLine(self, purgeList=None, patterns=RegExPatterns.Instance(), name_prefix="", useDomainReordering=True, skip_on_missing_declaration=False):
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] Decl.Line.Gen: Purge List: %s, Name Prefix: %s, Domain Reordering: %s, Skip on Missing: %s." %(

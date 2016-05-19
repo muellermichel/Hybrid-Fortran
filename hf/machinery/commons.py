@@ -127,20 +127,24 @@ def implement(line, symbols, symbolImplementationFunction, iterators=[], paralle
     for symbol in symbols:
         lineSections = []
         work = adjustedLine
-        prefix, matchedSymbolName, remainder = symbol.splitTextAtLeftMostOccurrence(work)
-        while matchedSymbolName != "":
-            lineSections.append(prefix)
-            symbolAccessString, remainder = symbolImplementationFunction(
-                work,
-                remainder,
-                symbol,
-                iterators,
-                parallelRegionTemplate,
-                callee
-            )
-            lineSections.append(symbolAccessString)
-            work = remainder
+        if symbol.name in work:
             prefix, matchedSymbolName, remainder = symbol.splitTextAtLeftMostOccurrence(work)
+            while matchedSymbolName != "":
+                lineSections.append(prefix)
+                symbolAccessString, remainder = symbolImplementationFunction(
+                    work,
+                    remainder,
+                    symbol,
+                    iterators,
+                    parallelRegionTemplate,
+                    callee
+                )
+                lineSections.append(symbolAccessString)
+                matchedSymbolName = ""
+                work = remainder
+                if not symbol.name in work:
+                    continue
+                prefix, matchedSymbolName, remainder = symbol.splitTextAtLeftMostOccurrence(work)
         if len(lineSections) == 0:
             continue
         #whatever is left now as "work" is the unmatched trailer of the line

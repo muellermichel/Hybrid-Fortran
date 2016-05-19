@@ -964,7 +964,10 @@ end if\n" %(calleeNode.getAttribute('name'))
 		logging.debug("============ loading additional symbols for module %s ===============" %(callee.parentModule.node.getAttribute("name")))
 		moduleImports, moduleDeclarations, additionalDummies = getAdditionalImportsAndDeclarationsForParentScope(callee.parentModule.node, argumentSymbolNames)
 		if len(additionalDummies) != 0:
-			raise Exception("dummies are not supposed to be added for module scope symbols")
+			raise Exception("dummies are not supposed to be added for module scope symbols: %s; type of first: %i" %(
+				additionalDummies,
+				additionalDummies[0].declarationType
+			))
 		indexedModuleSymbols = (
 			indexSymbolsByNameInScope(moduleImports),
 			indexSymbolsByNameInScope(moduleDeclarations)

@@ -1420,6 +1420,8 @@ Please specify the domains and their sizes with domName and domSize attributes i
 				return [] #working around a problem in PGI 15.1: Inliner bails out in certain situations (module test kernel 3+4) if arrays are passed in like a(:,:,:).
 			return [iterator.strip().replace(" ", "") for iterator in iterators]
 
+
+
 		if isPointerAssignment \
 		or len(self.domains) == 0 \
 		or ( \
@@ -1458,10 +1460,18 @@ Please specify the domains and their sizes with domName and domSize attributes i
 				offsets.append(":")
 		else:
 			offsets += accessors
+
+		symbolNameUsedInAccessor = None
+		if (not self.isUsingDevicePostfix and len(offsets) == len(self.domains) and not all([offset == ':' for offset in offsets]))\
+		or (self.intent == "in" and len(offsets) == len(self.domains) and not any([offset == ':' for offset in offsets])):
+			symbolNameUsedInAccessor = self.nameInScope(useDeviceVersionIfAvailable=False) #not on device or scalar accesses to symbol that can't change
+		else:
+			symbolNameUsedInAccessor = self.nameInScope()
+
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] producing access representation for symbol %s; parallel iterators: %s, offsets: %s" %(self.name, str(iterators), str(offsets)))
 		if self.initLevel < Init.ROUTINENODE_ATTRIBUTES_LOADED:
 			logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] only returning name since routine attributes haven't been loaded yet.")
-			return self.name
+			return symbolNameUsedInAccessor
 
 		if len(iterators) == 0 \
 		and len(offsets) != 0 \
@@ -1475,14 +1485,7 @@ Please specify the domains and their sizes with domName and domSize attributes i
 			raise Exception("Unexpected number of offsets and iterators specified for symbol %s; Offsets: %s, Iterators: %s, Expected domains: %s" \
 				%(self.name, offsets, iterators, self.domains))
 
-		result = ""
-		symbolNameUsedInAccessor = None
-		if (not self.isUsingDevicePostfix and len(offsets) == len(self.domains) and not all([offset == ':' for offset in offsets]))\
-		or (self.intent == "in" and len(offsets) == len(self.domains) and not any([offset == ':' for offset in offsets])):
-			symbolNameUsedInAccessor = self.nameInScope(useDeviceVersionIfAvailable=False) #not on device or scalar accesses to symbol that can't change
-		else:
-			symbolNameUsedInAccessor = self.nameInScope()
-		result += symbolNameUsedInAccessor
+		result = symbolNameUsedInAccessor
 
 		if len(self.domains) == 0:
 			logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] Symbol has 0 domains - only returning name.")

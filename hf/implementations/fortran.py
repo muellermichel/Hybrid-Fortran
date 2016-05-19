@@ -333,7 +333,9 @@ Symbols vs host attributes:\n%s" %(str([(symbol.name, symbol.isHostSymbol) for s
 		elif not symbol.isTypeParameter and isTypeParameter == "undefined":
 			isTypeParameter = "no"
 		elif (symbol.isTypeParameter and isTypeParameter == "no") or (not symbol.isTypeParameter and isTypeParameter == "yes"):
-			raise UsageError("line contains a mix of type parameter / non type parameter symbols: %s" %(dependantSymbols))
+			raise UsageError("line contains a mix of type parameter / non type parameter symbols: %s; is type parameter: %s" %(
+				dependantSymbols, [symbol.isTypeParameter for symbol in dependantSymbols]
+			))
 	return alreadyOnDevice, copyHere, isOnHost
 
 class DeviceDataFortranImplementation(FortranImplementation):

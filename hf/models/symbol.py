@@ -224,7 +224,7 @@ MERGEABLE_DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES = {
 	"isDeclaredExplicitely": False,
 	"hasUndecidedDomainSizes": False,
 	"isMatched": False,
-	"usedTypeParameters": [],
+	"usedTypeParameters": set([]),
 	"_isTypeParameter": False,
 	"_declarationPrefix": None,
 	"_sourceModuleIdentifier": None,
@@ -337,12 +337,7 @@ class Symbol(object):
 	def sourceModule(self):
 		if self._sourceModuleIdentifier not in ['', None, 'HF90_LOCAL_MODULE']:
 			return self._sourceModuleIdentifier
-		if not self.routineNode:
-			return None
-		sourceModule = self.routineNode.getAttribute('module')
-		if sourceModule in ['', None]:
-			sourceModule = self.routineNode.getAttribute('name') #looks like a module node is loaded for this symbol instead
-		return sourceModule
+		return None
 
 	@sourceModule.setter
 	def sourceModule(self, _sourceModuleIdentifier):
@@ -944,6 +939,7 @@ EXAMPLE:\n\
 		self.loadTemplateAttributes()
 		self.initLevel = max(self.initLevel, Init.ROUTINENODE_ATTRIBUTES_LOADED)
 		self.updateNameInScope()
+		self._sourceModuleIdentifier = self.routineNode.getAttribute('name')
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] symbol attributes loaded from module node. Domains at this point: %s. Init Level: %s" %(str(self.domains), str(self.initLevel)))
 
 	def loadRoutineNodeAttributes(self, routineNode, parallelRegionTemplates):
@@ -968,6 +964,7 @@ EXAMPLE:\n\
 		self.loadTemplateAttributes(parallelRegionTemplatesUsedForLoading)
 		self.updateNameInScope()
 		self.initLevel = max(self.initLevel, Init.ROUTINENODE_ATTRIBUTES_LOADED)
+		self._sourceModuleIdentifier = self.routineNode.getAttribute('module')
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] routine node attributes loaded for symbol %s. Domains at this point: %s" %(self.name, str(self.domains)))
 
 	def loadDeclaration(self, specTuple, patterns, currentRoutineArguments, currParentName):

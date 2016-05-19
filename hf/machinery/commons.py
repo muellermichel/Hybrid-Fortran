@@ -35,7 +35,7 @@ def updateTypeParameterProperties(symbolToCheckAsTypeParameter, symbolsToUpdate)
     if len(matchedSymbols) > 0:
         symbolToCheckAsTypeParameter.isTypeParameter = True
     for matchedSymbol in matchedSymbols:
-        matchedSymbol.usedTypeParameters.append(symbolToCheckAsTypeParameter)
+        matchedSymbol.usedTypeParameters.add(symbolToCheckAsTypeParameter)
 
 def symbolIsTypeParameterFor(symbol, symbolsToCheck):
     if type(symbol.declarationPrefix) not in [str, unicode]:

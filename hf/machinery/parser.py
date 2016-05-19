@@ -847,19 +847,23 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
     def analyseSymbolInformationOnCurrentLine(self, line, isModuleSpecification=False, isInsideSubroutineCall=False, isInSubroutineBody=False):
         def updateSymbolReferencesForSpecifications(line, scopeName):
             if isInsideSubroutineCall or isInSubroutineBody:
-                return
+                return None
             selectiveImportMatch = self.patterns.importPattern.match(line)
             if selectiveImportMatch:
-                self.processImportMatch(selectiveImportMatch) #$$$ unify this with processKnownSymbolImportMatch
-                return
+                return self.processImportMatch(selectiveImportMatch) #$$$ unify this with processKnownSymbolImportMatch
             allImportMatch = self.patterns.importAllPattern.match(line)
             if allImportMatch:
-                self.processImportMatch(allImportMatch)
-                return
+                return self.processImportMatch(allImportMatch)
+            matchedSymbols = []
             specTuple = parseSpecification(line)
             if specTuple[0] and not "device" in specTuple[0]:
                 #if symbol is declared device type, let user handle it
                 symbolNames = symbolNamesFromSpecificationTuple(specTuple)
+                for symbolName in symbolNames:
+                    symbol = self.currSymbolsByName.get(uniqueIdentifier(symbolName, scopeName))
+                    if not symbol:
+                        continue
+                    matchedSymbols.append(symbol)
                 symbolNamesWithoutDomainDependantSpecs = [
                     symbolName.strip()
                     for symbolName in symbolNames
@@ -878,12 +882,15 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
                     for symbol in symbols:
                         self.currSymbolsByName[symbol.uniqueIdentifier] = symbol
                         logging.debug("symbol %s added to current context because of declaration %s" %(symbol, line))
+            return matchedSymbols
 
         scopeName = self.currModuleName if isModuleSpecification else self.currSubprocName
-        updateSymbolReferencesForSpecifications(line, scopeName)
+        matchedSymbols = updateSymbolReferencesForSpecifications(line, scopeName)
+        if not matchedSymbols:
+            matchedSymbols = self.currSymbolsByName.values() #we have to check everything, for this line complete parsing is not available
 
         matchesAndSymbolBySymbolNameAndScopeName = {}
-        for symbol in self.currSymbolsByName.values():
+        for symbol in matchedSymbols:
             if symbol.nameOfScope not in [self.currSubprocName, self.currModuleName]:
                 raise Exception("symbol with invalid scope (%s) present on line %i in %s (%s): %s" %(
                     symbol.nameOfScope,
@@ -973,6 +980,7 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
         else:
             parentNode = self.moduleNodesByName[self.currModuleName]
         symbolList = symbolNames.split(',') if symbolNames else []
+        result = []
         for symbolName in symbolList:
             stripped = symbolName.strip()
             mappedImportMatch = self.patterns.singleMappedImportPattern.match(stripped)
@@ -986,9 +994,12 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
                 sourceSymbolName = symbolNameInScope
             uidLocal = uniqueIdentifier(symbolNameInScope, scopeName)
             uidSource = uniqueIdentifier(sourceSymbolName, moduleName)
-            self.processImport(parentNode, uidLocal, uidSource, moduleName, sourceSymbolName, symbolNameInScope)
+            symbolOrNone = self.processImport(parentNode, uidLocal, uidSource, moduleName, sourceSymbolName, symbolNameInScope)
+            if symbolOrNone:
+                result.append(symbolOrNone)
         if len(symbolList) == 0:
             self.processImport(parentNode, None, None, moduleName, None, None)
+        return result
 
     def processSymbolSpecification(self, specTuple, symbol):
         '''process everything that happens per h90 declaration symbol'''
@@ -1308,6 +1319,7 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
         if symbol.uniqueIdentifier not in [uidLocal, uidSource]:
             raise Exception("unique identifiers (%s, %s) does not match expectation (%s)" %(uidLocal, uidSource, symbol.uniqueIdentifier))
         self.currSymbolsByName[symbol.uniqueIdentifier] = symbol
+        return symbol
 
     def processModuleEndMatch(self, moduleEndMatch):
         #get handles to currently active symbols -> temporarily save the handles

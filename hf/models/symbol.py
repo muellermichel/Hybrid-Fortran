@@ -1469,9 +1469,6 @@ Please specify the domains and their sizes with domName and domSize attributes i
 			symbolNameUsedInAccessor = self.nameInScope()
 
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] producing access representation for symbol %s; parallel iterators: %s, offsets: %s" %(self.name, str(iterators), str(offsets)))
-		if self.initLevel < Init.ROUTINENODE_ATTRIBUTES_LOADED:
-			logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] only returning name since routine attributes haven't been loaded yet.")
-			return symbolNameUsedInAccessor
 
 		if len(iterators) == 0 \
 		and len(offsets) != 0 \

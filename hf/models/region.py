@@ -544,6 +544,8 @@ class RoutineSpecificationRegion(Region):
 					limitLength(frameworkArrayName(parentRoutine.name)),
 					idx+1
 				) + " ! additional type %i symbol compaction\n" %(symbol.declarationType)
+			if ConversionOptions.Instance().debugPrint and not skipDebugPrint:
+				text += "! HF is aware of the following symbols at this point: %s" %(parentRoutine.symbolsByName.values())
 		except UsageError as e:
 			raise UsageError("Implementing %s: %s" %(parentRoutine.name, str(e)))
 		except Exception as e:

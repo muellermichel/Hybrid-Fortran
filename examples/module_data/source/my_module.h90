@@ -30,6 +30,18 @@ module my_module
 	a_dyn, b_dyn, c_dyn, d_dyn
 	@end domainDependant
 contains
+	subroutine cpu_add()
+		implicit none
+		integer :: x, y, z
+
+		do y=1,NY
+		do x=1,NX
+		do z=1,NZ
+		  c(x, y, z) = a(x, y, z) + b(x, y, z)
+		end do
+		end do
+		end do
+	end subroutine
 	subroutine assert_values(test_array, expected_value)
 		implicit none
 		real, dimension(NX, NY, NZ), intent(in) :: test_array

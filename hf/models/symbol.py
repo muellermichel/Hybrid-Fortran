@@ -860,6 +860,7 @@ EXAMPLE:\n\
 				for index,value
 				in enumerate(self.domains)
 			) #in case we have generic domain names, need to include the index here so the order doesn't get messed up.
+			dependantDomNameAndSize = copy.copy(self.domains)
 		else:
 			dependantDomSizeByName = dict(
 				(dependantDomName,dependantDomSize)
@@ -882,7 +883,11 @@ EXAMPLE:\n\
 				str(dependantDomSizeByName)
 			))
 			for (regionDomName, regionDomSize) in regionDomNameAndSize:
-				if regionDomName in dependantDomSizeByName.keys() and regionDomName not in self.parallelActiveDims:
+				if ( \
+					regionDomName in dependantDomSizeByName.keys() \
+					or regionDomSize in dependantDomSizeByName.values() \
+				) \
+				and regionDomName not in self.parallelActiveDims:
 					self.parallelActiveDims.append(regionDomName)
 				#The same domain name can sometimes have different domain sizes used in different parallel regions, so we build up a list of these sizes.
 				if not regionDomName in self.aggregatedRegionDomSizesByName:
@@ -894,11 +899,14 @@ EXAMPLE:\n\
 
 		for (dependantDomName, dependantDomSize) in dependantDomNameAndSize:
 			#build up parallel inactive dimensions again
-			if dependantDomName not in self.parallelActiveDims:
+			if dependantDomName not in self.parallelActiveDims \
+			and not dependantDomSize in parallelRegionDomNamesBySize:
 				self.parallelInactiveDims.append(dependantDomName)
 			#use the declared domain size (potentially overriding automatic sizes)
-			if dependantDomName in self.aggregatedRegionDomSizesByName:
-				self.aggregatedRegionDomSizesByName[dependantDomName][0] = dependantDomSize
+			domNameAlias = parallelRegionDomNamesBySize.get(dependantDomSize, "")
+			if domNameAlias in self.aggregatedRegionDomSizesByName \
+			and dependantDomSize not in self.aggregatedRegionDomSizesByName[domNameAlias]:
+				self.aggregatedRegionDomSizesByName[domNameAlias].append(dependantDomSize)
 
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] before reset. parallel active: %s; parallel inactive: %s" %(
 				str(self.parallelActiveDims),
@@ -915,10 +923,13 @@ EXAMPLE:\n\
 			and dependantDomName not in self.parallelInactiveDims:
 				raise Exception("Symbol %s's dependant domain size %s is not declared as one of its dimensions." \
 					%(self.name, dependantDomSize))
-			self.domains.append((dependantDomName, dependantDomSize))
-			domNameBySize[dependantDomSize] = dependantDomName
+			adjustedDomName = parallelRegionDomNamesBySize.get(dependantDomSize)
+			if not adjustedDomName:
+				adjustedDomName = dependantDomName
+			self.domains.append((adjustedDomName, dependantDomSize))
+			domNameBySize[dependantDomSize] = adjustedDomName
 			logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] adding domain %s to symbol %s; Domains now: %s" %(
-				str((dependantDomName, dependantDomSize)), self.name, self.domains
+				str((adjustedDomName, dependantDomSize)), self.name, self.domains
 			))
 		if self.isAutoDom and not self.hasUndecidedDomainSizes:
 			alreadyEstablishedDomSizes = [domSize for (domName, domSize) in self.domains]

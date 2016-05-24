@@ -1019,8 +1019,8 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
         symbol.isMatched = True
         moduleName, sourceName = symbol.getModuleNameAndSourceSymbolNameFromImportMatch(importMatch)
         moduleNode = self.moduleNodesByName.get(moduleName)
-        if moduleNode:
-            symbol.loadImportInformation(self.cgDoc, moduleNode, sourceName)
+        # if moduleNode:
+        #     symbol.loadImportInformation(self.cgDoc, moduleNode, sourceName)
         updateTypeParameterProperties(symbol, self.currSymbolsByName.values())
 
     def processBranchMatch(self, branchMatch):
@@ -1269,12 +1269,11 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
             sourceSymbol,
             symbolInScope
         )
-        if not uidLocal or not uidSource or not sourceSymbol or not symbolInScope:
-            return
-        if self.currSymbolsByName.get(uidLocal) != None:
-            return #this already has an @domaindependant directive - don't do anything further.
         if not self.symbolsByModuleNameAndSymbolName:
             return #in case we run this at a point where foreign symbol analysis is not available yet
+        if not uidLocal or not uidSource or not sourceSymbol or not symbolInScope:
+            return
+        symbol = self.currSymbolsByName.get(uidLocal)
         moduleSymbolParsingRequired = not self.implementation.supportsNativeModuleImportsWithinKernels \
             and parentNode.getAttribute("parallelRegionPosition") in ["within", "outside"]
         moduleSymbolsByName = self.symbolsByModuleNameAndSymbolName.get(moduleName)
@@ -1289,27 +1288,32 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
         moduleSymbol = moduleSymbolsByName.get(uidSource)
         if not moduleSymbol:
             return #probably we're dealing with a routine - just ignore it.
-        relationNode, templateNode = setTemplateInfos(
-            self.cgDoc,
-            parentNode,
-            specText="attribute(autoDom)",
-            templateParentNodeName="domainDependantTemplates",
-            templateNodeName="domainDependantTemplate",
-            referenceParentNodeName="domainDependants"
-        )
-        entries = addAndGetEntries(self.cgDoc, relationNode, symbolInScope)
-        if len(entries) != 1:
-            raise Exception("Could not add entry for symbol %s" %(entry))
-        symbol = ImplicitForeignModuleSymbol(moduleName, symbolInScope, sourceSymbol, template=templateNode)
-        symbol.isMatched = True
-        symbol.loadDomainDependantEntryNodeAttributes(entries[0])
         isInModuleScope = self.currSubprocName in [None, ""]
-        if isInModuleScope:
-            symbol.loadModuleNodeAttributes(parentNode)
+        if symbol:
+            symbol._nameInScope = symbolInScope
+            symbol._sourceModuleIdentifier = moduleName
+            symbol.sourceSymbol = sourceSymbol
         else:
-            symbol.loadRoutineNodeAttributes(parentNode, self.parallelRegionTemplatesByProcName.get(
-                self.currSubprocName
-            ))
+            relationNode, templateNode = setTemplateInfos(
+                self.cgDoc,
+                parentNode,
+                specText="attribute(autoDom)",
+                templateParentNodeName="domainDependantTemplates",
+                templateNodeName="domainDependantTemplate",
+                referenceParentNodeName="domainDependants"
+            )
+            entries = addAndGetEntries(self.cgDoc, relationNode, symbolInScope)
+            if len(entries) != 1:
+                raise Exception("Could not add entry for symbol %s" %(entry))
+            symbol = ImplicitForeignModuleSymbol(moduleName, symbolInScope, sourceSymbol, template=templateNode)
+            symbol.isMatched = True
+            symbol.loadDomainDependantEntryNodeAttributes(entries[0])
+            if isInModuleScope:
+                symbol.loadModuleNodeAttributes(parentNode)
+            else:
+                symbol.loadRoutineNodeAttributes(parentNode, self.parallelRegionTemplatesByProcName.get(
+                    self.currSubprocName
+                ))
         symbol.merge(moduleSymbol)
         if isInModuleScope:
             symbol.isModuleSymbol = True

@@ -921,10 +921,11 @@ EXAMPLE:\n\
 			domNameBySize[dependantDomSize] = dependantDomName
 		self.domains = []
 		for (dependantDomName, dependantDomSize) in dependantDomNameAndSize:
-			if dependantDomName not in self.parallelActiveDims \
-			and dependantDomName not in self.parallelInactiveDims:
-				raise Exception("Symbol %s's dependant domain size %s is not declared as one of its dimensions." \
-					%(self.name, dependantDomSize))
+			domNameAlias = parallelRegionDomNamesBySize.get(dependantDomSize, "")
+			if dependantDomName not in self.parallelActiveDims + self.parallelInactiveDims \
+			and domNameAlias not in self.parallelActiveDims + self.parallelInactiveDims:
+				raise Exception("Symbol %s's dependant domain size %s (domain %s / %s) is not declared as one of its dimensions. Parallel Active dims: %s; Inactive: %s" \
+					%(self.name, dependantDomSize, dependantDomName, domNameAlias, self.parallelActiveDims, self.parallelInactiveDims))
 			adjustedDomName = parallelRegionDomNamesBySize.get(dependantDomSize)
 			if not adjustedDomName:
 				adjustedDomName = dependantDomName

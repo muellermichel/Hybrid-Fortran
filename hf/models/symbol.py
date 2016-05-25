@@ -721,7 +721,7 @@ EXAMPLE:\n\
 				setattr(self, domainAttributeName, getMergedCollection(domainAttributeName))
 		self.isPresent = self.isPresent or otherSymbol.isPresent
 		#isToBeTransfered shall be kept from curr symbol
-		if self.isAutoDom and not otherSymbol.isAutoDom:
+		if self.isAutoDom and not otherSymbol.isAutoDom and self.parallelRegionTemplates:
 			self.loadDomains(getDomNameAndSize(otherSymbol.template), self.parallelRegionTemplates)
 		self.initLevel = max(self.initLevel, otherSymbol.initLevel)
 

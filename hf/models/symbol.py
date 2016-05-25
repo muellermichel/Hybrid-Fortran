@@ -720,7 +720,9 @@ EXAMPLE:\n\
 			else:
 				setattr(self, domainAttributeName, getMergedCollection(domainAttributeName))
 		self.isPresent = self.isPresent or otherSymbol.isPresent
-		self.isToBeTransfered = self.isToBeTransfered
+		#isToBeTransfered shall be kept from curr symbol
+		if self.isAutoDom and not otherSymbol.isAutoDom:
+			self.loadDomains(getDomNameAndSize(otherSymbol.template), self.parallelRegionTemplates)
 		self.initLevel = max(self.initLevel, otherSymbol.initLevel)
 
 	def loadTemplate(self, template):

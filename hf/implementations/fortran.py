@@ -20,7 +20,7 @@
 
 import os, logging
 from machinery.commons import updateTypeParameterProperties
-from models.symbol import Symbol, DeclarationType, splitAndPurgeSpecification
+from models.symbol import Symbol, DeclarationType, splitAndPurgeSpecification, uniqueIdentifier
 from models.region import RegionType, ParallelRegion, CallRegion
 from tools.analysis import getAnalysisForSymbol
 from tools.patterns import RegExPatterns
@@ -906,8 +906,12 @@ end if\n" %(calleeNode.getAttribute('name'))
 				dependantName = entry.firstChild.nodeValue
 				if dependantName in argumentSymbolNames:
 					continue #in case user is working with slices and passing them to different symbols inside the kernel, he has to manage that stuff manually
-				symbol = currRoutine.symbolsByName.get(dependantName)
-				if symbol == None:
+				symbol = currRoutine.symbolsByName.get(uniqueIdentifier(dependantName, currRoutine.name))
+				if not symbol:
+					symbol = currRoutine.symbolsByName.get(uniqueIdentifier(dependantName, currRoutine._parentModule().name))
+				if not symbol:
+					symbol = currRoutine.symbolsByName.get(dependantName)
+				if not symbol:
 					logging.debug("while analyzing additional kernel parameters: symbol %s was not available yet for parent %s, so it was loaded freshly;\nCurrent symbols:%s\n" %(
 						dependantName,
 						parentNode.getAttribute('name'),

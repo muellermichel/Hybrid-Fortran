@@ -807,6 +807,13 @@ EXAMPLE:\n\
 		self.initLevel = max(self.initLevel, Init.DEPENDANT_ENTRYNODE_ATTRIBUTES_LOADED)
 
 	def checkIntegrityOfDomains(self):
+		if len(self.domains) != len(self.parallelActiveDims) + len(self.parallelInactiveDims):
+			raise Exception("Wrong number of domains for symbol %s: || active: %s; || inactive: %s; domains: %s" %(
+				self.name,
+				self.parallelActiveDims,
+				self.parallelInactiveDims,
+				self.domains
+			))
 		if self.declaredDimensionSizes:
 			for dimensionSize in self.declaredDimensionSizes:
 				if not type(dimensionSize) in [str, unicode] or dimensionSize == "":

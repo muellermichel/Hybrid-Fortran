@@ -20,7 +20,7 @@
 
 import os, logging
 from machinery.commons import updateTypeParameterProperties
-from models.symbol import Symbol, DeclarationType, splitAndPurgeSpecification
+from models.symbol import Symbol, DeclarationType, splitAndPurgeSpecification, uniqueIdentifier
 from models.region import RegionType, ParallelRegion, CallRegion
 from tools.analysis import getAnalysisForSymbol
 from tools.patterns import RegExPatterns
@@ -97,8 +97,8 @@ class FortranImplementation(object):
 	def subroutineCallInvocationPrefix(self, subroutineName, parallelRegionTemplate):
 		return 'call %s' %(subroutineName)
 
-	def getImportSpecification(self, dependantSymbols, regionType, parallelRegionPosition, parallelRegionTemplates):
-		return getImportStatements(dependantSymbols)
+	def getImportSpecification(self, dependantSymbolsOrModuleName, regionType, parallelRegionPosition, parallelRegionTemplates):
+		return getImportStatements(dependantSymbolsOrModuleName)
 
 	def adjustDeclarationForDevice(self, line, dependantSymbols, regionType, parallelRegionPosition):
 		return line
@@ -333,7 +333,9 @@ Symbols vs host attributes:\n%s" %(str([(symbol.name, symbol.isHostSymbol) for s
 		elif not symbol.isTypeParameter and isTypeParameter == "undefined":
 			isTypeParameter = "no"
 		elif (symbol.isTypeParameter and isTypeParameter == "no") or (not symbol.isTypeParameter and isTypeParameter == "yes"):
-			raise UsageError("line contains a mix of type parameter / non type parameter symbols: %s" %(dependantSymbols))
+			raise UsageError("line contains a mix of type parameter / non type parameter symbols: %s; is type parameter: %s" %(
+				dependantSymbols, [symbol.isTypeParameter for symbol in dependantSymbols]
+			))
 	return alreadyOnDevice, copyHere, isOnHost
 
 class DeviceDataFortranImplementation(FortranImplementation):
@@ -397,7 +399,10 @@ class DeviceDataFortranImplementation(FortranImplementation):
 			symbol.isUsingDevicePostfix
 		))
 
-	def getImportSpecification(self, dependantSymbols, regionType, parallelRegionPosition, parallelRegionTemplates):
+	def getImportSpecification(self, dependantSymbolsOrModuleName, regionType, parallelRegionPosition, parallelRegionTemplates):
+		dependantSymbols = []
+		if isinstance(dependantSymbolsOrModuleName, list):
+			dependantSymbols = dependantSymbolsOrModuleName
 		for symbol in dependantSymbols:
 			self.updateSymbolDeviceState(symbol, RegionType.OTHER, parallelRegionPosition, postTransfer=True)
 		try:
@@ -405,18 +410,19 @@ class DeviceDataFortranImplementation(FortranImplementation):
 		except UsageError as e:
 			raise UsageError("In imports: %s; symbols: %s" %(str(e), dependantSymbols))
 
-		if dependantSymbols[0].isTypeParameter:
-			return getImportStatements(dependantSymbols)
-		if parallelRegionPosition in ["within", "outside"]:
-			return ""
-		if len(dependantSymbols) == 0:
-			return ""
-		if dependantSymbols[0].isPresent or dependantSymbols[0].isHostSymbol:
-			return getImportStatements(dependantSymbols)
-		if dependantSymbols[0].isToBeTransfered or regionType == RegionType.KERNEL_CALLER_DECLARATION:
-			return getImportStatements(dependantSymbols) \
-				+ getImportStatements(dependantSymbols, forceHostVersion=True)
-		return getImportStatements(dependantSymbols)
+		if len(dependantSymbols) > 0:
+			if dependantSymbols[0].isTypeParameter:
+				return getImportStatements(dependantSymbols)
+			if parallelRegionPosition in ["within", "outside"]:
+				return ""
+			if len(dependantSymbols) == 0:
+				return ""
+			if dependantSymbols[0].isPresent or dependantSymbols[0].isHostSymbol:
+				return getImportStatements(dependantSymbols)
+			if dependantSymbols[0].isToBeTransfered or regionType == RegionType.KERNEL_CALLER_DECLARATION:
+				return getImportStatements(dependantSymbols) \
+					+ getImportStatements(dependantSymbols, forceHostVersion=True)
+		return getImportStatements(dependantSymbolsOrModuleName)
 
 	def adjustDeclarationForDevice(self, line, dependantSymbols, regionType, parallelRegionPosition):
 		def declarationStatements(dependantSymbols, declarationDirectives, deviceType):
@@ -444,7 +450,7 @@ class DeviceDataFortranImplementation(FortranImplementation):
 		#$$$ generalize this using using symbol.getSanitizedDeclarationPrefix with a new 'intent' parameter
 		purgedDeclarationDirectives, declarationDirectives, symbolDeclarationStr = splitAndPurgeSpecification(
 			line,
-			purgeList=['intent', 'dimension', 'save']
+			purgeList=['intent', 'dimension', 'save', 'optional']
 		)
 
 		deviceType = "device"
@@ -900,8 +906,12 @@ end if\n" %(calleeNode.getAttribute('name'))
 				dependantName = entry.firstChild.nodeValue
 				if dependantName in argumentSymbolNames:
 					continue #in case user is working with slices and passing them to different symbols inside the kernel, he has to manage that stuff manually
-				symbol = currRoutine.symbolsByName.get(dependantName)
-				if symbol == None:
+				symbol = currRoutine.symbolsByName.get(uniqueIdentifier(dependantName, currRoutine.name))
+				if not symbol:
+					symbol = currRoutine.symbolsByName.get(uniqueIdentifier(dependantName, currRoutine._parentModule().name))
+				if not symbol:
+					symbol = currRoutine.symbolsByName.get(dependantName)
+				if not symbol:
 					logging.debug("while analyzing additional kernel parameters: symbol %s was not available yet for parent %s, so it was loaded freshly;\nCurrent symbols:%s\n" %(
 						dependantName,
 						parentNode.getAttribute('name'),
@@ -958,7 +968,10 @@ end if\n" %(calleeNode.getAttribute('name'))
 		logging.debug("============ loading additional symbols for module %s ===============" %(callee.parentModule.node.getAttribute("name")))
 		moduleImports, moduleDeclarations, additionalDummies = getAdditionalImportsAndDeclarationsForParentScope(callee.parentModule.node, argumentSymbolNames)
 		if len(additionalDummies) != 0:
-			raise Exception("dummies are not supposed to be added for module scope symbols")
+			raise Exception("dummies are not supposed to be added for module scope symbols: %s; type of first: %i" %(
+				additionalDummies,
+				additionalDummies[0].declarationType
+			))
 		indexedModuleSymbols = (
 			indexSymbolsByNameInScope(moduleImports),
 			indexSymbolsByNameInScope(moduleDeclarations)

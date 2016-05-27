@@ -36,20 +36,20 @@ contains
     call mult4(a, b, d)
   end subroutine
 
-  subroutine add4(a,b,temp,c)
+  subroutine add4(a,b,rlength,c)
     implicit none
     real, dimension(NX,NY,NZ), intent(in) :: a, b
-    real, dimension(NX,NY,NZ), intent(in) :: temp
+    real, dimension(NX,NY,NZ), intent(in) :: rlength !we deliberately overload the name rlength here to check whether Hybrid Fortran will not go boom...
     real, dimension(NX,NY,NZ), intent(out) :: c
     integer :: z
 
     @domainDependant{attribute(autoDom, present)}
-    a, b, c, temp
+    a, b, c, rlength
     @end domainDependant
 
     @parallelRegion{domName(x,y), domSize(NX, NY)}
     do z=1,NZ
-      c(z) = a(z) + b(z) + temp(z)
+      c(z) = a(z) + b(z) + rlength(z)
     end do
     @end parallelRegion
   end subroutine

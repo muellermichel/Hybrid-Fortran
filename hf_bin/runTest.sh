@@ -174,7 +174,7 @@ for i in "${!argStringsArr[@]}"; do
 	    exit 102
 	fi
 	if [ "$configuration_name" = "validation" ] && [ -e $refPath ]; then
-		${HF_DIR}/hf_bin/allAccuracy.sh "$refPath" "$output_file_pattern" "$source_before" "$source_after" "$formatParam" 2>>./log_lastRun.txt && :
+		${HF_DIR}/hf_bin/allAccuracy.sh "${refPath}" "${output_file_pattern}" "${source_before}" "${source_after}" "${formatParam}" >> ./log_lastRun.txt 1>&2
 		rc=$?
 		validationResult=""
 		cat ./log_lastRun.txt >> ./log.txt

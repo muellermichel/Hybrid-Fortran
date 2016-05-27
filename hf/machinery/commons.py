@@ -35,7 +35,7 @@ def updateTypeParameterProperties(symbolToCheckAsTypeParameter, symbolsToUpdate)
     if len(matchedSymbols) > 0:
         symbolToCheckAsTypeParameter.isTypeParameter = True
     for matchedSymbol in matchedSymbols:
-        matchedSymbol.usedTypeParameters.append(symbolToCheckAsTypeParameter)
+        matchedSymbol.usedTypeParameters.add(symbolToCheckAsTypeParameter)
 
 def symbolIsTypeParameterFor(symbol, symbolsToCheck):
     if type(symbol.declarationPrefix) not in [str, unicode]:
@@ -121,6 +121,37 @@ def getSymbolAccessStringAndRemainder(
         callee=callee
     )
     return symbolAccessString, remainder
+
+def implement(line, symbols, symbolImplementationFunction, iterators=[], parallelRegionTemplate=None, callee=None):
+    adjustedLine = line
+    for symbol in symbols:
+        lineSections = []
+        work = adjustedLine
+        if symbol.name in work:
+            prefix, matchedSymbolName, remainder = symbol.splitTextAtLeftMostOccurrence(work)
+            while matchedSymbolName != "":
+                lineSections.append(prefix)
+                symbolAccessString, remainder = symbolImplementationFunction(
+                    work,
+                    remainder,
+                    symbol,
+                    iterators,
+                    parallelRegionTemplate,
+                    callee
+                )
+                lineSections.append(symbolAccessString)
+                matchedSymbolName = ""
+                work = remainder
+                if not symbol.name in work:
+                    continue
+                prefix, matchedSymbolName, remainder = symbol.splitTextAtLeftMostOccurrence(work)
+        if len(lineSections) == 0:
+            continue
+        #whatever is left now as "work" is the unmatched trailer of the line
+        lineSections.append(work)
+        #rebuild adjusted line - next symbol starts adjustment anew
+        adjustedLine = "".join(lineSections).strip()
+    return adjustedLine
 
 @Singleton
 class ConversionOptions:

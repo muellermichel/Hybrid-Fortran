@@ -22,7 +22,7 @@ import weakref, copy, re
 from tools.commons import enum, UsageError, OrderedDict
 from tools.metadata import getArguments
 from tools.patterns import RegExPatterns
-from machinery.commons import ConversionOptions, getSymbolAccessStringAndRemainder
+from machinery.commons import ConversionOptions, getSymbolAccessStringAndRemainder, implement
 from symbol import DeclarationType, FrameworkArray, frameworkArrayName, limitLength, uniqueIdentifier
 
 RegionType = enum(
@@ -32,50 +32,19 @@ RegionType = enum(
 )
 
 def implementSymbolAccessStringAndRemainder(line, suffix, symbol, iterators=[], parallelRegionTemplate=None, callee=None):
-	isPointerAssignment = RegExPatterns.Instance().pointerAssignmentPattern.match(line) != None
-	try:
-		symbolAccessString, remainder = getSymbolAccessStringAndRemainder(
-			symbol,
-			iterators,
-			parallelRegionTemplate,
-			suffix,
-			callee,
-			isPointerAssignment
-		)
-	except UsageError as e:
-		raise UsageError("%s; Print of Line: %s" %(str(e), line))
-	return symbolAccessString, remainder
-
-def implementLine(line, symbols, parentRoutine, iterators=[], parallelRegionTemplate=None, callee=None):
-	adjustedLine = line
-	for symbol in symbols:
-		lineSections = []
-		work = adjustedLine
-		prefix, matchedSymbolName, remainder = symbol.splitTextAtLeftMostOccurrence(work)
-		while matchedSymbolName != "":
-			lineSections.append(prefix)
-			symbolAccessString, remainder = implementSymbolAccessStringAndRemainder(
-				work,
-				remainder,
-				symbol,
-				iterators,
-				parallelRegionTemplate,
-				callee
-			)
-			lineSections.append(symbolAccessString)
-			work = remainder
-			prefix, matchedSymbolName, remainder = symbol.splitTextAtLeftMostOccurrence(work)
-		if len(lineSections) == 0:
-			raise Exception("symbol %s expected on line '%s' for %s - no match" %(
-				symbol.name,
-				line,
-				parentRoutine.name
-			))
-		#whatever is left now as "work" is the unmatched trailer of the line
-		lineSections.append(work)
-		#rebuild adjusted line - next symbol starts adjustment anew
-		adjustedLine = "".join(lineSections).strip()
-	return adjustedLine
+    isPointerAssignment = RegExPatterns.Instance().pointerAssignmentPattern.match(line) != None
+    try:
+        symbolAccessString, remainder = getSymbolAccessStringAndRemainder(
+            symbol,
+            iterators,
+            parallelRegionTemplate,
+            suffix,
+            callee,
+            isPointerAssignment
+        )
+    except UsageError as e:
+        raise UsageError("%s; Print of Line: %s" %(str(e), line))
+    return symbolAccessString, remainder
 
 class Region(object):
 	def __init__(self, routine):
@@ -132,7 +101,7 @@ class Region(object):
 		iterators = parentRoutine.implementation.getIterators(parallelRegionTemplate) \
 			if parallelRegionTemplate else []
 		text = "\n".join([
-			implementLine(line, symbols, parentRoutine, iterators, parallelRegionTemplate)
+			implement(line, symbols, implementSymbolAccessStringAndRemainder, iterators, parallelRegionTemplate)
 			for (line, symbols) in self._linesAndSymbols
 		])
 		if text == "":
@@ -382,7 +351,7 @@ class RoutineSpecificationRegion(Region):
 
 		importsFound = False
 		declaredSymbolsByScopedName = OrderedDict()
-		textForImportsAndKeywords = ""
+		textForKeywords = ""
 		textBeforeDeclarations = ""
 		textAfterDeclarations = ""
 		symbolsToAddByScopedName = dict(
@@ -391,8 +360,11 @@ class RoutineSpecificationRegion(Region):
 		)
 		for (line, symbols) in self._linesAndSymbols:
 			if not symbols or len(symbols) == 0:
-				if not importsFound:
-					textForImportsAndKeywords += line.strip() + "\n"
+				allImportMatch = RegExPatterns.Instance().importAllPattern.match(line)
+				if allImportMatch:
+					importsFound = True
+				elif not importsFound:
+					textForKeywords += line.strip() + "\n"
 				elif len(declaredSymbolsByScopedName.keys()) == 0:
 					textBeforeDeclarations += line.strip() + "\n"
 				else:
@@ -420,16 +392,28 @@ class RoutineSpecificationRegion(Region):
 		text = ""
 
 		try:
+			moduleNamesCompletelyImported = [
+				sourceModule for (sourceModule, nameInScope) in self._allImports if nameInScope == None
+			] if self._allImports else []
 			if len(self._typeParameterSymbolsByName.keys()) > 0 \
 			and ConversionOptions.Instance().debugPrint \
 			and not skipDebugPrint:
 				text += "!<----- type parameters --\n"
 			for typeParameterSymbol in self._typeParameterSymbolsByName.values():
+				typeParameterSymbol.updateNameInScope(forceAutomaticName=True)
+				if typeParameterSymbol.sourceModule in moduleNamesCompletelyImported \
+				and not "hfauto" in typeParameterSymbol.nameInScope():
+					continue
 				text += getImportLine([typeParameterSymbol], parentRoutine)
 			if self._allImports:
 				if len(self._allImports.keys()) > 0 and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
 					text += "!<----- synthesized imports --\n"
 				for (sourceModule, nameInScope) in self._allImports:
+					if not nameInScope:
+						text += getImportLine(sourceModule, parentRoutine)
+						continue
+					if sourceModule in moduleNamesCompletelyImported:
+						continue
 					sourceName = self._allImports[(sourceModule, nameInScope)]
 					symbol = parentRoutine.symbolsByName.get(sourceName)
 					if symbol != None and symbol.sourceModule == parentRoutine._parentModule().name:
@@ -444,9 +428,9 @@ class RoutineSpecificationRegion(Region):
 							text += " ! resynthesizing user input - no associated HF aware symbol found"
 						text += "\n"
 
-			if textForImportsAndKeywords != "" and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
+			if textForKeywords != "" and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
 				text += "!<----- other imports and specs: ------\n"
-			text += textForImportsAndKeywords
+			text += textForKeywords
 
 			if textBeforeDeclarations != "" and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
 				text += "!<----- before declarations: --\n"
@@ -560,6 +544,8 @@ class RoutineSpecificationRegion(Region):
 					limitLength(frameworkArrayName(parentRoutine.name)),
 					idx+1
 				) + " ! additional type %i symbol compaction\n" %(symbol.declarationType)
+			if ConversionOptions.Instance().debugPrint and not skipDebugPrint:
+				text += "! HF is aware of the following symbols at this point: %s" %(parentRoutine.symbolsByName.values())
 		except UsageError as e:
 			raise UsageError("Implementing %s: %s" %(parentRoutine.name, str(e)))
 		except Exception as e:

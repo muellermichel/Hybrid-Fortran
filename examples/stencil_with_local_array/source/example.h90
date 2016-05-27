@@ -13,7 +13,7 @@ contains
     @end domainDependant
 
     ! The following tells hybrid fortran that 'c' is to be privatized in i,j -> c will be dimensioned (n-1,m,nz)
-    @domainDependant{domName(i,j), domSize(n-1,m), attribute(autoDom)}
+    @domainDependant{domName(i,j), domSize(n-1,m), attribute(autoDom, present)}
     c
     @end domainDependant
 

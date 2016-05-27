@@ -234,6 +234,7 @@ This is not allowed for implementations using %s.\
 			symbolAnalysisByRoutineNameAndSymbolName=self._symbolAnalysisByRoutineNameAndSymbolName
 		)
 		for symbol in additionalImportsForOurSelves + additionalDeclarationsForOurselves:
+			#$$$ this should be commented - isn't this dangerous here because of potential conflicts?
 			symbol.isEmulatingSymbolThatWasActiveInCurrentScope = True
 
 		symbolsByUniqueNameToBeUpdated = {}

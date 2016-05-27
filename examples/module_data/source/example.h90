@@ -107,7 +107,7 @@ end module example
 
 program main
   use example
-  use my_module, only: a, b, a2, b2, c, d, c2, d2, used_in_acc_routine, assert_values, a_dyn, b_dyn, c_dyn, d_dyn, nx, ny, nz
+  use my_module, only: a, b, a2, b2, c, d, c2, d2, used_in_acc_routine, assert_values, a_dyn, b_dyn, c_dyn, d_dyn, nx, ny, nz, cpu_add
   use kernels3, only: outer_wrapper3
   use kernels5, only: kernels5_initialize, kernels5_cleanup
 !   use kernels6, only: kernels6_initialize, kernels6_cleanup
@@ -216,6 +216,11 @@ program main
   deallocate(b_dyn)
   deallocate(c_dyn)
   deallocate(d_dyn)
+
+  c(:,:,:) = 0.0d0
+  call cpu_add
+  write(0,*) "cpu only complete"
+  call assert_values(c, 3.0d0)
 
   deallocate(a)
   deallocate(b)

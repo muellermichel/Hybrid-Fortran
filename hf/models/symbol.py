@@ -26,7 +26,7 @@ from tools.commons import enum, BracketAnalyzer, Singleton, UsageError, \
 	splitTextAtLeftMostOccurrence, splitIntoComponentsAndRemainder, getComponentNameAndBracketContent
 from tools.patterns import RegExPatterns
 from tools.analysis import SymbolDependencyAnalyzer, SymbolType
-from machinery.commons import ConversionOptions, parseSpecification
+from machinery.commons import ConversionOptions, parseSpecification, implement
 
 Init = enum(
 	"NOTHING_LOADED",
@@ -224,7 +224,7 @@ MERGEABLE_DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES = {
 	"isDeclaredExplicitely": False,
 	"hasUndecidedDomainSizes": False,
 	"isMatched": False,
-	"usedTypeParameters": [],
+	"usedTypeParameters": set([]),
 	"_isTypeParameter": False,
 	"_declarationPrefix": None,
 	"_sourceModuleIdentifier": None,
@@ -552,14 +552,14 @@ EXAMPLE:\n\
 			raise Exception("routine node needs to be loaded at this point")
 		return uniqueIdentifier(self.name, self.nameOfScope)
 
-	def updateNameInScope(self):
+	def updateNameInScope(self, forceAutomaticName=False):
 		#Give a symbol representation that is guaranteed to *not* collide with any local namespace (as long as programmer doesn't use any 'hfXXX' pre- or postfixes)
 		def automaticName(symbol):
-			if symbol.analysis and symbol.routineNode:
+			if symbol.analysis and symbol.routineNode and not forceAutomaticName:
 				aliasName = symbol.analysis.aliasNamesByRoutineName.get(symbol.nameOfScope)
 				if aliasName not in [None, '']:
 					return aliasName
-			if symbol.nameIsGuaranteedUniqueInScope:
+			if symbol.nameIsGuaranteedUniqueInScope and not forceAutomaticName:
 				return symbol.name
 			referencingName = None
 			if symbol.declarationType in [
@@ -568,20 +568,23 @@ EXAMPLE:\n\
 				DeclarationType.FOREIGN_MODULE_SCALAR,
 				DeclarationType.MODULE_ARRAY_PASSED_IN_AS_ARGUMENT
 			] and symbol._sourceModuleIdentifier not in [None, ""]:
-				referencingName = uniqueIdentifier(self.name, self._sourceModuleIdentifier)
+				referencingName = uniqueIdentifier(self.name, self.sourceModule)
 			else:
 				referencingName = symbol.uniqueIdentifier
 			return referencingName
 
+		originalModuleName = self.routineNode.getAttribute("name") if self.isModuleSymbol else self.routineNode.getAttribute('module')
 		self._nameInScope = None
-		if (self.routineNode and self.sourceModule in [
+		if forceAutomaticName:
+			self._nameInScope = automaticName(self)
+		elif (self.routineNode and self.sourceModule in [
 			"HF90_LOCAL_MODULE",
-			self.routineNode.getAttribute("name")
+			originalModuleName
 		]) \
-		or (self.sourceModule not in [None, ""] and self.routineNode and self.sourceModule == self.routineNode.getAttribute('module')) \
+		or (self.sourceModule not in [None, ""] and self.routineNode and self.sourceModule == originalModuleName) \
 		or self.isEmulatingSymbolThatWasActiveInCurrentScope:
 			self._nameInScope = self.name
-		if self._nameInScope == None:
+		else:
 			self._nameInScope = automaticName(self)
 
 	def nameInScope(self, useDeviceVersionIfAvailable=True):
@@ -717,7 +720,9 @@ EXAMPLE:\n\
 			else:
 				setattr(self, domainAttributeName, getMergedCollection(domainAttributeName))
 		self.isPresent = self.isPresent or otherSymbol.isPresent
-		self.isToBeTransfered = self.isToBeTransfered
+		#isToBeTransfered shall be kept from curr symbol
+		if self.isAutoDom and not otherSymbol.isAutoDom and self.parallelRegionTemplates:
+			self.loadDomains(getDomNameAndSize(otherSymbol.template), self.parallelRegionTemplates)
 		self.initLevel = max(self.initLevel, otherSymbol.initLevel)
 
 	def loadTemplate(self, template):
@@ -864,6 +869,7 @@ EXAMPLE:\n\
 				for index,value
 				in enumerate(self.domains)
 			) #in case we have generic domain names, need to include the index here so the order doesn't get messed up.
+			dependantDomNameAndSize = copy.copy(self.domains)
 		else:
 			dependantDomSizeByName = dict(
 				(dependantDomName,dependantDomSize)
@@ -886,7 +892,11 @@ EXAMPLE:\n\
 				str(dependantDomSizeByName)
 			))
 			for (regionDomName, regionDomSize) in regionDomNameAndSize:
-				if regionDomName in dependantDomSizeByName.keys() and regionDomName not in self.parallelActiveDims:
+				if ( \
+					regionDomName in dependantDomSizeByName.keys() \
+					or regionDomSize in dependantDomSizeByName.values() \
+				) \
+				and regionDomName not in self.parallelActiveDims:
 					self.parallelActiveDims.append(regionDomName)
 				#The same domain name can sometimes have different domain sizes used in different parallel regions, so we build up a list of these sizes.
 				if not regionDomName in self.aggregatedRegionDomSizesByName:
@@ -898,11 +908,14 @@ EXAMPLE:\n\
 
 		for (dependantDomName, dependantDomSize) in dependantDomNameAndSize:
 			#build up parallel inactive dimensions again
-			if dependantDomName not in self.parallelActiveDims:
+			if dependantDomName not in self.parallelActiveDims \
+			and not dependantDomSize in parallelRegionDomNamesBySize:
 				self.parallelInactiveDims.append(dependantDomName)
 			#use the declared domain size (potentially overriding automatic sizes)
-			if dependantDomName in self.aggregatedRegionDomSizesByName:
-				self.aggregatedRegionDomSizesByName[dependantDomName][0] = dependantDomSize
+			domNameAlias = parallelRegionDomNamesBySize.get(dependantDomSize, "")
+			if domNameAlias in self.aggregatedRegionDomSizesByName \
+			and dependantDomSize not in self.aggregatedRegionDomSizesByName[domNameAlias]:
+				self.aggregatedRegionDomSizesByName[domNameAlias].append(dependantDomSize)
 
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] before reset. parallel active: %s; parallel inactive: %s" %(
 				str(self.parallelActiveDims),
@@ -915,14 +928,18 @@ EXAMPLE:\n\
 			domNameBySize[dependantDomSize] = dependantDomName
 		self.domains = []
 		for (dependantDomName, dependantDomSize) in dependantDomNameAndSize:
-			if dependantDomName not in self.parallelActiveDims \
-			and dependantDomName not in self.parallelInactiveDims:
-				raise Exception("Symbol %s's dependant domain size %s is not declared as one of its dimensions." \
-					%(self.name, dependantDomSize))
-			self.domains.append((dependantDomName, dependantDomSize))
-			domNameBySize[dependantDomSize] = dependantDomName
+			domNameAlias = parallelRegionDomNamesBySize.get(dependantDomSize, "")
+			if dependantDomName not in self.parallelActiveDims + self.parallelInactiveDims \
+			and domNameAlias not in self.parallelActiveDims + self.parallelInactiveDims:
+				raise Exception("Symbol %s's dependant domain size %s (domain %s / %s) is not declared as one of its dimensions. Parallel Active dims: %s; Inactive: %s" \
+					%(self.name, dependantDomSize, dependantDomName, domNameAlias, self.parallelActiveDims, self.parallelInactiveDims))
+			adjustedDomName = parallelRegionDomNamesBySize.get(dependantDomSize)
+			if not adjustedDomName:
+				adjustedDomName = dependantDomName
+			self.domains.append((adjustedDomName, dependantDomSize))
+			domNameBySize[dependantDomSize] = adjustedDomName
 			logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] adding domain %s to symbol %s; Domains now: %s" %(
-				str((dependantDomName, dependantDomSize)), self.name, self.domains
+				str((adjustedDomName, dependantDomSize)), self.name, self.domains
 			))
 		if self.isAutoDom and not self.hasUndecidedDomainSizes:
 			alreadyEstablishedDomSizes = [domSize for (domName, domSize) in self.domains]
@@ -1247,6 +1264,9 @@ Current Domains: %s\n" %(
 			)
 
 	def getSanitizedDeclarationPrefix(self, purgeList=None):
+		def nameInScopeImplementationFunction(work, remainder, symbol, iterators, parallelRegionTemplate, callee):
+			return symbol.nameInScope(), remainder
+
 		if self.declarationPrefix in [None, ""]:
 			raise ScopeError("Cannot generate declaration prefix for %s (from %s)" %(self, self.nameOfScope))
 		if purgeList == None:
@@ -1255,7 +1275,12 @@ Current Domains: %s\n" %(
 		kindMatch = self.patterns.declarationKindPattern.match(result)
 		if kindMatch:
 			result = kindMatch.group(1) + kindMatch.group(2) + kindMatch.group(3)
-		return result.strip()
+
+		return implement(
+			result,
+			[typeParameter for typeParameter in self.usedTypeParameters if typeParameter.name in result],
+			symbolImplementationFunction=nameInScopeImplementationFunction
+		)
 
 	def getDeclarationLine(self, purgeList=None, patterns=RegExPatterns.Instance(), name_prefix="", useDomainReordering=True, skip_on_missing_declaration=False):
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] Decl.Line.Gen: Purge List: %s, Name Prefix: %s, Domain Reordering: %s, Skip on Missing: %s." %(
@@ -1416,6 +1441,8 @@ Please specify the domains and their sizes with domName and domSize attributes i
 				return [] #working around a problem in PGI 15.1: Inliner bails out in certain situations (module test kernel 3+4) if arrays are passed in like a(:,:,:).
 			return [iterator.strip().replace(" ", "") for iterator in iterators]
 
+
+
 		if isPointerAssignment \
 		or len(self.domains) == 0 \
 		or ( \
@@ -1454,10 +1481,15 @@ Please specify the domains and their sizes with domName and domSize attributes i
 				offsets.append(":")
 		else:
 			offsets += accessors
+
+		symbolNameUsedInAccessor = None
+		if (not self.isUsingDevicePostfix and len(offsets) == len(self.domains) and not all([offset == ':' for offset in offsets]))\
+		or (self.intent == "in" and len(offsets) == len(self.domains) and not any([offset == ':' for offset in offsets])):
+			symbolNameUsedInAccessor = self.nameInScope(useDeviceVersionIfAvailable=False) #not on device or scalar accesses to symbol that can't change
+		else:
+			symbolNameUsedInAccessor = self.nameInScope()
+
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] producing access representation for symbol %s; parallel iterators: %s, offsets: %s" %(self.name, str(iterators), str(offsets)))
-		if self.initLevel < Init.ROUTINENODE_ATTRIBUTES_LOADED:
-			logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] only returning name since routine attributes haven't been loaded yet.")
-			return self.name
 
 		if len(iterators) == 0 \
 		and len(offsets) != 0 \
@@ -1471,14 +1503,7 @@ Please specify the domains and their sizes with domName and domSize attributes i
 			raise Exception("Unexpected number of offsets and iterators specified for symbol %s; Offsets: %s, Iterators: %s, Expected domains: %s" \
 				%(self.name, offsets, iterators, self.domains))
 
-		result = ""
-		symbolNameUsedInAccessor = None
-		if (not self.isUsingDevicePostfix and len(offsets) == len(self.domains) and not all([offset == ':' for offset in offsets]))\
-		or (self.intent == "in" and len(offsets) == len(self.domains) and not any([offset == ':' for offset in offsets])):
-			symbolNameUsedInAccessor = self.nameInScope(useDeviceVersionIfAvailable=False) #not on device or scalar accesses to symbol that can't change
-		else:
-			symbolNameUsedInAccessor = self.nameInScope()
-		result += symbolNameUsedInAccessor
+		result = symbolNameUsedInAccessor
 
 		if len(self.domains) == 0:
 			logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] Symbol has 0 domains - only returning name.")

@@ -1019,8 +1019,8 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
         symbol.isMatched = True
         moduleName, sourceName = symbol.getModuleNameAndSourceSymbolNameFromImportMatch(importMatch)
         moduleNode = self.moduleNodesByName.get(moduleName)
-        # if moduleNode:
-        #     symbol.loadImportInformation(self.cgDoc, moduleNode, sourceName)
+        if moduleNode:
+            symbol.loadImportInformation(self.cgDoc, moduleNode, sourceName)
         updateTypeParameterProperties(symbol, self.currSymbolsByName.values())
 
     def processBranchMatch(self, branchMatch):

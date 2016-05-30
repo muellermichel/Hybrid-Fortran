@@ -801,11 +801,12 @@ EXAMPLE:\n\
 			and declaredDimensionSizes != "" \
 			and self.declaredDimensionSizes == None \
 			else self.declaredDimensionSizes
-		if self.declaredDimensionSizes and len(self.declaredDimensionSizes) > 0:
+		if self.declaredDimensionSizes and len(self.declaredDimensionSizes) > 0 and self.initLevel < Init.ROUTINENODE_ATTRIBUTES_LOADED:
 			self.domains = []
 			for dimSize in self.declaredDimensionSizes:
 				if dimSize.strip() != "":
 					self.domains.append(('HF_GENERIC_DIM', dimSize))
+					self._kernelInactiveDomainSizes.append(dimSize)
 			logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] dimsizes from domain dependant node: %s " %(str(self.declaredDimensionSizes)))
 		self.checkIntegrityOfDomains()
 		self.initLevel = max(self.initLevel, Init.DEPENDANT_ENTRYNODE_ATTRIBUTES_LOADED)

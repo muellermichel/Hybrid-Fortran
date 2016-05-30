@@ -1066,6 +1066,7 @@ EXAMPLE:\n\
 			if len(self.domains) == 0:
 				for dimensionSize in dimensionSizes:
 					self.domains.append(("HF_GENERIC_UNKNOWN_DIM", dimensionSize))
+					self._kernelInactiveDomainSizes.append(dimensionSize)
 			elif len(dimensionSizes) != len(self.domains):
 				raise Exception("Symbol %s's declared shape does not match its domainDependant directive. \
 Automatic reshaping is not supported since this is a pointer type. Domains in Directive: %s, dimensions in declaration: %s" %(self.name, str(self.domains), str(dimensionSizes)))
@@ -1153,6 +1154,8 @@ template for symbol %s - automatically inserting it for domain name %s\n"
 						raise Exception("There are multiple known dimension sizes for domain %s. Cannot insert domain for autoDom symbol %s. Please use explicit declaration" %(parallelDomName, str(self)))
 					lastParallelDomainIndex += 1
 					self.domains.insert(lastParallelDomainIndex, (parallelDomName, parallelDomSizes[0]))
+					if parallelDomName not in self._kernelDomainNames:
+						self._kernelDomainNames.append(parallelDomName)
 			self.adjustDomainsToKernelPosition()
 			logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] parallel active dims analysed")
 

@@ -246,9 +246,9 @@ MERGEABLE_DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES = {
 
 MERGEABLE_DEFAULT_SYMBOL_INSTANCE_DOMAIN_ATTRIBUTES = {
 	"domains": [],
-	"kernelDomainNames": [], #!Important: The order of this list must remain insignificant when it is used
-	"kernelInactiveDomainSizes": [], #!Important: The order of this list must remain insignificant when it is used
-	"aggregatedRegionDomSizesByName": {}
+	"_kernelDomainNames": [], #!Important: The order of this list must remain insignificant when it is used
+	"_kernelInactiveDomainSizes": [], #!Important: The order of this list must remain insignificant when it is used
+	"_knownKernelDomainSizesByName": {}
 }
 
 class ScopeError(Exception):
@@ -451,7 +451,7 @@ class Symbol(object):
 	def numOfParallelDomains(self):
 		if self.parallelRegionPosition == "outside":
 			return 0
-		return len(self.kernelDomainNames)
+		return len(self._kernelDomainNames)
 
 	@property
 	def activeDomainsMatchSpecification(self):
@@ -464,7 +464,7 @@ class Symbol(object):
 			if len(templateDomains) > 0:
 				if len(self.domains) == len(templateDomains):
 					return True #all domains are explicitely declared in the domainDependant directive
-				if len(self.domains) == len(templateDomains) + len(self.kernelInactiveDomainSizes):
+				if len(self.domains) == len(templateDomains) + len(self._kernelInactiveDomainSizes):
 					return True #parallel domains are explicitely declared in the domainDependant directive
 				return False #domainDependant directive specification is not active here (probably the parallelRegion(s) they are meant for do not apply currently)
 		if self.declaredDimensionSizes and len(self.domains) == len(self.declaredDimensionSizes):
@@ -812,11 +812,11 @@ EXAMPLE:\n\
 
 	def checkIntegrityOfDomains(self):
 		if self.initLevel >= Init.ROUTINENODE_ATTRIBUTES_LOADED \
-		and len(self.domains) != len(self.kernelDomainNames) + len(self.kernelInactiveDomainSizes):
+		and len(self.domains) != len(self._kernelDomainNames) + len(self._kernelInactiveDomainSizes):
 			raise Exception("Wrong number of domains for symbol %s: || active: %s; || inactive: %s; domains: %s" %(
 				self.name,
-				self.kernelDomainNames,
-				self.kernelInactiveDomainSizes,
+				self._kernelDomainNames,
+				self._kernelInactiveDomainSizes,
 				self.domains
 			))
 		if self.declaredDimensionSizes:
@@ -828,7 +828,7 @@ EXAMPLE:\n\
 				raise Exception("Invalid definition of domain in symbol %s: %s" %(self.name, str(domain)))
 		parallelDomainSizesDict = {}
 		for domainName, domainSize in self.domains:
-			if not domainName in self.kernelDomainNames:
+			if not domainName in self._kernelDomainNames:
 				continue
 			parallelDomainSizesDict[domainSize] = None
 		logging.debug("domain integrity checked for symbol %s" %(self))
@@ -848,8 +848,8 @@ EXAMPLE:\n\
 		logging.debug(
 				"[" + str(self) + ".init " + str(self.initLevel) + "] Domains loaded from callgraph information for symbol %s. Parallel active: %s. Parallel Inactive: %s. Declaration Prefix: %s. dependantDomNameAndSize: %s declarationPrefix: %s. Parallel Regions: %i\n" %(
 					str(self),
-					str(self.kernelDomainNames),
-					str(self.kernelInactiveDomainSizes),
+					str(self._kernelDomainNames),
+					str(self._kernelInactiveDomainSizes),
 					declarationPrefixFromTemplate,
 					dependantDomNameAndSize,
 					declarationPrefixFromTemplate,
@@ -876,9 +876,9 @@ EXAMPLE:\n\
 				in dependantDomNameAndSize
 			)
 
-		self.kernelDomainNames = []
-		self.kernelInactiveDomainSizes = []
-		self.aggregatedRegionDomSizesByName = {}
+		self._kernelDomainNames = []
+		self._kernelInactiveDomainSizes = []
+		self._knownKernelDomainSizesByName = {}
 
 		#   adjust the loaded domains by the new information given:
 		if not self.domains or len(self.domains) <= len(dependantDomNameAndSize):
@@ -898,31 +898,31 @@ EXAMPLE:\n\
 					regionDomName in dependantDomSizeByName.keys() \
 					or regionDomSize in dependantDomSizeByName.values() \
 				) \
-				and regionDomName not in self.kernelDomainNames:
+				and regionDomName not in self._kernelDomainNames:
 					#$$$ please note that regionDomName will never match - why are we doing this check?
-					self.kernelDomainNames.append(regionDomName)
+					self._kernelDomainNames.append(regionDomName)
 				#The same domain name can sometimes have different domain sizes used in different parallel regions, so we build up a list of these sizes.
-				if not regionDomName in self.aggregatedRegionDomSizesByName:
-					self.aggregatedRegionDomSizesByName[regionDomName] = [regionDomSize]
-				elif regionDomSize not in self.aggregatedRegionDomSizesByName[regionDomName]:
-					self.aggregatedRegionDomSizesByName[regionDomName].append(regionDomSize)
+				if not regionDomName in self._knownKernelDomainSizesByName:
+					self._knownKernelDomainSizesByName[regionDomName] = [regionDomSize]
+				elif regionDomSize not in self._knownKernelDomainSizesByName[regionDomName]:
+					self._knownKernelDomainSizesByName[regionDomName].append(regionDomSize)
 				parallelRegionDomNamesBySize[regionDomSize] = regionDomName
 
 		#   .... put the others in the 'parallelInactive' set.
 		for (dependantDomName, dependantDomSize) in self.domains:
 			#build up parallel inactive dimensions again
-			if dependantDomName not in self.kernelDomainNames \
+			if dependantDomName not in self._kernelDomainNames \
 			and not dependantDomSize in parallelRegionDomNamesBySize:
-				self.kernelInactiveDomainSizes.append(dependantDomName)
+				self._kernelInactiveDomainSizes.append(dependantDomName)
 			#use the declared domain size (potentially overriding automatic sizes)
 			domNameAlias = parallelRegionDomNamesBySize.get(dependantDomSize, "")
-			if domNameAlias in self.aggregatedRegionDomSizesByName \
-			and dependantDomSize not in self.aggregatedRegionDomSizesByName[domNameAlias]:
-				self.aggregatedRegionDomSizesByName[domNameAlias].append(dependantDomSize)
+			if domNameAlias in self._knownKernelDomainSizesByName \
+			and dependantDomSize not in self._knownKernelDomainSizesByName[domNameAlias]:
+				self._knownKernelDomainSizesByName[domNameAlias].append(dependantDomSize)
 
 		# logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] before reset. parallel active: %s; parallel inactive: %s" %(
-		# 		str(self.kernelDomainNames),
-		# 		str(self.kernelInactiveDomainSizes)
+		# 		str(self._kernelDomainNames),
+		# 		str(self._kernelInactiveDomainSizes)
 		# 	))
 
 		# dimsBeforeReset = copy.deepcopy(self.domains)
@@ -932,10 +932,10 @@ EXAMPLE:\n\
 		# self.domains = []
 		# for (dependantDomName, dependantDomSize) in dependantDomNameAndSize:
 		# 	domNameAlias = parallelRegionDomNamesBySize.get(dependantDomSize, "")
-		# 	if dependantDomName not in self.kernelDomainNames + self.kernelInactiveDomainSizes \
-		# 	and domNameAlias not in self.kernelDomainNames + self.kernelInactiveDomainSizes:
+		# 	if dependantDomName not in self._kernelDomainNames + self._kernelInactiveDomainSizes \
+		# 	and domNameAlias not in self._kernelDomainNames + self._kernelInactiveDomainSizes:
 		# 		raise Exception("Symbol %s's dependant domain size %s (domain %s / %s) is not declared as one of its dimensions. Parallel Active dims: %s; Inactive: %s" \
-		# 			%(self.name, dependantDomSize, dependantDomName, domNameAlias, self.kernelDomainNames, self.kernelInactiveDomainSizes))
+		# 			%(self.name, dependantDomSize, dependantDomName, domNameAlias, self._kernelDomainNames, self._kernelInactiveDomainSizes))
 		# 	adjustedDomName = parallelRegionDomNamesBySize.get(dependantDomSize)
 		# 	if not adjustedDomName:
 		# 		adjustedDomName = dependantDomName
@@ -951,7 +951,7 @@ EXAMPLE:\n\
 		# 	))
 		# 	for (domName, domSize) in dimsBeforeReset:
 		# 		domNameAdjusted = domNameBySize.get(domSize, domName)
-		# 		if domNameAdjusted in self.kernelDomainNames \
+		# 		if domNameAdjusted in self._kernelDomainNames \
 		# 		or (self.parallelRegionPosition == "outside" and parallelRegionDomNamesBySize.get(domSize) != None) \
 		# 		or (len(dimsBeforeReset) <= len(self.domains) and domSize in alreadyEstablishedDomSizes):
 		# 			continue
@@ -996,14 +996,14 @@ EXAMPLE:\n\
 
 	def adjustDomainsToKernelPosition(self):
 		if self.parallelRegionPosition in ["outside", None, ""]:
-			self.kernelDomainNames = []
+			self._kernelDomainNames = []
 			self.domains = [
 				(domName, domSize) for (domName, domSize) in self.domains
-				if not domName in self.kernelDomainNames
+				if not domName in self._kernelDomainNames
 			]
 		self.domains = [
 			(domName, domSize) for (domName, domSize) in self.domains
-			if domName in self.kernelDomainNames or domSize in self.kernelInactiveDomainSizes
+			if domName in self._kernelDomainNames or domSize in self._kernelInactiveDomainSizes
 		]
 
 	def loadDeclaration(self, specTuple, patterns, currentRoutineArguments, currParentName):
@@ -1069,16 +1069,16 @@ Automatic reshaping is not supported since this is a pointer type. Domains in Di
 			# for the stencil use case: user will still specify the dimensions in the declaration
 			# -> autodom picks them up and integrates them as parallel active dims
 			logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] Loading dimensions for autoDom, non-pointer symbol %s. Declared dimensions: %s, Known dimension sizes used for parallel regions: %s, Parallel Active Dims: %s, Parallel Inactive Dims: %s" %(
-				str(self), str(dimensionSizes), str(self.aggregatedRegionDomSizesByName), str(self.kernelDomainNames), str(self.kernelInactiveDomainSizes)
+				str(self), str(dimensionSizes), str(self._knownKernelDomainSizesByName), str(self._kernelDomainNames), str(self._kernelInactiveDomainSizes)
 			))
 			for dimensionSize in dimensionSizes:
 				missingParallelDomain = None
-				for domName in self.aggregatedRegionDomSizesByName.keys():
-					if not dimensionSize in self.aggregatedRegionDomSizesByName[domName]:
+				for domName in self._knownKernelDomainSizesByName.keys():
+					if not dimensionSize in self._knownKernelDomainSizesByName[domName]:
 						continue
 					#we have found the dimension size that this symbol expects for this domain name. -> use it
-					self.aggregatedRegionDomSizesByName[domName] = [dimensionSize]
-					if domName in self.kernelDomainNames:
+					self._knownKernelDomainSizesByName[domName] = [dimensionSize]
+					if domName in self._kernelDomainNames:
 						continue
 					missingParallelDomain = domName
 					break
@@ -1087,27 +1087,27 @@ Automatic reshaping is not supported since this is a pointer type. Domains in Di
 template for symbol %s - automatically inserting it for domain name %s\n"
 						%(dimensionSize, self.name, domName)
 					)
-					self.kernelDomainNames.append(domName)
+					self._kernelDomainNames.append(domName)
 			# self.domains = []
-			self.kernelInactiveDomainSizes = []
-			# for parallelDomName in self.kernelDomainNames:
-			# 	parallelDomSizes = self.aggregatedRegionDomSizesByName.get(parallelDomName)
+			self._kernelInactiveDomainSizes = []
+			# for parallelDomName in self._kernelDomainNames:
+			# 	parallelDomSizes = self._knownKernelDomainSizesByName.get(parallelDomName)
 			# 	if parallelDomSizes == None or len(parallelDomSizes) == 0:
 			# 		raise Exception("No domain size found for domain name %s" %(parallelDomName))
 			# 	elif len(parallelDomSizes) > 1:
 			# 		raise Exception("There are multiple known dimension sizes for domain %s. Cannot insert domain for autoDom symbol %s. Please use explicit declaration" %(parallelDomName, str(self)))
 			# 	self.domains.append((parallelDomName, parallelDomSizes[0]))
 			for dimensionSize in dimensionSizes:
-				for domName in self.aggregatedRegionDomSizesByName.keys():
-					if dimensionSize in self.aggregatedRegionDomSizesByName[domName]:
+				for domName in self._knownKernelDomainSizesByName.keys():
+					if dimensionSize in self._knownKernelDomainSizesByName[domName]:
 						break
 				else:
-					self.kernelInactiveDomainSizes.append(dimensionSize)
+					self._kernelInactiveDomainSizes.append(dimensionSize)
 			knownDimensionSizes = [d for (n, d) in self.domains]
-			dimensionSizesToBeAdded = [d for d in self.kernelInactiveDomainSizes if not d in knownDimensionSizes]
+			dimensionSizesToBeAdded = [d for d in self._kernelInactiveDomainSizes if not d in knownDimensionSizes]
 			for dimensionSize in dimensionSizesToBeAdded:
 				self.domains.append(("HF_GENERIC_PARALLEL_INACTIVE_DIM", dimensionSize))
-			logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] done loading autoDom dimensions. Parallel Active Dims: %s, Parallel Inactive Dims: %s" %(str(self.kernelDomainNames), str(self.kernelInactiveDomainSizes)))
+			logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] done loading autoDom dimensions. Parallel Active Dims: %s, Parallel Inactive Dims: %s" %(str(self._kernelDomainNames), str(self._kernelInactiveDomainSizes)))
 
 		# at this point we may not go further if the parallel region data
 		# has not yet been analyzed.
@@ -1129,8 +1129,8 @@ template for symbol %s - automatically inserting it for domain name %s\n"
 			#   in order of their appearance in the dependant template.   #
 			#   $$$ TODO: enable support for symmetric domain setups where one domain is passed in for vectorization
 			lastParallelDomainIndex = -1
-			for parallelDomName in self.kernelDomainNames:
-				parallelDomSizes = self.aggregatedRegionDomSizesByName.get(parallelDomName)
+			for parallelDomName in self._kernelDomainNames:
+				parallelDomSizes = self._knownKernelDomainSizesByName.get(parallelDomName)
 				if parallelDomSizes == None or len(parallelDomSizes) == 0:
 					raise Exception("No domain size found for domain name %s" %(parallelDomName))
 				for parallelDomSize in parallelDomSizes:
@@ -1160,7 +1160,7 @@ template for symbol %s - automatically inserting it for domain name %s\n"
 		dimensionSizesMatchedInTemplate = []
 		dependantDomNameAndSize = getDomNameAndSize(self.template)
 		for (dependantDomName, dependantDomSize) in dependantDomNameAndSize:
-			if dependantDomName not in self.kernelInactiveDomainSizes:
+			if dependantDomName not in self._kernelInactiveDomainSizes:
 				continue
 			if dependantDomSize not in dimensionSizes:
 				raise Exception("Symbol %s's dependant non-parallel domain size %s is not declared as one of its dimensions." %(self.name, dependantDomSize))
@@ -1173,12 +1173,12 @@ template for symbol %s - automatically inserting it for domain name %s\n"
 			else:
 				self.domains.append((dependantDomName, dependantDomSize))
 		for (dependantDomName, dependantDomSize) in dependantDomNameAndSize:
-			if dependantDomName not in self.kernelDomainNames:
+			if dependantDomName not in self._kernelDomainNames:
 				continue
 			if dependantDomSize in dimensionSizes:
 				dimensionSizesMatchedInTemplate.append(dependantDomSize)
 		if self.isAutoDom and not self.hasUndecidedDomainSizes:
-			for dimSize in self.kernelInactiveDomainSizes:
+			for dimSize in self._kernelInactiveDomainSizes:
 				for (domName, domSize) in self.domains:
 					if dimSize == domSize:
 						break
@@ -1192,7 +1192,7 @@ template for symbol %s - automatically inserting it for domain name %s\n"
 Please make sure to use the same string names for its dimensions both in the parallel region as well as in its declarations -or- declare its dimensions explicitely (without autoDom).\
 Declared domain: %s, Domain after init: %s, Parallel dims: %s, Independant dims: %s, \
 Parallel region position: %s, Current template: %s"
-				%(self.name, str(dimensionSizes), str(self.domains), str(self.kernelDomainNames), str(self.kernelInactiveDomainSizes), self.parallelRegionPosition, self.template.toxml())
+				%(self.name, str(dimensionSizes), str(self.domains), str(self._kernelDomainNames), str(self._kernelInactiveDomainSizes), self.parallelRegionPosition, self.template.toxml())
 			)
 
 		if not self.isAutoDom and len(dimensionSizes) != len(dimensionSizesMatchedInTemplate):
@@ -1276,8 +1276,8 @@ Current Domains: %s\n" %(
 				"[" + str(self) + ".init " + str(self.initLevel) + "] Symbol %s's initialization completed using module information.\nDomains found in module: %s; parallel active: %s; parallel inactive: %s\n" %(
 					str(self),
 					str(domains),
-					str(self.kernelDomainNames),
-					str(self.kernelInactiveDomainSizes)
+					str(self._kernelDomainNames),
+					str(self._kernelInactiveDomainSizes)
 				)
 			)
 
@@ -1487,7 +1487,7 @@ Please specify the domains and their sizes with domName and domSize attributes i
 					str(self.domains),
 					self.initLevel,
 					str(self.parallelRegionPosition),
-					self.kernelDomainNames,
+					self._kernelDomainNames,
 					self.template.toxml()
 				))
 			if callee and callee.node.getAttribute("parallelRegionPosition") != "outside":

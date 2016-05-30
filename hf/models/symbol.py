@@ -996,14 +996,17 @@ EXAMPLE:\n\
 
 	def adjustDomainsToKernelPosition(self):
 		if self.parallelRegionPosition in ["outside", None, ""]:
-			self._kernelDomainNames = []
 			self.domains = [
 				(domName, domSize) for (domName, domSize) in self.domains
 				if not domName in self._kernelDomainNames
 			]
+			self._kernelDomainNames = []
+			self._kernelInactiveDomainSizes = [s for (_, s) in self.domains]
 		self.domains = [
 			(domName, domSize) for (domName, domSize) in self.domains
-			if domName in self._kernelDomainNames or domSize in self._kernelInactiveDomainSizes
+			if domName in self._kernelDomainNames \
+			or domSize in self._kernelInactiveDomainSizes \
+			or domSize == ":"
 		]
 
 	def loadDeclaration(self, specTuple, patterns, currentRoutineArguments, currParentName):

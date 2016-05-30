@@ -914,7 +914,7 @@ EXAMPLE:\n\
 			#build up parallel inactive dimensions again
 			if dependantDomName not in self._kernelDomainNames \
 			and not dependantDomSize in parallelRegionDomNamesBySize:
-				self._kernelInactiveDomainSizes.append(dependantDomName)
+				self._kernelInactiveDomainSizes.append(dependantDomSize)
 			#use the declared domain size (potentially overriding automatic sizes)
 			domNameAlias = parallelRegionDomNamesBySize.get(dependantDomSize, "")
 			if domNameAlias in self._knownKernelDomainSizesByName \
@@ -1164,7 +1164,7 @@ template for symbol %s - automatically inserting it for domain name %s\n"
 		dimensionSizesMatchedInTemplate = []
 		dependantDomNameAndSize = getDomNameAndSize(self.template)
 		for (dependantDomName, dependantDomSize) in dependantDomNameAndSize:
-			if dependantDomName not in self._kernelInactiveDomainSizes:
+			if dependantDomSize not in self._kernelInactiveDomainSizes:
 				continue
 			if dependantDomSize not in dimensionSizes:
 				raise Exception("Symbol %s's dependant non-parallel domain size %s is not declared as one of its dimensions." %(self.name, dependantDomSize))

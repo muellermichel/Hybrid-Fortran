@@ -951,10 +951,21 @@ EXAMPLE:\n\
 					self._knownKernelDomainSizesByName[regionDomName].append(regionDomSize)
 				parallelRegionDomNamesBySize[regionDomSize] = regionDomName
 
-		#   .... build up index of domain sizes and and names and put the others in the 'parallelInactive' set.
+		#   add the template information to the index; this is important in case the domainDependant template information differs from the parallel region
+		for (dependantDomName, dependantDomSize) in self._templateDomains:
+			parallelRegionDomNamesBySize[dependantDomSize] = dependantDomName
+
+		#   match the domain sizes to those in the index. this is important so we don't cancel them out later in the region position adjustment code
+		dimsBeforeReset = copy.deepcopy(self.domains)
+		self.domains = []
+		for (dependantDomName, dependantDomSize) in dimsBeforeReset:
+			domNameAlias = parallelRegionDomNamesBySize.get(dependantDomSize, dependantDomName)
+			self.domains.append((domNameAlias, dependantDomSize))
+
+		#   put the non parallel domains in the '_kernelInactiveDomainSizes' set.
 		for (dependantDomName, dependantDomSize) in self.domains:
 			#build up parallel inactive dimensions again
-			if dependantDomName not in self._kernelDomainNames \
+			if not dependantDomName in self._kernelDomainNames \
 			and not dependantDomSize in parallelRegionDomNamesBySize:
 				self._kernelInactiveDomainSizes.append(dependantDomSize)
 			#use the declared domain size (potentially overriding automatic sizes)
@@ -962,17 +973,6 @@ EXAMPLE:\n\
 			if domNameAlias in self._knownKernelDomainSizesByName \
 			and dependantDomSize not in self._knownKernelDomainSizesByName[domNameAlias]:
 				self._knownKernelDomainSizesByName[domNameAlias].append(dependantDomSize)
-
-		#   match the domain sizes to those in the index. this is important so we don't cancel them out later in the region position adjustment code
-		dimsBeforeReset = copy.deepcopy(self.domains)
-		self.domains = []
-		for (dependantDomName, dependantDomSize) in dimsBeforeReset:
-			domNameAlias = parallelRegionDomNamesBySize.get(dependantDomSize, dependantDomName)
-			if domNameAlias not in self._kernelDomainNames \
-			and dependantDomSize not in self._kernelInactiveDomainSizes:
-				raise Exception("Symbol %s's dependant domain size %s (domain %s / %s) is not declared as one of its dimensions. Parallel Active dims: %s; Inactive: %s" \
-					%(self.name, dependantDomSize, dependantDomName, domNameAlias, self._kernelDomainNames, self._kernelInactiveDomainSizes))
-			self.domains.append((domNameAlias, dependantDomSize))
 
 		# logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] before reset. parallel active: %s; parallel inactive: %s" %(
 		# 		str(self._kernelDomainNames),

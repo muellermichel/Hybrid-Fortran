@@ -829,12 +829,13 @@ EXAMPLE:\n\
 			parallelDomainSizesDict[domainSize] = None
 		if self.initLevel >= Init.ROUTINENODE_ATTRIBUTES_LOADED \
 		and len(self.domains) != len(self._kernelDomainNames) + len(self._kernelInactiveDomainSizes):
-			raise Exception("Wrong number of domains for symbol %s: || active: %s; || inactive: %s || actual: %s || parallel dom index: %s" %(
+			raise Exception("Wrong number of domains for symbol %s: || active: %s; || inactive: %s || actual: %s || parallel dom index: %s || region position: %s" %(
 				self.name,
 				self._kernelDomainNames,
 				self._kernelInactiveDomainSizes,
 				self.domains,
-				self._knownKernelDomainSizesByName
+				self._knownKernelDomainSizesByName,
+				self.parallelRegionPosition
 			))
 		if self.initLevel >= Init.ROUTINENODE_ATTRIBUTES_LOADED \
 		and not self.isAutoDom \
@@ -885,6 +886,7 @@ EXAMPLE:\n\
 		declarationPrefixFromTemplate = getDeclarationPrefix(self.template)
 		self.loadDeclarationPrefixFromString(declarationPrefixFromTemplate)
 		self.loadDomains(templateDomains, parallelRegionTemplates)
+		self.adjustDomainsToKernelPosition()
 		logging.debug(
 			"[" + str(self) + ".init " + str(self.initLevel) + "] Domains loaded from callgraph information for symbol %s. Parallel active: %s. Parallel Inactive: %s. Declaration Prefix: %s. templateDomains: %s declarationPrefix: %s. Parallel Regions: %i\n" %(
 				str(self),

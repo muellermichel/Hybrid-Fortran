@@ -241,7 +241,9 @@ MERGEABLE_DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES = {
 	"domPPName": None,
 	"accPPName": None,
 	"analysis": None,
-	"_declarationTypeOverride": None
+	"_declarationTypeOverride": None,
+	"_templateDomains": None,
+	"_declaredDimensionSizes": None
 }
 
 MERGEABLE_DEFAULT_SYMBOL_INSTANCE_DOMAIN_ATTRIBUTES = {
@@ -723,6 +725,7 @@ EXAMPLE:\n\
 		if self.isAutoDom and not otherSymbol.isAutoDom and self.parallelRegionTemplates:
 			self.loadDomains(getDomNameAndSize(otherSymbol.template), self.parallelRegionTemplates)
 		self.initLevel = max(self.initLevel, otherSymbol.initLevel)
+		self.checkIntegrityOfDomains()
 
 	def loadTemplate(self, template):
 		if self.initLevel > Init.DEPENDANT_ENTRYNODE_ATTRIBUTES_LOADED:
@@ -808,18 +811,10 @@ EXAMPLE:\n\
 					self.domains.append(('HF_GENERIC_DIM', dimSize))
 					self._kernelInactiveDomainSizes.append(dimSize)
 			logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] dimsizes from domain dependant node: %s " %(str(self.declaredDimensionSizes)))
-		self.checkIntegrityOfDomains()
 		self.initLevel = max(self.initLevel, Init.DEPENDANT_ENTRYNODE_ATTRIBUTES_LOADED)
+		self.checkIntegrityOfDomains()
 
 	def checkIntegrityOfDomains(self):
-		if self.initLevel >= Init.ROUTINENODE_ATTRIBUTES_LOADED \
-		and len(self.domains) != len(self._kernelDomainNames) + len(self._kernelInactiveDomainSizes):
-			raise Exception("Wrong number of domains for symbol %s: || active: %s; || inactive: %s; domains: %s" %(
-				self.name,
-				self._kernelDomainNames,
-				self._kernelInactiveDomainSizes,
-				self.domains
-			))
 		if self.declaredDimensionSizes:
 			for dimensionSize in self.declaredDimensionSizes:
 				if not type(dimensionSize) in [str, unicode] or dimensionSize == "":
@@ -832,6 +827,34 @@ EXAMPLE:\n\
 			if not domainName in self._kernelDomainNames:
 				continue
 			parallelDomainSizesDict[domainSize] = None
+		if self.initLevel >= Init.ROUTINENODE_ATTRIBUTES_LOADED \
+		and len(self.domains) != len(self._kernelDomainNames) + len(self._kernelInactiveDomainSizes):
+			raise Exception("Wrong number of domains for symbol %s: || active: %s; || inactive: %s; domains: %s" %(
+				self.name,
+				self._kernelDomainNames,
+				self._kernelInactiveDomainSizes,
+				self.domains
+			))
+		if self.initLevel >= Init.ROUTINENODE_ATTRIBUTES_LOADED \
+		and not self.isAutoDom \
+		and len(self.domains) != len(self._templateDomains):
+			raise Exception("Wrong number of domains for manual dom symbol %s: || template: %s; || actual: %s" %(
+				self.name,
+				self._templateDomains,
+				self.domains
+			))
+		if self.initLevel >= Init.DECLARATION_LOADED \
+		and self.isAutoDom \
+		and len(self.domains) not in [
+			len(self._templateDomains),
+			len(self._templateDomains) + len(self._declaredDimensionSizes)
+		]:
+			raise Exception("Wrong number of domains for autoDom symbol %s: || template: %s; || declared: %s; actual: %s" %(
+				self.name,
+				self._templateDomains,
+				self._declaredDimensionSizes,
+				self.domains
+			))
 		logging.debug("domain integrity checked for symbol %s" %(self))
 
 	def loadTemplateAttributes(self, parallelRegionTemplates=[]):
@@ -842,17 +865,17 @@ EXAMPLE:\n\
 					self.initLevel
 				)
 			)
-		dependantDomNameAndSize = getDomNameAndSize(self.template)
+		templateDomains = getDomNameAndSize(self.template)
 		declarationPrefixFromTemplate = getDeclarationPrefix(self.template)
 		self.loadDeclarationPrefixFromString(declarationPrefixFromTemplate)
-		self.loadDomains(dependantDomNameAndSize, parallelRegionTemplates)
+		self.loadDomains(templateDomains, parallelRegionTemplates)
 		logging.debug(
-				"[" + str(self) + ".init " + str(self.initLevel) + "] Domains loaded from callgraph information for symbol %s. Parallel active: %s. Parallel Inactive: %s. Declaration Prefix: %s. dependantDomNameAndSize: %s declarationPrefix: %s. Parallel Regions: %i\n" %(
+				"[" + str(self) + ".init " + str(self.initLevel) + "] Domains loaded from callgraph information for symbol %s. Parallel active: %s. Parallel Inactive: %s. Declaration Prefix: %s. templateDomains: %s declarationPrefix: %s. Parallel Regions: %i\n" %(
 					str(self),
 					str(self._kernelDomainNames),
 					str(self._kernelInactiveDomainSizes),
 					declarationPrefixFromTemplate,
-					dependantDomNameAndSize,
+					templateDomains,
 					declarationPrefixFromTemplate,
 					len(parallelRegionTemplates)
 				)
@@ -863,8 +886,8 @@ EXAMPLE:\n\
 			self.declarationPrefix = declarationPrefix
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] declaration prefix loaded: %s" %(declarationPrefix))
 
-	def loadDomains(self, dependantDomNameAndSize, parallelRegionTemplates=[]):
-		if dependantDomNameAndSize == None or len(dependantDomNameAndSize) == 0:
+	def loadDomains(self, templateDomains, parallelRegionTemplates=[]):
+		if templateDomains == None or len(templateDomains) == 0:
 			dependantDomSizeByName = dict(
 				("%s_%i" %(value[0],index),value[1])
 				for index,value
@@ -874,16 +897,17 @@ EXAMPLE:\n\
 			dependantDomSizeByName = dict(
 				(dependantDomName,dependantDomSize)
 				for (dependantDomName, dependantDomSize)
-				in dependantDomNameAndSize
+				in templateDomains
 			)
 
 		self._kernelDomainNames = []
 		self._kernelInactiveDomainSizes = []
 		self._knownKernelDomainSizesByName = {}
+		self._templateDomains = templateDomains
 
 		#   adjust the loaded domains by the new information given:
-		if not self.domains or len(self.domains) <= len(dependantDomNameAndSize):
-			self.domains = dependantDomNameAndSize
+		if not self.domains or len(self.domains) <= len(templateDomains):
+			self.domains = templateDomains
 
 		#   which of those dimensions are kernel dimensions?
 		#   -> put them in the 'parallelActive' set, .....
@@ -931,7 +955,7 @@ EXAMPLE:\n\
 		# for (dependantDomName, dependantDomSize) in dimsBeforeReset:
 		# 	domNameBySize[dependantDomSize] = dependantDomName
 		# self.domains = []
-		# for (dependantDomName, dependantDomSize) in dependantDomNameAndSize:
+		# for (dependantDomName, dependantDomSize) in templateDomains:
 		# 	domNameAlias = parallelRegionDomNamesBySize.get(dependantDomSize, "")
 		# 	if dependantDomName not in self._kernelDomainNames + self._kernelInactiveDomainSizes \
 		# 	and domNameAlias not in self._kernelDomainNames + self._kernelInactiveDomainSizes:
@@ -957,7 +981,6 @@ EXAMPLE:\n\
 		# 		or (len(dimsBeforeReset) <= len(self.domains) and domSize in alreadyEstablishedDomSizes):
 		# 			continue
 		# 		self.domains.append((domNameAdjusted, domSize))
-		self.checkIntegrityOfDomains()
 
 	def loadModuleNodeAttributes(self, moduleNode):
 		if self.initLevel < Init.DEPENDANT_ENTRYNODE_ATTRIBUTES_LOADED:
@@ -967,8 +990,9 @@ EXAMPLE:\n\
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] +++++++++ LOADING MODULE NODE ++++++++++ ")
 		self.routineNode = moduleNode #MMU 2015-11-18: $$$ This needs to be commented or rethought
 		self.loadTemplateAttributes()
-		self.initLevel = max(self.initLevel, Init.ROUTINENODE_ATTRIBUTES_LOADED)
 		self.updateNameInScope()
+		self.initLevel = max(self.initLevel, Init.ROUTINENODE_ATTRIBUTES_LOADED)
+		self.checkIntegrityOfDomains()
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] symbol attributes loaded from module node. Domains at this point: %s. Init Level: %s" %(str(self.domains), str(self.initLevel)))
 
 	def loadRoutineNodeAttributes(self, routineNode, parallelRegionTemplates):
@@ -993,6 +1017,7 @@ EXAMPLE:\n\
 		self.loadTemplateAttributes(parallelRegionTemplatesUsedForLoading)
 		self.updateNameInScope()
 		self.initLevel = max(self.initLevel, Init.ROUTINENODE_ATTRIBUTES_LOADED)
+		self.checkIntegrityOfDomains()
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] routine node attributes loaded for symbol %s. Domains at this point: %s" %(self.name, str(self.domains)))
 
 	def adjustDomainsToKernelPosition(self):
@@ -1060,6 +1085,7 @@ EXAMPLE:\n\
 		remainder = specTuple[2]
 		self.declarationSuffix = remainder.strip()
 		dimensionSizes = [sizeStr.strip() for sizeStr in dimensionStr.split(',') if sizeStr.strip() != ""] if dimensionStr != None else []
+		self._declaredDimensionSizes = dimensionSizes
 		if self.isAutoDom:
 			logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] reordering domains for symbol %s with autoDom option." %(self.name))
 		if self.isAutoDom and self.hasUndecidedDomainSizes:
@@ -1165,8 +1191,8 @@ template for symbol %s - automatically inserting it for domain name %s\n"
 		#   Insert the dimensions in order of their appearance in     #
 		#   the domainDependant template.                             #
 		dimensionSizesMatchedInTemplate = []
-		dependantDomNameAndSize = getDomNameAndSize(self.template)
-		for (dependantDomName, dependantDomSize) in dependantDomNameAndSize:
+		templateDomains = getDomNameAndSize(self.template)
+		for (dependantDomName, dependantDomSize) in templateDomains:
 			if dependantDomSize not in self._kernelInactiveDomainSizes:
 				continue
 			if dependantDomSize not in dimensionSizes:
@@ -1179,7 +1205,7 @@ template for symbol %s - automatically inserting it for domain name %s\n"
 					break
 			else:
 				self.domains.append((dependantDomName, dependantDomSize))
-		for (dependantDomName, dependantDomSize) in dependantDomNameAndSize:
+		for (dependantDomName, dependantDomSize) in templateDomains:
 			if dependantDomName not in self._kernelDomainNames:
 				continue
 			if dependantDomSize in dimensionSizes:
@@ -1211,8 +1237,8 @@ Parallel region position: %s"
 			)
 		if not self.hasUndecidedDomainSizes:
 			self.domains = getReorderedDomainsAccordingToDeclaration(self.domains, dimensionSizes)
-		self.checkIntegrityOfDomains()
 		self.initLevel = max(self.initLevel, Init.DECLARATION_LOADED)
+		self.checkIntegrityOfDomains()
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] declaration loaded for symbol %s. Domains at this point: %s" %(self.name, str(self.domains)))
 
 	def getModuleNameAndSourceSymbolNameFromImportMatch(self, importMatch):
@@ -1279,6 +1305,7 @@ Current Domains: %s\n" %(
 		self.accPPName = accPP
 		self.domPPName = domPP
 		self.initLevel = max(self.initLevel, Init.DECLARATION_LOADED)
+		self.checkIntegrityOfDomains()
 		logging.debug(
 				"[" + str(self) + ".init " + str(self.initLevel) + "] Symbol %s's initialization completed using module information.\nDomains found in module: %s; parallel active: %s; parallel inactive: %s\n" %(
 					str(self),

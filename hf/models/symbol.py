@@ -185,7 +185,7 @@ def getReorderedDomainsAccordingToDeclaration(domains, dimensionSizesInDeclarati
 			if index_candidate in usedIndices:
 				startAt = index_candidate + 1
 			else:
-				break;
+				break
 		return index_candidate
 
 	if not dimensionSizesInDeclaration:
@@ -242,8 +242,7 @@ MERGEABLE_DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES = {
 	"accPPName": None,
 	"analysis": None,
 	"_declarationTypeOverride": None,
-	"_templateDomains": None,
-	"_declaredDimensionSizes": None
+	"_templateDomains": None
 }
 
 MERGEABLE_DEFAULT_SYMBOL_INSTANCE_DOMAIN_ATTRIBUTES = {
@@ -800,10 +799,12 @@ EXAMPLE:\n\
 		self.isUsingDevicePostfix = domainDependantEntryNode.getAttribute("isUsingDevicePostfix") == "yes"
 		self.isDeclaredExplicitely = domainDependantEntryNode.getAttribute("isDeclaredExplicitely") == "yes"
 		declaredDimensionSizes = domainDependantEntryNode.getAttribute("declaredDimensionSizes")
-		self.declaredDimensionSizes = declaredDimensionSizes.split(",") if declaredDimensionSizes \
-			and declaredDimensionSizes != "" \
+		self.declaredDimensionSizes = declaredDimensionSizes.split(",") \
+			if declaredDimensionSizes \
 			and self.declaredDimensionSizes == None \
 			else self.declaredDimensionSizes
+		if not self.declaredDimensionSizes:
+			self.declaredDimensionSizes = []
 		if self.declaredDimensionSizes and len(self.declaredDimensionSizes) > 0 and self.initLevel < Init.ROUTINENODE_ATTRIBUTES_LOADED:
 			self.domains = []
 			for dimSize in self.declaredDimensionSizes:
@@ -845,17 +846,19 @@ EXAMPLE:\n\
 				self._templateDomains,
 				self.domains
 			))
+		if self.initLevel >= Init.DECLARATION_LOADED and self.declaredDimensionSizes == None:
+			raise Exception("symbol %s is in declaration loaded state, but dimensions are not initialized" %(self.name))
 		if self.initLevel >= Init.DECLARATION_LOADED \
 		and self.parallelRegionPosition in ["within", "inside"] \
 		and self.isAutoDom \
 		and len(self.domains) not in [
 			len(self._templateDomains),
-			len(self._templateDomains) + len(self._declaredDimensionSizes)
+			len(self._templateDomains) + len(self.declaredDimensionSizes)
 		]:
 			raise Exception("Wrong number of domains for autoDom symbol %s: || template: %s; || declared: %s || actual: %s || kernel: %s || non-kernel: %s" %(
 				self.name,
 				self._templateDomains,
-				self._declaredDimensionSizes,
+				self.declaredDimensionSizes,
 				self.domains,
 				self._kernelDomainNames,
 				self._kernelInactiveDomainSizes
@@ -867,7 +870,7 @@ EXAMPLE:\n\
 			raise Exception("Wrong number of domains for autoDom symbol %s: || template: %s; || declared: %s || actual: %s || kernel: %s || non-kernel: %s" %(
 				self.name,
 				self._templateDomains,
-				self._declaredDimensionSizes,
+				self.declaredDimensionSizes,
 				self.domains,
 				self._kernelDomainNames,
 				self._kernelInactiveDomainSizes
@@ -953,6 +956,8 @@ EXAMPLE:\n\
 
 		#   add the template information to the index; this is important in case the domainDependant template information differs from the parallel region
 		for (dependantDomName, dependantDomSize) in self._templateDomains:
+			if not dependantDomName in self._kernelDomainNames:
+				continue
 			parallelRegionDomNamesBySize[dependantDomSize] = dependantDomName
 
 		#   match the domain sizes to those in the index. this is important so we don't cancel them out later in the region position adjustment code
@@ -1114,7 +1119,7 @@ EXAMPLE:\n\
 		remainder = specTuple[2]
 		self.declarationSuffix = remainder.strip()
 		dimensionSizes = [sizeStr.strip() for sizeStr in dimensionStr.split(',') if sizeStr.strip() != ""] if dimensionStr != None else []
-		self._declaredDimensionSizes = dimensionSizes
+		self.declaredDimensionSizes = dimensionSizes
 
 		knownDimensionSizes = [d for (_, d) in self.domains]
 		if self.isAutoDom and self.hasUndecidedDomainSizes:

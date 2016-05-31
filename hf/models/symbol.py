@@ -1157,7 +1157,7 @@ Automatic reshaping is not supported since this is a pointer type. Domains in Di
 		# 	self.checkIntegrityOfDomains()
 		# 	return
 
-		# if not self.hasUndecidedDomainSizes:
+		if not self.hasUndecidedDomainSizes:
 		# 	#   compare the declared dimensions with those in the         #
 		# 	#   'parallelActive' set using the declared domain sizes.     #
 		# 	#   If there are any matches                                  #
@@ -1190,7 +1190,7 @@ Automatic reshaping is not supported since this is a pointer type. Domains in Di
 		# 			self.domains.insert(lastParallelDomainIndex, (parallelDomName, parallelDomSizes[0]))
 		# 			if parallelDomName not in self._kernelDomainNames:
 		# 				self._kernelDomainNames.append(parallelDomName)
-		# 	self.adjustDomainsToKernelPosition()
+			self.adjustDomainsToKernelPosition()
 		# 	logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] parallel active dims analysed")
 
 		# #   Now match the declared dimensions to those in the         #
@@ -1492,8 +1492,6 @@ Please specify the domains and their sizes with domName and domSize attributes i
 			if (callee or isPointerAssignment) and all([iterator == ':' for iterator in iterators]):
 				return [] #working around a problem in PGI 15.1: Inliner bails out in certain situations (module test kernel 3+4) if arrays are passed in like a(:,:,:).
 			return [iterator.strip().replace(" ", "") for iterator in iterators]
-
-
 
 		if isPointerAssignment \
 		or len(self.domains) == 0 \

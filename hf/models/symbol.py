@@ -458,19 +458,10 @@ class Symbol(object):
 	def activeDomainsMatchSpecification(self):
 		if not self.domains:
 			return False
-		if self.template:
-			templateDomains = getDomNameAndSize(self.template)
-			#check whether domains are specified in the domainDependant directive
-			#otherwise autoDom is assumed for everything and we just have to compare against the Fortran declaration
-			if len(templateDomains) > 0:
-				if len(self.domains) == len(templateDomains):
-					return True #all domains are explicitely declared in the domainDependant directive
-				if len(self.domains) == len(templateDomains) + len(self._kernelInactiveDomainSizes):
-					return True #parallel domains are explicitely declared in the domainDependant directive
-				return False #domainDependant directive specification is not active here (probably the parallelRegion(s) they are meant for do not apply currently)
-		if self.declaredDimensionSizes and len(self.domains) == len(self.declaredDimensionSizes):
-			return True
-		return False
+		return (self.isAutoDom and len(self.domains) in [
+				len(self._templateDomains), len(self._templateDomains) + len(self._kernelInactiveDomainSizes)
+			]) \
+			or (not self.isAutoDom and len(self.domains) == len(self._templateDomains))
 
 	@property
 	def declarationType(self):

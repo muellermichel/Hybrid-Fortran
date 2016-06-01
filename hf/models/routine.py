@@ -90,6 +90,7 @@ class AnalyzableRoutine(Routine):
 		self._symbolsByModuleNameAndSymbolName = None
 		self._allImports = None
 		self._packedRealSymbolsByCalleeName = {}
+		self.usedSymbolNames = {}
 
 	@property
 	def additionalArgumentSymbols(self):
@@ -411,6 +412,11 @@ This is not allowed for implementations using %s.\
 			isSubroutineEnd=True
 		) + "end subroutine\n"
 
+	def _analyseSymbolUsage(self):
+		for region in self._regions:
+			for symbol in region.usedSymbols:
+				self.usedSymbolNames[symbol.name] = None
+
 	def filterOutSymbolsAlreadyAliveInCurrentScope(self, symbolList):
 		return [
 			symbol for symbol in symbolList
@@ -509,6 +515,7 @@ This is not allowed for implementations using %s.\
 			self._prepareAdditionalContext()
 			self._updateSymbolReferences()
 			self._updateSymbolState()
+			self._analyseSymbolUsage()
 			implementedRoutineElements = [self._implementHeader(), self._implementAdditionalImports()]
 			implementedRoutineElements += [region.implemented() for region in self._regions]
 			implementedRoutineElements += [self._implementFooter()]

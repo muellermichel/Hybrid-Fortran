@@ -32,19 +32,19 @@ RegionType = enum(
 )
 
 def implementSymbolAccessStringAndRemainder(line, suffix, symbol, iterators=[], parallelRegionTemplate=None, callee=None):
-    isPointerAssignment = RegExPatterns.Instance().pointerAssignmentPattern.match(line) != None
-    try:
-        symbolAccessString, remainder = getSymbolAccessStringAndRemainder(
-            symbol,
-            iterators,
-            parallelRegionTemplate,
-            suffix,
-            callee,
-            isPointerAssignment
-        )
-    except UsageError as e:
-        raise UsageError("%s; Print of Line: %s" %(str(e), line))
-    return symbolAccessString, remainder
+	isPointerAssignment = RegExPatterns.Instance().pointerAssignmentPattern.match(line) != None
+	try:
+		symbolAccessString, remainder = getSymbolAccessStringAndRemainder(
+			symbol,
+			iterators,
+			parallelRegionTemplate,
+			suffix,
+			callee,
+			isPointerAssignment
+		)
+	except UsageError as e:
+		raise UsageError("%s; Print of Line: %s" %(str(e), line))
+	return symbolAccessString, remainder
 
 class Region(object):
 	def __init__(self, routine):
@@ -52,6 +52,10 @@ class Region(object):
 		self._parentRegion = None
 		self._routineRef = None
 		self.loadParentRoutine(routine)
+
+	@property
+	def usedSymbols(self):
+		return sum([symbols for (_, symbols) in self._linesAndSymbols], [])
 
 	@property
 	def parentRoutine(self):
@@ -113,6 +117,12 @@ class CallRegion(Region):
 		super(CallRegion, self).__init__(routine)
 		self._callee = None
 		self._passedInSymbolsByName = None
+
+	@property
+	def usedSymbols(self):
+		return super(CallRegion, self).usedSymbols \
+			+ self._callee.additionalArgumentSymbols \
+			+ self._passedInSymbolsByName.values()
 
 	def _adjustedArguments(self, arguments):
 		def adjustArgument(argument, parallelRegionTemplate, iterators):
@@ -446,6 +456,7 @@ class RoutineSpecificationRegion(Region):
 						parentRoutine.node.getAttribute('parallelRegionPosition')
 					).strip()
 					for symbol in declaredSymbolsByScopedName.values()
+					if symbol.name in parentRoutine.usedSymbolNames
 				]).strip() + "\n"
 			if len(self._dataSpecificationLines) > 0 and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
 				text += "!<----- data specifications: --\n"
@@ -465,6 +476,8 @@ class RoutineSpecificationRegion(Region):
 				text += "!<----- auto emul symbols : --\n"
 			defaultPurgeList = ['intent', 'public', 'parameter', 'allocatable']
 			for symbol in self._symbolsToAdd:
+				if not symbol.name in parentRoutine.usedSymbolNames:
+					continue
 				purgeList = defaultPurgeList
 				if not symbol.isCompacted:
 					purgeList=['public', 'parameter', 'allocatable']
@@ -492,6 +505,8 @@ class RoutineSpecificationRegion(Region):
 						# only symbols that are local to the kernel actually need to be declared here.
 						# Everything else we should have in our own scope already, either through additional imports or
 						# through module association (we assume the kernel and its wrapper reside in the same module)
+						continue
+					if not symbol.name in parentRoutine.usedSymbolNames:
 						continue
 
 					#in case the array uses domain sizes in the declaration that are additional symbols themselves
@@ -529,7 +544,10 @@ class RoutineSpecificationRegion(Region):
 					).rstrip() + " ! compaction array added for callee %s\n" %(callee.name)
 
 			declarationEndText = parentRoutine.implementation.declarationEnd(
-				parentRoutine.symbolsByName.values() + parentRoutine.additionalImports,
+				[
+					s for s in parentRoutine.symbolsByName.values() + parentRoutine.additionalImports
+					if s.name in parentRoutine.usedSymbolNames
+				],
 				parentRoutine.isCallingKernel,
 				parentRoutine.node,
 				parentRoutine.parallelRegionTemplates
@@ -557,7 +575,10 @@ class RoutineEarlyExitRegion(Region):
 	def implemented(self, skipDebugPrint=False):
 		parentRoutine = self._routineRef()
 		text = parentRoutine.implementation.subroutineExitPoint(
-			parentRoutine.symbolsByName.values(),
+			[
+				s for s in parentRoutine.symbolsByName.values()
+				if s.name in parentRoutine.usedSymbolNames
+			],
 			parentRoutine.isCallingKernel,
 			isSubroutineEnd=False
 		)

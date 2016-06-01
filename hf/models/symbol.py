@@ -1225,8 +1225,8 @@ Current Domains: %s\n" %(
 		declarationPrefix = self.getSanitizedDeclarationPrefix(purgeList)
 		if self.hasUndecidedDomainSizes \
 		and not ("allocatable" in declarationPrefix or "pointer" in declarationPrefix):
-			raise UsageError("%s cannot be declared at this point because of insufficient domain information (known domain sizes: %s). \
-Please specify it using an appropriate @domainDependant directive." %(self.name, [s for (_, s) in self.domains]))
+			raise UsageError("%s cannot be declared at this point because of insufficient domain information. \
+Please specify it using an appropriate @domainDependant directive." %(self.name))
 		return "%s %s %s %s" %(
 			declarationPrefix.strip(),
 			name_prefix,

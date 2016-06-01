@@ -102,12 +102,22 @@ contains
     call wrapper8()
   end subroutine
 
+  subroutine data_region_wrapper9()
+    use my_module, only: implicitDataArray1, c, kernel
+    implicit none
+
+    @domainDependant{attribute(autoDom,transferHere)}
+    implicitDataArray1, c
+    @end domainDependant
+
+    call kernel()
+  end subroutine
 
 end module example
 
 program main
   use example
-  use my_module, only: a, b, a2, b2, c, d, c2, d2, used_in_acc_routine, assert_values, a_dyn, b_dyn, c_dyn, d_dyn, nx, ny, nz, cpu_add
+  use my_module, only: a, b, a2, b2, c, d, c2, d2, used_in_acc_routine, assert_values, a_dyn, b_dyn, c_dyn, d_dyn, implicitDataArray1, nx, ny, nz, cpu_add
   use kernels3, only: outer_wrapper3
   use kernels5, only: kernels5_initialize, kernels5_cleanup
 !   use kernels6, only: kernels6_initialize, kernels6_cleanup
@@ -221,6 +231,14 @@ program main
   call cpu_add
   write(0,*) "cpu only complete"
   call assert_values(c, 3.0d0)
+  if (implicitDataArray1(1) .ne. 1.0d0) then
+    write(0,*) "implicit test 1 failed"
+    stop 2
+  end if
+
+  c(:,:,:) = 0.0d0
+  call data_region_wrapper9()
+  call assert_values(c, 1.0d0)
 
   deallocate(a)
   deallocate(b)

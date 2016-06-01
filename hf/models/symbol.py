@@ -1082,7 +1082,14 @@ EXAMPLE:\n\
 					self._kernelInactiveDomainSizes.append(dimensionSize)
 			elif len(dimensionSizes) != len(self.domains):
 				raise Exception("Symbol %s's declared shape does not match its domainDependant directive. \
-Automatic reshaping is not supported since this is a pointer type. Domains in Directive: %s, dimensions in declaration: %s" %(self.name, str(self.domains), str(dimensionSizes)))
+Automatic reshaping is not supported since this is a pointer type. Domains in Directive: %s || dimensions in declaration: %s \
+|| kernel domains: %s || kernel inactive domain sizes: %s" %(
+					self.name,
+					self.domains,
+					dimensionSizes,
+					self._kernelDomainNames,
+					self._kernelInactiveDomainSizes
+				))
 		elif self.isAutoDom:
 			# for the stencil use case: user will still specify the dimensions in the declaration
 			# -> autodom picks them up and integrates them as parallel active dims
@@ -1172,6 +1179,7 @@ Current Domains: %s\n" %(
 		self.setOptionsFromAttributes(attributes)
 		self.loadDeclarationPrefixFromString(declarationPrefix)
 		self.loadDomains(domains, self.parallelRegionTemplates if self.parallelRegionTemplates != None else [])
+		self.declaredDimensionSizes = [s for (_, s) in self.domains] #since we don't get this array from the declaration we need to set it here for non-templated module data
 		self.domains = getReorderedDomainsAccordingToDeclaration(self.domains, self.declaredDimensionSizes)
 		self.accPPName = accPP
 		self.domPPName = domPP
@@ -1215,6 +1223,10 @@ Current Domains: %s\n" %(
 		if skip_on_missing_declaration and (self.declarationPrefix == None or self.declarationPrefix == ""):
 			return ""
 		declarationPrefix = self.getSanitizedDeclarationPrefix(purgeList)
+		if self.hasUndecidedDomainSizes \
+		and not ("allocatable" in declarationPrefix or "pointer" in declarationPrefix):
+			raise UsageError("%s cannot be declared at this point because of insufficient domain information (known domain sizes: %s). \
+Please specify it using an appropriate @domainDependant directive." %(self.name, [s for (_, s) in self.domains]))
 		return "%s %s %s %s" %(
 			declarationPrefix.strip(),
 			name_prefix,

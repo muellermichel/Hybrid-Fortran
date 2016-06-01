@@ -19,6 +19,7 @@ module my_module
 	integer(4), parameter:: rlength = 4
 	real(rlength), dimension(:, :, :), allocatable :: a, b, c, d, a2, b2, c2, d2, used_in_acc_routine
 	real, dimension(:, :, :), allocatable :: a_dyn, b_dyn, c_dyn, d_dyn
+	real, allocatable :: implicitDataArray1(:)
 	real, parameter :: some_const = 1.0d0
 	integer(4) :: nx, ny, nz
 
@@ -38,6 +39,10 @@ contains
 		a, b, c
 		@end domainDependant
 
+		@domainDependant{attribute(host, autoDom), domName(myDom), domSize(NZ)}
+		implicitDataArray1
+		@end domainDependant
+
 		do y=1,NY
 		do x=1,NX
 		do z=1,NZ
@@ -45,7 +50,32 @@ contains
 		end do
 		end do
 		end do
+
+		allocate(implicitDataArray1(NZ))
+		do z=1,NZ
+			implicitDataArray1(z) = 1.0d0
+		end do
 	end subroutine
+
+	subroutine kernel()
+		implicit none
+		integer :: z
+
+		@domainDependant{attribute(present, autoDom)}
+		c
+		@end domainDependant
+
+		@domainDependant{attribute(present, autoDom), domName(myDom), domSize(NZ)}
+		implicitDataArray1
+		@end domainDependant
+
+		@parallelRegion{domName(x,y), domSize(NX, NY)}
+		do z=1,NZ
+		  c(z) = implicitDataArray1(z)
+		end do
+		@end parallelRegion
+	end subroutine
+
 	subroutine assert_values(test_array, expected_value)
 		implicit none
 		real, dimension(NX, NY, NZ), intent(in) :: test_array

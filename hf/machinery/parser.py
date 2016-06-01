@@ -696,8 +696,6 @@ def getSymbolsByName(cgDoc, parentNode, parallelRegionTemplates=[], currentModul
             existingSymbol = currentSymbolsByName.get(uniqueIdentifier(dependantName, entry.getAttribute("nameOfScope")))
         if existingSymbol == None and entry.getAttribute("isDeclaredExplicitely") != "yes" and currentModuleName not in [None, ""]:
             existingSymbol = currentSymbolsByName.get(uniqueIdentifier(dependantName, currentModuleName))
-            if existingSymbol != None:
-                #if this symbol is found in the local module and there is no explicit declaration in the already loaded symbol, we are using that module symbol here.
         if existingSymbol != None:
             symbol.merge(existingSymbol)
             #overspecifying module symbol in a subroutine domain dependant specification

@@ -459,7 +459,9 @@ class Symbol(object):
 		if not self.domains:
 			return False
 		return (self.isAutoDom and len(self.domains) in [
-				len(self._templateDomains), len(self._templateDomains) + len(self._kernelInactiveDomainSizes)
+				len(self._templateDomains),
+				len(self._templateDomains) + len(self._kernelInactiveDomainSizes),
+				len(self._kernelDomainNames) + len(self._kernelInactiveDomainSizes)
 			]) \
 			or (not self.isAutoDom and len(self.domains) == len(self._templateDomains))
 

@@ -698,7 +698,6 @@ def getSymbolsByName(cgDoc, parentNode, parallelRegionTemplates=[], currentModul
             existingSymbol = currentSymbolsByName.get(uniqueIdentifier(dependantName, currentModuleName))
             if existingSymbol != None:
                 #if this symbol is found in the local module and there is no explicit declaration in the already loaded symbol, we are using that module symbol here.
-                symbol.resetScope(currentModuleName)
         if existingSymbol != None:
             symbol.merge(existingSymbol)
             #overspecifying module symbol in a subroutine domain dependant specification
@@ -908,20 +907,17 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
             if not isInsideSubroutineCall and not isInSubroutineBody:
                 specTuple = symbol.getSpecificationTuple(line)
                 if specTuple[0]:
-                    symbol.resetScope(scopeName)
                     matchesAndSymbol[0] = specTuple
                     matchesAndSymbolByScopeName[symbol.nameOfScope] = matchesAndSymbol
                     matchesAndSymbolBySymbolNameAndScopeName[symbol.name] = matchesAndSymbolByScopeName
                     continue
                 importMatch = symbol.importPattern.match(line)
                 if importMatch:
-                    symbol.resetScope(scopeName)
                     matchesAndSymbol[1] = importMatch
                     matchesAndSymbolByScopeName[symbol.nameOfScope] = matchesAndSymbol
                     matchesAndSymbolBySymbolNameAndScopeName[symbol.name] = matchesAndSymbolByScopeName
                     continue
             if (isInSubroutineBody or isInsideSubroutineCall) and symbol.splitTextAtLeftMostOccurrence(line)[1] != "":
-                symbol.resetScope(scopeName)
                 matchesAndSymbolByScopeName[symbol.nameOfScope] = matchesAndSymbol
                 matchesAndSymbolBySymbolNameAndScopeName[symbol.name] = matchesAndSymbolByScopeName
 

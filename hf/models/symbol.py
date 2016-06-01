@@ -732,12 +732,6 @@ EXAMPLE:\n\
 		self.setOptionsFromAttributes(self.attributes)
 		self.initLevel = max(self.initLevel, Init.TEMPLATE_LOADED)
 
-	# to be called when a previously loaded symbol is used in a new scope
-	def resetScope(self, newScopeName):
-		pass
-		# self._nameOfScopeOverride = newScopeName
-		# self.updateNameInScope()
-
 	def setOptionsFromAttributes(self, attributes):
 		if "present" in attributes:
 			self.isPresent = True
@@ -973,43 +967,6 @@ EXAMPLE:\n\
 			and dependantDomSize not in self._knownKernelDomainSizesByName[domNameAlias]:
 				self._knownKernelDomainSizesByName[domNameAlias].append(dependantDomSize)
 
-		# logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] before reset. parallel active: %s; parallel inactive: %s" %(
-		# 		str(self._kernelDomainNames),
-		# 		str(self._kernelInactiveDomainSizes)
-		# 	))
-
-		# dimsBeforeReset = copy.deepcopy(self.domains)
-		# domNameBySize = {}
-		# for (dependantDomName, dependantDomSize) in dimsBeforeReset:
-		# 	domNameBySize[dependantDomSize] = dependantDomName
-		# self.domains = []
-		# for (dependantDomName, dependantDomSize) in templateDomains:
-		# 	domNameAlias = parallelRegionDomNamesBySize.get(dependantDomSize, "")
-		# 	if dependantDomName not in self._kernelDomainNames + self._kernelInactiveDomainSizes \
-		# 	and domNameAlias not in self._kernelDomainNames + self._kernelInactiveDomainSizes:
-		# 		raise Exception("Symbol %s's dependant domain size %s (domain %s / %s) is not declared as one of its dimensions. Parallel Active dims: %s; Inactive: %s" \
-		# 			%(self.name, dependantDomSize, dependantDomName, domNameAlias, self._kernelDomainNames, self._kernelInactiveDomainSizes))
-		# 	adjustedDomName = parallelRegionDomNamesBySize.get(dependantDomSize)
-		# 	if not adjustedDomName:
-		# 		adjustedDomName = dependantDomName
-		# 	self.domains.append((adjustedDomName, dependantDomSize))
-		# 	domNameBySize[dependantDomSize] = adjustedDomName
-		# 	logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] adding domain %s to symbol %s; Domains now: %s" %(
-		# 		str((adjustedDomName, dependantDomSize)), self.name, self.domains
-		# 	))
-		# if self.isAutoDom and not self.hasUndecidedDomainSizes:
-		# 	alreadyEstablishedDomSizes = [domSize for (domName, domSize) in self.domains]
-		# 	logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] Symbol %s is an autoDom symbol: Checking already established domains %s against previous dimensions: %s. parallelRegionDomNamesBySize: %s, alreadyEstablishedDomSizes: %s, domNameBySize: %s" %(
-		# 		self.name, str(self.domains), str(dimsBeforeReset), str(parallelRegionDomNamesBySize), str(alreadyEstablishedDomSizes), str(domNameBySize)
-		# 	))
-		# 	for (domName, domSize) in dimsBeforeReset:
-		# 		domNameAdjusted = domNameBySize.get(domSize, domName)
-		# 		if domNameAdjusted in self._kernelDomainNames \
-		# 		or (self.parallelRegionPosition == "outside" and parallelRegionDomNamesBySize.get(domSize) != None) \
-		# 		or (len(dimsBeforeReset) <= len(self.domains) and domSize in alreadyEstablishedDomSizes):
-		# 			continue
-		# 		self.domains.append((domNameAdjusted, domSize))
-
 	def loadModuleNodeAttributes(self, moduleNode):
 		if self.initLevel < Init.DEPENDANT_ENTRYNODE_ATTRIBUTES_LOADED:
 			raise Exception("Symbol %s's routine node attributes are loaded without loading the entry node attributes first."
@@ -1138,120 +1095,8 @@ Automatic reshaping is not supported since this is a pointer type. Domains in Di
 				self.domains.append(("HF_GENERIC_PARALLEL_INACTIVE_DIM", dimensionSize))
 				self._kernelInactiveDomainSizes.append(dimensionSize)
 
-# 				missingParallelDomain = None
-# 				for domName in self._knownKernelDomainSizesByName.keys():
-# 					if not dimensionSize in self._knownKernelDomainSizesByName[domName]:
-# 						continue
-# 					#we have found the dimension size that this symbol expects for this domain name. -> use it
-# 					self._knownKernelDomainSizesByName[domName] = [dimensionSize]
-# 					if domName in self._kernelDomainNames:
-# 						continue
-# 					missingParallelDomain = domName
-# 					break
-# 				if missingParallelDomain != None:
-# 					logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] Dimension size %s matched to a parallel region but not matched in the domain dependant \
-# template for symbol %s - automatically inserting it for domain name %s\n"
-# 						%(dimensionSize, self.name, domName)
-# 					)
-# 					self._kernelDomainNames.append(domName)
-			# self.domains = []
-			# self._kernelInactiveDomainSizes = []
-			# for parallelDomName in self._kernelDomainNames:
-			# 	parallelDomSizes = self._knownKernelDomainSizesByName.get(parallelDomName)
-			# 	if parallelDomSizes == None or len(parallelDomSizes) == 0:
-			# 		raise Exception("No domain size found for domain name %s" %(parallelDomName))
-			# 	elif len(parallelDomSizes) > 1:
-			# 		raise Exception("There are multiple known dimension sizes for domain %s. Cannot insert domain for autoDom symbol %s. Please use explicit declaration" %(parallelDomName, str(self)))
-			# 	self.domains.append((parallelDomName, parallelDomSizes[0]))
-			# for dimensionSize in dimensionSizes:
-			# 	for domName in self._knownKernelDomainSizesByName.keys():
-			# 		if dimensionSize in self._knownKernelDomainSizesByName[domName]:
-			# 			break
-			# 	else:
-			# 		self._kernelInactiveDomainSizes.append(dimensionSize)
-			# dimensionSizesToBeAdded = [d for d in self._kernelInactiveDomainSizes if not d in knownDimensionSizes]
-			# for dimensionSize in dimensionSizesToBeAdded:
-			# 	self.domains.append(("HF_GENERIC_PARALLEL_INACTIVE_DIM", dimensionSize))
-			logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] done loading autoDom dimensions. Parallel Active Dims: %s, Parallel Inactive Dims: %s" %(str(self._kernelDomainNames), str(self._kernelInactiveDomainSizes)))
-
-		# # at this point we may not go further if the parallel region data
-		# # has not yet been analyzed.
-		# if not self.parallelRegionPosition:
-		# 	if not self.hasUndecidedDomainSizes:
-		# 		self.domains = getReorderedDomainsAccordingToDeclaration(self.domains, dimensionSizes, purgeUndeclared=True)
-		# 	self.adjustDomainsToKernelPosition()
-		# 	self.checkIntegrityOfDomains()
-		# 	return
-
 		if not self.hasUndecidedDomainSizes:
-		# 	#   compare the declared dimensions with those in the         #
-		# 	#   'parallelActive' set using the declared domain sizes.     #
-		# 	#   If there are any matches                                  #
-		# 	#   in subroutines where the parallel region is outside,      #
-		# 	#   throw an error. the user should NOT declare those         #
-		# 	#   dimensions himself.                                       #
-		# 	#   Otherwise, insert the dimensions to the declaration       #
-		# 	#   in order of their appearance in the dependant template.   #
-		# 	#   $$$ TODO: enable support for symmetric domain setups where one domain is passed in for vectorization
-		# 	lastParallelDomainIndex = -1
-		# 	for parallelDomName in self._kernelDomainNames:
-		# 		parallelDomSizes = self._knownKernelDomainSizesByName.get(parallelDomName)
-		# 		if parallelDomSizes == None or len(parallelDomSizes) == 0:
-		# 			raise Exception("No domain size found for domain name %s" %(parallelDomName))
-		# 		for parallelDomSize in parallelDomSizes:
-		# 			if parallelDomSize in dimensionSizes and self.parallelRegionPosition == "outside":
-		# 				raise Exception("Parallel domain %s is declared for array %s in a subroutine where the parallel region is positioned outside. \
-		# This is not allowed. Note: These domains are inserted automatically if needed. For stencil computations it is recommended to only pass scalars to subroutine calls within the parallel region." \
-		# 					%(parallelDomName, self.name))
-		# 		if self.parallelRegionPosition == "outside":
-		# 			continue
-		# 		for index, (domName, domSize) in enumerate(self.domains):
-		# 			if domName == parallelDomName:
-		# 				lastParallelDomainIndex = index
-		# 				break
-		# 		else:
-		# 			if len(parallelDomSizes) > 1:
-		# 				raise Exception("There are multiple known dimension sizes for domain %s. Cannot insert domain for autoDom symbol %s. Please use explicit declaration" %(parallelDomName, str(self)))
-		# 			lastParallelDomainIndex += 1
-		# 			self.domains.insert(lastParallelDomainIndex, (parallelDomName, parallelDomSizes[0]))
-		# 			if parallelDomName not in self._kernelDomainNames:
-		# 				self._kernelDomainNames.append(parallelDomName)
 			self.adjustDomainsToKernelPosition()
-		# 	logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] parallel active dims analysed")
-
-		# #   Now match the declared dimensions to those in the         #
-		# #   'parallelInactive' set, using the declared domain sizes.  #
-		# #   All should be matched, otherwise throw an error.          #
-		# #   Insert the dimensions in order of their appearance in     #
-		# #   the domainDependant template.                             #
-		# dimensionSizesMatchedInTemplate = []
-		# templateDomains = getDomNameAndSize(self.template)
-		# for (dependantDomName, dependantDomSize) in templateDomains:
-		# 	if dependantDomSize not in self._kernelInactiveDomainSizes:
-		# 		continue
-		# 	if dependantDomSize not in dimensionSizes:
-		# 		raise Exception("Symbol %s's dependant non-parallel domain size %s is not declared as one of its dimensions." %(self.name, dependantDomSize))
-		# 	dimensionSizesMatchedInTemplate.append(dependantDomSize)
-		# 	if self.hasUndecidedDomainSizes:
-		# 		continue
-		# 	for (domName, domSize) in self.domains:
-		# 		if dependantDomSize == domSize:
-		# 			break
-		# 	else:
-		# 		self.domains.append((dependantDomName, dependantDomSize))
-		# for (dependantDomName, dependantDomSize) in templateDomains:
-		# 	if dependantDomName not in self._kernelDomainNames:
-		# 		continue
-		# 	if dependantDomSize in dimensionSizes:
-		# 		dimensionSizesMatchedInTemplate.append(dependantDomSize)
-		# if self.isAutoDom and not self.hasUndecidedDomainSizes:
-		# 	for dimSize in self._kernelInactiveDomainSizes:
-		# 		for (domName, domSize) in self.domains:
-		# 			if dimSize == domSize:
-		# 				break
-		# 		else:
-		# 			self.domains.append(("HF_GENERIC_PARALLEL_INACTIVE_DIM", dimSize))
-		# logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] dependant directive analysed")
 
 		#    Sanity checks                                            #
 		if len(self.domains) < len(dimensionSizes):

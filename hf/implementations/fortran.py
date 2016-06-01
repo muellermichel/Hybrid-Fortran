@@ -894,7 +894,6 @@ end if\n" %(calleeNode.getAttribute('name'))
 				name = symbol.nameInScope(useDeviceVersionIfAvailable=False)
 				if name in index:
 					symbol.merge(index[name])
-					symbol.resetScope(currRoutine.name)
 					del index[name]
 
 		def getAdditionalImportsAndDeclarationsForParentScope(parentNode, argumentSymbolNames):
@@ -931,7 +930,6 @@ end if\n" %(calleeNode.getAttribute('name'))
 					continue
 				if symbol.isDummySymbolForRoutine(routineName=parentNode.getAttribute('name')):
 					continue #already passed manually
-				symbol.resetScope(currRoutine.name)
 				isModuleSymbol = symbol.declarationType in [
 					DeclarationType.LOCAL_MODULE_SCALAR,
 					DeclarationType.MODULE_ARRAY,

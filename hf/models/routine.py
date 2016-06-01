@@ -143,8 +143,6 @@ This is not allowed for implementations using %s.\
 
 	def _updateSymbolReferences(self):
 		#scoped name could have changed through splitting / merging
-		for symbol in self.symbolsByName.values():
-			symbol.resetScope(self.name)
 		symbolsByNameAndScopeName = {}
 		for symbol in self.symbolsByName.values():
 			symbolsByScopeName = symbolsByNameAndScopeName.get(symbol.name, {})
@@ -288,7 +286,6 @@ This is not allowed for implementations using %s.\
 					additionalImportsByName = {}
 					for symbol in additionalImports:
 						additionalImportsByName[symbol.name] = symbol
-						symbol.resetScope(self.name)
 					additionalWrapperImportsByKernelName[callee.name] = additionalImportsByName.values()
 				additionalParametersByKernelName[callee.name] = (
 					additionalImportsForDeviceCompatibility,

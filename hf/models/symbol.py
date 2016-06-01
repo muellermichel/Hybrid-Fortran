@@ -833,11 +833,24 @@ EXAMPLE:\n\
 			))
 		if self.initLevel >= Init.ROUTINENODE_ATTRIBUTES_LOADED \
 		and not self.isAutoDom \
+		and self.parallelRegionPosition in ["within", "inside"] \
 		and len(self.domains) != len(self._templateDomains):
 			raise Exception("Wrong number of domains for manual dom symbol %s: || template: %s; || actual: %s" %(
 				self.name,
 				self._templateDomains,
 				self.domains
+			))
+		if self.initLevel >= Init.ROUTINENODE_ATTRIBUTES_LOADED \
+		and self.parallelRegionPosition in ["outside", None, ""] \
+		and self.isAutoDom \
+		and len(self.domains) != len(self._kernelInactiveDomainSizes):
+			raise Exception("Wrong number of domains for autoDom symbol %s: || template: %s; || declared: %s || actual: %s || kernel: %s || non-kernel: %s" %(
+				self.name,
+				self._templateDomains,
+				self.declaredDimensionSizes,
+				self.domains,
+				self._kernelDomainNames,
+				self._kernelInactiveDomainSizes
 			))
 		if self.initLevel >= Init.DECLARATION_LOADED and self.declaredDimensionSizes == None:
 			raise Exception("symbol %s is in declaration loaded state, but dimensions are not initialized" %(self.name))
@@ -848,18 +861,6 @@ EXAMPLE:\n\
 			len(self._templateDomains),
 			len(self._templateDomains) + len(self.declaredDimensionSizes)
 		]:
-			raise Exception("Wrong number of domains for autoDom symbol %s: || template: %s; || declared: %s || actual: %s || kernel: %s || non-kernel: %s" %(
-				self.name,
-				self._templateDomains,
-				self.declaredDimensionSizes,
-				self.domains,
-				self._kernelDomainNames,
-				self._kernelInactiveDomainSizes
-			))
-		if self.initLevel >= Init.DECLARATION_LOADED \
-		and self.parallelRegionPosition in ["outside", None, ""] \
-		and self.isAutoDom \
-		and len(self.domains) != len(self._kernelInactiveDomainSizes):
 			raise Exception("Wrong number of domains for autoDom symbol %s: || template: %s; || declared: %s || actual: %s || kernel: %s || non-kernel: %s" %(
 				self.name,
 				self._templateDomains,

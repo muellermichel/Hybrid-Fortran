@@ -185,16 +185,16 @@ for fileNum, fileInDir in enumerate(filesInDir):
 			symbolsByRoutineNameAndSymbolName,
 		)
 		converter.processFile(fileInDir)
-	except UsageError as e:
-		logging.error('Error: %s' %(str(e)))
-		sys.exit(1)
-	except Exception as e:
-		logging.critical('Error when generating P90.temp from h90 file %s: %s%s\n' \
-			%(str(fileInDir), str(e), traceback.format_exc())
-		)
-		logging.info(traceback.format_exc())
-		os.unlink(outputPath)
-		sys.exit(1)
+	# except UsageError as e:
+	# 	logging.error('Error: %s' %(str(e)))
+	# 	sys.exit(1)
+	# except Exception as e:
+	# 	logging.critical('Error when generating P90.temp from h90 file %s: %s%s\n' \
+	# 		%(str(fileInDir), str(e), traceback.format_exc())
+	# 	)
+	# 	logging.info(traceback.format_exc())
+	# 	os.unlink(outputPath)
+	# 	sys.exit(1)
 	finally:
 		outputStream.close()
 progressIndicatorReset(sys.stderr)

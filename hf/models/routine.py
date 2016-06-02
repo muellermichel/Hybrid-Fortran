@@ -532,8 +532,8 @@ This is not allowed for implementations using %s.\
 				(index, text) for index, text in enumerate(implementedRoutineElements)
 				if text != ""
 			]
-		except UsageError as e:
-			raise UsageError("Error in %s: %s" %(self.name, str(e)))
+		# except UsageError as e:
+		# 	raise UsageError("Error in %s: %s" %(self.name, str(e)))
 		except ScopeError as e:
 			raise ScopeError("Error in %s: %s;\nTraceback: %s" %(self.name, str(e), traceback.format_exc()))
 		return "\n".join([

@@ -58,7 +58,7 @@ def parseSpecification(line):
         if len(dataObjects) == 0:
             raise UsageError("no data objects defined on this line")
         if len(dataObjects) > 1 and remainder.strip() != "":
-            raise UsageError("invalid right hand side specification")
+            raise UsageError("invalid right hand side specification in '%s'" %(specRightHandSide))
         parsedDataObjects = []
         for dataObject in dataObjects:
             parsedDataObjects.append(getComponentNameAndBracketContent(dataObject))

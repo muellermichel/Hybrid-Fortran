@@ -397,173 +397,178 @@ class RoutineSpecificationRegion(Region):
 
 		text = ""
 
-		try:
-			moduleNamesCompletelyImported = [
-				sourceModule for (sourceModule, nameInScope) in self._allImports if nameInScope == None
-			] if self._allImports else []
-			if len(self._typeParameterSymbolsByName.keys()) > 0 \
-			and ConversionOptions.Instance().debugPrint \
-			and not skipDebugPrint:
-				text += "!<----- type parameters --\n"
-			for typeParameterSymbol in self._typeParameterSymbolsByName.values():
-				typeParameterSymbol.updateNameInScope(forceAutomaticName=True)
-				if typeParameterSymbol.sourceModule in moduleNamesCompletelyImported \
-				and not "hfauto" in typeParameterSymbol.nameInScope():
+		# try:
+		moduleNamesCompletelyImported = [
+			sourceModule for (sourceModule, nameInScope) in self._allImports if nameInScope == None
+		] if self._allImports else []
+		if len(self._typeParameterSymbolsByName.keys()) > 0 \
+		and ConversionOptions.Instance().debugPrint \
+		and not skipDebugPrint:
+			text += "!<----- type parameters --\n"
+		for typeParameterSymbol in self._typeParameterSymbolsByName.values():
+			typeParameterSymbol.updateNameInScope(forceAutomaticName=True)
+			if typeParameterSymbol.sourceModule in moduleNamesCompletelyImported \
+			and not "hfauto" in typeParameterSymbol.nameInScope():
+				continue
+			text += getImportLine([typeParameterSymbol], parentRoutine)
+		if self._allImports:
+			if len(self._allImports.keys()) > 0 and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
+				text += "!<----- synthesized imports --\n"
+			for (sourceModule, nameInScope) in self._allImports:
+				if not nameInScope:
+					text += getImportLine(sourceModule, parentRoutine)
 					continue
-				text += getImportLine([typeParameterSymbol], parentRoutine)
-			if self._allImports:
-				if len(self._allImports.keys()) > 0 and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
-					text += "!<----- synthesized imports --\n"
-				for (sourceModule, nameInScope) in self._allImports:
-					if not nameInScope:
-						text += getImportLine(sourceModule, parentRoutine)
-						continue
-					if sourceModule in moduleNamesCompletelyImported:
-						continue
-					sourceName = self._allImports[(sourceModule, nameInScope)]
-					symbol = parentRoutine.symbolsByName.get(sourceName)
-					if symbol != None and symbol.sourceModule == parentRoutine._parentModule().name:
-						continue
-					if symbol != None:
-						text += getImportLine([symbol], parentRoutine)
-					else:
-						text += "use %s, only: %s => %s" %(sourceModule, nameInScope, sourceName) \
-							if nameInScope != sourceName \
-							else "use %s, only: %s" %(sourceModule, nameInScope)
-						if ConversionOptions.Instance().debugPrint and not skipDebugPrint:
-							text += " ! resynthesizing user input - no associated HF aware symbol found"
-						text += "\n"
-
-			if textForKeywords != "" and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
-				text += "!<----- other imports and specs: ------\n"
-			text += textForKeywords
-
-			if textBeforeDeclarations != "" and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
-				text += "!<----- before declarations: --\n"
-			text += textBeforeDeclarations
-			if len(declaredSymbolsByScopedName.keys()) > 0:
-				if ConversionOptions.Instance().debugPrint and not skipDebugPrint:
-					text += "!<----- declarations: -------\n"
-				text += "\n".join([
-					parentRoutine.implementation.adjustDeclarationForDevice(
-						symbol.getDeclarationLine(purgeList=[]),
-						[symbol],
-						declarationRegionType,
-						parentRoutine.node.getAttribute('parallelRegionPosition')
-					).strip()
-					for symbol in declaredSymbolsByScopedName.values()
-					if symbol.name in parentRoutine.usedSymbolNames
-				]).strip() + "\n"
-			if len(self._dataSpecificationLines) > 0 and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
-				text += "!<----- data specifications: --\n"
-			if len(self._dataSpecificationLines) > 0:
-				text += "\n".join(self._dataSpecificationLines) + "\n"
-			if textAfterDeclarations != "" and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
-				text += "!<----- after declarations: --\n"
-			text += textAfterDeclarations
-
-			numberOfAdditionalDeclarations = (
-				len(sum([
-					self._additionalParametersByKernelName[kname][1]
-					for kname in self._additionalParametersByKernelName
-				], [])) + len(self._symbolsToAdd) + len(parentRoutine._packedRealSymbolsByCalleeName.keys())
-			)
-			if numberOfAdditionalDeclarations > 0 and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
-				text += "!<----- auto emul symbols : --\n"
-			defaultPurgeList = ['intent', 'public', 'parameter', 'allocatable']
-			for symbol in self._symbolsToAdd:
-				if not symbol.name in parentRoutine.usedSymbolNames:
+				if sourceModule in moduleNamesCompletelyImported:
 					continue
-				purgeList = defaultPurgeList
-				if not symbol.isCompacted:
-					purgeList=['public', 'parameter', 'allocatable']
-				text += parentRoutine.implementation.adjustDeclarationForDevice(
-					symbol.getDeclarationLine(purgeList).strip(),
+				sourceName = self._allImports[(sourceModule, nameInScope)]
+				symbol = parentRoutine.symbolsByName.get(sourceName)
+				if symbol != None and symbol.sourceModule == parentRoutine._parentModule().name:
+					continue
+				if symbol != None:
+					text += getImportLine([symbol], parentRoutine)
+				else:
+					text += "use %s, only: %s => %s" %(sourceModule, nameInScope, sourceName) \
+						if nameInScope != sourceName \
+						else "use %s, only: %s" %(sourceModule, nameInScope)
+					if ConversionOptions.Instance().debugPrint and not skipDebugPrint:
+						text += " ! resynthesizing user input - no associated HF aware symbol found"
+					text += "\n"
+
+		if textForKeywords != "" and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
+			text += "!<----- other imports and specs: ------\n"
+		text += textForKeywords
+
+		if textBeforeDeclarations != "" and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
+			text += "!<----- before declarations: --\n"
+		text += textBeforeDeclarations
+		if len(declaredSymbolsByScopedName.keys()) > 0:
+			if ConversionOptions.Instance().debugPrint and not skipDebugPrint:
+				text += "!<----- declarations: -------\n"
+			text += "\n".join([
+				parentRoutine.implementation.adjustDeclarationForDevice(
+					symbol.getDeclarationLine(parentRoutine, purgeList=[]),
 					[symbol],
+					parentRoutine,
 					declarationRegionType,
 					parentRoutine.node.getAttribute('parallelRegionPosition')
-				).rstrip() + " ! type %i symbol added for this subroutine\n" %(symbol.declarationType)
-			for callee in parentRoutine.callees:
-				#this hasattr is used to test the callee for analyzability without circular imports
-				if not hasattr(callee, "implementation"):
-					continue
-				additionalImports, additionalDeclarations = self._additionalParametersByKernelName.get(
-					callee.name,
-					([], [])
-				)
-				additionalImportSymbolsByName = {}
-				for symbol in additionalImports:
-					additionalImportSymbolsByName[symbol.name] = symbol
+				).strip()
+				for symbol in declaredSymbolsByScopedName.values()
+				if symbol.name in parentRoutine.usedSymbolNames
+			]).strip() + "\n"
+		if len(self._dataSpecificationLines) > 0 and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
+			text += "!<----- data specifications: --\n"
+		if len(self._dataSpecificationLines) > 0:
+			text += "\n".join(self._dataSpecificationLines) + "\n"
+		if textAfterDeclarations != "" and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
+			text += "!<----- after declarations: --\n"
+		text += textAfterDeclarations
 
-				implementation = callee.implementation
-				for symbol in parentRoutine.filterOutSymbolsAlreadyAliveInCurrentScope(additionalDeclarations):
-					if symbol.declarationType not in [DeclarationType.LOCAL_ARRAY, DeclarationType.LOCAL_SCALAR]:
-						# only symbols that are local to the kernel actually need to be declared here.
-						# Everything else we should have in our own scope already, either through additional imports or
-						# through module association (we assume the kernel and its wrapper reside in the same module)
-						continue
-					if not symbol.name in parentRoutine.usedSymbolNames:
-						continue
-
-					#in case the array uses domain sizes in the declaration that are additional symbols themselves
-					#we need to fix them.
-					adjustedDomains = []
-					for (domName, domSize) in symbol.domains:
-						domSizeSymbol = additionalImportSymbolsByName.get(domSize)
-						if domSizeSymbol is None:
-							adjustedDomains.append((domName, domSize))
-							continue
-						adjustedDomains.append((domName, domSizeSymbol.nameInScope()))
-					symbol.domains = adjustedDomains
-
-					text += implementation.adjustDeclarationForDevice(
-						symbol.getDeclarationLine(defaultPurgeList).strip(),
-						[symbol],
-						declarationRegionType,
-						parentRoutine.node.getAttribute('parallelRegionPosition')
-					).rstrip() + " ! type %i symbol added for callee %s\n" %(symbol.declarationType, callee.name)
-				toBeCompacted = parentRoutine._packedRealSymbolsByCalleeName.get(callee.name, [])
-				if len(toBeCompacted) > 0:
-					#TODO: generalize for cases where we don't want this to be on the device
-					#(e.g. put this into Implementation class)
-					compactedArray = FrameworkArray(
-						callee.name,
-						self._compactionDeclarationPrefixByCalleeName[callee.name],
-						domains=[("hfauto", str(len(toBeCompacted)))],
-						isOnDevice=True
-					)
-					text += implementation.adjustDeclarationForDevice(
-						compactedArray.getDeclarationLine().strip(),
-						[compactedArray],
-						declarationRegionType,
-						parentRoutine.node.getAttribute('parallelRegionPosition')
-					).rstrip() + " ! compaction array added for callee %s\n" %(callee.name)
-
-			declarationEndText = parentRoutine.implementation.declarationEnd(
-				[
-					s for s in parentRoutine.symbolsByName.values() + parentRoutine.additionalImports
-					if s.name in parentRoutine.usedSymbolNames
-				],
-				parentRoutine.isCallingKernel,
-				parentRoutine.node,
-				parentRoutine.parallelRegionTemplates
+		numberOfAdditionalDeclarations = (
+			len(sum([
+				self._additionalParametersByKernelName[kname][1]
+				for kname in self._additionalParametersByKernelName
+			], [])) + len(self._symbolsToAdd) + len(parentRoutine._packedRealSymbolsByCalleeName.keys())
+		)
+		if numberOfAdditionalDeclarations > 0 and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
+			text += "!<----- auto emul symbols : --\n"
+		defaultPurgeList = ['intent', 'public', 'parameter', 'allocatable']
+		for symbol in self._symbolsToAdd:
+			if not symbol.name in parentRoutine.usedSymbolNames:
+				continue
+			purgeList = defaultPurgeList
+			if not symbol.isCompacted:
+				purgeList=['public', 'parameter', 'allocatable']
+			text += parentRoutine.implementation.adjustDeclarationForDevice(
+				symbol.getDeclarationLine(parentRoutine, purgeList).strip(),
+				[symbol],
+				parentRoutine,
+				declarationRegionType,
+				parentRoutine.node.getAttribute('parallelRegionPosition')
+			).rstrip() + " ! type %i symbol added for this subroutine\n" %(symbol.declarationType)
+		for callee in parentRoutine.callees:
+			#this hasattr is used to test the callee for analyzability without circular imports
+			if not hasattr(callee, "implementation"):
+				continue
+			additionalImports, additionalDeclarations = self._additionalParametersByKernelName.get(
+				callee.name,
+				([], [])
 			)
-			if len(declarationEndText) > 0:
-				text += "!<----- impl. specific decl end : --\n"
-				text += declarationEndText
+			additionalImportSymbolsByName = {}
+			for symbol in additionalImports:
+				additionalImportSymbolsByName[symbol.name] = symbol
 
-			for idx, symbol in enumerate(self._currAdditionalCompactedSubroutineParameters):
-				text += "%s = %s(%i)" %(
-					symbol.nameInScope(),
-					limitLength(frameworkArrayName(parentRoutine.name)),
-					idx+1
-				) + " ! additional type %i symbol compaction\n" %(symbol.declarationType)
-			if ConversionOptions.Instance().debugPrint and not skipDebugPrint:
-				text += "! HF is aware of the following symbols at this point: %s" %(parentRoutine.symbolsByName.values())
-		except UsageError as e:
-			raise UsageError("Implementing %s: %s" %(parentRoutine.name, str(e)))
-		except Exception as e:
-			raise Exception("Implementing %s: %s" %(parentRoutine.name, str(e)))
+			implementation = callee.implementation
+			for symbol in parentRoutine.filterOutSymbolsAlreadyAliveInCurrentScope(additionalDeclarations):
+				if symbol.declarationType not in [DeclarationType.LOCAL_ARRAY, DeclarationType.LOCAL_SCALAR]:
+					# only symbols that are local to the kernel actually need to be declared here.
+					# Everything else we should have in our own scope already, either through additional imports or
+					# through module association (we assume the kernel and its wrapper reside in the same module)
+					continue
+				if not symbol.name in parentRoutine.usedSymbolNames:
+					continue
+
+				#in case the array uses domain sizes in the declaration that are additional symbols themselves
+				#we need to fix them.
+				adjustedDomains = []
+				for (domName, domSize) in symbol.domains:
+					domSizeSymbol = additionalImportSymbolsByName.get(domSize)
+					if domSizeSymbol is None:
+						adjustedDomains.append((domName, domSize))
+						continue
+					adjustedDomains.append((domName, domSizeSymbol.nameInScope()))
+				symbol.domains = adjustedDomains
+
+				text += implementation.adjustDeclarationForDevice(
+					symbol.getDeclarationLine(parentRoutine, defaultPurgeList).strip(),
+					[symbol],
+					parentRoutine,
+					declarationRegionType,
+					parentRoutine.node.getAttribute('parallelRegionPosition')
+				).rstrip() + " ! type %i symbol added for callee %s\n" %(symbol.declarationType, callee.name)
+			toBeCompacted = parentRoutine._packedRealSymbolsByCalleeName.get(callee.name, [])
+			if len(toBeCompacted) > 0:
+				#TODO: generalize for cases where we don't want this to be on the device
+				#(e.g. put this into Implementation class)
+				compactedArray = FrameworkArray(
+					callee.name,
+					self._compactionDeclarationPrefixByCalleeName[callee.name],
+					domains=[("hfauto", str(len(toBeCompacted)))],
+					isOnDevice=True
+				)
+				text += implementation.adjustDeclarationForDevice(
+					compactedArray.getDeclarationLine(parentRoutine).strip(),
+					[compactedArray],
+					parentRoutine,
+					declarationRegionType,
+					parentRoutine.node.getAttribute('parallelRegionPosition')
+				).rstrip() + " ! compaction array added for callee %s\n" %(callee.name)
+
+		declarationEndText = parentRoutine.implementation.declarationEnd(
+			[
+				s for s in parentRoutine.symbolsByName.values() + parentRoutine.additionalImports
+				if s.name in parentRoutine.usedSymbolNames
+			],
+			parentRoutine.isCallingKernel,
+			parentRoutine.node,
+			parentRoutine.parallelRegionTemplates
+		)
+		if len(declarationEndText) > 0:
+			text += "!<----- impl. specific decl end : --\n"
+			text += declarationEndText
+
+		for idx, symbol in enumerate(self._currAdditionalCompactedSubroutineParameters):
+			text += "%s = %s(%i)" %(
+				symbol.nameInScope(),
+				limitLength(frameworkArrayName(parentRoutine.name)),
+				idx+1
+			) + " ! additional type %i symbol compaction\n" %(symbol.declarationType)
+		if ConversionOptions.Instance().debugPrint and not skipDebugPrint:
+			text += "! HF is aware of the following symbols at this point: %s" %(parentRoutine.symbolsByName.values())
+
+		# except UsageError as e:
+		# 	raise UsageError("Implementing %s: %s" %(parentRoutine.name, str(e)))
+		# except Exception as e:
+		# 	raise Exception("Implementing %s: %s" %(parentRoutine.name, str(e)))
 
 		return self._sanitize(text, skipDebugPrint)
 

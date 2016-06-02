@@ -1213,7 +1213,7 @@ Current Domains: %s\n" %(
 			symbolImplementationFunction=nameInScopeImplementationFunction
 		)
 
-	def getDeclarationLine(self, purgeList=None, patterns=RegExPatterns.Instance(), name_prefix="", useDomainReordering=True, skip_on_missing_declaration=False):
+	def getDeclarationLine(self, parentRoutine, purgeList=None, patterns=RegExPatterns.Instance(), name_prefix="", useDomainReordering=True, skip_on_missing_declaration=False):
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] Decl.Line.Gen: Purge List: %s, Name Prefix: %s, Domain Reordering: %s, Skip on Missing: %s." %(
 			str(purgeList),
 			name_prefix,
@@ -1223,14 +1223,14 @@ Current Domains: %s\n" %(
 		if skip_on_missing_declaration and (self.declarationPrefix == None or self.declarationPrefix == ""):
 			return ""
 		declarationPrefix = self.getSanitizedDeclarationPrefix(purgeList)
-		if self.hasUndecidedDomainSizes \
-		and not ("allocatable" in declarationPrefix or "pointer" in declarationPrefix):
-			raise UsageError("%s cannot be declared at this point because of insufficient domain information. \
-Please specify it using an appropriate @domainDependant directive." %(self.name))
+# 		if self.hasUndecidedDomainSizes \
+# 		and not ("allocatable" in declarationPrefix or "pointer" in declarationPrefix):
+# 			raise UsageError("%s cannot be declared at this point because of insufficient domain information. \
+# Please specify it using an appropriate @domainDependant directive." %(self.name))
 		return "%s %s %s %s" %(
 			declarationPrefix.strip(),
 			name_prefix,
-			self.domainRepresentation(useDomainReordering),
+			self.domainRepresentation(parentRoutine, useDomainReordering),
 			self.declarationSuffix if self.declarationSuffix else ""
 		)
 
@@ -1276,7 +1276,7 @@ Please specify the domains and their sizes with domName and domSize attributes i
 		result += ")"
 		return result
 
-	def domainRepresentation(self, useDomainReordering=True):
+	def domainRepresentation(self, parentRoutine, useDomainReordering=True):
 		name = self.nameInScope(
 			useDeviceVersionIfAvailable=len(self.domains) > 0
 		)
@@ -1296,7 +1296,8 @@ Please specify the domains and their sizes with domName and domSize attributes i
 			for i in range(len(self.domains)):
 				if i != 0:
 					result += ","
-				if self.hasUndecidedDomainSizes:
+				if (not parentRoutine or (not symbol.isToBeTransfered and not parentRoutine.isCallingKernel)) \
+				and symbol.hasUndecidedDomainSizes:
 					result += ":"
 				else:
 					(domName, domSize) = self.domains[i]

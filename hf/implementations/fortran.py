@@ -100,7 +100,7 @@ class FortranImplementation(object):
 	def getImportSpecification(self, dependantSymbolsOrModuleName, regionType, parallelRegionPosition, parallelRegionTemplates):
 		return getImportStatements(dependantSymbolsOrModuleName)
 
-	def adjustDeclarationForDevice(self, line, dependantSymbols, regionType, parallelRegionPosition):
+	def adjustDeclarationForDevice(self, line, dependantSymbols, parentRoutine, regionType, parallelRegionPosition):
 		return line
 
 	def additionalIncludes(self):
@@ -424,10 +424,10 @@ class DeviceDataFortranImplementation(FortranImplementation):
 					+ getImportStatements(dependantSymbols, forceHostVersion=True)
 		return getImportStatements(dependantSymbolsOrModuleName)
 
-	def adjustDeclarationForDevice(self, line, dependantSymbols, regionType, parallelRegionPosition):
+	def adjustDeclarationForDevice(self, line, dependantSymbols, parentRoutine, regionType, parallelRegionPosition):
 		def declarationStatements(dependantSymbols, declarationDirectives, deviceType):
 			return "\n".join(
-				"%s, %s :: %s" %(declarationDirectives, deviceType, symbol.domainRepresentation())
+				"%s, %s :: %s" %(declarationDirectives, deviceType, symbol.domainRepresentation(parentRoutine))
 				for symbol in dependantSymbols
 			)
 

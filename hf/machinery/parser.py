@@ -522,9 +522,9 @@ class CallGraphParser(object):
         for line in fileinput.input([fileName]):
             try:
                 self.processLine(line)
-            except UsageError as e:
-                logging.error('Error: %s' %(str(e)), extra={"hfLineNo":currLineNo, "hfFile":currFile})
-                sys.exit(1)
+            # except UsageError as e:
+            #     logging.error('Error: %s' %(str(e)), extra={"hfLineNo":currLineNo, "hfFile":currFile})
+            #     sys.exit(1)
             except Exception as e:
                 exc_type, exc_obj, exc_tb = sys.exc_info()
                 fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]

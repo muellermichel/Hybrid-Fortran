@@ -371,6 +371,14 @@ This is not allowed for implementations using %s.\
 			typeParametersByName
 		)
 
+	def _prepareCallRegions(self):
+		for region in self.regions:
+			if not isinstance(region, CallRegion):
+				continue
+			if region._passedInSymbolsByName == None:
+				#loading updated symbols for synthesized callees
+				region.loadPassedInSymbolsByName(region._callee.symbolsByName)
+
 	def _implementHeader(self):
 		parameterList = ""
 		if self._additionalArguments and len(self._additionalArguments) > 0:
@@ -515,6 +523,7 @@ This is not allowed for implementations using %s.\
 			self._prepareAdditionalContext()
 			self._updateSymbolReferences()
 			self._updateSymbolState()
+			self._prepareCallRegions()
 			self._analyseSymbolUsage()
 			implementedRoutineElements = [self._implementHeader(), self._implementAdditionalImports()]
 			implementedRoutineElements += [region.implemented() for region in self._regions]

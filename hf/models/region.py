@@ -164,10 +164,6 @@ class CallRegion(Region):
 		if not self._callee:
 			raise Exception("call not loaded for call region in %s" %(self._routineRef().name))
 
-		if self._passedInSymbolsByName == None:
-			#loading updated symbols for synthesized callees
-			self.loadPassedInSymbolsByName(self._callee.symbolsByName)
-
 		text = ""
 		argumentSymbols = None
 		#this hasattr is used to test the callee for analyzability without circular imports

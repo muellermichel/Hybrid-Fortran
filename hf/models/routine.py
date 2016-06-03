@@ -239,6 +239,8 @@ This is not allowed for implementations using %s.\
 		symbolsByUniqueNameToBeUpdated = {}
 		additionalParameters = additionalImportsForOurSelves + additionalDeclarationsForOurselves + additionalDummiesForOurselves
 		for symbol in additionalParameters:
+			if not symbol.name in self.usedSymbolNames:
+				continue
 			symbolsByUniqueNameToBeUpdated[symbol.uniqueIdentifier] = symbol
 			self.symbolsByName[symbol.uniqueIdentifier] = symbol
 
@@ -520,11 +522,11 @@ This is not allowed for implementations using %s.\
 		purgedRoutineElements = []
 		try:
 			self._checkParallelRegions()
+			self._prepareCallRegions()
+			self._analyseSymbolUsage()
 			self._prepareAdditionalContext()
 			self._updateSymbolReferences()
 			self._updateSymbolState()
-			self._prepareCallRegions()
-			self._analyseSymbolUsage()
 			implementedRoutineElements = [self._implementHeader(), self._implementAdditionalImports()]
 			implementedRoutineElements += [region.implemented() for region in self._regions]
 			implementedRoutineElements += [self._implementFooter()]

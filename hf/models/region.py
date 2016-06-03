@@ -121,7 +121,6 @@ class CallRegion(Region):
 	@property
 	def usedSymbols(self):
 		return super(CallRegion, self).usedSymbols \
-			+ self._callee.additionalArgumentSymbols \
 			+ self._passedInSymbolsByName.values()
 
 	def _adjustedArguments(self, arguments):

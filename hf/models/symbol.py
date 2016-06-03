@@ -1227,12 +1227,13 @@ Current Domains: %s\n" %(
 # 		and not ("allocatable" in declarationPrefix or "pointer" in declarationPrefix):
 # 			raise UsageError("%s cannot be declared at this point because of insufficient domain information. \
 # Please specify it using an appropriate @domainDependant directive." %(self.name))
-		return "%s %s %s %s" %(
+		result = "%s %s %s %s" %(
 			declarationPrefix.strip(),
 			name_prefix,
 			self.domainRepresentation(parentRoutine, useDomainReordering),
 			self.declarationSuffix if self.declarationSuffix else ""
 		)
+		return result
 
 	def selectAllRepresentation(self):
 		if self.initLevel < Init.ROUTINENODE_ATTRIBUTES_LOADED:
@@ -1283,31 +1284,28 @@ Please specify the domains and their sizes with domName and domSize attributes i
 		result = name
 		if len(self.domains) == 0:
 			return result
-		try:
-			needsAdditionalClosingBracket = False
-			domPP, isExplicit = self.domPP()
-			if useDomainReordering and domPP != "" \
-			and (isExplicit or self.numOfParallelDomains > 0) \
-			and self.activeDomainsMatchSpecification:
-				result = result + "(" + domPP + "("
-				needsAdditionalClosingBracket = True
+		needsAdditionalClosingBracket = False
+		domPP, isExplicit = self.domPP()
+		if useDomainReordering and domPP != "" \
+		and (isExplicit or self.numOfParallelDomains > 0) \
+		and self.activeDomainsMatchSpecification:
+			result = result + "(" + domPP + "("
+			needsAdditionalClosingBracket = True
+		else:
+			result = result + "("
+		for i in range(len(self.domains)):
+			if i != 0:
+				result += ","
+			if (not parentRoutine or (not self.isToBeTransfered and not parentRoutine.isCallingKernel)) \
+			and self.hasUndecidedDomainSizes:
+				result += ":"
 			else:
-				result = result + "("
-			for i in range(len(self.domains)):
-				if i != 0:
-					result += ","
-				if (not parentRoutine or (not symbol.isToBeTransfered and not parentRoutine.isCallingKernel)) \
-				and symbol.hasUndecidedDomainSizes:
-					result += ":"
-				else:
-					(domName, domSize) = self.domains[i]
-					result += domSize.strip()
-			if needsAdditionalClosingBracket:
-				result = result + "))"
-			else:
-				result = result + ")"
-		except Exception as e:
-			return "%s{%s}" %(name, str(self.domains))
+				(domName, domSize) = self.domains[i]
+				result += domSize.strip()
+		if needsAdditionalClosingBracket:
+			result = result + "))"
+		else:
+			result = result + ")"
 		return result
 
 	def totalArrayLength(self):

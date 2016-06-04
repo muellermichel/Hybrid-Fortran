@@ -204,7 +204,6 @@ This is not allowed for implementations using %s.\
         if isinstance(self.currCallee, AnalyzableRoutine):
             self.analyseSymbolInformationOnCurrentLine(subProcCallMatch.group(0), isInsideSubroutineCall=True)
         self.currCallee.loadArguments(self.currArguments)
-        self.currRegion.loadPassedInSymbolsByName(self.symbolsPassedInCurrentCallByName)
         self.prepareLine("", self.tab_insideSub)
         if self.state != "inside_subroutine_call" and not (self.state == "inside_branch" and self.stateBeforeBranch == "inside_subroutine_call"):
             self.currCallee = None

@@ -54,8 +54,8 @@ class Region(object):
 		self.loadParentRoutine(routine)
 
 	@property
-	def usedSymbols(self):
-		return sum([symbols for (_, symbols) in self._linesAndSymbols], [])
+	def usedSymbolNames(self):
+		return [symbol.name for symbol in sum([symbols for (_, symbols) in self._linesAndSymbols], [])]
 
 	@property
 	def parentRoutine(self):
@@ -119,16 +119,16 @@ class CallRegion(Region):
 		self._passedInSymbolsByName = None
 
 	@property
-	def usedSymbols(self):
-		return super(CallRegion, self).usedSymbols \
-			+ self._passedInSymbolsByName.values()
+	def usedSymbolNames(self):
+		return super(CallRegion, self).usedSymbolNames + self._callee.programmerArguments
 
 	def _adjustedArguments(self, arguments):
 		def adjustArgument(argument, parallelRegionTemplate, iterators):
 			symbolMatch = RegExPatterns.Instance().symbolNamePattern.match(argument)
 			if not symbolMatch:
 				return argument
-			symbol = self._passedInSymbolsByName.get(symbolMatch.group(1))
+			parentRoutine = self._routineRef()
+			symbol = self.parentRoutine.symbolsByName.get(symbolMatch.group(1))
 			if not symbol:
 				return argument
 			symbolAccessString, remainder = getSymbolAccessStringAndRemainder(
@@ -167,7 +167,6 @@ class CallRegion(Region):
 		argumentSymbols = None
 		#this hasattr is used to test the callee for analyzability without circular imports
 		if hasattr(self._callee, "implementation"):
-			#$$$ we could have an ordering problem with _passedInSymbolsByName
 			argumentSymbols = self._callee.additionalArgumentSymbols + self._passedInSymbolsByName.values()
 			for symbol in argumentSymbols:
 				text += self._callee.implementation.callPreparationForPassedSymbol(

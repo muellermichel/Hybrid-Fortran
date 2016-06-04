@@ -25,19 +25,19 @@ from machinery.commons import ConversionOptions
 from tools.commons import UsageError
 
 def getModuleArraysForCallee(calleeName, symbolAnalysisByRoutineNameAndSymbolName, symbolsByModuleNameAndSymbolName):
-    moduleSymbols = []
-    analysisBySymbolName = symbolAnalysisByRoutineNameAndSymbolName.get(calleeName, {})
-    for symbolCallAnalysis in analysisBySymbolName.values():
-        for symbolAnalysis in symbolCallAnalysis:
-            if not symbolAnalysis.isModuleSymbol:
-                continue
-            symbol = symbolsByModuleNameAndSymbolName.get(symbolAnalysis.sourceModule, {}).get(symbolAnalysis.name)
-            if symbol == None:
-                #this happens for scalars for example
-                continue
-            symbol.analysis = symbolAnalysis
-            moduleSymbols.append(symbol)
-    return moduleSymbols
+	moduleSymbols = []
+	analysisBySymbolName = symbolAnalysisByRoutineNameAndSymbolName.get(calleeName, {})
+	for symbolCallAnalysis in analysisBySymbolName.values():
+		for symbolAnalysis in symbolCallAnalysis:
+			if not symbolAnalysis.isModuleSymbol:
+				continue
+			symbol = symbolsByModuleNameAndSymbolName.get(symbolAnalysis.sourceModule, {}).get(symbolAnalysis.name)
+			if symbol == None:
+				#this happens for scalars for example
+				continue
+			symbol.analysis = symbolAnalysis
+			moduleSymbols.append(symbol)
+	return moduleSymbols
 
 def uniqueIdentifier(routineName, implementationName):
 	return (routineName + "_hfauto_" + implementationName).strip()
@@ -107,10 +107,6 @@ class AnalyzableRoutine(Routine):
 		return self._currRegion
 
 	@property
-	def regions(self):
-		return self._regions
-
-	@property
 	def isCallingKernel(self):
 		for region in self._regions:
 			if isinstance(region, CallRegion) \
@@ -119,6 +115,10 @@ class AnalyzableRoutine(Routine):
 			and region._callee.node.getAttribute("parallelRegionPosition") == "within":
 				return True
 		return False
+
+	@property
+	def regions(self):
+		return self._regions
 
 	@regions.setter
 	def regions(self, _regions):
@@ -239,8 +239,6 @@ This is not allowed for implementations using %s.\
 		symbolsByUniqueNameToBeUpdated = {}
 		additionalParameters = additionalImportsForOurSelves + additionalDeclarationsForOurselves + additionalDummiesForOurselves
 		for symbol in additionalParameters:
-			if not symbol.name in self.usedSymbolNames:
-				continue
 			symbolsByUniqueNameToBeUpdated[symbol.uniqueIdentifier] = symbol
 			self.symbolsByName[symbol.uniqueIdentifier] = symbol
 
@@ -377,9 +375,8 @@ This is not allowed for implementations using %s.\
 		for region in self.regions:
 			if not isinstance(region, CallRegion):
 				continue
-			if region._passedInSymbolsByName == None:
-				#loading updated symbols for synthesized callees
-				region.loadPassedInSymbolsByName(region._callee.symbolsByName)
+			#loading updated symbols for synthesized callees
+			region.loadPassedInSymbolsByName(self.symbolsByName)
 
 	def _implementHeader(self):
 		parameterList = ""
@@ -424,8 +421,8 @@ This is not allowed for implementations using %s.\
 
 	def _analyseSymbolUsage(self):
 		for region in self._regions:
-			for symbol in region.usedSymbols:
-				self.usedSymbolNames[symbol.name] = None
+			for symbolName in region.usedSymbolNames:
+				self.usedSymbolNames[symbolName] = None
 
 	def filterOutSymbolsAlreadyAliveInCurrentScope(self, symbolList):
 		return [
@@ -522,11 +519,11 @@ This is not allowed for implementations using %s.\
 		purgedRoutineElements = []
 		try:
 			self._checkParallelRegions()
-			self._prepareCallRegions()
-			self._analyseSymbolUsage()
 			self._prepareAdditionalContext()
 			self._updateSymbolReferences()
 			self._updateSymbolState()
+			self._analyseSymbolUsage()
+			self._prepareCallRegions()
 			implementedRoutineElements = [self._implementHeader(), self._implementAdditionalImports()]
 			implementedRoutineElements += [region.implemented() for region in self._regions]
 			implementedRoutineElements += [self._implementFooter()]

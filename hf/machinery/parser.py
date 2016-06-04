@@ -769,7 +769,6 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
         self.routineNodesByModule = parallelRegionData[3]
         self.currModuleImportsDict = None
         self.currRoutineImportsDict = None
-        self.symbolsPassedInCurrentCallByName = {}
         super(H90CallGraphAndSymbolDeclarationsParser, self).__init__()
 
     @property
@@ -937,9 +936,6 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
             elif matchesAndSymbolInScope[1]:
                 self.importsOnCurrentLine.append(symbol)
                 self.processKnownSymbolImportMatch(matchesAndSymbolInScope[1], symbol)
-            elif isInsideSubroutineCall:
-                self.symbolsPassedInCurrentCallByName[symbol.name] = symbol
-                self.symbolsOnCurrentLine.append(symbol)
             else:
                 self.symbolsOnCurrentLine.append(symbol)
             symbol.isEmulatingSymbolThatWasActiveInCurrentScope = True
@@ -952,10 +948,6 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
             self.currModuleImportsDict[k] = sourceSymbolName
         else:
             raise Exception("unexpected import on this line")
-
-    def processCallPost(self):
-        self.symbolsPassedInCurrentCallByName = {}
-        super(H90CallGraphAndSymbolDeclarationsParser, self).processCallPost()
 
     def processImportMatch(self, importMatch):
         moduleName = importMatch.group(1)

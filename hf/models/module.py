@@ -32,6 +32,17 @@ class Module(object):
 		self._undecidedText = ""
 		self._firstRoutinesByName = {}
 
+	@property
+	def routines(self):
+		return sum([
+			v.values()
+			for _, v in self._routinesByNameAndImplementationClass.iteritems()
+		], [])
+
+	def _analyseSymbolUsage(self):
+		for routine in self.routines:
+			routine._analyseSymbolUsage()
+
 	def nameInScope(self):
 		return self.name
 
@@ -61,14 +72,13 @@ class Module(object):
 		return routine
 
 	def implemented(self):
+		self._analyseSymbolUsage()
+
 		self._footerText = self._undecidedText
 		self._undecidedText = ""
 
 		routines = []
-		for routine in sum([
-			v.values()
-			for _, v in self._routinesByNameAndImplementationClass.iteritems()
-		], []):
+		for routine in self.routines:
 			routines += routine.implementation.splitIntoCompatibleRoutines(routine)
 
 		implementedModuleElements = \

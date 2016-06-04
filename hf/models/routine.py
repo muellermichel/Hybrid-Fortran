@@ -380,20 +380,22 @@ This is not allowed for implementations using %s.\
 
 	def _implementHeader(self):
 		parameterList = ""
-		if self._additionalArguments and len(self._additionalArguments) > 0:
+		requiredAdditionalArguments = [
+			symbol for symbol in self._additionalArguments
+			if symbol.name in self.usedSymbolNames
+		] if self._additionalArguments else []
+		if requiredAdditionalArguments:
 			parameterList += "&\n&"
 			parameterList += "&, ".join([
 				"%s & !additional type %i symbol inserted by framework \n" %(
 					symbol.nameInScope(),
 					symbol.declarationType
 				)
-				for symbol in self._additionalArguments
-				if symbol.name in self.usedSymbolNames
+				for symbol in requiredAdditionalArguments
 			])
-		if self._additionalArguments and len(self._additionalArguments) > 0 \
-		and self._programmerArguments and len(self._programmerArguments) > 0:
+		if requiredAdditionalArguments and self._programmerArguments:
 			parameterList += "&, "
-		elif self._additionalArguments and len(self._additionalArguments) > 0:
+		elif requiredAdditionalArguments:
 			parameterList += "& "
 		if self._programmerArguments:
 			parameterList += ", ".join(self._programmerArguments)
@@ -523,7 +525,6 @@ This is not allowed for implementations using %s.\
 			self._prepareAdditionalContext()
 			self._updateSymbolReferences()
 			self._updateSymbolState()
-			self._analyseSymbolUsage()
 			self._prepareCallRegions()
 			implementedRoutineElements = [self._implementHeader(), self._implementAdditionalImports()]
 			implementedRoutineElements += [region.implemented() for region in self._regions]

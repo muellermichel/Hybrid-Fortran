@@ -167,7 +167,10 @@ class CallRegion(Region):
 		argumentSymbols = None
 		#this hasattr is used to test the callee for analyzability without circular imports
 		if hasattr(self._callee, "implementation"):
-			argumentSymbols = self._callee.additionalArgumentSymbols + self._passedInSymbolsByName.values()
+			argumentSymbols = [
+				symbol for symbol in self._callee.additionalArgumentSymbols + self._passedInSymbolsByName.values()
+				if symbol.name in self._callee.usedSymbolNames
+			]
 			for symbol in argumentSymbols:
 				text += self._callee.implementation.callPreparationForPassedSymbol(
 					self._routineRef().node,
@@ -178,6 +181,8 @@ class CallRegion(Region):
 		calleesWithPackedReals = parentRoutine._packedRealSymbolsByCalleeName.keys()
 		for calleeName in calleesWithPackedReals:
 			for idx, symbol in enumerate(sorted(parentRoutine._packedRealSymbolsByCalleeName[calleeName])):
+				if not symbol.name in self._callee.usedSymbolNames:
+					continue
 				text += "%s(%i) = %s" %(
 					limitLength(frameworkArrayName(calleeName)),
 					idx+1,
@@ -206,16 +211,19 @@ class CallRegion(Region):
 
 		text += "("
 		if hasattr(self._callee, "implementation"):
-			if len(self._callee.additionalArgumentSymbols) > 0:
+			requiredAdditionalArgumentSymbols = [
+				symbol for symbol in self._callee.additionalArgumentSymbols
+				if symbol.name in self._callee.usedSymbolNames
+			]
+			if len(requiredAdditionalArgumentSymbols) > 0:
 				text += " &\n"
-			bridgeStr1 = " & !additional parameter"
-			bridgeStr2 = "inserted by framework\n& "
+			bridgeStr1 = "&\n&"
 			numOfProgrammerSpecifiedArguments = len(self._callee.programmerArguments)
-			for symbolNum, symbol in enumerate(self._callee.additionalArgumentSymbols):
+			for symbolNum, symbol in enumerate(requiredAdditionalArgumentSymbols):
 				hostName = symbol.nameInScope()
 				text += hostName
-				if symbolNum < len(self._callee.additionalArgumentSymbols) - 1 or numOfProgrammerSpecifiedArguments > 0:
-					text += ", %s (type %i) %s" %(bridgeStr1, symbol.declarationType, bridgeStr2)
+				if symbolNum < len(requiredAdditionalArgumentSymbols) - 1 or numOfProgrammerSpecifiedArguments > 0:
+					text += ", %s" %(bridgeStr1)
 		text += ", ".join(self._adjustedArguments(self._callee.programmerArguments)) + ")\n"
 
 		if hasattr(self._callee, "implementation"):
@@ -461,12 +469,14 @@ class RoutineSpecificationRegion(Region):
 			text += "!<----- after declarations: --\n"
 		text += textAfterDeclarations
 
+		#$$$ this needs to be adjusted for the unused symbols
 		numberOfAdditionalDeclarations = (
 			len(sum([
 				self._additionalParametersByKernelName[kname][1]
 				for kname in self._additionalParametersByKernelName
 			], [])) + len(self._symbolsToAdd) + len(parentRoutine._packedRealSymbolsByCalleeName.keys())
 		)
+
 		if numberOfAdditionalDeclarations > 0 and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
 			text += "!<----- auto emul symbols : --\n"
 		defaultPurgeList = ['intent', 'public', 'parameter', 'allocatable']
@@ -523,7 +533,10 @@ class RoutineSpecificationRegion(Region):
 					declarationRegionType,
 					parentRoutine.node.getAttribute('parallelRegionPosition')
 				).rstrip() + " ! type %i symbol added for callee %s\n" %(symbol.declarationType, callee.name)
-			toBeCompacted = parentRoutine._packedRealSymbolsByCalleeName.get(callee.name, [])
+			toBeCompacted = [
+				symbol for symbol in parentRoutine._packedRealSymbolsByCalleeName.get(callee.name, [])
+				if symbol.name in parentRoutine.usedSymbolNames
+			]
 			if len(toBeCompacted) > 0:
 				#TODO: generalize for cases where we don't want this to be on the device
 				#(e.g. put this into Implementation class)
@@ -555,6 +568,8 @@ class RoutineSpecificationRegion(Region):
 			text += declarationEndText
 
 		for idx, symbol in enumerate(self._currAdditionalCompactedSubroutineParameters):
+			if not symbol.name in parentRoutine.usedSymbolNames:
+				continue
 			text += "%s = %s(%i)" %(
 				symbol.nameInScope(),
 				limitLength(frameworkArrayName(parentRoutine.name)),

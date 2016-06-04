@@ -388,6 +388,7 @@ This is not allowed for implementations using %s.\
 					symbol.declarationType
 				)
 				for symbol in self._additionalArguments
+				if symbol.name in self.usedSymbolNames
 			])
 		if self._additionalArguments and len(self._additionalArguments) > 0 \
 		and self._programmerArguments and len(self._programmerArguments) > 0:

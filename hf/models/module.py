@@ -39,10 +39,6 @@ class Module(object):
 			for _, v in self._routinesByNameAndImplementationClass.iteritems()
 		], [])
 
-	def _analyseSymbolUsage(self):
-		for routine in self.routines:
-			routine._analyseSymbolUsage()
-
 	def nameInScope(self):
 		return self.name
 
@@ -72,14 +68,15 @@ class Module(object):
 		return routine
 
 	def implemented(self):
-		self._analyseSymbolUsage()
-
-		self._footerText = self._undecidedText
-		self._undecidedText = ""
-
 		routines = []
 		for routine in self.routines:
 			routines += routine.implementation.splitIntoCompatibleRoutines(routine)
+
+		for routine in routines:
+			routine._analyseSymbolUsage()
+
+		self._footerText = self._undecidedText
+		self._undecidedText = ""
 
 		implementedModuleElements = \
 			[self._headerText.strip()] \

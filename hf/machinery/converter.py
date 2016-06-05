@@ -21,7 +21,7 @@
 import os, sys, re, traceback, logging
 from models.symbol import *
 from models.routine import Routine, AnalyzableRoutine
-from models.module import Module
+from models.module import Module, ModuleStub
 from models.region import RegionType, RoutineSpecificationRegion
 from tools.metadata import *
 from tools.commons import UsageError, BracketAnalyzer, stacktrace
@@ -188,17 +188,27 @@ This is not allowed for implementations using %s.\
 
     def processCallMatch(self, subProcCallMatch):
         super(H90toF90Converter, self).processCallMatch(subProcCallMatch)
+        sourceModuleByNameInScope = {}
+        for (sourceModule, nameInScope) in self.currModuleImportsDict.keys() + self.currRoutineImportsDict.keys():
+            sourceModuleByNameInScope[nameInScope] = sourceModule
+        sourceModuleName = sourceModuleByNameInScope.get(self.currCalleeName)
+        sourceModule = ModuleStub(sourceModuleName) if sourceModuleName else self.currModule
         calleeNode = self.routineNodesByProcName.get(self.currCalleeName)
         if calleeNode:
             self.currCallee = AnalyzableRoutine(
                 self.currCalleeName,
-                self.currModule,
+                sourceModule,
                 calleeNode,
                 self.parallelRegionTemplatesByProcName.get(self.currCalleeName),
-                self.implementationForTemplateName(calleeNode.getAttribute('implementationTemplate'))
+                self.implementationForTemplateName(calleeNode.getAttribute('implementationTemplate')),
+                moduleRequiresStrongReference=isinstance(sourceModule, ModuleStub)
             )
         else:
-            self.currCallee = Routine(self.currCalleeName, self.currModule)
+            self.currCallee = Routine(
+                self.currCalleeName,
+                sourceModule,
+                moduleRequiresStrongReference=isinstance(sourceModule, ModuleStub)
+            )
         self.currRoutine.loadCall(self.currCallee)
         remainingCall = subProcCallMatch.group(2)
         if isinstance(self.currCallee, AnalyzableRoutine):

@@ -43,15 +43,20 @@ def uniqueIdentifier(routineName, implementationName):
 	return (routineName + "_hfauto_" + implementationName).strip()
 
 class Routine(object):
-	def __init__(self, name, module):
+	def __init__(self, name, module, moduleRequiresStrongReference=False):
 		if not type(name) in [str, unicode] or name.strip() == "":
 			raise Exception("no valid name passed when trying to initialize routine")
 		self.name = name
 		self._programmerArguments = None
-		self._parentModule = weakref.ref(module)
+		if moduleRequiresStrongReference:
+			self._parentModule = module
+		else:
+			self._parentModule = weakref.ref(module)
 
 	@property
 	def parentModule(self):
+		if hasattr(self._parentModule, "createRoutine"):
+			return self._parentModule
 		return self._parentModule()
 
 	@property
@@ -67,8 +72,8 @@ class Routine(object):
 		return limitLength(self.name)
 
 class AnalyzableRoutine(Routine):
-	def __init__(self, name, module, routineNode, parallelRegionTemplates, implementation):
-		super(AnalyzableRoutine, self).__init__(name, module)
+	def __init__(self, name, module, routineNode, parallelRegionTemplates, implementation, moduleRequiresStrongReference=False):
+		super(AnalyzableRoutine, self).__init__(name, module, moduleRequiresStrongReference)
 		if not routineNode:
 			raise Exception("no definition passed when trying to initialize routine '%s'" %(name))
 		if not implementation:
@@ -149,7 +154,7 @@ This is not allowed for implementations using %s.\
 			symbolsByScopeName = symbolsByNameAndScopeName.get(symbol.name, {})
 			symbolsByScopeName[symbol.nameOfScope] = symbol
 			symbolsByNameAndScopeName[symbol.name] = symbolsByScopeName
-		parentModuleName = self._parentModule().name
+		parentModuleName = self.parentModule.name
 		updatedSymbolsByName = {}
 		for symbolsByScopeName in symbolsByNameAndScopeName.values():
 			symbol = symbolsByScopeName.get(self.name)
@@ -265,6 +270,8 @@ This is not allowed for implementations using %s.\
 			for callee in self.callees:
 				if not isinstance(callee, AnalyzableRoutine):
 					continue
+				if self.parentModule.name != callee.parentModule.name:
+					continue
 				additionalImportsForDeviceCompatibility, \
 				additionalDeclarationsForDeviceCompatibility, \
 				additionalDummies = callee.implementation.getAdditionalKernelParameters(
@@ -357,7 +364,7 @@ This is not allowed for implementations using %s.\
 		typeParametersByName = {}
 		for symbol in self.symbolsByName.values():
 			for typeParameterSymbol in symbol.usedTypeParameters:
-				if typeParameterSymbol.sourceModule == self._parentModule().name:
+				if typeParameterSymbol.sourceModule == self.parentModule.name:
 					continue
 				typeParametersByName[typeParameterSymbol.name] = typeParameterSymbol
 
@@ -445,7 +452,7 @@ This is not allowed for implementations using %s.\
 	def createCloneWithMetadata(self, name):
 		clone = AnalyzableRoutine(
 			name,
-			self._parentModule(),
+			self.parentModule,
 			routineNode=self.node.cloneNode(deep=True),
 			parallelRegionTemplates=copy.copy(self.parallelRegionTemplates),
 			implementation=self.implementation

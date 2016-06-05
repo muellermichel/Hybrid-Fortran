@@ -907,7 +907,7 @@ end if\n" %(calleeNode.getAttribute('name'))
 					continue #in case user is working with slices and passing them to different symbols inside the kernel, he has to manage that stuff manually
 				symbol = currRoutine.symbolsByName.get(uniqueIdentifier(dependantName, currRoutine.name))
 				if not symbol:
-					symbol = currRoutine.symbolsByName.get(uniqueIdentifier(dependantName, currRoutine._parentModule().name))
+					symbol = currRoutine.symbolsByName.get(uniqueIdentifier(dependantName, currRoutine.parentModule.name))
 				if not symbol:
 					symbol = currRoutine.symbolsByName.get(dependantName)
 				if not symbol:
@@ -941,7 +941,7 @@ end if\n" %(calleeNode.getAttribute('name'))
 				elif (symbol.analysis and symbol.analysis.isModuleSymbol) \
 				or (isModuleSymbol and currRoutine.node.getAttribute('module') != symbol.sourceModule) \
 				or symbol.declarationType == DeclarationType.FOREIGN_MODULE_SCALAR:
-					if symbol.sourceModule != callee.parentModule.node.getAttribute('name'):
+					if symbol.sourceModule != callee.parentModule.name:
 						foreignModuleNode = moduleNodesByName[symbol.sourceModule]
 						symbol.loadImportInformation(parentNode.ownerDocument, foreignModuleNode)
 					logging.debug("import added for %s" %(symbol))
@@ -957,13 +957,17 @@ end if\n" %(calleeNode.getAttribute('name'))
 
 		if callee.node.getAttribute("parallelRegionPosition") != "within" or not callee.parallelRegionTemplates:
 			return [], [], []
+		if not hasattr(callee.parentModule, "node") or not callee.parentModule.node:
+			raise Exception("calling a kernel %s directly from a foreign module is not supported. Use splitting instead." %(
+				callee.name
+			))
 		argumentSymbolNames = []
 		for argument in callee.programmerArguments:
 			argumentMatch = self.patterns.callArgumentPattern.match(argument)
 			if not argumentMatch:
 				raise UsageError("illegal argument: %s" %(argument))
 			argumentSymbolNames.append(argumentMatch.group(1))
-		logging.debug("============ loading additional symbols for module %s ===============" %(callee.parentModule.node.getAttribute("name")))
+		logging.debug("============ loading additional symbols for module %s ===============" %(callee.parentModule.name))
 		moduleImports, moduleDeclarations, additionalDummies = getAdditionalImportsAndDeclarationsForParentScope(callee.parentModule.node, argumentSymbolNames)
 		if len(additionalDummies) != 0:
 			raise Exception("dummies are not supposed to be added for module scope symbols: %s; type of first: %i" %(

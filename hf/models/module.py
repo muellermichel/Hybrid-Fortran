@@ -92,3 +92,7 @@ class Module(object):
 			if text != ""
 		]
 		return '\n'.join([text for text in purgedModuleElements])
+
+class ModuleStub(Module):
+	def __init__(self, name):
+		super(ModuleStub, self).__init__(name, None)

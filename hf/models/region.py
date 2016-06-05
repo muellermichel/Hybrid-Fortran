@@ -178,6 +178,7 @@ class CallRegion(Region):
 				)
 
 		parentRoutine = self._routineRef()
+		isForeignModuleCall = parentRoutine.parentModule.name != self._callee.parentModule.name
 		calleesWithPackedReals = parentRoutine._packedRealSymbolsByCalleeName.keys()
 		for calleeName in calleesWithPackedReals:
 			for idx, symbol in enumerate(sorted(parentRoutine._packedRealSymbolsByCalleeName[calleeName])):
@@ -192,7 +193,7 @@ class CallRegion(Region):
 		parallelRegionPosition = None
 		if hasattr(self._callee, "implementation"):
 			parallelRegionPosition = self._callee.node.getAttribute("parallelRegionPosition")
-		if hasattr(self._callee, "implementation") and parallelRegionPosition == "within":
+		if hasattr(self._callee, "implementation") and parallelRegionPosition == "within" and not isForeignModuleCall:
 			if not self._callee.parallelRegionTemplates \
 			or len(self._callee.parallelRegionTemplates) == 0:
 				raise Exception("No parallel region templates found for subroutine %s" %(
@@ -226,7 +227,7 @@ class CallRegion(Region):
 					text += ", %s" %(bridgeStr1)
 		text += ", ".join(self._adjustedArguments(self._callee.programmerArguments)) + ")\n"
 
-		if hasattr(self._callee, "implementation"):
+		if hasattr(self._callee, "implementation") and not isForeignModuleCall:
 			allSymbolsPassedByName = dict(
 				(symbol.name, symbol)
 				for symbol in argumentSymbols
@@ -428,7 +429,7 @@ class RoutineSpecificationRegion(Region):
 					continue
 				sourceName = self._allImports[(sourceModule, nameInScope)]
 				symbol = parentRoutine.symbolsByName.get(sourceName)
-				if symbol != None and symbol.sourceModule == parentRoutine._parentModule().name:
+				if symbol != None and symbol.sourceModule == parentRoutine.parentModule.name:
 					continue
 				if symbol != None:
 					text += getImportLine([symbol], parentRoutine)

@@ -259,6 +259,13 @@ class ParallelRegion(Region):
 	def template(self):
 		return self._activeTemplate
 
+	@property
+	def usedSymbolNames(self):
+		return sum([
+			region.usedSymbolNames
+			for region in self._subRegions
+		], [])
+
 	def switchToRegion(self, region):
 		self._currRegion = region
 		self._subRegions.append(region)

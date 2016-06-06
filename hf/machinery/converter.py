@@ -294,6 +294,7 @@ This is not allowed for implementations using %s.\
         self.endRegion()
         self.processProcExitPoint(subProcEndMatch.group(0), isSubroutineEnd=True)
         self.currSubroutineImplementationNeedsToBeCommented = False
+        self.currRoutine.finalize()
         self.currRoutine = None
         super(H90toF90Converter, self).processProcEndMatch(subProcEndMatch)
 

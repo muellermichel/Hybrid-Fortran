@@ -94,6 +94,7 @@ class AnalyzableRoutine(Routine):
 		self._symbolAnalysisByRoutineNameAndSymbolName = None
 		self._symbolsByModuleNameAndSymbolName = None
 		self._allImports = None
+		self._userSpecifiedSymbolNames = None
 		self._packedRealSymbolsByCalleeName = {}
 		self.usedSymbolNames = {}
 
@@ -148,12 +149,20 @@ This is not allowed for implementations using %s.\
 			)
 
 	def _updateSymbolReferences(self):
+		def updateIndex(indexByNameAndScopeName, symbol):
+			symbolsByScopeName = indexByNameAndScopeName.get(symbol.name, {})
+			symbolsByScopeName[symbol.nameOfScope] = symbol
+			indexByNameAndScopeName[symbol.name] = symbolsByScopeName
+
+		def updateSymbolNode(symbol):
+			if symbol.sourceModule == self.parentModule.name:
+				symbol.routineNode = self.parentModule.node
+
 		#scoped name could have changed through splitting / merging
 		symbolsByNameAndScopeName = {}
 		for symbol in self.symbolsByName.values():
-			symbolsByScopeName = symbolsByNameAndScopeName.get(symbol.name, {})
-			symbolsByScopeName[symbol.nameOfScope] = symbol
-			symbolsByNameAndScopeName[symbol.name] = symbolsByScopeName
+			updateIndex(symbolsByNameAndScopeName, symbol)
+
 		parentModuleName = self.parentModule.name
 		updatedSymbolsByName = {}
 		for symbolsByScopeName in symbolsByNameAndScopeName.values():
@@ -161,10 +170,24 @@ This is not allowed for implementations using %s.\
 			if not symbol:
 				symbol = symbolsByScopeName.get(parentModuleName)
 			if not symbol:
-				symbol = symbolsByScopeName[symbolsByScopeName.keys()[0]]
+				symbol = symbolsByScopeName[symbolsByScopeName.keys()[0]] #$$$ this needs to be commented
 				symbol.nameOfScope = self.name
+			updateSymbolNode(symbol)
 			symbol.updateNameInScope()
 			updatedSymbolsByName[symbol.nameInScope(useDeviceVersionIfAvailable=False)] = symbol
+		for symbol in updatedSymbolsByName.values():
+			for typeParameterSymbol in symbol.usedTypeParameters:
+				if not self._userSpecifiedSymbolNames:
+					raise Exception("%s has no _userSpecifiedSymbolNames" %(self.name))
+				if typeParameterSymbol.name in self._userSpecifiedSymbolNames \
+				and typeParameterSymbol.name in updatedSymbolsByName \
+				and len(updatedSymbolsByName[typeParameterSymbol.name].domains) == 0 \
+				and "integer" in updatedSymbolsByName[typeParameterSymbol.name].declarationPrefix:
+					typeParameterSymbol.isUserSpecified = True
+				typeParameterSymbol.nameOfScope = self.name
+				updateSymbolNode(typeParameterSymbol)
+				typeParameterSymbol.updateNameInScope()
+			symbol.usedTypeParameters = set([typeParameter for typeParameter in symbol.usedTypeParameters])
 		self.symbolsByName = updatedSymbolsByName
 
 	def _updateSymbolState(self):
@@ -237,9 +260,6 @@ This is not allowed for implementations using %s.\
 			moduleNodesByName=self._moduleNodesByName,
 			symbolAnalysisByRoutineNameAndSymbolName=self._symbolAnalysisByRoutineNameAndSymbolName
 		)
-		for symbol in additionalImportsForOurSelves + additionalDeclarationsForOurselves:
-			#$$$ this should be commented - isn't this dangerous here because of potential conflicts?
-			symbol.isEmulatingSymbolThatWasActiveInCurrentScope = True
 
 		symbolsByUniqueNameToBeUpdated = {}
 		additionalParameters = additionalImportsForOurSelves + additionalDeclarationsForOurselves + additionalDummiesForOurselves
@@ -465,6 +485,7 @@ This is not allowed for implementations using %s.\
 		clone._symbolAnalysisByRoutineNameAndSymbolName = self._symbolAnalysisByRoutineNameAndSymbolName
 		clone._symbolsByModuleNameAndSymbolName = self._symbolsByModuleNameAndSymbolName
 		clone._allImports = copy.copy(self._allImports)
+		clone._userSpecifiedSymbolNames = copy.copy(self._userSpecifiedSymbolNames)
 		clone.symbolsByName = copy.copy(self.symbolsByName)
 		clone.callees = copy.copy(self.callees)
 		return clone
@@ -524,6 +545,13 @@ This is not allowed for implementations using %s.\
 
 	def loadLine(self, line, symbolsOnCurrentLine=None):
 		self._currRegion.loadLine(line, symbolsOnCurrentLine)
+
+	def finalize(self):
+		self._userSpecifiedSymbolNames = dict(
+			(symbol.name, None)
+			for symbol in self.symbolsByName.values()
+			if symbol.isUserSpecified
+		)
 
 	def implemented(self):
 		purgedRoutineElements = []

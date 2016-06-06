@@ -420,9 +420,7 @@ class RoutineSpecificationRegion(Region):
 		and not skipDebugPrint:
 			text += "!<----- type parameters --\n"
 		for typeParameterSymbol in self._typeParameterSymbolsByName.values():
-			typeParameterSymbol.updateNameInScope(forceAutomaticName=True)
-			if typeParameterSymbol.sourceModule in moduleNamesCompletelyImported \
-			and not "hfauto" in typeParameterSymbol.nameInScope():
+			if typeParameterSymbol.sourceModule in moduleNamesCompletelyImported:
 				continue
 			text += getImportLine([typeParameterSymbol], parentRoutine)
 		if self._allImports:

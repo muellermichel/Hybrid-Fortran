@@ -700,7 +700,10 @@ def getSymbolsByName(cgDoc, parentNode, parallelRegionTemplates=[], currentModul
             symbol.merge(existingSymbol)
             #overspecifying module symbol in a subroutine domain dependant specification
             symbol.isModuleSymbol = existingSymbol.isModuleSymbol
+        symbol.isUserSpecified = False
         symbolsByName[symbol.uniqueIdentifier] = symbol
+        for typeParameterSymbol in symbol.usedTypeParameters:
+            typeParameterSymbol.isUserSpecified = False
     return symbolsByName
 
 def getModuleNodesByName(cgDoc):
@@ -938,7 +941,7 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
                 self.processKnownSymbolImportMatch(matchesAndSymbolInScope[1], symbol)
             else:
                 self.symbolsOnCurrentLine.append(symbol)
-            symbol.isEmulatingSymbolThatWasActiveInCurrentScope = True
+            symbol.isUserSpecified = True
 
     def processImport(self, parentNode, uidLocal, uidSource, moduleName, sourceSymbolName, symbolNameInScope):
         k = (moduleName, symbolNameInScope)

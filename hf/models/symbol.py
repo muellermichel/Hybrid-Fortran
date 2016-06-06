@@ -298,7 +298,8 @@ class Symbol(object):
 
 	def __repr__(self):
 		return self.name
-
+	def __hash__(self):
+		return hash(self.nameInScope())
 	def __eq__(self, other):
 		if other == None:
 			return False
@@ -566,16 +567,10 @@ EXAMPLE:\n\
 				referencingName = symbol.uniqueIdentifier
 			return referencingName
 
-		originalModuleName = self.routineNode.getAttribute("name") if self.isModuleSymbol else self.routineNode.getAttribute('module')
 		self._nameInScope = None
 		if forceAutomaticName:
 			self._nameInScope = automaticName(self)
-		elif (self.routineNode and self.sourceModule in [
-			"HF90_LOCAL_MODULE",
-			originalModuleName
-		]) \
-		or (self.sourceModule not in [None, ""] and self.routineNode and self.sourceModule == originalModuleName) \
-		or self.isEmulatingSymbolThatWasActiveInCurrentScope:
+		elif self.isUserSpecified:
 			self._nameInScope = self.name
 		else:
 			self._nameInScope = automaticName(self)
@@ -611,7 +606,7 @@ EXAMPLE:\n\
 		self._isArgumentOverride = False
 		self._nameOfScopeOverride = None
 		self._nameInScope = None
-		self.isEmulatingSymbolThatWasActiveInCurrentScope = False
+		self.isUserSpecified = False
 		self.isPresent = False
 		self.isToBeTransfered = False
 		loadAttributesFromObject(MERGEABLE_DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES)
@@ -1223,10 +1218,6 @@ Current Domains: %s\n" %(
 		if skip_on_missing_declaration and (self.declarationPrefix == None or self.declarationPrefix == ""):
 			return ""
 		declarationPrefix = self.getSanitizedDeclarationPrefix(purgeList)
-# 		if self.hasUndecidedDomainSizes \
-# 		and not ("allocatable" in declarationPrefix or "pointer" in declarationPrefix):
-# 			raise UsageError("%s cannot be declared at this point because of insufficient domain information. \
-# Please specify it using an appropriate @domainDependant directive." %(self.name))
 		result = "%s %s %s %s" %(
 			declarationPrefix.strip(),
 			name_prefix,

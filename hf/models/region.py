@@ -58,6 +58,10 @@ class Region(object):
 		return [symbol.name for symbol in sum([symbols for (_, symbols) in self._linesAndSymbols], [])]
 
 	@property
+	def linesAndSymbols(self):
+		return self._linesAndSymbols
+
+	@property
 	def parentRoutine(self):
 		return self._routineRef()
 
@@ -252,6 +256,13 @@ class ParallelRegion(Region):
 		super(ParallelRegion, self).__init__(routine)
 
 	@property
+	def linesAndSymbols(self):
+		return sum([
+			region.linesAndSymbols
+			for region in self._subRegions
+		], [])
+
+	@property
 	def currRegion(self):
 		return self._currRegion
 
@@ -338,13 +349,14 @@ class RoutineSpecificationRegion(Region):
 		compactionDeclarationPrefixByCalleeName,
 		currAdditionalCompactedSubroutineParameters,
 		allImports,
-		typeParameterSymbolsByName
 	):
 		self._additionalParametersByKernelName = copy.copy(additionalParametersByKernelName)
 		self._symbolsToAdd = copy.copy(symbolsToAdd)
 		self._compactionDeclarationPrefixByCalleeName = copy.copy(compactionDeclarationPrefixByCalleeName)
 		self._currAdditionalCompactedSubroutineParameters = copy.copy(currAdditionalCompactedSubroutineParameters)
 		self._allImports = copy.copy(allImports)
+
+	def loadTypeParameterSymbolsByName(self, typeParameterSymbolsByName):
 		self._typeParameterSymbolsByName = copy.copy(typeParameterSymbolsByName)
 
 	def implemented(self, skipDebugPrint=False):
@@ -581,8 +593,6 @@ class RoutineSpecificationRegion(Region):
 				limitLength(frameworkArrayName(parentRoutine.name)),
 				idx+1
 			) + " ! additional type %i symbol compaction\n" %(symbol.declarationType)
-		if ConversionOptions.Instance().debugPrint and not skipDebugPrint:
-			text += "! HF is aware of the following symbols at this point: %s" %(parentRoutine.symbolsByName.values())
 
 		# except UsageError as e:
 		# 	raise UsageError("Implementing %s: %s" %(parentRoutine.name, str(e)))

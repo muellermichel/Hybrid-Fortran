@@ -95,6 +95,7 @@ class AnalyzableRoutine(Routine):
 		self._symbolsByModuleNameAndSymbolName = None
 		self._allImports = None
 		self._userSpecifiedSymbolNames = None
+		self._synthesizedSymbols = None
 		self._packedRealSymbolsByCalleeName = {}
 		self.usedSymbolNames = {}
 
@@ -158,11 +159,10 @@ This is not allowed for implementations using %s.\
 			if symbol.sourceModule == self.parentModule.name:
 				symbol.routineNode = self.parentModule.node
 
-		#scoped name could have changed through splitting / merging
+		#scoped name could have changed through splitting / merging --> update symbolsByName
 		symbolsByNameAndScopeName = {}
 		for symbol in self.symbolsByName.values():
 			updateIndex(symbolsByNameAndScopeName, symbol)
-
 		parentModuleName = self.parentModule.name
 		updatedSymbolsByName = {}
 		for symbolsByScopeName in symbolsByNameAndScopeName.values():
@@ -262,13 +262,12 @@ This is not allowed for implementations using %s.\
 		)
 
 		symbolsByUniqueNameToBeUpdated = {}
-		additionalParameters = additionalImportsForOurSelves + additionalDeclarationsForOurselves + additionalDummiesForOurselves
-		for symbol in additionalParameters:
+		self._synthesizedSymbols = additionalImportsForOurSelves + additionalDeclarationsForOurselves + additionalDummiesForOurselves
+		for symbol in self._synthesizedSymbols:
 			symbolsByUniqueNameToBeUpdated[symbol.uniqueIdentifier] = symbol
-			self.symbolsByName[symbol.uniqueIdentifier] = symbol
 
 		toBeCompacted, declarationPrefix, otherImports = self._listCompactedSymbolsAndDeclarationPrefixAndOtherSymbols(
-			additionalParameters
+			self._synthesizedSymbols
 		)
 		compactedArrayList = []
 		if len(toBeCompacted) > 0:
@@ -301,8 +300,9 @@ This is not allowed for implementations using %s.\
 					symbolAnalysisByRoutineNameAndSymbolName=self._symbolAnalysisByRoutineNameAndSymbolName
 				)
 				for symbol in additionalImportsForDeviceCompatibility \
-				+ additionalDeclarationsForDeviceCompatibility \
-				+ additionalDummies:
+					+ additionalDeclarationsForDeviceCompatibility \
+					+ additionalDummies:
+					self._synthesizedSymbols.append(symbol)
 					symbolsByUniqueNameToBeUpdated[symbol.uniqueIdentifier] = symbol
 				if 'DEBUG_PRINT' in callee.implementation.optionFlags:
 					tentativeAdditionalImports = getModuleArraysForCallee(
@@ -380,6 +380,39 @@ This is not allowed for implementations using %s.\
 				compactedArrayList = [compactedArray]
 			callee._loadAdditionalArgumentSymbols(sorted(notToBeCompacted + compactedArrayList))
 
+		#load into the specification region
+		self.regions[0].loadAdditionalContext(
+			additionalParametersByKernelName,
+			ourSymbolsToAdd,
+			compactionDeclarationPrefixByCalleeName,
+			additionalCompactedSubroutineParameters,
+			self._allImports
+		)
+
+	def _mergeSynthesizedWithExistingSymbols(self):
+		#update symbols used in loaded lines with the ones found in symbolsByName
+		#(with synthesized routines it can happen that these are not the same yet)
+		symbolsByNameAndScopedName = {}
+		for nameInScope in self.symbolsByName:
+			symbol = self.symbolsByName[nameInScope]
+			symbolsByScopedname = symbolsByNameAndScopedName.get(symbol.name, {})
+			symbolsByScopedname[nameInScope] = symbol
+			symbolsByNameAndScopedName[symbol.name] = symbolsByScopedname
+
+		for symbol in self._synthesizedSymbols:
+			matchingSymbolsByScopedName = symbolsByNameAndScopedName.get(symbol.name)
+			if not matchingSymbolsByScopedName:
+				raise Exception("no context found for symbol %s; context: %s" %(
+					symbol,
+					symbolsByNameAndScopedName
+				))
+			updatedSymbol = matchingSymbolsByScopedName.get(symbol.nameInScope())
+			if not updatedSymbol:
+				updatedSymbol = matchingSymbolsByScopedName.get(symbol.name)
+			if not updatedSymbol:
+				updatedSymbol = matchingSymbolsByScopedName[matchingSymbolsByScopedName.keys()[0]]
+			symbolsOnLine[index] = updatedSymbol
+
 		#prepare type parameters
 		typeParametersByName = {}
 		for symbol in self.symbolsByName.values():
@@ -387,16 +420,7 @@ This is not allowed for implementations using %s.\
 				if typeParameterSymbol.sourceModule == self.parentModule.name:
 					continue
 				typeParametersByName[typeParameterSymbol.name] = typeParameterSymbol
-
-		#load into the specification region
-		self.regions[0].loadAdditionalContext(
-			additionalParametersByKernelName,
-			ourSymbolsToAdd,
-			compactionDeclarationPrefixByCalleeName,
-			additionalCompactedSubroutineParameters,
-			self._allImports,
-			typeParametersByName
-		)
+		self.regions[0].loadTypeParameterSymbolsByName(typeParametersByName)
 
 	def _prepareCallRegions(self):
 		for region in self.regions:

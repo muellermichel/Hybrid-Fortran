@@ -334,9 +334,9 @@ class RoutineSpecificationRegion(Region):
 			self._symbolsToAdd,
 			self._compactionDeclarationPrefixByCalleeName,
 			self._currAdditionalCompactedSubroutineParameters,
-			self._allImports,
-			self._typeParameterSymbolsByName
+			self._allImports
 		)
+		clone._typeParameterSymbolsByName = copy.copy(self._typeParameterSymbolsByName)
 		return clone
 
 	def loadDataSpecificationLine(self, line):
@@ -348,7 +348,7 @@ class RoutineSpecificationRegion(Region):
 		symbolsToAdd,
 		compactionDeclarationPrefixByCalleeName,
 		currAdditionalCompactedSubroutineParameters,
-		allImports,
+		allImports
 	):
 		self._additionalParametersByKernelName = copy.copy(additionalParametersByKernelName)
 		self._symbolsToAdd = copy.copy(symbolsToAdd)

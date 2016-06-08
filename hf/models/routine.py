@@ -173,7 +173,7 @@ This is not allowed for implementations using %s.\
 				symbol = symbolsByScopeName[symbolsByScopeName.keys()[0]] #$$$ this needs to be commented
 				symbol.nameOfScope = self.name
 			updateSymbolNode(symbol)
-			symbol.updateNameInScope()
+			symbol.updateNameInScope(residingModule=self.parentModule.name)
 			updatedSymbolsByName[symbol.nameInScope(useDeviceVersionIfAvailable=False)] = symbol
 		for symbol in updatedSymbolsByName.values():
 			for typeParameterSymbol in symbol.usedTypeParameters:
@@ -186,7 +186,7 @@ This is not allowed for implementations using %s.\
 					typeParameterSymbol.isUserSpecified = True
 				typeParameterSymbol.nameOfScope = self.name
 				updateSymbolNode(typeParameterSymbol)
-				typeParameterSymbol.updateNameInScope()
+				typeParameterSymbol.updateNameInScope(residingModule=self.parentModule.name)
 			symbol.usedTypeParameters = set([typeParameter for typeParameter in symbol.usedTypeParameters])
 		self.symbolsByName = updatedSymbolsByName
 
@@ -202,9 +202,6 @@ This is not allowed for implementations using %s.\
 				regionType,
 				self.node.getAttribute("parallelRegionPosition")
 			)
-
-	def _loadAdditionalArgumentSymbols(self, additionalArgumentSymbols):
-		self._additionalArguments = copy.copy(additionalArgumentSymbols)
 
 	def _listCompactedSymbolsAndDeclarationPrefixAndOtherSymbols(self, additionalImports):
 		toBeCompacted = []
@@ -279,7 +276,7 @@ This is not allowed for implementations using %s.\
 			)
 			compactedArrayList = [compactedArray]
 		additionalSubroutineParameters = sorted(otherImports + compactedArrayList)
-		self._loadAdditionalArgumentSymbols(additionalSubroutineParameters)
+		self._additionalArguments = copy.copy(additionalSubroutineParameters)
 
 		#analyse whether this routine is calling other routines that have a parallel region within
 		#+ analyse the additional symbols that come up there
@@ -378,7 +375,7 @@ This is not allowed for implementations using %s.\
 					isOnDevice=True
 				)
 				compactedArrayList = [compactedArray]
-			callee._loadAdditionalArgumentSymbols(sorted(notToBeCompacted + compactedArrayList))
+			callee._additionalArguments = copy.copy(sorted(notToBeCompacted + compactedArrayList))
 
 		#load into the specification region
 		self.regions[0].loadAdditionalContext(
@@ -392,26 +389,38 @@ This is not allowed for implementations using %s.\
 	def _mergeSynthesizedWithExistingSymbols(self):
 		#update symbols used in loaded lines with the ones found in symbolsByName
 		#(with synthesized routines it can happen that these are not the same yet)
+		for symbol in self._synthesizedSymbols:
+			symbol.updateNameInScope(residingModule=self.parentModule.name)
+			self.symbolsByName[symbol.nameInScope(useDeviceVersionIfAvailable=False)] = symbol
+
+		#update symbols referenced on specific lines (could be replaced with automatically added ones)
 		symbolsByNameAndScopedName = {}
 		for nameInScope in self.symbolsByName:
 			symbol = self.symbolsByName[nameInScope]
 			symbolsByScopedname = symbolsByNameAndScopedName.get(symbol.name, {})
 			symbolsByScopedname[nameInScope] = symbol
 			symbolsByNameAndScopedName[symbol.name] = symbolsByScopedname
+		for region in self.regions:
+			for _, symbolsOnLine in region.linesAndSymbols:
+				for index, symbol in enumerate(symbolsOnLine):
+					matchingSymbolsByScopedName = symbolsByNameAndScopedName.get(symbol.name)
+					if not matchingSymbolsByScopedName:
+						raise Exception("no context found for symbol %s; context: %s" %(
+							symbol,
+							symbolsByNameAndScopedName
+						))
+					updatedSymbol = matchingSymbolsByScopedName.get(
+						symbol.nameInScope(useDeviceVersionIfAvailable=False)
+					)
+					if not updatedSymbol:
+						updatedSymbol = matchingSymbolsByScopedName.get(symbol.name)
+					if not updatedSymbol:
+						updatedSymbol = matchingSymbolsByScopedName[matchingSymbolsByScopedName.keys()[0]]
+					symbolsOnLine[index] = updatedSymbol
 
-		for symbol in self._synthesizedSymbols:
-			matchingSymbolsByScopedName = symbolsByNameAndScopedName.get(symbol.name)
-			if not matchingSymbolsByScopedName:
-				raise Exception("no context found for symbol %s; context: %s" %(
-					symbol,
-					symbolsByNameAndScopedName
-				))
-			updatedSymbol = matchingSymbolsByScopedName.get(symbol.nameInScope())
-			if not updatedSymbol:
-				updatedSymbol = matchingSymbolsByScopedName.get(symbol.name)
-			if not updatedSymbol:
-				updatedSymbol = matchingSymbolsByScopedName[matchingSymbolsByScopedName.keys()[0]]
-			symbolsOnLine[index] = updatedSymbol
+		#make sure that all symbols are correctly initialized to this routine (important for accessor / domain representation)
+		for symbol in self.symbolsByName.values():
+			symbol.loadRoutineNodeAttributes(self.node, self.parallelRegionTemplates)
 
 		#prepare type parameters
 		typeParametersByName = {}
@@ -581,8 +590,9 @@ This is not allowed for implementations using %s.\
 		purgedRoutineElements = []
 		try:
 			self._checkParallelRegions()
-			self._prepareAdditionalContext()
 			self._updateSymbolReferences()
+			self._prepareAdditionalContext()
+			self._mergeSynthesizedWithExistingSymbols()
 			self._updateSymbolState()
 			self._prepareCallRegions()
 			implementedRoutineElements = [self._implementHeader(), self._implementAdditionalImports()]

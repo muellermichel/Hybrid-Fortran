@@ -327,12 +327,7 @@ class Symbol(object):
 
 	@property
 	def nameIsGuaranteedUniqueInScope(self):
-		#symbols without a routineNode are module scope symbols
-		if not self.routineNode or self.isArgument or self.declarationType in [
-			DeclarationType.LOCAL_MODULE_SCALAR
-		]:
-			return True
-		return False
+		return self.isArgument or self.isUserSpecified or self.residingModule == self.sourceModule
 
 	@property
 	def sourceModule(self):
@@ -348,6 +343,24 @@ class Symbol(object):
 	@sourceModule.setter
 	def sourceModule(self, _sourceModuleIdentifier):
 		self._sourceModuleIdentifier = _sourceModuleIdentifier
+
+	@property
+	def residingModule(self):
+		if self._residingModule:
+			return self._residingModule
+		if not self.routineNode:
+			raise Exception("cannot determine residing module for %s at this point" %(self.name))
+		moduleName = self.routineNode.getAttribute('module')
+		if moduleName:
+			return moduleName
+		moduleName = self.routineNode.getAttribute('name')
+		if not moduleName:
+			raise Exception("cannot determine residing module for %s at this point" %(self.name))
+		return moduleName
+
+	@residingModule.setter
+	def residingModule(self, residingModule):
+		self._residingModule = residingModule
 
 	@property
 	def declarationPrefix(self):
@@ -546,7 +559,7 @@ EXAMPLE:\n\
 			raise Exception("routine node needs to be loaded at this point")
 		return uniqueIdentifier(self.name, self.nameOfScope)
 
-	def updateNameInScope(self, forceAutomaticName=False):
+	def updateNameInScope(self, forceAutomaticName=False, residingModule=None):
 		#Give a symbol representation that is guaranteed to *not* collide with any local namespace (as long as programmer doesn't use any 'hfXXX' pre- or postfixes)
 		def automaticName(symbol):
 			if symbol.analysis and symbol.routineNode and not forceAutomaticName:
@@ -568,6 +581,8 @@ EXAMPLE:\n\
 			return referencingName
 
 		self._nameInScope = None
+		if residingModule:
+			self.residingModule = residingModule
 		if forceAutomaticName:
 			self._nameInScope = automaticName(self)
 		elif self.isUserSpecified:
@@ -609,6 +624,7 @@ EXAMPLE:\n\
 		self.isUserSpecified = False
 		self.isPresent = False
 		self.isToBeTransfered = False
+		self._residingModule = None
 		loadAttributesFromObject(MERGEABLE_DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES)
 		loadAttributesFromObject(MERGEABLE_DEFAULT_SYMBOL_INSTANCE_DOMAIN_ATTRIBUTES)
 
@@ -843,21 +859,6 @@ EXAMPLE:\n\
 			))
 		if self.initLevel >= Init.DECLARATION_LOADED and self.declaredDimensionSizes == None:
 			raise Exception("symbol %s is in declaration loaded state, but dimensions are not initialized" %(self.name))
-		if self.initLevel >= Init.DECLARATION_LOADED \
-		and self.parallelRegionPosition in ["within", "inside"] \
-		and self.isAutoDom \
-		and len(self.domains) not in [
-			len(self._templateDomains),
-			len(self._templateDomains) + len(self.declaredDimensionSizes)
-		]:
-			raise Exception("Wrong number of domains for autoDom symbol %s: || template: %s; || declared: %s || actual: %s || kernel: %s || non-kernel: %s" %(
-				self.name,
-				self._templateDomains,
-				self.declaredDimensionSizes,
-				self.domains,
-				self._kernelDomainNames,
-				self._kernelInactiveDomainSizes
-			))
 		logging.debug("domain integrity checked for symbol %s" %(self))
 
 	def loadTemplateAttributes(self, parallelRegionTemplates=[]):

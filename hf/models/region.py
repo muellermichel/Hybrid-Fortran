@@ -407,8 +407,14 @@ class RoutineSpecificationRegion(Region):
 					continue
 				if symbol.isCompacted:
 					continue #compacted symbols are handled as part of symbolsToAdd
-				if symbol.getSpecificationTuple(line)[0]:
+				specTuple = symbol.getSpecificationTuple(line)
+				if specTuple[0]:
 					declaredSymbolsByScopedName[symbol.nameInScope()] = symbol
+					symbol.loadDeclaration(
+						specTuple,
+						parentRoutine.programmerArguments,
+						parentRoutine.name
+					)
 					continue
 				match = symbol.importPattern.match(line)
 				if not match:
@@ -593,11 +599,6 @@ class RoutineSpecificationRegion(Region):
 				limitLength(frameworkArrayName(parentRoutine.name)),
 				idx+1
 			) + " ! additional type %i symbol compaction\n" %(symbol.declarationType)
-
-		# except UsageError as e:
-		# 	raise UsageError("Implementing %s: %s" %(parentRoutine.name, str(e)))
-		# except Exception as e:
-		# 	raise Exception("Implementing %s: %s" %(parentRoutine.name, str(e)))
 
 		return self._sanitize(text, skipDebugPrint)
 

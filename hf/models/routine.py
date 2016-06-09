@@ -433,7 +433,8 @@ This is not allowed for implementations using %s.\
 			if symbol.nameInScope(useDeviceVersionIfAvailable=False):
 				self.regions[0]._symbolsToAdd[index] = symbol
 
-		#make sure that all symbols are correctly initialized to this routine (important for accessor / domain representation)
+		#make sure that all symbols are correctly initialized to this routine
+		#(important for accessor / domain representation for module symbols that get additionally loaded)
 		for symbol in self.symbolsByName.values():
 			symbol.loadRoutineNodeAttributes(self.node, self.parallelRegionTemplates)
 
@@ -448,9 +449,14 @@ This is not allowed for implementations using %s.\
 
 	def _prepareCallRegions(self):
 		for region in self.regions:
+			if isinstance(region, ParallelRegion):
+				for subRegion in region._subRegions:
+					if not isinstance(subRegion, CallRegion):
+						continue
+					subRegion.loadPassedInSymbolsByName(self.symbolsByName)
+				continue
 			if not isinstance(region, CallRegion):
 				continue
-			#loading updated symbols for synthesized callees
 			region.loadPassedInSymbolsByName(self.symbolsByName)
 
 	def _implementHeader(self):
@@ -617,10 +623,12 @@ This is not allowed for implementations using %s.\
 				(index, text) for index, text in enumerate(implementedRoutineElements)
 				if text != ""
 			]
-		# except UsageError as e:
-		# 	raise UsageError("Error in %s: %s" %(self.name, str(e)))
+		except UsageError as e:
+			raise UsageError("In %s: %s" %(self.name, str(e)))
 		except ScopeError as e:
-			raise ScopeError("Error in %s: %s;\nTraceback: %s" %(self.name, str(e), traceback.format_exc()))
+			raise ScopeError("In %s: %s;\nTraceback: %s" %(self.name, str(e), traceback.format_exc()))
+		except Exception as e:
+			raise ScopeError("In %s: %s;\nTraceback: %s" %(self.name, str(e), traceback.format_exc()))
 		return "\n".join([
 			text
 			for (index, text) in purgedRoutineElements

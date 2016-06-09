@@ -1016,7 +1016,7 @@ EXAMPLE:\n\
 			or domSize == ":"
 		]
 
-	def loadDeclaration(self, specTuple, patterns, currentRoutineArguments, currParentName):
+	def loadDeclaration(self, specTuple, currentRoutineArguments, currParentName):
 		if self.initLevel < Init.TEMPLATE_LOADED:
 			raise Exception(
 				"Cannot load declaration for %s at init level %s" %(
@@ -1046,7 +1046,7 @@ EXAMPLE:\n\
 		self.declarationPrefix = purgeFromDeclarationDirectives(declarationDirectives.rstrip() + " " + "::", ["dimension"])
 
 		#   get and check intent                                      #
-		intentMatch = patterns.intentPattern.match(specTuple[0])
+		intentMatch = RegExPatterns.Instance().intentPattern.match(specTuple[0])
 		newIntent = None
 		if intentMatch and intentMatch.group(1).strip() != "":
 			newIntent = intentMatch.group(1)

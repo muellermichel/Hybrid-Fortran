@@ -30,6 +30,10 @@ module my_module
 	@domainDependant{attribute(host), domName(x,y,z), domSize(nx,ny,nz), domPP(DOM), accPP(AT)}
 	a_dyn, b_dyn, c_dyn, d_dyn
 	@end domainDependant
+
+	@domainDependant{attribute(host), domName(z), domSize(NZ)}
+	implicitDataArray1
+	@end domainDependant
 contains
 	subroutine cpu_add()
 		implicit none

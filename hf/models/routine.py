@@ -387,11 +387,23 @@ This is not allowed for implementations using %s.\
 		)
 
 	def _mergeSynthesizedWithExistingSymbols(self):
+		#gather all the specified symbols
+		specifiedSymbolsByNameInScope = {}
+		for _, symbolsOnLine in self.regions[0].linesAndSymbols:
+				for symbol in symbolsOnLine:
+					specifiedSymbolsByNameInScope[symbol.nameInScope(useDeviceVersionIfAvailable=False)] = symbol
+
 		#update symbols used in loaded lines with the ones found in symbolsByName
-		#(with synthesized routines it can happen that these are not the same yet)
+		#IFF they are not specified by the same name in scope by the user in this routine
 		for symbol in self._synthesizedSymbols:
+			nameInScope = symbol.nameInScope(useDeviceVersionIfAvailable=False)
 			symbol.updateNameInScope(residingModule=self.parentModule.name)
-			self.symbolsByName[symbol.nameInScope(useDeviceVersionIfAvailable=False)] = symbol
+			self.symbolsByName[nameInScope] = symbol
+
+		#make sure the user specified versions are used if available
+		for nameInScope in specifiedSymbolsByNameInScope:
+			symbol = specifiedSymbolsByNameInScope[nameInScope]
+			self.symbolsByName[nameInScope] = symbol
 
 		#update symbols referenced on specific lines (could be replaced with automatically added ones)
 		symbolsByNameAndScopedName = {}
@@ -417,6 +429,9 @@ This is not allowed for implementations using %s.\
 					if not updatedSymbol:
 						updatedSymbol = matchingSymbolsByScopedName[matchingSymbolsByScopedName.keys()[0]]
 					symbolsOnLine[index] = updatedSymbol
+		for index, symbol in enumerate(self.regions[0]._symbolsToAdd):
+			if symbol.nameInScope(useDeviceVersionIfAvailable=False):
+				self.regions[0]._symbolsToAdd[index] = symbol
 
 		#make sure that all symbols are correctly initialized to this routine (important for accessor / domain representation)
 		for symbol in self.symbolsByName.values():

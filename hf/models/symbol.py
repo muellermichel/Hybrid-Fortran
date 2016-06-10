@@ -1000,7 +1000,7 @@ EXAMPLE:\n\
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] routine node attributes loaded for symbol %s. Domains at this point: %s" %(self.name, str(self.domains)))
 
 	def adjustDomainsToKernelPosition(self):
-		if self.parallelRegionPosition in [None, ""] and self.declaredDimensionSizes and self.initLevel :
+		if self.parallelRegionPosition in [None, ""] and self.declaredDimensionSizes:
 			self.domains = [
 				("HF_GENERIC_PARALLEL_INACTIVE_DIM", domSize) for domSize in self.declaredDimensionSizes
 			]

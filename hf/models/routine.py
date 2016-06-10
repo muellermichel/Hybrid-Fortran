@@ -267,6 +267,7 @@ This is not allowed for implementations using %s.\
 			self._synthesizedSymbols
 		)
 		compactedArrayList = []
+		additionalCompactedSubroutineParameters = []
 		if len(toBeCompacted) > 0:
 			compactedArray = FrameworkArray(
 				self.name,
@@ -275,6 +276,8 @@ This is not allowed for implementations using %s.\
 				isOnDevice=True
 			)
 			compactedArrayList = [compactedArray]
+			additionalCompactedSubroutineParameters = sorted(toBeCompacted)
+			compactedArray.compactedSymbols = additionalCompactedSubroutineParameters
 		additionalSubroutineParameters = sorted(otherImports + compactedArrayList)
 		self._additionalArguments = copy.copy(additionalSubroutineParameters)
 
@@ -344,7 +347,6 @@ This is not allowed for implementations using %s.\
 		self._additionalImports = additionalImportsByScopedName.values()
 
 		#finalize context for this routine
-		additionalCompactedSubroutineParameters = sorted(toBeCompacted)
 		ourSymbolsToAdd = sorted(
 			additionalSubroutineParameters + additionalCompactedSubroutineParameters
 		)
@@ -363,6 +365,7 @@ This is not allowed for implementations using %s.\
 			notToBeCompacted = self._listCompactedSymbolsAndDeclarationPrefixAndOtherSymbols(
 				additionalImports + additionalDeclarations
 			)
+			toBeCompacted = sorted(toBeCompacted)
 			if len(toBeCompacted) > 0:
 				compactionDeclarationPrefixByCalleeName[callee.name] = declarationPrefix
 				self._packedRealSymbolsByCalleeName[callee.name] = toBeCompacted
@@ -375,6 +378,7 @@ This is not allowed for implementations using %s.\
 					isOnDevice=True
 				)
 				compactedArrayList = [compactedArray]
+				compactedArray.compactedSymbols = toBeCompacted
 			callee._additionalArguments = copy.copy(sorted(notToBeCompacted + compactedArrayList))
 
 		#load into the specification region
@@ -507,6 +511,12 @@ This is not allowed for implementations using %s.\
 		for region in self._regions:
 			for symbolName in region.usedSymbolNames:
 				self.usedSymbolNames[symbolName] = None
+		for symbol in self._additionalArguments:
+			if not isinstance(symbol, FrameworkArray):
+				continue
+			for compactedSymbol in symbol.compactedSymbols:
+				if compactedSymbol.name in self.usedSymbolNames:
+					self.usedSymbolNames[symbol.name] = None
 
 	def filterOutSymbolsAlreadyAliveInCurrentScope(self, symbolList):
 		return [
@@ -610,9 +620,6 @@ This is not allowed for implementations using %s.\
 	def implemented(self):
 		purgedRoutineElements = []
 		try:
-			self._checkParallelRegions()
-			self._updateSymbolReferences()
-			self._prepareAdditionalContext()
 			self._mergeSynthesizedWithExistingSymbols()
 			self._updateSymbolState()
 			self._prepareCallRegions()

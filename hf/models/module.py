@@ -73,6 +73,9 @@ class Module(object):
 			routines += routine.implementation.splitIntoCompatibleRoutines(routine)
 
 		for routine in routines:
+			routine._checkParallelRegions()
+			routine._updateSymbolReferences()
+			routine._prepareAdditionalContext()
 			routine._analyseSymbolUsage()
 
 		self._footerText = self._undecidedText

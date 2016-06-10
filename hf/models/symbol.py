@@ -1544,3 +1544,4 @@ class FrameworkArray(Symbol):
 		self.declarationPrefix = declarationPrefix
 		self._declarationTypeOverride = DeclarationType.FRAMEWORK_ARRAY
 		self._nameInScope = identifier
+		self.compactedSymbols = None

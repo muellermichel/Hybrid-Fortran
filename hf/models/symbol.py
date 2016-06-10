@@ -462,7 +462,7 @@ class Symbol(object):
 
 	@property
 	def numOfParallelDomains(self):
-		if self.parallelRegionPosition == "outside":
+		if self.parallelRegionPosition in ["outside", None, ""]:
 			return 0
 		return len(self._kernelDomainNames)
 
@@ -1256,7 +1256,12 @@ Current Domains: %s\n" %(
 		needsAdditionalClosingBracket = False
 		result += "("
 		domPP, isExplicit = self.domPP()
-		if domPP != "" and ((isExplicit and self.activeDomainsMatchSpecification) or self.numOfParallelDomains != 0):
+		if self.useOrderingMacro(
+			[domSize for _, domSize in self.domains],
+			True,
+			domPP,
+			isExplicit
+		):
 			#$$$ we need to include the template here to make pointers compatible with templating
 			needsAdditionalClosingBracket = True
 			result += domPP + "("
@@ -1282,9 +1287,12 @@ Please specify the domains and their sizes with domName and domSize attributes i
 			return result
 		needsAdditionalClosingBracket = False
 		domPP, isExplicit = self.domPP()
-		if useDomainReordering and domPP != "" \
-		and (isExplicit or self.numOfParallelDomains > 0) \
-		and self.activeDomainsMatchSpecification:
+		if self.useOrderingMacro(
+			[domSize for _, domSize in self.domains],
+			useDomainReordering,
+			domPP,
+			isExplicit
+		):
 			result = result + "(" + domPP + "("
 			needsAdditionalClosingBracket = True
 		else:
@@ -1319,6 +1327,14 @@ Please specify the domains and their sizes with domName and domSize attributes i
 				raise Exception("invalid domain size for symbol %s: %s" %(self.name, domSize))
 
 		return result
+
+	def useOrderingMacro(self, iterators, useDomainReordering, accPP, accPPIsExplicit):
+		return useDomainReordering and accPP != "" \
+			and ( \
+				self.numOfParallelDomains > 0 \
+				or ( accPPIsExplicit and len(iterators) >= 3 ) \
+			) \
+			and self.activeDomainsMatchSpecification
 
 	def accessRepresentation(
 		self,
@@ -1448,9 +1464,7 @@ Please specify the domains and their sizes with domName and domSize attributes i
 Currently loaded template: %s\n" %(
 				accPP, str(accPPIsExplicit), self.activeDomainsMatchSpecification, self.numOfParallelDomains, self.template.toxml() if self.template != None else "None"
 			))
-		if useDomainReordering and accPP != "" \
-		and (accPPIsExplicit or self.numOfParallelDomains > 0) \
-		and self.activeDomainsMatchSpecification:
+		if self.useOrderingMacro(iterators, useDomainReordering, accPP, accPPIsExplicit):
 			needsAdditionalClosingBracket = True
 			if not accPPIsExplicit and parallelRegionNode:
 				template = getTemplate(parallelRegionNode)

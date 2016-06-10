@@ -28,14 +28,6 @@ from tools.patterns import RegExPatterns
 from tools.analysis import SymbolDependencyAnalyzer, SymbolType
 from machinery.commons import ConversionOptions, parseSpecification, implement
 
-Init = enum(
-	"NOTHING_LOADED",
-	"TEMPLATE_LOADED",
-	"DEPENDANT_ENTRYNODE_ATTRIBUTES_LOADED",
-	"ROUTINENODE_ATTRIBUTES_LOADED",
-	"DECLARATION_LOADED"
-)
-
 #   Boxes = Symbol States
 #   X -> Transition Texts = Methods being called by parser
 #   Other Texts = Helper Functions
@@ -91,7 +83,13 @@ Init = enum(
 #        |                                                             |
 #        +-------------------------------------------------------------+
 
-
+Init = enum(
+	"NOTHING_LOADED",
+	"TEMPLATE_LOADED",
+	"DEPENDANT_ENTRYNODE_ATTRIBUTES_LOADED",
+	"ROUTINENODE_ATTRIBUTES_LOADED",
+	"DECLARATION_LOADED"
+)
 
 #Set of declaration types that are mutually exlusive for
 #declaration lines in Hybrid Fortran.
@@ -1002,11 +1000,16 @@ EXAMPLE:\n\
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] routine node attributes loaded for symbol %s. Domains at this point: %s" %(self.name, str(self.domains)))
 
 	def adjustDomainsToKernelPosition(self):
-		if self.parallelRegionPosition in ["outside", None, ""]:
+		if self.parallelRegionPosition in [None, ""] and self.declaredDimensionSizes and self.initLevel :
+			self.domains = [
+				("HF_GENERIC_PARALLEL_INACTIVE_DIM", domSize) for domSize in self.declaredDimensionSizes
+			]
+		elif self.parallelRegionPosition in [None, "", "outside"]:
 			self.domains = [
 				(domName, domSize) for (domName, domSize) in self.domains
 				if not domName in self._kernelDomainNames
 			]
+		if self.parallelRegionPosition in [None, "", "outside"]:
 			self._kernelDomainNames = []
 			self._kernelInactiveDomainSizes = [s for (_, s) in self.domains]
 		self.domains = [

@@ -799,8 +799,6 @@ EXAMPLE:\n\
 			if declaredDimensionSizes \
 			and self.declaredDimensionSizes == None \
 			else self.declaredDimensionSizes
-		if not self.declaredDimensionSizes:
-			self.declaredDimensionSizes = []
 		if self.declaredDimensionSizes and len(self.declaredDimensionSizes) > 0 and self.initLevel < Init.ROUTINENODE_ATTRIBUTES_LOADED:
 			self.domains = []
 			for dimSize in self.declaredDimensionSizes:
@@ -1000,7 +998,7 @@ EXAMPLE:\n\
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] routine node attributes loaded for symbol %s. Domains at this point: %s" %(self.name, str(self.domains)))
 
 	def adjustDomainsToKernelPosition(self):
-		if self.parallelRegionPosition in [None, ""] and self.declaredDimensionSizes:
+		if self.parallelRegionPosition in [None, ""] and self.declaredDimensionSizes != None:
 			self.domains = [
 				("HF_GENERIC_PARALLEL_INACTIVE_DIM", domSize) for domSize in self.declaredDimensionSizes
 			]
@@ -1142,6 +1140,9 @@ Parallel region position: %s, Current template: %s"
 			)
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] +++++++++ LOADING IMPORT INFORMATION ++++++++++ ")
 		self._sourceModuleIdentifier = moduleNode.getAttribute('name')
+
+		#   From this point on we need this list set in order for intermittent consistency checks to pass
+		self.declaredDimensionSizes = []
 
 		#   The name used in the import pattern is just self.name - so store this as the scoped name for now
 		self._nameInScope = self.name

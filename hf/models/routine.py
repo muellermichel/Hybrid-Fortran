@@ -398,10 +398,11 @@ This is not allowed for implementations using %s.\
 					specifiedSymbolsByNameInScope[symbol.nameInScope(useDeviceVersionIfAvailable=False)] = symbol
 
 		#update symbols used in loaded lines with the ones found in symbolsByName
-		#IFF they are not specified by the same name in scope by the user in this routine
-		for symbol in self._synthesizedSymbols:
-			nameInScope = symbol.nameInScope(useDeviceVersionIfAvailable=False)
-			symbol.updateNameInScope(residingModule=self.parentModule.name)
+		for symbol in self._additionalArguments + self._synthesizedSymbols:
+			nameInScope = symbol.name
+			if symbol.routineNode:
+				symbol.updateNameInScope(residingModule=self.parentModule.name)
+				nameInScope = symbol.nameInScope(useDeviceVersionIfAvailable=False)
 			self.symbolsByName[nameInScope] = symbol
 
 		#make sure the user specified versions are used if available
@@ -437,9 +438,14 @@ This is not allowed for implementations using %s.\
 			if symbol.nameInScope(useDeviceVersionIfAvailable=False):
 				self.regions[0]._symbolsToAdd[index] = symbol
 
+		for index, symbol in enumerate(self._additionalArguments):
+			self._additionalArguments[index] = self.symbolsByName[symbol.name]
+
 		#make sure that all symbols are correctly initialized to this routine
 		#(important for accessor / domain representation for module symbols that get additionally loaded)
 		for symbol in self.symbolsByName.values():
+			if isinstance(symbol, FrameworkArray):
+				continue
 			symbol.loadRoutineNodeAttributes(self.node, self.parallelRegionTemplates)
 
 		#prepare type parameters

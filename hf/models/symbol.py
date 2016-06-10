@@ -1396,7 +1396,7 @@ Please specify the domains and their sizes with domName and domSize attributes i
 					self._kernelDomainNames,
 					self.template.toxml()
 				))
-			if callee and callee.node.getAttribute("parallelRegionPosition") != "outside":
+			if callee and callee.node and callee.node.getAttribute("parallelRegionPosition") != "outside":
 				iterators = [] #reset the parallel iterators if this symbol is accessed in a subroutine call and it's NOT being passed in inside a kernel
 
 		offsets = []

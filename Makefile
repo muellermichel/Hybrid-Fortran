@@ -69,16 +69,22 @@ test_example: example
 	@echo "###########################################################################################"
 	@rm -r example
 	@make example
-	@cd example && ./configure && make clean
-	@cd example && make tests
+	@cd example && ./configure
+	@echo "----- default target ------"
+	@cd example && make clean && make tests
+	@echo "----- debug target ------"
+	@cd example && make clean && make tests DEBUG=1
 
 define test_rules
   test_$(1):
 	@echo "###########################################################################################"
 	@echo "########################## attempting to test $(1) ###############################"
 	@echo "###########################################################################################"
-	@cd $(1) && ./configure && make clean
-	@cd $(1) && make tests
+	@cd $(1) && ./configure
+	@echo "----- default target ------"
+	@cd $(1) && make clean && make tests
+	@echo "----- debug target ------"
+	@cd $(1) && make clean && make tests DEBUG=1
 endef
 
 clean_example:

@@ -939,7 +939,7 @@ EXAMPLE:\n\
 
 		# if we have multiple domain names referencing the same domain size, these must be from the *same* template.
 		# otherwise forget them - they are just aliases
-		kernelDomainNamesByIndex = {}
+		availablekernelDomainNames = []
 		for regionDomSize in kernelDomainNamesAndTemplateIDByDomainSize:
 			domNamesByTemplateID = {}
 			for regionDomName, index, identifier in kernelDomainNamesAndTemplateIDByDomainSize[regionDomSize]:
@@ -952,10 +952,13 @@ EXAMPLE:\n\
 			domNamesWithMaxLength = []
 			if len(domNamesByTemplateID.keys()) > 0:
 				domNamesWithMaxLength = max(domNamesByTemplateID.values(), key=len)
-			for regionDomName, index in domNamesWithMaxLength:
-				kernelDomainNamesByIndex[index] = regionDomName
-		for index in sorted(kernelDomainNamesByIndex.keys()):
-			self._kernelDomainNames.append(kernelDomainNamesByIndex[index])
+			for regionDomName, _ in domNamesWithMaxLength:
+				availablekernelDomainNames.append(regionDomName)
+		for domName, domSize in self.domains:
+			if domName in availablekernelDomainNames:
+				self._kernelDomainNames.append(domName)
+			elif "HF_" in domName and domSize in parallelRegionDomNamesBySize:
+				self._kernelDomainNames.append(parallelRegionDomNamesBySize[domSize])
 
 		#   add the template information to the index; this is important in case the domainDependant template information differs from the parallel region
 		for (dependantDomName, dependantDomSize) in self._templateDomains:

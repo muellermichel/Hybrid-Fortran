@@ -188,18 +188,6 @@ program main
   call data_region(a, b, c, d, sum_c, sum_d)
   write(6,*) "calculation complete"
 
-  expected_sum = 3.0d0 * NX * NY * NZ
-  if ( abs(sum_c - expected_sum) > 1E-5 ) then
-    write(6,*) "sum c failed: ", sum_c, "; expected: ", expected_sum
-    testSum = .FALSE.
-  end if
-
-  expected_sum = 2.0d0 * NX * NY * NZ
-  if ( abs(sum_d - expected_sum) > 1E-5 ) then
-    write(6,*) "sum d failed: ", sum_d, "; expected: ", expected_sum
-    testSum = .FALSE.
-  end if
-
   do y=1,NY
   do x=1,NX
   do z=1,NZ
@@ -218,6 +206,19 @@ program main
   end do
   end do
   end do
+
+  expected_sum = 3.0d0 * NX * NY * NZ
+  if ( abs(sum_c - expected_sum) > 1E-5 ) then
+    write(6,*) "sum c failed: ", sum_c, "; expected: ", expected_sum
+    testSum = .FALSE.
+  end if
+
+  expected_sum = 2.0d0 * NX * NY * NZ
+  if ( abs(sum_d - expected_sum) > 1E-5 ) then
+    write(6,*) "sum d failed: ", sum_d, "; expected: ", expected_sum
+    testSum = .FALSE.
+  end if
+
   if (test .EQ. .TRUE. .AND. testSum .EQ. .TRUE.) then
     write(6,*) "test ok"
   else

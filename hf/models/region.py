@@ -31,7 +31,7 @@ RegionType = enum(
 	"OTHER"
 )
 
-def implementSymbolAccessStringAndRemainder(line, suffix, symbol, iterators=[], parallelRegionTemplate=None, callee=None):
+def implementSymbolAccessStringAndRemainder(line, suffix, symbol, iterators=[], parallelRegionTemplate=None, callee=None, useDeviceVersionIfAvailable=True):
 	isPointerAssignment = RegExPatterns.Instance().pointerAssignmentPattern.match(line) != None
 	try:
 		symbolAccessString, remainder = getSymbolAccessStringAndRemainder(
@@ -40,7 +40,8 @@ def implementSymbolAccessStringAndRemainder(line, suffix, symbol, iterators=[], 
 			parallelRegionTemplate,
 			suffix,
 			callee,
-			isPointerAssignment
+			isPointerAssignment,
+			useDeviceVersionIfAvailable=useDeviceVersionIfAvailable
 		)
 	except UsageError as e:
 		raise UsageError("%s; Print of Line: %s" %(str(e), line))
@@ -109,7 +110,14 @@ class Region(object):
 		iterators = parentRoutine.implementation.getIterators(parallelRegionTemplate) \
 			if parallelRegionTemplate else []
 		text = "\n".join([
-			implement(line, symbols, implementSymbolAccessStringAndRemainder, iterators, parallelRegionTemplate)
+			implement(
+				line,
+				symbols,
+				implementSymbolAccessStringAndRemainder,
+				iterators,
+				parallelRegionTemplate,
+				useDeviceVersionIfAvailable=parentRoutine.implementation.onDevice
+			)
 			for (line, symbols) in self._linesAndSymbols
 		])
 		if text == "":
@@ -140,7 +148,8 @@ class CallRegion(Region):
 				iterators,
 				parallelRegionTemplate,
 				symbolMatch.group(2),
-				self._callee
+				self._callee,
+				useDeviceVersionIfAvailable=parentRoutine.implementation.onDevice
 			)
 			return symbolAccessString + remainder
 

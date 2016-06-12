@@ -1195,7 +1195,7 @@ Current Domains: %s\n" %(
 			)
 
 	def getSanitizedDeclarationPrefix(self, purgeList=None):
-		def nameInScopeImplementationFunction(work, remainder, symbol, iterators, parallelRegionTemplate, callee):
+		def nameInScopeImplementationFunction(work, remainder, symbol, iterators, parallelRegionTemplate, callee, useDeviceVersionIfAvailable):
 			return symbol.nameInScope(), remainder
 
 		if self.declarationPrefix in [None, ""]:
@@ -1344,7 +1344,8 @@ Please specify the domains and their sizes with domName and domSize attributes i
 		useDomainReordering=True,
 		isPointerAssignment=False,
 		isInsideParallelRegion=False,
-		callee=None
+		callee=None,
+		useDeviceVersionIfAvailable=True
 	):
 		def getIterators(domains, parallelIterators, offsets):
 			iterators = []
@@ -1431,7 +1432,7 @@ Please specify the domains and their sizes with domName and domSize attributes i
 		or (self.intent == "in" and len(offsets) == len(self.domains) and not any([offset == ':' for offset in offsets])):
 			symbolNameUsedInAccessor = self.nameInScope(useDeviceVersionIfAvailable=False) #not on device or scalar accesses to symbol that can't change
 		else:
-			symbolNameUsedInAccessor = self.nameInScope()
+			symbolNameUsedInAccessor = self.nameInScope(useDeviceVersionIfAvailable=useDeviceVersionIfAvailable)
 
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] producing access representation for symbol %s; parallel iterators: %s, offsets: %s" %(self.name, str(iterators), str(offsets)))
 

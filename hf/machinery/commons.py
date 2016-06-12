@@ -106,7 +106,8 @@ def getSymbolAccessStringAndRemainder(
     parallelRegionTemplate,
     accessorString,
     callee=None,
-    isPointerAssignment=False
+    isPointerAssignment=False,
+    useDeviceVersionIfAvailable=True
 ):
     accessors = []
     remainder = accessorString
@@ -118,11 +119,12 @@ def getSymbolAccessStringAndRemainder(
         parallelRegionTemplate,
         isPointerAssignment=isPointerAssignment,
         isInsideParallelRegion=parallelRegionTemplate != None,
-        callee=callee
+        callee=callee,
+        useDeviceVersionIfAvailable=useDeviceVersionIfAvailable
     )
     return symbolAccessString, remainder
 
-def implement(line, symbols, symbolImplementationFunction, iterators=[], parallelRegionTemplate=None, callee=None):
+def implement(line, symbols, symbolImplementationFunction, iterators=[], parallelRegionTemplate=None, callee=None, useDeviceVersionIfAvailable=True):
     adjustedLine = line
     for symbol in symbols:
         lineSections = []
@@ -137,7 +139,8 @@ def implement(line, symbols, symbolImplementationFunction, iterators=[], paralle
                     symbol,
                     iterators,
                     parallelRegionTemplate,
-                    callee
+                    callee,
+                    useDeviceVersionIfAvailable
                 )
                 lineSections.append(symbolAccessString)
                 matchedSymbolName = ""

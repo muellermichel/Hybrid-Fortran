@@ -470,12 +470,13 @@ class Symbol(object):
 	def activeDomainsMatchSpecification(self):
 		if not self.domains:
 			return False
+		templateDomains = self._templateDomains if self._templateDomains else []
 		return (self.isAutoDom and len(self.domains) in [
-				len(self._templateDomains),
-				len(self._templateDomains) + len(self._kernelInactiveDomainSizes),
+				len(templateDomains),
+				len(templateDomains) + len(self._kernelInactiveDomainSizes),
 				len(self._kernelDomainNames) + len(self._kernelInactiveDomainSizes)
 			]) \
-			or (not self.isAutoDom and len(self.domains) == len(self._templateDomains))
+			or (not self.isAutoDom and len(self.domains) == len(templateDomains))
 
 	@property
 	def declarationType(self):

@@ -954,14 +954,15 @@ EXAMPLE:\n\
 				domNamesWithMaxLength = max(domNamesByTemplateID.values(), key=len)
 			for regionDomName, _ in domNamesWithMaxLength:
 				availablekernelDomainNames.append(regionDomName)
-		for domName, domSize in self.domains:
+		orderedDomains = self._templateDomains if self._templateDomains else self.domains
+		for domName, domSize in orderedDomains:
 			if domName in availablekernelDomainNames:
 				self._kernelDomainNames.append(domName)
 			elif "HF_" in domName and domSize in parallelRegionDomNamesBySize:
 				self._kernelDomainNames.append(parallelRegionDomNamesBySize[domSize])
 
-		#   add the template information to the index; this is important in case the domainDependant template information differs from the parallel region
-		for (dependantDomName, dependantDomSize) in self._templateDomains:
+		#   add the template information to the parallel region index; this is important in case the domainDependant template information differs from the parallel region
+		for dependantDomName, dependantDomSize in orderedDomains:
 			if not dependantDomName in self._kernelDomainNames:
 				continue
 			parallelRegionDomNamesBySize[dependantDomSize] = dependantDomName

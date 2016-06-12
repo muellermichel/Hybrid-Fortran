@@ -912,9 +912,8 @@ EXAMPLE:\n\
 			self.domains = templateDomains
 
 		#   which of those dimensions are kernel dimensions?
-		#   -> build up index of domain sizes and and names and put them in the 'parallelActive' set, .....
+		#   -> build up index of domain sizes and and names and put them in the 'kernel domain names' set
 		parallelRegionDomNamesBySize = {}
-		kernelDomainNamesAndTemplateIDByDomainSize = {}
 		for parallelRegionTemplate in parallelRegionTemplates:
 			regionDomNameAndSize = getDomNameAndSize(parallelRegionTemplate)
 			logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] analyzing domains for parallel region: %s; dependant domsize by name: %s" %(
@@ -927,37 +926,10 @@ EXAMPLE:\n\
 					self._knownKernelDomainSizesByName[regionDomName] = [regionDomSize]
 				elif regionDomSize not in self._knownKernelDomainSizesByName[regionDomName]:
 					self._knownKernelDomainSizesByName[regionDomName].append(regionDomSize)
-
-				if not regionDomSize in kernelDomainNamesAndTemplateIDByDomainSize:
-					kernelDomainNamesAndTemplateIDByDomainSize[regionDomSize] = [
-						(regionDomName, index, parallelRegionTemplate.getAttribute("id"))
-					]
-				else:
-					kernelDomainNamesAndTemplateIDByDomainSize[regionDomSize].append(
-						(regionDomName, index, parallelRegionTemplate.getAttribute("id"))
-					)
 				parallelRegionDomNamesBySize[regionDomSize] = regionDomName
-
-		# if we have multiple domain names referencing the same domain size, these must be from the *same* template.
-		# otherwise forget them - they are just aliases
-		availablekernelDomainNames = []
-		for regionDomSize in kernelDomainNamesAndTemplateIDByDomainSize:
-			domNamesByTemplateID = {}
-			for regionDomName, index, identifier in kernelDomainNamesAndTemplateIDByDomainSize[regionDomSize]:
-				if regionDomName not in dependantDomSizeByName \
-				and regionDomSize not in dependantDomSizeByName.values():
-					continue
-				domNames = domNamesByTemplateID.get(identifier, [])
-				domNames.append((regionDomName, index))
-				domNamesByTemplateID[identifier] = domNames
-			domNamesWithMaxLength = []
-			if len(domNamesByTemplateID.keys()) > 0:
-				domNamesWithMaxLength = max(domNamesByTemplateID.values(), key=len)
-			for regionDomName, _ in domNamesWithMaxLength:
-				availablekernelDomainNames.append(regionDomName)
 		orderedDomains = self._templateDomains if self._templateDomains else self.domains
 		for domName, domSize in orderedDomains:
-			if domName in availablekernelDomainNames:
+			if domName in self._knownKernelDomainSizesByName:
 				self._kernelDomainNames.append(domName)
 			elif "HF_" in domName and domSize in parallelRegionDomNamesBySize:
 				self._kernelDomainNames.append(parallelRegionDomNamesBySize[domSize])
@@ -979,7 +951,7 @@ EXAMPLE:\n\
 		for (dependantDomName, dependantDomSize) in self.domains:
 			#build up parallel inactive dimensions again
 			if not dependantDomName in self._kernelDomainNames \
-			and not dependantDomSize in parallelRegionDomNamesBySize:
+			and not dependantDomSize in parallelRegionDomNamesBySize: #$$$ can this second clause be removed?
 				self._kernelInactiveDomainSizes.append(dependantDomSize)
 			#use the declared domain size (potentially overriding automatic sizes)
 			domNameAlias = parallelRegionDomNamesBySize.get(dependantDomSize, "")

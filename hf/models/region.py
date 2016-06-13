@@ -170,7 +170,7 @@ class CallRegion(Region):
 		self._passedInSymbolsByName = copy.copy(symbolsByName)
 
 	def clone(self):
-		clone = super(RoutineSpecificationRegion, self).clone()
+		clone = super(CallRegion, self).clone()
 		clone.loadCallee(self._callee)
 		clone.loadPassedInSymbolsByName(self._passedInSymbolsByName)
 		return clone

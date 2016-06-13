@@ -391,19 +391,46 @@ This is not allowed for implementations using %s.\
 		)
 
 	def _mergeSynthesizedWithExistingSymbols(self):
-		#gather all the specified symbols
-		specifiedSymbolsByNameInScope = {}
-		for _, symbolsOnLine in self.regions[0].linesAndSymbols:
-				for symbol in symbolsOnLine:
-					specifiedSymbolsByNameInScope[symbol.nameInScope(useDeviceVersionIfAvailable=False)] = symbol
+		def updateReferences(symbolList):
+			listOfScopedNames = [
+				symbol.nameInScope(useDeviceVersionIfAvailable=False)
+				for symbol in symbolList
+			]
+			return [
+				self.symbolsByName[nameInScope]
+				for nameInScope in listOfScopedNames
+			]
 
-		#update symbols used in loaded lines with the ones found in symbolsByName
-		for symbol in self._additionalArguments + self._synthesizedSymbols:
+		def updateLinesAndSymbols(region):
+			updatedLinesAndSymbols = []
+			for line, symbols in region._linesAndSymbols:
+				updatedLinesAndSymbols.append((line, updateReferences(symbols)))
+			region._linesAndSymbols = updatedLinesAndSymbols
+
+		def checkReferences(symbolList):
+			for symbol in symbolList:
+				contextSymbol = self.symbolsByName[
+					symbol.nameInScope(useDeviceVersionIfAvailable=False)
+				]
+				if not symbol is contextSymbol:
+					raise Exception("Symbol %s has an inconsistent context loaded in routine %s" %(
+						symbol.name,
+						self.name
+					))
+
+		#update symbols in symbolsByName with additional ones
+		for symbol in self._additionalArguments + self._synthesizedSymbols + self._symbolsToUpdate:
 			nameInScope = symbol.name
 			if symbol.routineNode:
 				symbol.updateNameInScope(residingModule=self.parentModule.name)
 				nameInScope = symbol.nameInScope(useDeviceVersionIfAvailable=False)
 			self.symbolsByName[nameInScope] = symbol
+
+		#gather all the specified symbols
+		specifiedSymbolsByNameInScope = {}
+		for _, symbolsOnLine in self.regions[0].linesAndSymbols:
+				for symbol in symbolsOnLine:
+					specifiedSymbolsByNameInScope[symbol.nameInScope(useDeviceVersionIfAvailable=False)] = symbol
 
 		#make sure the user specified versions are used if available
 		for nameInScope in specifiedSymbolsByNameInScope:
@@ -411,35 +438,24 @@ This is not allowed for implementations using %s.\
 			self.symbolsByName[nameInScope] = symbol
 
 		#update symbols referenced on specific lines (could be replaced with automatically added ones)
-		symbolsByNameAndScopedName = {}
-		for nameInScope in self.symbolsByName:
-			symbol = self.symbolsByName[nameInScope]
-			symbolsByScopedname = symbolsByNameAndScopedName.get(symbol.name, {})
-			symbolsByScopedname[nameInScope] = symbol
-			symbolsByNameAndScopedName[symbol.name] = symbolsByScopedname
 		for region in self.regions:
-			for _, symbolsOnLine in region.linesAndSymbols:
-				for index, symbol in enumerate(symbolsOnLine):
-					matchingSymbolsByScopedName = symbolsByNameAndScopedName.get(symbol.name)
-					if not matchingSymbolsByScopedName:
-						raise Exception("no context found for symbol %s; context: %s" %(
-							symbol,
-							symbolsByNameAndScopedName
-						))
-					updatedSymbol = matchingSymbolsByScopedName.get(
-						symbol.nameInScope(useDeviceVersionIfAvailable=False)
-					)
-					if not updatedSymbol:
-						updatedSymbol = matchingSymbolsByScopedName.get(symbol.name)
-					if not updatedSymbol:
-						updatedSymbol = matchingSymbolsByScopedName[matchingSymbolsByScopedName.keys()[0]]
-					symbolsOnLine[index] = updatedSymbol
-		for index, symbol in enumerate(self.regions[0]._symbolsToAdd):
-			if symbol.nameInScope(useDeviceVersionIfAvailable=False):
-				self.regions[0]._symbolsToAdd[index] = symbol
+			if hasattr(region, "_subRegions"):
+				for subRegion in region._subRegions:
+					updateLinesAndSymbols(subRegion)
+			else:
+				updateLinesAndSymbols(region)
 
-		for index, symbol in enumerate(self._additionalArguments):
-			self._additionalArguments[index] = self.symbolsByName[symbol.name]
+		#update additional symbol lists
+		self._additionalArguments = updateReferences(self._additionalArguments)
+		self._synthesizedSymbols = updateReferences(self._synthesizedSymbols)
+		self._symbolsToUpdate = updateReferences(self._symbolsToUpdate)
+
+		#check references just to be sure
+		checkReferences(self._additionalArguments)
+		checkReferences(self._synthesizedSymbols)
+		checkReferences(self._symbolsToUpdate)
+		for region in self.regions:
+			checkReferences(sum([las[1] for las in region.linesAndSymbols], []))
 
 		#make sure that all symbols are correctly initialized to this routine
 		#(important for accessor / domain representation for module symbols that get additionally loaded)

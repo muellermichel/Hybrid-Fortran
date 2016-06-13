@@ -76,6 +76,8 @@ class Module(object):
 			routine._checkParallelRegions()
 			routine._updateSymbolReferences()
 			routine._prepareAdditionalContext()
+
+		for routine in routines:
 			routine._analyseSymbolUsage()
 			routine._mergeSynthesizedWithExistingSymbols()
 			routine._updateSymbolState()

@@ -539,6 +539,7 @@ This is not allowed for implementations using %s.\
 			return self.name
 		return uniqueIdentifier(self.name, self.implementation.architecture[0])
 
+	#creates a clone with meta data but no region data
 	def createCloneWithMetadata(self, name):
 		clone = AnalyzableRoutine(
 			name,
@@ -560,9 +561,18 @@ This is not allowed for implementations using %s.\
 		clone.callees = copy.copy(self.callees)
 		return clone
 
-	def resetRegions(self, firstRegion):
+	def clone(self, cloneName):
+		clone = self.createCloneWithMetadata(cloneName)
+		clone.resetRegions([region.clone() for region in self._regions])
+		return clone
+
+	def resetRegions(self, regions):
 		self._regions = []
-		self.addRegion(firstRegion)
+		if isinstance(regions, list):
+			for entry in regions:
+				self.addRegion(entry)
+		else:
+			self.addRegion(regions)
 
 	def createRegion(self, regionClassName="Region", oldRegion=None):
 		import models.region

@@ -70,7 +70,7 @@ class Module(object):
 	def implemented(self):
 		routines = []
 		for routine in self.routines:
-			routines += routine.implementation.splitIntoCompatibleRoutines(routine)
+			routines += routine.implementation.generateRoutines(routine)
 
 		for routine in routines:
 			routine._checkParallelRegions()

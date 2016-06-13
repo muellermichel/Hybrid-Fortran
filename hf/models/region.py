@@ -170,7 +170,10 @@ class CallRegion(Region):
 		self._passedInSymbolsByName = copy.copy(symbolsByName)
 
 	def clone(self):
-		raise NotImplementedError()
+		clone = super(RoutineSpecificationRegion, self).clone()
+		clone.loadCallee(self._callee)
+		clone.loadPassedInSymbolsByName(self._passedInSymbolsByName)
+		return clone
 
 	def implemented(self, skipDebugPrint=False):
 		if not self._callee:

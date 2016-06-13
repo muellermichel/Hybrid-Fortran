@@ -55,7 +55,10 @@ class FortranImplementation(object):
 	def updateSymbolDeviceState(symbol, regionType, parallelRegionPosition):
 		return
 
-	def splitIntoCompatibleRoutines(self, routine):
+	def adjustCalleeName(self, calleeName, calleeNode, routineNode):
+		return calleeName
+
+	def generateRoutines(self, routine):
 		return [routine]
 
 	def filePreparation(self, filename):
@@ -786,12 +789,25 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 		self.currRoutineNode = None
 		super(CUDAFortranImplementation, self).__init__(optionFlags)
 
-	def splitIntoCompatibleRoutines(self, routine):
+	def adjustCalleeName(self, calleeName, calleeNode, routineNode):
+		if calleeNode.getAttribute("parallelRegionPosition") == "outside" \
+		and routineNode.getAttribute("parallelRegionPosition") in [None, ""]:
+			#calling a device function from a host routine
+			return synthesizedHostRoutineName(calleeName)
+		return calleeName
+
+	def generateRoutines(self, routine):
+		routines = [routine]
+		if routine.node.getAttribute("parallelRegionPosition") == "outside":
+			hostRoutine = routine.clone(synthesizedHostRoutineName(routine.name))
+			hostRoutine.node.setAttribute("parallelRegionPosition", None)
+			hostRoutine.parallelRegionTemplates = []
+			routines.append(hostRoutine)
+
 		if routine.node.getAttribute("parallelRegionPosition") != "within":
-			return [routine]
+			return routines
 
 		parallelRegions = [region for region in routine.regions if isinstance(region, ParallelRegion)]
-		routines = []
 		kernelRoutinesByName = {}
 		for kernelNumber, template in enumerate(routine.parallelRegionTemplates):
 			parallelRegion = parallelRegions[kernelNumber]
@@ -821,7 +837,6 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 		routine.node.setAttribute("parallelRegionPosition", "inside")
 		routine.parallelRegionTemplates = []
 		routine.regions = kernelWrapperRegions
-		routines.append(routine)
 		return routines
 
 	def warningOnUnrecognizedSubroutineCallInParallelRegion(self, callerName, calleeName):

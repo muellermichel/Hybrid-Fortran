@@ -77,6 +77,9 @@ class Module(object):
 			routine._updateSymbolReferences()
 			routine._prepareAdditionalContext()
 			routine._analyseSymbolUsage()
+			routine._mergeSynthesizedWithExistingSymbols()
+			routine._updateSymbolState()
+			routine._prepareCallRegions()
 
 		self._footerText = self._undecidedText
 		self._undecidedText = ""

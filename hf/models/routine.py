@@ -636,9 +636,6 @@ This is not allowed for implementations using %s.\
 	def implemented(self):
 		purgedRoutineElements = []
 		try:
-			self._mergeSynthesizedWithExistingSymbols()
-			self._updateSymbolState()
-			self._prepareCallRegions()
 			implementedRoutineElements = [self._implementHeader(), self._implementAdditionalImports()]
 			implementedRoutineElements += [region.implemented() for region in self._regions]
 			implementedRoutineElements += [self._implementFooter()]

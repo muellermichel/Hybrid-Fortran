@@ -413,8 +413,15 @@ class DeviceDataFortranImplementation(FortranImplementation):
 		if len(dependantSymbols) > 0:
 			if dependantSymbols[0].isTypeParameter:
 				return getImportStatements(dependantSymbols)
-			if parallelRegionPosition in ["within", "outside"]:
+			if parallelRegionPosition == "within":
 				return ""
+			if parallelRegionPosition == "outside":
+				raise UsageError(
+					"Importing symbols %s to device routine %s (routine called within kernel) is not supported. Please pass as argument instead." %(
+						dependantSymbols,
+						dependantSymbols[0].nameOfScope
+					)
+				)
 			if len(dependantSymbols) == 0:
 				return ""
 			if dependantSymbols[0].isPresent or dependantSymbols[0].isHostSymbol:
@@ -462,7 +469,7 @@ class DeviceDataFortranImplementation(FortranImplementation):
 		intent = dependantSymbols[0].intent
 
 		#scalars in kernels ...
-		if parallelRegionPosition in ["within", "outside"] \
+		if parallelRegionPosition == "within" \
 		and len(dependantSymbols[0].domains) == 0:
 			#... not meant for output (if we can't do reductions just induce a potential compiler error at this point)
 			if intent not in ["out", "inout"] or not self.assignmentToScalarsInKernelsAllowed:

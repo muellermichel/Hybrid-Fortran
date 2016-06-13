@@ -67,12 +67,11 @@ contains
   end subroutine
 
   subroutine device_routine(a,b,result)
-    use my_module, only: more_indirection
     implicit none
     real, intent(in) :: a, b
     real, intent(out) :: result
 
-    result = a * b + more_indirection
+    result = a * b + 1.0d0
   end subroutine
 
 end module kernels8

@@ -221,7 +221,7 @@ program main
   call data_region_wrapper8()
   write(0,*) "calculation8 complete"
   call assert_values(c_dyn, 3.0d0)
-  call assert_values(d_dyn, 2.0d0)
+  call assert_values(d_dyn, 3.0d0)
   deallocate(a_dyn)
   deallocate(b_dyn)
   deallocate(c_dyn)

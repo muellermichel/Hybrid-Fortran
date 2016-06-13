@@ -18,12 +18,14 @@
 module kernels2
 contains
   subroutine wrapper2()
-    use my_module, only: a, b, c, d, a2, b2, c2, d2
+    use my_module, only: a, b, c, d, a2, b2, c2, d2, more_indirection
     implicit none
 
     @domainDependant{attribute(autoDom,present)}
     a, b, c, d, a2, b2, c2, d2
     @end domainDependant
+
+    print *, more_indirection
 
     call add2(a, b, c)
     call mult2(a, b, d)

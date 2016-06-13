@@ -61,9 +61,18 @@ contains
 
     @parallelRegion{domName(x,y), domSize(nx, ny)}
     do z=1,NZ
-      d(z) = a(z) * b(z)
+      call device_routine(a(z), b(z), d(z))
     end do
     @end parallelRegion
+  end subroutine
+
+  subroutine device_routine(a,b,result)
+    use my_module, only: more_indirection
+    implicit none
+    real, intent(in) :: a, b
+    real, intent(out) :: result
+
+    result = a * b + more_indirection
   end subroutine
 
 end module kernels8

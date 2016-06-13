@@ -18,25 +18,30 @@
 module example
 contains
 
-  subroutine host_only_subroutine(a, b, c, d)
+  subroutine host_only_subroutine(a, b, c)
     real, dimension(NX, NY, NZ), intent(in) :: a, b
-    real, dimension(NX, NY, NZ), intent(out) :: c, d
-
-    call inline_kernels(a, b, c, d)
-  end subroutine
-
-  subroutine wrapper_inline_kernels(a, b, c, d)
-    real, dimension(NX, NY, NZ), intent(in) :: a, b
-    real, dimension(NX, NY, NZ), intent(out) :: c, d
-
-    @domainDependant{attribute(autoDom)}
-    a, b, c, d
+    real, dimension(NX, NY, NZ), intent(out) :: c
+    @domainDependant{attribute(host, autoDom), domPP(DOM), accPP(AT)}
+    a, b, c
     @end domainDependant
 
-    call inline_kernels(a, b, c, d)
+    do y = 1, NY
+      do x = 1, NX
+        do z = 1, NZ
+          call device_add(a(x,y,z), b(x,y,z), c(x,y,z))
+        end do
+      end do
+    end do
   end subroutine
 
-  subroutine inline_kernels(a, b, c, d)
+  subroutine device_add(a, b, result)
+    real, intent(in) :: a, b
+    real, intent(out) :: result
+
+    result = a + b
+  end subroutine
+
+  subroutine kernels(a, b, c, d)
     real, dimension(NX, NY, NZ), intent(in) :: a, b
     real, dimension(NX, NY, NZ), intent(out) :: c, d
 
@@ -46,7 +51,7 @@ contains
 
     @parallelRegion{domName(x,y), domSize(NX, NY)}
     do z=1,NZ
-      c(z) = a(z) + b(z)
+      call device_add(a(z), b(z), c(z))
     end do
     @end parallelRegion
 
@@ -56,61 +61,65 @@ contains
     end do
     @end parallelRegion
   end subroutine
+
+  subroutine assert_values(test_array, expected_value)
+    implicit none
+    real, dimension(NX, NY, NZ), intent(in) :: test_array
+    real(8), intent(in) :: expected_value
+    integer :: fail_x, fail_y, fail_z
+    integer :: x, y, z
+    logical test
+
+    @domainDependant{attribute(host), domName(x,y,z), domSize(NX,NY,NZ), domPP(DOM), accPP(AT)}
+    test_array
+    @end domainDependant
+
+    test = .TRUE.
+    do y=1,NY
+    do x=1,NX
+    do z=1,NZ
+      if (test .EQ. .TRUE. .AND. test_array(x,y,z) .NE. expected_value) then
+      test = .FALSE.
+      fail_x = x
+      fail_y = y
+      fail_z = z
+      end if
+    end do
+    end do
+    end do
+    if (test .EQ. .TRUE.) then
+      write(0,*) "test ok"
+    else
+      write(0,*) "test failed"
+      write(0,*) "fails at", fail_x, fail_y, fail_z, "test_array:", test_array(fail_x,fail_y,fail_z)
+      stop 2
+    end if
+  end subroutine
 end module example
 
 program main
   use example
-  @if {architecture(GPU)}
-  use openacc
-  @end if
   real, dimension(DOM(NX, NY, NZ)) :: a, b, c, d, e, f
   integer :: x, y, z
   integer :: fail_x, fail_y, fail_z
   logical test
 
-  @if {architecture(GPU)}
-  call acc_init( acc_device_nvidia )
-  @end if
-
   a(:,:,:) = 1.0d0
   b(:,:,:) = 2.0d0
   c(:,:,:) = 0.0d0
-  d(:,:,:) = 0.0d0
+  d(:,:,:) = 1.0d0
   e(:,:,:) = 0.0d0
   f(:,:,:) = 0.0d0
   test = .TRUE.
 
-  call host_only_subroutine(a, b, c, d) ! c = a + b = 3.0d0 ; d = a * b = 2.0d0
-  call wrapper_inline_kernels(c, d, e, f)  ! e = c + d = 5.0d0 ; f = c * d = 6.0d0
-
-  write(6,*) "calculation complete"
-
-  do y=1,NY
-  do x=1,NX
-  do z=1,NZ
-    if (test .EQ. .TRUE. .AND. e(AT(x,y,z)) .NE. 5.0d0) then
-      test = .FALSE.
-      fail_x = x
-      fail_y = y
-      fail_z = z
-    end if
-    if (test .EQ. .TRUE. .AND. f(AT(x,y,z)) .NE. 6.0d0) then
-      test = .FALSE.
-      fail_x = x
-      fail_y = y
-      fail_z = z
-    end if
-  end do
-  end do
-  end do
-
-  if (test .EQ. .TRUE.) then
-    write(6,*) "test ok"
-  else
-    write(6,*) "test failed"
-    write(6,*) "fails at", fail_x, fail_y, fail_z, "E:", c(AT(fail_x,fail_y,fail_z)), "F:", d(AT(fail_x,fail_y,fail_z))
-    stop 2
-  end if
+  call host_only_subroutine(a, b, c) ! c = a + b = 3.0d0
+  write(6,*) "c complete"
+  call assert_values(c, 3.0d0)
+  call kernels(c, d, e, f)  ! e = c + d = 4.0d0 ; f = c * d = 3.0d0
+  write(6,*) "e complete"
+  call assert_values(e, 4.0d0)
+  write(6,*) "f complete"
+  call assert_values(f, 3.0d0)
 
   stop
 end program main

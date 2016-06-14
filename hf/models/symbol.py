@@ -1428,8 +1428,9 @@ Please specify the domains and their sizes with domName and domSize attributes i
 			offsets += accessors
 
 		symbolNameUsedInAccessor = None
-		if (not self.isUsingDevicePostfix and len(offsets) == len(self.domains) and not all([offset == ':' for offset in offsets]))\
-		or (self.intent == "in" and len(offsets) == len(self.domains) and not any([offset == ':' for offset in offsets])):
+		if (not self.isUsingDevicePostfix and len(offsets) == len(self.domains) and not all([offset == ':' for offset in offsets])) \
+		or (self.intent == "in" and len(offsets) == len(self.domains) and not any([offset == ':' for offset in offsets])) \
+		or not hasattr(callee, "implementation"):
 			symbolNameUsedInAccessor = self.nameInScope(useDeviceVersionIfAvailable=False) #not on device or scalar accesses to symbol that can't change
 		else:
 			symbolNameUsedInAccessor = self.nameInScope(useDeviceVersionIfAvailable=useDeviceVersionIfAvailable)

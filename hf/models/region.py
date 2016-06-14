@@ -456,7 +456,7 @@ class RoutineSpecificationRegion(Region):
 					continue #compacted symbols are handled as part of symbolsToAdd
 				specTuple = symbol.getSpecificationTuple(line)
 				if specTuple[0]:
-					declaredSymbolsByScopedName[symbol.nameInScope()] = symbol
+					declaredSymbolsByScopedName[symbol.nameInScope(useDeviceVersionIfAvailable=False)] = symbol
 					symbol.loadDeclaration(
 						specTuple,
 						parentRoutine.programmerArguments,
@@ -590,6 +590,8 @@ class RoutineSpecificationRegion(Region):
 					# through module association (we assume the kernel and its wrapper reside in the same module)
 					continue
 				if not symbol.name in parentRoutine.usedSymbolNames:
+					continue
+				if symbol.nameInScope(useDeviceVersionIfAvailable=False) in declaredSymbolsByScopedName:
 					continue
 
 				#in case the array uses domain sizes in the declaration that are additional symbols themselves

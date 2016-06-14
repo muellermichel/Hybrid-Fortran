@@ -812,14 +812,12 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 	def generateRoutines(self, routine):
 		def generateHostRoutine(routine):
 			hostRoutine = routine.clone(synthesizedHostRoutineName(routine.name))
-			# hostRoutine.node.setAttribute("parallelRegionPosition", None)
 			hostRoutine.implementation = FortranImplementation(self.optionFlags, appliesTo="GPU")
 			return hostRoutine
 
 		routines = [routine]
 		if routine.node.getAttribute("parallelRegionPosition") == "outside":
 			hostRoutine = generateHostRoutine(routine)
-			hostRoutine.parallelRegionTemplates = []
 			routines.append(hostRoutine)
 
 		if routine.node.getAttribute("parallelRegionPosition") != "within":

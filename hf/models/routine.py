@@ -195,6 +195,8 @@ This is not allowed for implementations using %s.\
 		updatedSymbolsByName = {}
 		for symbol in self.symbolsByName.values():
 			symbol.parallelRegionPosition = self.node.getAttribute("parallelRegionPosition")
+			if not isinstance(symbol, FrameworkArray):
+				symbol.loadRoutineNodeAttributes(self.node, self.parallelRegionTemplates)
 			self.implementation.updateSymbolDeviceState(
 				symbol,
 				regionType,
@@ -460,13 +462,6 @@ This is not allowed for implementations using %s.\
 		self._additionalArguments = updateReferences(self._additionalArguments)
 		self._synthesizedSymbols = updateReferences(self._synthesizedSymbols)
 		self._symbolsToUpdate = updateReferences(self._symbolsToUpdate)
-
-		#make sure that all symbols are correctly initialized to this routine
-		#(important for accessor / domain representation for module symbols that get additionally loaded)
-		for symbol in self.symbolsByName.values():
-			if isinstance(symbol, FrameworkArray):
-				continue
-			symbol.loadRoutineNodeAttributes(self.node, self.parallelRegionTemplates)
 
 		#prepare type parameters
 		typeParametersByName = {}

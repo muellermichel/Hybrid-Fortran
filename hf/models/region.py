@@ -245,7 +245,12 @@ class CallRegion(Region):
 			bridgeStr1 = "&\n&"
 			numOfProgrammerSpecifiedArguments = len(self._callee.programmerArguments)
 			for symbolNum, symbol in enumerate(requiredAdditionalArgumentSymbols):
-				symbolInCurrentContext = parentRoutine.symbolsByName[symbol.nameInScope(useDeviceVersionIfAvailable=False)]
+				symbolInCurrentContext = parentRoutine.symbolsByName.get(symbol.nameInScope(useDeviceVersionIfAvailable=False))
+				if not symbolInCurrentContext:
+					raise Exception("%s not found in context. All context keys: %s" %(
+						symbol.name,
+						parentRoutine.symbolsByName.keys()
+				))
 				hostName = symbolInCurrentContext.nameInScope()
 				text += hostName
 				if symbolNum < len(requiredAdditionalArgumentSymbols) - 1 or numOfProgrammerSpecifiedArguments > 0:

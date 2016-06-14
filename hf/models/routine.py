@@ -383,6 +383,7 @@ This is not allowed for implementations using %s.\
 				)
 				compactedArrayList = [compactedArray]
 				compactedArray.compactedSymbols = toBeCompacted
+				self._synthesizedSymbols.append(compactedArray)
 			callee._additionalArguments = copy.copy(sorted(notToBeCompacted + compactedArrayList))
 
 		#load into the specification region
@@ -411,10 +412,16 @@ This is not allowed for implementations using %s.\
 				symbol.nameInScope(useDeviceVersionIfAvailable=False)
 				for symbol in symbolList
 			]
-			return [
-				self.symbolsByName[nameInScope]
-				for nameInScope in listOfScopedNames
-			]
+			updatedSymbolList = []
+			for nameInScope in listOfScopedNames:
+				symbol = self.symbolsByName.get(nameInScope)
+				if not symbol:
+					raise Exception("%s not found in context, cannot update references. All context keys: %s" %(
+						nameInScope,
+						self.symbolsByName.keys()
+					))
+				updatedSymbolList.append(symbol)
+			return updatedSymbolList
 
 		def updateLinesAndSymbols(region):
 			updatedLinesAndSymbols = []

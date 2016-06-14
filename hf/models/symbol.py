@@ -1201,7 +1201,7 @@ Current Domains: %s\n" %(
 		if self.declarationPrefix in [None, ""]:
 			raise ScopeError("Cannot generate declaration prefix for %s (from %s)" %(self, self.nameOfScope))
 		if purgeList == None:
-			purgeList = ['intent', 'public', 'parameter']
+			purgeList = ['intent', 'public', 'parameter', 'save']
 		result = self._getPurgedDeclarationPrefix(purgeList)
 		kindMatch = self.patterns.declarationKindPattern.match(result)
 		if kindMatch:

@@ -529,13 +529,13 @@ class RoutineSpecificationRegion(Region):
 
 		if numberOfAdditionalDeclarations > 0 and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
 			text += "!<----- auto emul symbols : --\n"
-		defaultPurgeList = ['intent', 'public', 'parameter', 'allocatable']
+		defaultPurgeList = ['intent', 'public', 'parameter', 'allocatable', 'save']
 		for symbol in self._symbolsToAdd:
 			if not symbol.name in parentRoutine.usedSymbolNames:
 				continue
 			purgeList = defaultPurgeList
 			if not symbol.isCompacted:
-				purgeList=['public', 'parameter', 'allocatable']
+				purgeList=['public', 'parameter', 'allocatable', 'save']
 			text += parentRoutine.implementation.adjustDeclarationForDevice(
 				symbol.getDeclarationLine(parentRoutine, purgeList).strip(),
 				[symbol],

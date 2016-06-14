@@ -431,7 +431,7 @@ This is not allowed for implementations using %s.\
 
 		#update symbols in symbolsByName with additional ones
 		for symbol in self._additionalArguments + self._synthesizedSymbols + self._symbolsToUpdate:
-			nameInScope = symbol.name
+			nameInScope = symbol.nameInScope(useDeviceVersionIfAvailable=False)
 			if symbol.routineNode:
 				symbol.updateNameInScope(residingModule=self.parentModule.name)
 				nameInScope = symbol.nameInScope(useDeviceVersionIfAvailable=False)

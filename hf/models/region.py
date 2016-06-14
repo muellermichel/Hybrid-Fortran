@@ -251,7 +251,9 @@ class CallRegion(Region):
 						symbol.name,
 						parentRoutine.symbolsByName.keys()
 				))
-				hostName = symbolInCurrentContext.nameInScope()
+				hostName = symbolInCurrentContext.nameInScope(
+					useDeviceVersionIfAvailable=hasattr(self._callee, "implementation")
+				)
 				text += hostName
 				if symbolNum < len(requiredAdditionalArgumentSymbols) - 1 or numOfProgrammerSpecifiedArguments > 0:
 					text += ", %s" %(bridgeStr1)

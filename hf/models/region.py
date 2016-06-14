@@ -217,6 +217,17 @@ class CallRegion(Region):
 		parallelRegionPosition = None
 		if hasattr(self._callee, "implementation"):
 			parallelRegionPosition = self._callee.node.getAttribute("parallelRegionPosition")
+
+		calleeName = self._callee.nameInScope()
+		if hasattr(self._callee, "implementation"):
+			calleeName = parentRoutine.implementation.adjustCalleeName(
+				calleeName,
+				self._callee.implementation,
+				parentRoutine.implementation,
+				self._callee.node,
+				parentRoutine.node
+			)
+
 		if hasattr(self._callee, "implementation") and parallelRegionPosition == "within" and not isForeignModuleCall:
 			if not self._callee.parallelRegionTemplates \
 			or len(self._callee.parallelRegionTemplates) == 0:
@@ -228,11 +239,11 @@ class CallRegion(Region):
 					self._callee.parallelRegionTemplates[0],
 					calleeNode=self._callee.node
 				),
-				self._callee.nameInScope(),
+				calleeName,
 				self._callee.implementation.kernelCallConfig()
 			)
 		else:
-			text += "call " + self._callee.nameInScope()
+			text += "call " + calleeName
 
 		text += "("
 		if hasattr(self._callee, "implementation"):
@@ -320,7 +331,15 @@ class ParallelRegion(Region):
 			region.loadParentRoutine(routine)
 
 	def clone(self):
-		raise NotImplementedError()
+		clone = super(ParallelRegion, self).clone()
+		clone.loadActiveParallelRegionTemplate(self._activeTemplate)
+		clone._subRegions = []
+		for region in self._subRegions:
+			clonedRegion = region.clone()
+			clone._subRegions.append(clonedRegion)
+			clonedRegion.loadParentRegion(clone)
+		clone._currRegion = clone._subRegions[0]
+		return clone
 
 	def implemented(self, skipDebugPrint=False):
 		parentRoutine = self._routineRef()

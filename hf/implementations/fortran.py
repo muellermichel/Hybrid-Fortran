@@ -33,29 +33,39 @@ class FortranImplementation(object):
 	onDevice = False
 	multipleParallelRegionsPerSubroutineAllowed = True
 	assignmentToScalarsInKernelsAllowed = True
-	optionFlags = []
 	currDependantSymbols = None
 	currParallelRegionTemplateNode = None
 	debugPrintIteratorDeclared = False
 	currRoutineNode = None
 	useOpenACCForDebugPrintStatements = True
-	patterns = None
 	supportsArbitraryDataAccessesOutsideOfKernels = True
 	supportsNativeMemsetsOutsideOfKernels = True
 	supportsNativeModuleImportsWithinKernels = True
 
-	def __init__(self, optionFlags):
+	def __init__(self, optionFlags, appliesTo="CPU"):
 		self.patterns = RegExPatterns.Instance()
 		self.currDependantSymbols = None
 		self.currParallelRegionTemplateNode = None
+		self.appliesTo = appliesTo
 		if type(optionFlags) == list:
 			self.optionFlags = optionFlags
 
 	@staticmethod
 	def updateSymbolDeviceState(symbol, regionType, parallelRegionPosition):
-		return
+		symbol.isUsingDevicePostfix = False
+		symbol.isOnDevice = False
 
-	def adjustCalleeName(self, calleeName, calleeNode, routineNode):
+	def adjustCalleeName(self, calleeName, calleeImplementation, callerImplementation, calleeNode, callerNode):
+		if not calleeImplementation.onDevice:
+			return calleeName
+		if (calleeNode.getAttribute("parallelRegionPosition") in ["outside", "within"] \
+			and callerNode.getAttribute("parallelRegionPosition") in [None, ""] \
+		) \
+		or (not callerImplementation.onDevice \
+			and not calleeNode.getAttribute("parallelRegionPosition") in [None, ""] \
+		):
+			#calling a device function from a host routine
+			return synthesizedHostRoutineName(calleeName)
 		return calleeName
 
 	def generateRoutines(self, routine):
@@ -119,7 +129,7 @@ class FortranImplementation(object):
 		return [], [], []
 
 	def getIterators(self, parallelRegionTemplate):
-		if not appliesTo(["CPU", ""], parallelRegionTemplate):
+		if not appliesTo([self.appliesTo, ""], parallelRegionTemplate):
 			return []
 		return [domain.name for domain in getDomainsWithParallelRegionTemplate(parallelRegionTemplate)]
 
@@ -176,7 +186,7 @@ class FortranImplementation(object):
 			self.debugPrintIteratorDeclared = True
 			# if currRoutineNode.getAttribute('parallelRegionPosition') != 'inside':
 			#     result += "#endif\n"
-		return result + getIteratorDeclaration(currRoutineNode, currParallelRegionTemplates, ["CPU", ""])
+		return result + getIteratorDeclaration(currRoutineNode, currParallelRegionTemplates, [self.appliesTo, ""])
 
 	def subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, isSubroutineEnd):
 		result = ""
@@ -799,24 +809,23 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 		self.currRoutineNode = None
 		super(CUDAFortranImplementation, self).__init__(optionFlags)
 
-	def adjustCalleeName(self, calleeName, calleeNode, routineNode):
-		if calleeNode.getAttribute("parallelRegionPosition") == "outside" \
-		and routineNode.getAttribute("parallelRegionPosition") in [None, ""]:
-			#calling a device function from a host routine
-			return synthesizedHostRoutineName(calleeName)
-		return calleeName
-
 	def generateRoutines(self, routine):
+		def generateHostRoutine(routine):
+			hostRoutine = routine.clone(synthesizedHostRoutineName(routine.name))
+			# hostRoutine.node.setAttribute("parallelRegionPosition", None)
+			hostRoutine.implementation = FortranImplementation(self.optionFlags, appliesTo="GPU")
+			return hostRoutine
+
 		routines = [routine]
 		if routine.node.getAttribute("parallelRegionPosition") == "outside":
-			hostRoutine = routine.clone(synthesizedHostRoutineName(routine.name))
-			hostRoutine.node.setAttribute("parallelRegionPosition", None)
+			hostRoutine = generateHostRoutine(routine)
 			hostRoutine.parallelRegionTemplates = []
 			routines.append(hostRoutine)
 
 		if routine.node.getAttribute("parallelRegionPosition") != "within":
 			return routines
 
+		routines.append(generateHostRoutine(routine))
 		parallelRegions = [region for region in routine.regions if isinstance(region, ParallelRegion)]
 		kernelRoutinesByName = {}
 		for kernelNumber, template in enumerate(routine.parallelRegionTemplates):

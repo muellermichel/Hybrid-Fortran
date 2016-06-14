@@ -984,14 +984,14 @@ EXAMPLE:\n\
 		if not routineName:
 			raise Exception("Routine node without name: %s" %(routineNode.toxml()))
 		parallelRegionPosition = routineNode.getAttribute("parallelRegionPosition")
-		parallelRegionTemplatesUsedForLoading = []
+		# parallelRegionTemplatesUsedForLoading = []
 		if parallelRegionPosition and parallelRegionPosition != "":
 			self.parallelRegionPosition = parallelRegionPosition
 			self.parallelRegionTemplates = parallelRegionTemplates
 			if parallelRegionPosition not in ["inside", "outside", "within"]:
 				raise Exception("Invalid parallel region position definition ('%s') for routine %s" %(parallelRegionPosition, routineName))
-			parallelRegionTemplatesUsedForLoading = parallelRegionTemplates
-		self.loadTemplateAttributes(parallelRegionTemplatesUsedForLoading)
+			# parallelRegionTemplatesUsedForLoading = parallelRegionTemplates
+		self.loadTemplateAttributes(parallelRegionTemplates if parallelRegionTemplates else [])
 		self.updateNameInScope()
 		self.initLevel = max(self.initLevel, Init.ROUTINENODE_ATTRIBUTES_LOADED)
 		self.checkIntegrityOfDomains()

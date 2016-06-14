@@ -473,18 +473,16 @@ class DeviceDataFortranImplementation(FortranImplementation):
 			raise UsageError("In %s: %s; symbols: %s" %(line.strip(), str(e), dependantSymbols))
 		adjustedLine = line.rstrip()
 
-		#packed symbols -> leave them alone
-		if dependantSymbols[0].isCompacted:
-			return adjustedLine + "\n"
-
 		#$$$ generalize this using using symbol.getSanitizedDeclarationPrefix with a new 'intent' parameter
 		purgedDeclarationDirectives, declarationDirectives, symbolDeclarationStr = splitAndPurgeSpecification(
 			line,
 			purgeList=['intent', 'dimension', 'save', 'optional']
 		)
-
 		deviceType = "device"
 		declarationType = dependantSymbols[0].declarationType
+
+		if dependantSymbols[0].isCompacted:
+			return purgedDeclarationDirectives + " :: " + symbolDeclarationStr + "\n"
 
 		#analyse the intent of the symbols. Since one line can only have one intent declaration, we can simply assume the intent of the
 		#first symbol

@@ -31,7 +31,15 @@ RegionType = enum(
 	"OTHER"
 )
 
-def implementSymbolAccessStringAndRemainder(line, suffix, symbol, iterators=[], parallelRegionTemplate=None, callee=None, useDeviceVersionIfAvailable=True):
+def implementSymbolAccessStringAndRemainder(
+	line,
+	suffix,
+	symbol,
+	iterators=[],
+	parallelRegionTemplate=None,
+	callee=None,
+	useDeviceVersionIfAvailable=True
+):
 	isPointerAssignment = RegExPatterns.Instance().pointerAssignmentPattern.match(line) != None
 	try:
 		symbolAccessString, remainder = getSymbolAccessStringAndRemainder(
@@ -170,7 +178,10 @@ class CallRegion(Region):
 		self._passedInSymbolsByName = copy.copy(symbolsByName)
 
 	def clone(self):
-		raise NotImplementedError()
+		clone = super(CallRegion, self).clone()
+		clone.loadCallee(self._callee)
+		clone.loadPassedInSymbolsByName(self._passedInSymbolsByName)
+		return clone
 
 	def implemented(self, skipDebugPrint=False):
 		if not self._callee:
@@ -234,7 +245,13 @@ class CallRegion(Region):
 			bridgeStr1 = "&\n&"
 			numOfProgrammerSpecifiedArguments = len(self._callee.programmerArguments)
 			for symbolNum, symbol in enumerate(requiredAdditionalArgumentSymbols):
-				hostName = symbol.nameInScope()
+				symbolInCurrentContext = parentRoutine.symbolsByName.get(symbol.nameInScope(useDeviceVersionIfAvailable=False))
+				if not symbolInCurrentContext:
+					raise Exception("%s not found in context. All context keys: %s" %(
+						symbol.name,
+						parentRoutine.symbolsByName.keys()
+				))
+				hostName = symbolInCurrentContext.nameInScope()
 				text += hostName
 				if symbolNum < len(requiredAdditionalArgumentSymbols) - 1 or numOfProgrammerSpecifiedArguments > 0:
 					text += ", %s" %(bridgeStr1)
@@ -512,13 +529,13 @@ class RoutineSpecificationRegion(Region):
 
 		if numberOfAdditionalDeclarations > 0 and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
 			text += "!<----- auto emul symbols : --\n"
-		defaultPurgeList = ['intent', 'public', 'parameter', 'allocatable']
+		defaultPurgeList = ['intent', 'public', 'parameter', 'allocatable', 'save']
 		for symbol in self._symbolsToAdd:
 			if not symbol.name in parentRoutine.usedSymbolNames:
 				continue
 			purgeList = defaultPurgeList
 			if not symbol.isCompacted:
-				purgeList=['public', 'parameter', 'allocatable']
+				purgeList=['public', 'parameter', 'allocatable', 'save']
 			text += parentRoutine.implementation.adjustDeclarationForDevice(
 				symbol.getDeclarationLine(parentRoutine, purgeList).strip(),
 				[symbol],

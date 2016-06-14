@@ -16,11 +16,14 @@
 ! along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
 module example
+implicit none
 contains
 
   subroutine host_only_subroutine(a, b, c)
+    implicit none
     real, dimension(NX, NY, NZ), intent(in) :: a, b
     real, dimension(NX, NY, NZ), intent(out) :: c
+    integer(4) :: x, y, z
     @domainDependant{attribute(host, autoDom), domPP(DOM), accPP(AT)}
     a, b, c
     @end domainDependant
@@ -35,6 +38,7 @@ contains
   end subroutine
 
   subroutine device_add(a, b, result)
+    implicit none
     real, intent(in) :: a, b
     real, intent(out) :: result
 
@@ -42,8 +46,10 @@ contains
   end subroutine
 
   subroutine kernels(a, b, c, d)
+    implicit none
     real, dimension(NX, NY, NZ), intent(in) :: a, b
     real, dimension(NX, NY, NZ), intent(out) :: c, d
+    integer(4) :: z
 
     @domainDependant{attribute(autoDom)}
     a, b, c, d

@@ -41,9 +41,9 @@ contains
     a, b, c
     @end domainDependant
 
-    @parallelRegion{domName(x,y), domSize(nx, ny)}
+    @parallelRegion{domName(x,y), domSize(nx,ny)}
     do z=1,NZ
-      c(z) = a(z) + b(z)
+      call device_routine_add(a(z), b(z), c(z))
     end do
     @end parallelRegion
   end subroutine
@@ -59,17 +59,29 @@ contains
     a, b, d
     @end domainDependant
 
-    @parallelRegion{domName(x,y), domSize(nx, ny)}
+    @parallelRegion{domName(x,y), domSize(nx,ny)}
     do z=1,NZ
-      call device_routine(a(z), b(z), d(z))
+      call device_routine_mult(a(z), b(z), d(z))
     end do
     @end parallelRegion
   end subroutine
 
-  subroutine device_routine(a,b,result)
+  subroutine device_routine_mult(a,b,result)
     implicit none
     real, intent(in) :: a, b
     real, intent(out) :: result
+
+    result = a * b + 1.0d0
+  end subroutine
+
+  subroutine device_routine_add(a,b,result)
+    implicit none
+    real, intent(in) :: a, b
+    real, intent(out) :: result
+
+    @domainDependant{domName(x,y), domSize(nx,ny), attribute(autoDom, present)}
+    a, b, result
+    @end domainDependant
 
     result = a * b + 1.0d0
   end subroutine

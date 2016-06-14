@@ -70,13 +70,20 @@ class Module(object):
 	def implemented(self):
 		routines = []
 		for routine in self.routines:
-			routines += routine.implementation.splitIntoCompatibleRoutines(routine)
+			routines += routine.implementation.generateRoutines(routine)
 
 		for routine in routines:
 			routine._checkParallelRegions()
 			routine._updateSymbolReferences()
 			routine._prepareAdditionalContext()
+
+		for routine in routines:
 			routine._analyseSymbolUsage()
+			routine._mergeSynthesizedWithExistingSymbols()
+			routine._prepareCallRegions()
+
+		for routine in routines:
+			routine.checkSymbols()
 
 		self._footerText = self._undecidedText
 		self._undecidedText = ""

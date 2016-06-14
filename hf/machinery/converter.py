@@ -195,12 +195,17 @@ This is not allowed for implementations using %s.\
         sourceModule = ModuleStub(sourceModuleName) if sourceModuleName else self.currModule
         calleeNode = self.routineNodesByProcName.get(self.currCalleeName)
         if calleeNode:
+            implementation = self.implementationForTemplateName(calleeNode.getAttribute('implementationTemplate'))
             self.currCallee = AnalyzableRoutine(
-                self.currCalleeName,
+                implementation.adjustCalleeName(
+                    self.currCalleeName,
+                    calleeNode,
+                    self.routineNodesByProcName[self.currSubprocName]
+                ),
                 sourceModule,
                 calleeNode,
                 self.parallelRegionTemplatesByProcName.get(self.currCalleeName),
-                self.implementationForTemplateName(calleeNode.getAttribute('implementationTemplate')),
+                implementation,
                 moduleRequiresStrongReference=isinstance(sourceModule, ModuleStub)
             )
         else:

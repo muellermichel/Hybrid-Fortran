@@ -1201,7 +1201,7 @@ Current Domains: %s\n" %(
 		if self.declarationPrefix in [None, ""]:
 			raise ScopeError("Cannot generate declaration prefix for %s (from %s)" %(self, self.nameOfScope))
 		if purgeList == None:
-			purgeList = ['intent', 'public', 'parameter']
+			purgeList = ['intent', 'public', 'parameter', 'save']
 		result = self._getPurgedDeclarationPrefix(purgeList)
 		kindMatch = self.patterns.declarationKindPattern.match(result)
 		if kindMatch:
@@ -1428,8 +1428,9 @@ Please specify the domains and their sizes with domName and domSize attributes i
 			offsets += accessors
 
 		symbolNameUsedInAccessor = None
-		if (not self.isUsingDevicePostfix and len(offsets) == len(self.domains) and not all([offset == ':' for offset in offsets]))\
-		or (self.intent == "in" and len(offsets) == len(self.domains) and not any([offset == ':' for offset in offsets])):
+		if (not self.isUsingDevicePostfix and len(offsets) == len(self.domains) and not all([offset == ':' for offset in offsets])) \
+		or (self.intent == "in" and len(offsets) == len(self.domains) and not any([offset == ':' for offset in offsets])) \
+		or (callee and not hasattr(callee, "implementation")):
 			symbolNameUsedInAccessor = self.nameInScope(useDeviceVersionIfAvailable=False) #not on device or scalar accesses to symbol that can't change
 		else:
 			symbolNameUsedInAccessor = self.nameInScope(useDeviceVersionIfAvailable=useDeviceVersionIfAvailable)

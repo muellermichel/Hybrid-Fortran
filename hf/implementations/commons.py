@@ -25,6 +25,9 @@ import logging
 def synthesizedKernelName(routineName, kernelNumber):
 	return "hfk%i_%s" %(kernelNumber, routineName)
 
+def synthesizedHostRoutineName(routineName):
+	return "hfh_%s" %(routineName)
+
 def getImportStatements(symbolsOrModuleName, forceHostVersion=False):
 	def getSourceSymbol(symbol):
 		if forceHostVersion:

@@ -55,7 +55,10 @@ class FortranImplementation(object):
 	def updateSymbolDeviceState(symbol, regionType, parallelRegionPosition):
 		return
 
-	def splitIntoCompatibleRoutines(self, routine):
+	def adjustCalleeName(self, calleeName, calleeNode, routineNode):
+		return calleeName
+
+	def generateRoutines(self, routine):
 		return [routine]
 
 	def filePreparation(self, filename):
@@ -403,8 +406,13 @@ class DeviceDataFortranImplementation(FortranImplementation):
 		dependantSymbols = []
 		if isinstance(dependantSymbolsOrModuleName, list):
 			dependantSymbols = dependantSymbolsOrModuleName
+
 		for symbol in dependantSymbols:
-			self.updateSymbolDeviceState(symbol, RegionType.OTHER, parallelRegionPosition, postTransfer=True)
+			if symbol.isToBeTransfered or regionType in [
+				RegionType.KERNEL_CALLER_DECLARATION,
+				RegionType.MODULE_DECLARATION
+			]:
+				self.updateSymbolDeviceState(symbol, RegionType.OTHER, parallelRegionPosition, postTransfer=True)
 		try:
 			_, _, _ = _checkDeclarationConformity(dependantSymbols)
 		except UsageError as e:
@@ -426,7 +434,10 @@ class DeviceDataFortranImplementation(FortranImplementation):
 				return ""
 			if dependantSymbols[0].isPresent or dependantSymbols[0].isHostSymbol:
 				return getImportStatements(dependantSymbols)
-			if dependantSymbols[0].isToBeTransfered or regionType == RegionType.KERNEL_CALLER_DECLARATION:
+			if dependantSymbols[0].isToBeTransfered or regionType in [
+				RegionType.KERNEL_CALLER_DECLARATION,
+				RegionType.MODULE_DECLARATION
+			]:
 				return getImportStatements(dependantSymbols) \
 					+ getImportStatements(dependantSymbols, forceHostVersion=True)
 		return getImportStatements(dependantSymbolsOrModuleName)
@@ -441,7 +452,9 @@ class DeviceDataFortranImplementation(FortranImplementation):
 		if not dependantSymbols or len(dependantSymbols) == 0:
 			raise Exception("no symbols to adjust")
 		for symbol in dependantSymbols:
-			self.updateSymbolDeviceState(symbol, regionType, parallelRegionPosition, postTransfer=True)
+			if regionType in [RegionType.MODULE_DECLARATION, RegionType.KERNEL_CALLER_DECLARATION] \
+			or symbol.isToBeTransfered:
+				self.updateSymbolDeviceState(symbol, regionType, parallelRegionPosition, postTransfer=True)
 		alreadyOnDevice = None
 		copyHere = None
 		try:
@@ -786,12 +799,25 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 		self.currRoutineNode = None
 		super(CUDAFortranImplementation, self).__init__(optionFlags)
 
-	def splitIntoCompatibleRoutines(self, routine):
+	def adjustCalleeName(self, calleeName, calleeNode, routineNode):
+		if calleeNode.getAttribute("parallelRegionPosition") == "outside" \
+		and routineNode.getAttribute("parallelRegionPosition") in [None, ""]:
+			#calling a device function from a host routine
+			return synthesizedHostRoutineName(calleeName)
+		return calleeName
+
+	def generateRoutines(self, routine):
+		routines = [routine]
+		if routine.node.getAttribute("parallelRegionPosition") == "outside":
+			hostRoutine = routine.clone(synthesizedHostRoutineName(routine.name))
+			hostRoutine.node.setAttribute("parallelRegionPosition", None)
+			hostRoutine.parallelRegionTemplates = []
+			routines.append(hostRoutine)
+
 		if routine.node.getAttribute("parallelRegionPosition") != "within":
-			return [routine]
+			return routines
 
 		parallelRegions = [region for region in routine.regions if isinstance(region, ParallelRegion)]
-		routines = []
 		kernelRoutinesByName = {}
 		for kernelNumber, template in enumerate(routine.parallelRegionTemplates):
 			parallelRegion = parallelRegions[kernelNumber]
@@ -821,7 +847,6 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 		routine.node.setAttribute("parallelRegionPosition", "inside")
 		routine.parallelRegionTemplates = []
 		routine.regions = kernelWrapperRegions
-		routines.append(routine)
 		return routines
 
 	def warningOnUnrecognizedSubroutineCallInParallelRegion(self, callerName, calleeName):

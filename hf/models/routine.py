@@ -191,17 +191,23 @@ This is not allowed for implementations using %s.\
 		self.symbolsByName = updatedSymbolsByName
 
 	def _updateSymbolState(self):
-		#updating device state
-		if self._symbolsToUpdate == None:
-			raise Exception("no symbols loaded for updating in routine %s" %(self.name))
 		regionType = RegionType.KERNEL_CALLER_DECLARATION if self.isCallingKernel else RegionType.OTHER
-		for symbol in self._symbolsToUpdate:
+		updatedSymbolsByName = {}
+		for symbol in self.symbolsByName.values():
 			symbol.parallelRegionPosition = self.node.getAttribute("parallelRegionPosition")
+			if not isinstance(symbol, FrameworkArray):
+				symbol.loadRoutineNodeAttributes(self.node, self.parallelRegionTemplates)
 			self.implementation.updateSymbolDeviceState(
 				symbol,
 				regionType,
 				self.node.getAttribute("parallelRegionPosition")
 			)
+			nameInScope = symbol.name
+			if not isinstance(symbol, FrameworkArray):
+				symbol.updateNameInScope(residingModule=self.parentModule.name)
+			nameInScope = symbol.nameInScope(useDeviceVersionIfAvailable=False)
+			updatedSymbolsByName[nameInScope] = symbol
+		self.symbolsByName = updatedSymbolsByName
 
 	def _listCompactedSymbolsAndDeclarationPrefixAndOtherSymbols(self, additionalImports):
 		toBeCompacted = []
@@ -379,6 +385,7 @@ This is not allowed for implementations using %s.\
 				)
 				compactedArrayList = [compactedArray]
 				compactedArray.compactedSymbols = toBeCompacted
+				self._synthesizedSymbols.append(compactedArray)
 			callee._additionalArguments = copy.copy(sorted(notToBeCompacted + compactedArrayList))
 
 		#load into the specification region
@@ -390,20 +397,53 @@ This is not allowed for implementations using %s.\
 			self._allImports
 		)
 
+	def _checkReferences(self, symbolList):
+		for symbol in symbolList:
+			contextSymbol = self.symbolsByName[
+				symbol.nameInScope(useDeviceVersionIfAvailable=False)
+			]
+			if not symbol is contextSymbol:
+				raise Exception("Symbol %s has an inconsistent context loaded in routine %s" %(
+					symbol.name,
+					self.name
+				))
+
 	def _mergeSynthesizedWithExistingSymbols(self):
+		def updateReferences(symbolList):
+			listOfScopedNames = [
+				symbol.nameInScope(useDeviceVersionIfAvailable=False)
+				for symbol in symbolList
+			]
+			updatedSymbolList = []
+			for nameInScope in listOfScopedNames:
+				symbol = self.symbolsByName.get(nameInScope)
+				if not symbol:
+					raise Exception("%s not found in context, cannot update references. All context keys: %s" %(
+						nameInScope,
+						self.symbolsByName.keys()
+					))
+				updatedSymbolList.append(symbol)
+			return updatedSymbolList
+
+		def updateLinesAndSymbols(region):
+			updatedLinesAndSymbols = []
+			for line, symbols in region._linesAndSymbols:
+				updatedLinesAndSymbols.append((line, updateReferences(symbols)))
+			region._linesAndSymbols = updatedLinesAndSymbols
+
+		#update symbols in symbolsByName with additional ones
+		for symbol in self._additionalArguments + self._synthesizedSymbols + self._symbolsToUpdate:
+			nameInScope = symbol.nameInScope(useDeviceVersionIfAvailable=False)
+			if symbol.routineNode:
+				symbol.updateNameInScope(residingModule=self.parentModule.name)
+				nameInScope = symbol.nameInScope(useDeviceVersionIfAvailable=False)
+			self.symbolsByName[nameInScope] = symbol
+
 		#gather all the specified symbols
 		specifiedSymbolsByNameInScope = {}
 		for _, symbolsOnLine in self.regions[0].linesAndSymbols:
 				for symbol in symbolsOnLine:
 					specifiedSymbolsByNameInScope[symbol.nameInScope(useDeviceVersionIfAvailable=False)] = symbol
-
-		#update symbols used in loaded lines with the ones found in symbolsByName
-		for symbol in self._additionalArguments + self._synthesizedSymbols:
-			nameInScope = symbol.name
-			if symbol.routineNode:
-				symbol.updateNameInScope(residingModule=self.parentModule.name)
-				nameInScope = symbol.nameInScope(useDeviceVersionIfAvailable=False)
-			self.symbolsByName[nameInScope] = symbol
 
 		#make sure the user specified versions are used if available
 		for nameInScope in specifiedSymbolsByNameInScope:
@@ -411,42 +451,17 @@ This is not allowed for implementations using %s.\
 			self.symbolsByName[nameInScope] = symbol
 
 		#update symbols referenced on specific lines (could be replaced with automatically added ones)
-		symbolsByNameAndScopedName = {}
-		for nameInScope in self.symbolsByName:
-			symbol = self.symbolsByName[nameInScope]
-			symbolsByScopedname = symbolsByNameAndScopedName.get(symbol.name, {})
-			symbolsByScopedname[nameInScope] = symbol
-			symbolsByNameAndScopedName[symbol.name] = symbolsByScopedname
 		for region in self.regions:
-			for _, symbolsOnLine in region.linesAndSymbols:
-				for index, symbol in enumerate(symbolsOnLine):
-					matchingSymbolsByScopedName = symbolsByNameAndScopedName.get(symbol.name)
-					if not matchingSymbolsByScopedName:
-						raise Exception("no context found for symbol %s; context: %s" %(
-							symbol,
-							symbolsByNameAndScopedName
-						))
-					updatedSymbol = matchingSymbolsByScopedName.get(
-						symbol.nameInScope(useDeviceVersionIfAvailable=False)
-					)
-					if not updatedSymbol:
-						updatedSymbol = matchingSymbolsByScopedName.get(symbol.name)
-					if not updatedSymbol:
-						updatedSymbol = matchingSymbolsByScopedName[matchingSymbolsByScopedName.keys()[0]]
-					symbolsOnLine[index] = updatedSymbol
-		for index, symbol in enumerate(self.regions[0]._symbolsToAdd):
-			if symbol.nameInScope(useDeviceVersionIfAvailable=False):
-				self.regions[0]._symbolsToAdd[index] = symbol
+			if hasattr(region, "_subRegions"):
+				for subRegion in region._subRegions:
+					updateLinesAndSymbols(subRegion)
+			else:
+				updateLinesAndSymbols(region)
 
-		for index, symbol in enumerate(self._additionalArguments):
-			self._additionalArguments[index] = self.symbolsByName[symbol.name]
-
-		#make sure that all symbols are correctly initialized to this routine
-		#(important for accessor / domain representation for module symbols that get additionally loaded)
-		for symbol in self.symbolsByName.values():
-			if isinstance(symbol, FrameworkArray):
-				continue
-			symbol.loadRoutineNodeAttributes(self.node, self.parallelRegionTemplates)
+		#update additional symbol lists
+		self._additionalArguments = updateReferences(self._additionalArguments)
+		self._synthesizedSymbols = updateReferences(self._synthesizedSymbols)
+		self._symbolsToUpdate = updateReferences(self._symbolsToUpdate)
 
 		#prepare type parameters
 		typeParametersByName = {}
@@ -524,6 +539,14 @@ This is not allowed for implementations using %s.\
 				if compactedSymbol.name in self.usedSymbolNames:
 					self.usedSymbolNames[symbol.name] = None
 
+	def checkSymbols(self):
+		self._checkReferences(self._additionalArguments)
+		self._checkReferences(self._synthesizedSymbols)
+		self._checkReferences(self._symbolsToUpdate)
+		self._checkReferences(self.regions[0]._symbolsToAdd)
+		for region in self.regions:
+			self._checkReferences(sum([las[1] for las in region.linesAndSymbols], []))
+
 	def filterOutSymbolsAlreadyAliveInCurrentScope(self, symbolList):
 		return [
 			symbol for symbol in symbolList
@@ -539,6 +562,7 @@ This is not allowed for implementations using %s.\
 			return self.name
 		return uniqueIdentifier(self.name, self.implementation.architecture[0])
 
+	#creates a clone with meta data but no region data
 	def createCloneWithMetadata(self, name):
 		clone = AnalyzableRoutine(
 			name,
@@ -560,9 +584,18 @@ This is not allowed for implementations using %s.\
 		clone.callees = copy.copy(self.callees)
 		return clone
 
-	def resetRegions(self, firstRegion):
+	def clone(self, cloneName):
+		clone = self.createCloneWithMetadata(cloneName)
+		clone.resetRegions([region.clone() for region in self._regions])
+		return clone
+
+	def resetRegions(self, regions):
 		self._regions = []
-		self.addRegion(firstRegion)
+		if isinstance(regions, list):
+			for entry in regions:
+				self.addRegion(entry)
+		else:
+			self.addRegion(regions)
 
 	def createRegion(self, regionClassName="Region", oldRegion=None):
 		import models.region
@@ -626,9 +659,7 @@ This is not allowed for implementations using %s.\
 	def implemented(self):
 		purgedRoutineElements = []
 		try:
-			self._mergeSynthesizedWithExistingSymbols()
 			self._updateSymbolState()
-			self._prepareCallRegions()
 			implementedRoutineElements = [self._implementHeader(), self._implementAdditionalImports()]
 			implementedRoutineElements += [region.implemented() for region in self._regions]
 			implementedRoutineElements += [self._implementFooter()]

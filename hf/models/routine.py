@@ -195,6 +195,7 @@ This is not allowed for implementations using %s.\
 		updatedSymbolsByName = {}
 		for symbol in self.symbolsByName.values():
 			symbol.parallelRegionPosition = self.node.getAttribute("parallelRegionPosition")
+			symbol.isCompacted = False
 			if not isinstance(symbol, FrameworkArray):
 				symbol.loadRoutineNodeAttributes(self.node, self.parallelRegionTemplates)
 			self.implementation.updateSymbolDeviceState(
@@ -207,6 +208,10 @@ This is not allowed for implementations using %s.\
 				symbol.updateNameInScope(residingModule=self.parentModule.name)
 			nameInScope = symbol.nameInScope(useDeviceVersionIfAvailable=False)
 			updatedSymbolsByName[nameInScope] = symbol
+		for symbol in self.symbolsByName.values():
+			if isinstance(symbol, FrameworkArray):
+				for compactedSymbol in symbol.compactedSymbols:
+					compactedSymbol.isCompacted = True
 		self.symbolsByName = updatedSymbolsByName
 
 	def _listCompactedSymbolsAndDeclarationPrefixAndOtherSymbols(self, additionalImports):
@@ -240,7 +245,6 @@ This is not allowed for implementations using %s.\
 			) \
 			and (declarationPrefix == None or currentDeclarationPrefix == declarationPrefix):
 				declarationPrefix = currentDeclarationPrefix
-				symbol.isCompacted = True
 				toBeCompacted.append(symbol)
 			else:
 				otherImports.append(symbol)

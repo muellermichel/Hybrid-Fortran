@@ -205,9 +205,11 @@ class CallRegion(Region):
 		isForeignModuleCall = parentRoutine.parentModule.name != self._callee.parentModule.name
 		calleesWithPackedReals = parentRoutine._packedRealSymbolsByCalleeName.keys()
 		for calleeName in calleesWithPackedReals:
-			for idx, symbol in enumerate(sorted(parentRoutine._packedRealSymbolsByCalleeName[calleeName])):
-				if not symbol.name in self._callee.usedSymbolNames:
-					continue
+			usedCompactedParameters = [
+				s for s in sorted(parentRoutine._packedRealSymbolsByCalleeName[calleeName])
+				if s.name in self._callee.usedSymbolNames
+			]
+			for idx, symbol in enumerate(usedCompactedParameters):
 				text += "%s(%i) = %s" %(
 					limitLength(frameworkArrayName(calleeName)),
 					idx+1,
@@ -552,6 +554,12 @@ class RoutineSpecificationRegion(Region):
 		for symbol in self._symbolsToAdd:
 			if not symbol.name in parentRoutine.usedSymbolNames:
 				continue
+			if isinstance(symbol, FrameworkArray):
+				symbol.compactedSymbols = [
+					s for s in symbol.compactedSymbols
+					if s.name in parentRoutine.usedSymbolNames
+				]
+				symbol.domains = [("hfauto", str(len(symbol.compactedSymbols)))]
 			purgeList = defaultPurgeList
 			if not symbol.isCompacted:
 				purgeList=['public', 'parameter', 'allocatable', 'save']
@@ -636,9 +644,11 @@ class RoutineSpecificationRegion(Region):
 			text += "!<----- impl. specific decl end : --\n"
 			text += declarationEndText
 
-		for idx, symbol in enumerate(self._currAdditionalCompactedSubroutineParameters):
-			if not symbol.name in parentRoutine.usedSymbolNames:
-				continue
+		usedCompactedParameters = [
+			s for s in sorted(self._currAdditionalCompactedSubroutineParameters)
+			if s.name in parentRoutine.usedSymbolNames
+		]
+		for idx, symbol in enumerate(usedCompactedParameters):
 			text += "%s = %s(%i)" %(
 				symbol.nameInScope(),
 				limitLength(frameworkArrayName(parentRoutine.name)),

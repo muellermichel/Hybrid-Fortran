@@ -585,7 +585,7 @@ class RoutineSpecificationRegion(Region):
 				).rstrip() + " ! type %i symbol added for callee %s\n" %(symbol.declarationType, callee.name)
 			toBeCompacted = [
 				symbol for symbol in parentRoutine._packedRealSymbolsByCalleeName.get(callee.name, [])
-				if symbol.name in parentRoutine.usedSymbolNames
+				if symbol.name in callee.usedSymbolNames
 			]
 			if len(toBeCompacted) > 0:
 				#TODO: generalize for cases where we don't want this to be on the device

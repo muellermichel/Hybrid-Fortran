@@ -406,8 +406,9 @@ class DeviceDataFortranImplementation(FortranImplementation):
 		dependantSymbols = []
 		if isinstance(dependantSymbolsOrModuleName, list):
 			dependantSymbols = dependantSymbolsOrModuleName
-		for symbol in dependantSymbols:
-			self.updateSymbolDeviceState(symbol, RegionType.OTHER, parallelRegionPosition, postTransfer=True)
+		if regionType == RegionType.MODULE_DECLARATION:
+			for symbol in dependantSymbols:
+				self.updateSymbolDeviceState(symbol, RegionType.OTHER, parallelRegionPosition, postTransfer=True)
 		try:
 			_, _, _ = _checkDeclarationConformity(dependantSymbols)
 		except UsageError as e:
@@ -443,8 +444,9 @@ class DeviceDataFortranImplementation(FortranImplementation):
 
 		if not dependantSymbols or len(dependantSymbols) == 0:
 			raise Exception("no symbols to adjust")
-		for symbol in dependantSymbols:
-			self.updateSymbolDeviceState(symbol, regionType, parallelRegionPosition, postTransfer=True)
+		if regionType == RegionType.MODULE_DECLARATION:
+			for symbol in dependantSymbols:
+				self.updateSymbolDeviceState(symbol, regionType, parallelRegionPosition, postTransfer=True)
 		alreadyOnDevice = None
 		copyHere = None
 		try:

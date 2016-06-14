@@ -191,17 +191,21 @@ This is not allowed for implementations using %s.\
 		self.symbolsByName = updatedSymbolsByName
 
 	def _updateSymbolState(self):
-		#updating device state
-		if self._symbolsToUpdate == None:
-			raise Exception("no symbols loaded for updating in routine %s" %(self.name))
 		regionType = RegionType.KERNEL_CALLER_DECLARATION if self.isCallingKernel else RegionType.OTHER
-		for symbol in self._symbolsToUpdate:
+		updatedSymbolsByName = {}
+		for symbol in self.symbolsByName.values():
 			symbol.parallelRegionPosition = self.node.getAttribute("parallelRegionPosition")
 			self.implementation.updateSymbolDeviceState(
 				symbol,
 				regionType,
 				self.node.getAttribute("parallelRegionPosition")
 			)
+			nameInScope = symbol.name
+			if not isinstance(symbol, FrameworkArray):
+				symbol.updateNameInScope(residingModule=self.parentModule.name)
+			nameInScope = symbol.nameInScope(useDeviceVersionIfAvailable=False)
+			updatedSymbolsByName[nameInScope] = symbol
+		self.symbolsByName = updatedSymbolsByName
 
 	def _listCompactedSymbolsAndDeclarationPrefixAndOtherSymbols(self, additionalImports):
 		toBeCompacted = []
@@ -390,6 +394,17 @@ This is not allowed for implementations using %s.\
 			self._allImports
 		)
 
+	def _checkReferences(self, symbolList):
+		for symbol in symbolList:
+			contextSymbol = self.symbolsByName[
+				symbol.nameInScope(useDeviceVersionIfAvailable=False)
+			]
+			if not symbol is contextSymbol:
+				raise Exception("Symbol %s has an inconsistent context loaded in routine %s" %(
+					symbol.name,
+					self.name
+				))
+
 	def _mergeSynthesizedWithExistingSymbols(self):
 		def updateReferences(symbolList):
 			listOfScopedNames = [
@@ -406,17 +421,6 @@ This is not allowed for implementations using %s.\
 			for line, symbols in region._linesAndSymbols:
 				updatedLinesAndSymbols.append((line, updateReferences(symbols)))
 			region._linesAndSymbols = updatedLinesAndSymbols
-
-		def checkReferences(symbolList):
-			for symbol in symbolList:
-				contextSymbol = self.symbolsByName[
-					symbol.nameInScope(useDeviceVersionIfAvailable=False)
-				]
-				if not symbol is contextSymbol:
-					raise Exception("Symbol %s has an inconsistent context loaded in routine %s" %(
-						symbol.name,
-						self.name
-					))
 
 		#update symbols in symbolsByName with additional ones
 		for symbol in self._additionalArguments + self._synthesizedSymbols + self._symbolsToUpdate:
@@ -449,13 +453,6 @@ This is not allowed for implementations using %s.\
 		self._additionalArguments = updateReferences(self._additionalArguments)
 		self._synthesizedSymbols = updateReferences(self._synthesizedSymbols)
 		self._symbolsToUpdate = updateReferences(self._symbolsToUpdate)
-
-		#check references just to be sure
-		checkReferences(self._additionalArguments)
-		checkReferences(self._synthesizedSymbols)
-		checkReferences(self._symbolsToUpdate)
-		for region in self.regions:
-			checkReferences(sum([las[1] for las in region.linesAndSymbols], []))
 
 		#make sure that all symbols are correctly initialized to this routine
 		#(important for accessor / domain representation for module symbols that get additionally loaded)
@@ -539,6 +536,14 @@ This is not allowed for implementations using %s.\
 			for compactedSymbol in symbol.compactedSymbols:
 				if compactedSymbol.name in self.usedSymbolNames:
 					self.usedSymbolNames[symbol.name] = None
+
+	def checkSymbols(self):
+		self._checkReferences(self._additionalArguments)
+		self._checkReferences(self._synthesizedSymbols)
+		self._checkReferences(self._symbolsToUpdate)
+		self._checkReferences(self.regions[0]._symbolsToAdd)
+		for region in self.regions:
+			self._checkReferences(sum([las[1] for las in region.linesAndSymbols], []))
 
 	def filterOutSymbolsAlreadyAliveInCurrentScope(self, symbolList):
 		return [
@@ -652,6 +657,7 @@ This is not allowed for implementations using %s.\
 	def implemented(self):
 		purgedRoutineElements = []
 		try:
+			self._updateSymbolState()
 			implementedRoutineElements = [self._implementHeader(), self._implementAdditionalImports()]
 			implementedRoutineElements += [region.implemented() for region in self._regions]
 			implementedRoutineElements += [self._implementFooter()]

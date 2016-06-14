@@ -80,8 +80,10 @@ class Module(object):
 		for routine in routines:
 			routine._analyseSymbolUsage()
 			routine._mergeSynthesizedWithExistingSymbols()
-			routine._updateSymbolState()
 			routine._prepareCallRegions()
+
+		for routine in routines:
+			routine.checkSymbols()
 
 		self._footerText = self._undecidedText
 		self._undecidedText = ""

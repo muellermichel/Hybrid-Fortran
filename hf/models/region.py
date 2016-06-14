@@ -31,7 +31,15 @@ RegionType = enum(
 	"OTHER"
 )
 
-def implementSymbolAccessStringAndRemainder(line, suffix, symbol, iterators=[], parallelRegionTemplate=None, callee=None, useDeviceVersionIfAvailable=True):
+def implementSymbolAccessStringAndRemainder(
+	line,
+	suffix,
+	symbol,
+	iterators=[],
+	parallelRegionTemplate=None,
+	callee=None,
+	useDeviceVersionIfAvailable=True
+):
 	isPointerAssignment = RegExPatterns.Instance().pointerAssignmentPattern.match(line) != None
 	try:
 		symbolAccessString, remainder = getSymbolAccessStringAndRemainder(
@@ -237,7 +245,8 @@ class CallRegion(Region):
 			bridgeStr1 = "&\n&"
 			numOfProgrammerSpecifiedArguments = len(self._callee.programmerArguments)
 			for symbolNum, symbol in enumerate(requiredAdditionalArgumentSymbols):
-				hostName = symbol.nameInScope()
+				symbolInCurrentContext = parentRoutine.symbolsByName[symbol.nameInScope(useDeviceVersionIfAvailable=False)]
+				hostName = symbolInCurrentContext.nameInScope()
 				text += hostName
 				if symbolNum < len(requiredAdditionalArgumentSymbols) - 1 or numOfProgrammerSpecifiedArguments > 0:
 					text += ", %s" %(bridgeStr1)

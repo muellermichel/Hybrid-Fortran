@@ -412,46 +412,6 @@ class DeviceDataFortranImplementation(FortranImplementation):
 			symbol.isUsingDevicePostfix
 		))
 
-	def getImportSpecification(self, dependantSymbolsOrModuleName, regionType, parallelRegionPosition, parallelRegionTemplates):
-		dependantSymbols = []
-		if isinstance(dependantSymbolsOrModuleName, list):
-			dependantSymbols = dependantSymbolsOrModuleName
-
-		for symbol in dependantSymbols:
-			if symbol.isToBeTransfered or regionType in [
-				RegionType.KERNEL_CALLER_DECLARATION,
-				RegionType.MODULE_DECLARATION
-			]:
-				self.updateSymbolDeviceState(symbol, RegionType.OTHER, parallelRegionPosition, postTransfer=True)
-		try:
-			_, _, _ = _checkDeclarationConformity(dependantSymbols)
-		except UsageError as e:
-			raise UsageError("In imports: %s; symbols: %s" %(str(e), dependantSymbols))
-
-		if len(dependantSymbols) > 0:
-			if dependantSymbols[0].isTypeParameter:
-				return getImportStatements(dependantSymbols)
-			if parallelRegionPosition == "within":
-				return ""
-			if parallelRegionPosition == "outside":
-				raise UsageError(
-					"Importing symbols %s to device routine %s (routine called within kernel) is not supported. Please pass as argument instead." %(
-						dependantSymbols,
-						dependantSymbols[0].nameOfScope
-					)
-				)
-			if len(dependantSymbols) == 0:
-				return ""
-			if dependantSymbols[0].isPresent or dependantSymbols[0].isHostSymbol:
-				return getImportStatements(dependantSymbols)
-			if dependantSymbols[0].isToBeTransfered or regionType in [
-				RegionType.KERNEL_CALLER_DECLARATION,
-				RegionType.MODULE_DECLARATION
-			]:
-				return getImportStatements(dependantSymbols) \
-					+ getImportStatements(dependantSymbols, forceHostVersion=True)
-		return getImportStatements(dependantSymbolsOrModuleName)
-
 	def adjustDeclarationForDevice(self, line, dependantSymbols, parentRoutine, regionType, parallelRegionPosition):
 		def declarationStatements(dependantSymbols, declarationDirectives, deviceType):
 			return "\n".join(
@@ -493,7 +453,10 @@ class DeviceDataFortranImplementation(FortranImplementation):
 		if parallelRegionPosition == "within" \
 		and len(dependantSymbols[0].domains) == 0:
 			#... not meant for output (if we can't do reductions just induce a potential compiler error at this point)
-			if intent not in ["out", "inout"] or not self.assignmentToScalarsInKernelsAllowed:
+			if ( \
+				intent not in ["out", "inout"] or not self.assignmentToScalarsInKernelsAllowed \
+			) \
+			and not "character" in purgedDeclarationDirectives:
 				adjustedLine = purgedDeclarationDirectives + ", value :: " + symbolDeclarationStr
 
 			#... meant for output
@@ -912,6 +875,46 @@ end if\n" %(calleeNode.getAttribute('name'))
 			return result
 		result += getCUDAErrorHandling(calleeRoutineNode)
 		return result
+
+	def getImportSpecification(self, dependantSymbolsOrModuleName, regionType, parallelRegionPosition, parallelRegionTemplates):
+		dependantSymbols = []
+		if isinstance(dependantSymbolsOrModuleName, list):
+			dependantSymbols = dependantSymbolsOrModuleName
+
+		for symbol in dependantSymbols:
+			if symbol.isToBeTransfered or regionType in [
+				RegionType.KERNEL_CALLER_DECLARATION,
+				RegionType.MODULE_DECLARATION
+			]:
+				self.updateSymbolDeviceState(symbol, RegionType.OTHER, parallelRegionPosition, postTransfer=True)
+		try:
+			_, _, _ = _checkDeclarationConformity(dependantSymbols)
+		except UsageError as e:
+			raise UsageError("In imports: %s; symbols: %s" %(str(e), dependantSymbols))
+
+		if len(dependantSymbols) > 0:
+			if dependantSymbols[0].isTypeParameter:
+				return getImportStatements(dependantSymbols)
+			if parallelRegionPosition == "within":
+				return ""
+			if parallelRegionPosition == "outside":
+				raise UsageError(
+					"Importing symbols %s to device routine %s (routine called within kernel) is not supported. Please pass as argument instead." %(
+						dependantSymbols,
+						dependantSymbols[0].nameOfScope
+					)
+				)
+			if len(dependantSymbols) == 0:
+				return ""
+			if dependantSymbols[0].isPresent or dependantSymbols[0].isHostSymbol:
+				return getImportStatements(dependantSymbols)
+			if dependantSymbols[0].isToBeTransfered or regionType in [
+				RegionType.KERNEL_CALLER_DECLARATION,
+				RegionType.MODULE_DECLARATION
+			]:
+				return getImportStatements(dependantSymbols) \
+					+ getImportStatements(dependantSymbols, forceHostVersion=True)
+		return getImportStatements(dependantSymbolsOrModuleName)
 
 	def getAdditionalKernelParameters(
 		self,

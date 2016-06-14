@@ -406,8 +406,12 @@ class DeviceDataFortranImplementation(FortranImplementation):
 		dependantSymbols = []
 		if isinstance(dependantSymbolsOrModuleName, list):
 			dependantSymbols = dependantSymbolsOrModuleName
-		if regionType == RegionType.MODULE_DECLARATION:
-			for symbol in dependantSymbols:
+
+		for symbol in dependantSymbols:
+			if symbol.isToBeTransfered or regionType in [
+				RegionType.KERNEL_CALLER_DECLARATION,
+				RegionType.MODULE_DECLARATION
+			]:
 				self.updateSymbolDeviceState(symbol, RegionType.OTHER, parallelRegionPosition, postTransfer=True)
 		try:
 			_, _, _ = _checkDeclarationConformity(dependantSymbols)
@@ -430,7 +434,10 @@ class DeviceDataFortranImplementation(FortranImplementation):
 				return ""
 			if dependantSymbols[0].isPresent or dependantSymbols[0].isHostSymbol:
 				return getImportStatements(dependantSymbols)
-			if dependantSymbols[0].isToBeTransfered or regionType == RegionType.KERNEL_CALLER_DECLARATION:
+			if dependantSymbols[0].isToBeTransfered or regionType in [
+				RegionType.KERNEL_CALLER_DECLARATION,
+				RegionType.MODULE_DECLARATION
+			]:
 				return getImportStatements(dependantSymbols) \
 					+ getImportStatements(dependantSymbols, forceHostVersion=True)
 		return getImportStatements(dependantSymbolsOrModuleName)
@@ -444,8 +451,9 @@ class DeviceDataFortranImplementation(FortranImplementation):
 
 		if not dependantSymbols or len(dependantSymbols) == 0:
 			raise Exception("no symbols to adjust")
-		if regionType == RegionType.MODULE_DECLARATION:
-			for symbol in dependantSymbols:
+		for symbol in dependantSymbols:
+			if regionType in [RegionType.MODULE_DECLARATION, RegionType.KERNEL_CALLER_DECLARATION] \
+			or symbol.isToBeTransfered:
 				self.updateSymbolDeviceState(symbol, regionType, parallelRegionPosition, postTransfer=True)
 		alreadyOnDevice = None
 		copyHere = None

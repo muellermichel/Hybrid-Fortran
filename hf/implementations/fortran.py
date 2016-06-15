@@ -364,6 +364,10 @@ class DeviceDataFortranImplementation(FortranImplementation):
 		if symbol.isCompacted:
 			return
 
+		if parallelRegionPosition in ["within", "outside"]:
+			symbol.isPresent = True
+			symbol.isToBeTransfered = False
+
 		#passed in scalars in kernels and inside kernels
 		if parallelRegionPosition in ["within", "outside"] \
 		and len(symbol.domains) == 0 \

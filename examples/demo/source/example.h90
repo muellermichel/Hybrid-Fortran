@@ -52,6 +52,43 @@ contains
     c = a + b + my_param
   end subroutine
 
+  subroutine kernel4(a, b, c)
+    use secondary, only: my_external_param
+    implicit none
+    real, dimension(NX, NY), intent(in) :: a, b
+    real, dimension(NX, NY), intent(out) :: c
+
+    @parallelRegion{domName(x,y), domSize(NX, NY)}
+    c(x,y) = a(x,y) + b(x,y) + my_external_param
+    @end parallelRegion
+  end subroutine
+
+  subroutine kernel5(a, b, c)
+    use secondary, only: my_external_param2
+    implicit none
+    real, dimension(NX, NY), intent(in) :: a, b
+    real, dimension(NX, NY), intent(out) :: c
+
+    @parallelRegion{domName(x,y), domSize(NX, NY)}
+    c(x,y) = a(x,y) + b(x,y) + my_external_param2
+    @end parallelRegion
+  end subroutine
+
+  subroutine kernel6(a, b, c)
+    use secondary, only: my_external_array
+    implicit none
+    real, dimension(NX, NY), intent(in) :: a, b
+    real, dimension(NX, NY), intent(out) :: c
+
+    @domainDependant{attribute(autoDom, transferHere)}
+    my_external_array
+    @end domainDependant
+
+    @parallelRegion{domName(x,y), domSize(NX, NY)}
+    c(x,y) = a(x,y) + b(x,y) + my_external_array(2)
+    @end parallelRegion
+  end subroutine
+
   subroutine assert_values(test_array, expected_value)
     implicit none
     real, dimension(NX, NY), intent(in) :: test_array
@@ -82,6 +119,7 @@ end module
 
 program main
   use demo
+  use secondary
   implicit none
   real, dimension(NX, NY) :: a, b, c
 
@@ -100,6 +138,21 @@ program main
   call assert_values(c, 5.0d0)
 
   call scalar_host_routine()
+
+  c(:,:) = 0.0d0
+  call kernel4(a, b, c)
+  call assert_values(c, 6.0d0)
+
+  my_external_param2 = 3.0d0
+  c(:,:) = 0.0d0
+  call kernel5(a, b, c)
+  call assert_values(c, 6.0d0)
+
+  my_external_array(1) = 0.0d0
+  my_external_array(2) = 1.0d0
+  c(:,:) = 0.0d0
+  call kernel6(a, b, c)
+  call assert_values(c, 4.0d0)
 
   stop
 end program main

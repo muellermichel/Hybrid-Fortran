@@ -508,7 +508,14 @@ This is not allowed for implementations using %s.\
 		elif requiredAdditionalArguments:
 			parameterList += "& "
 		if self._programmerArguments:
-			parameterList += ", ".join(self._programmerArguments)
+			adjustedArguments = []
+			for argument in self._programmerArguments:
+				symbol = self.symbolsByName[argument]
+				if symbol:
+					adjustedArguments.append(symbol.nameInScope())
+				else:
+					adjustedArguments.append(argument)
+			parameterList += ", ".join(adjustedArguments)
 		return "%s subroutine %s(%s)\n" %(
 			self.implementation.subroutinePrefix(self.node),
 			self.name,

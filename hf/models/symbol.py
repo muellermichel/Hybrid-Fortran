@@ -750,8 +750,6 @@ EXAMPLE:\n\
 		if "host" in attributes:
 			self.isHostSymbol = True
 		if "transferHere" in attributes:
-			if self._isPresent:
-				raise Exception("Symbol %s has contradicting attributes 'transferHere' and 'present'" %(self))
 			self._isToBeTransfered = True
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] attributes set")
 
@@ -1429,7 +1427,6 @@ Please specify the domains and their sizes with domName and domSize attributes i
 
 		symbolNameUsedInAccessor = None
 		if (not self.isUsingDevicePostfix and len(offsets) == len(self.domains) and not all([offset == ':' for offset in offsets])) \
-		or (self.intent == "in" and len(offsets) == len(self.domains) and not any([offset == ':' for offset in offsets])) \
 		or (callee and not hasattr(callee, "implementation")):
 			symbolNameUsedInAccessor = self.nameInScope(useDeviceVersionIfAvailable=False) #not on device or scalar accesses to symbol that can't change
 		else:

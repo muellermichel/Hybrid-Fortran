@@ -1,0 +1,105 @@
+module demo
+  real, parameter :: my_param = 2.0d0
+contains
+  subroutine kernel1(a, b, c)
+    implicit none
+    real, dimension(NX, NY), intent(in) :: a, b
+    real, dimension(NX, NY), intent(out) :: c
+
+    @parallelRegion{domName(x,y), domSize(NX, NY)}
+    c(x,y) = a(x,y) + b(x,y)
+    @end parallelRegion
+  end subroutine
+
+  subroutine kernel2(a, b, c)
+    implicit none
+    real, dimension(NX, NY), intent(in) :: a, b
+    real, dimension(NX, NY), intent(out) :: c
+
+    @parallelRegion{domName(x,y), domSize(NX, NY)}
+    c(x,y) = a(x,y) + b(x,y) + my_param
+    @end parallelRegion
+  end subroutine
+
+  subroutine kernel3(a, b, c)
+    implicit none
+    real, dimension(NX, NY), intent(in) :: a, b
+    real, dimension(NX, NY), intent(out) :: c
+
+    @parallelRegion{domName(x,y), domSize(NX, NY)}
+    call inner_routine(a(x,y), b(x,y), c(x,y))
+    @end parallelRegion
+  end subroutine
+
+  subroutine scalar_host_routine()
+    implicit none
+    real scalartest
+
+    call inner_routine(3.0, 4.0, scalartest)
+    if (scalartest == 9.0d0) then
+      write(0,*) "scalar test ok"
+    else
+      write(0,*) "scalar test failed", scalartest
+      stop 2
+    end if
+  end subroutine
+
+  subroutine inner_routine(a, b, c)
+    implicit none
+    real, intent(in) :: a, b
+    real, intent(out) :: c
+
+    c = a + b + my_param
+  end subroutine
+
+  subroutine assert_values(test_array, expected_value)
+    implicit none
+    real, dimension(NX, NY), intent(in) :: test_array
+    real(8), intent(in) :: expected_value
+    integer :: fail_x, fail_y
+    integer :: x, y
+    logical test
+
+    test = .TRUE.
+    do y=1,NY
+    do x=1,NX
+      if (test .EQ. .TRUE. .AND. test_array(x,y) .NE. expected_value) then
+      test = .FALSE.
+      fail_x = x
+      fail_y = y
+      end if
+    end do
+    end do
+    if (test .EQ. .TRUE.) then
+      write(0,*) "test ok"
+    else
+      write(0,*) "test failed"
+      write(0,*) "fails at", fail_x, fail_y, "test_array:", test_array(fail_x,fail_y)
+      stop 2
+    end if
+  end subroutine
+end module
+
+program main
+  use demo
+  implicit none
+  real, dimension(NX, NY) :: a, b, c
+
+  a(:,:) = 1.0d0
+  b(:,:) = 2.0d0
+  c(:,:) = 0.0d0
+  call kernel1(a, b, c)
+  call assert_values(c, 3.0d0)
+
+  c(:,:) = 0.0d0
+  call kernel2(a, b, c)
+  call assert_values(c, 5.0d0)
+
+  c(:,:) = 0.0d0
+  call kernel3(a, b, c)
+  call assert_values(c, 5.0d0)
+
+  call scalar_host_routine()
+
+  stop
+end program main

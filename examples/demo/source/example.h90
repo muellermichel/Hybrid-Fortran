@@ -89,6 +89,39 @@ contains
     @end parallelRegion
   end subroutine
 
+  subroutine kernel7(a, b, c)
+    use secondary, only: my_external_array2
+    implicit none
+    real, dimension(NX, NY), intent(in) :: a, b
+    real, dimension(NX, NY), intent(out) :: c
+
+    @domainDependant{attribute(autoDom, transferHere)}
+    my_external_array2
+    @end domainDependant
+
+    @parallelRegion{domName(x,y), domSize(NX, NY)}
+    c(x,y) = a(x,y) + b(x,y) + my_external_array2(2)
+    @end parallelRegion
+  end subroutine
+
+  subroutine kernel8(a, b, c, d)
+    use secondary, only: my_external_array2
+    implicit none
+    real, dimension(NX, NY), intent(in) :: a, b
+    real, dimension(NX, NY), intent(out) :: c, d
+    real my_scalar
+
+    my_scalar = 0.0d0
+    @parallelRegion{domName(x,y), domSize(NX, NY)}
+    c(x,y) = a(x,y) + b(x,y) + my_scalar
+    @end parallelRegion
+
+    my_scalar = 1.0d0
+    @parallelRegion{domName(x,y), domSize(NX, NY)}
+    d(x,y) = a(x,y) + b(x,y) + my_scalar
+    @end parallelRegion
+  end subroutine
+
   subroutine assert_values(test_array, expected_value)
     implicit none
     real, dimension(NX, NY), intent(in) :: test_array
@@ -121,7 +154,7 @@ program main
   use demo
   use secondary
   implicit none
-  real, dimension(NX, NY) :: a, b, c
+  real, dimension(NX, NY) :: a, b, c, d
 
   a(:,:) = 1.0d0
   b(:,:) = 2.0d0
@@ -153,6 +186,19 @@ program main
   c(:,:) = 0.0d0
   call kernel6(a, b, c)
   call assert_values(c, 4.0d0)
+
+  allocate(my_external_array2(2))
+  my_external_array2(1) = 0.0d0
+  my_external_array2(2) = 1.0d0
+  c(:,:) = 0.0d0
+  call kernel7(a, b, c)
+  call assert_values(c, 4.0d0)
+
+  c(:,:) = 0.0d0
+  d(:,:) = 0.0d0
+  call kernel8(a, b, c, d)
+  call assert_values(c, 3.0d0)
+  call assert_values(d, 4.0d0)
 
   stop
 end program main

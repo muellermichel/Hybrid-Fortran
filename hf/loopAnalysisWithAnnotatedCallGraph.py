@@ -32,7 +32,7 @@ from tools.metadata import parseString
 from xml.dom import NotFoundErr
 from tools.analysis import SymbolDependencyAnalyzer
 from tools.metadata import firstDuplicateChild, getNodeValue, getCalleesByCallerName, getCallersByCalleeName
-from tools.commons import openFile, printProgressIndicator, progressIndicatorReset, setupDeferredLogging
+from tools.commons import openFile, printProgressIndicator, progressIndicatorReset, setupDeferredLogging, UsageError
 from optparse import OptionParser
 import logging
 import os

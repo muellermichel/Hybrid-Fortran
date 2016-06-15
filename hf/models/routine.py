@@ -436,7 +436,8 @@ This is not allowed for implementations using %s.\
 			region._linesAndSymbols = updatedLinesAndSymbols
 
 		#update symbols in symbolsByName with additional ones
-		for symbol in self._additionalArguments + self._synthesizedSymbols + self._symbolsToUpdate:
+		for symbol in self._additionalArguments \
+			+ self._synthesizedSymbols + self._symbolsToUpdate + self.regions[0]._symbolsToAdd:
 			nameInScope = symbol.nameInScope(useDeviceVersionIfAvailable=False)
 			if symbol.routineNode:
 				symbol.updateNameInScope(residingModule=self.parentModule.name)
@@ -444,15 +445,9 @@ This is not allowed for implementations using %s.\
 			self.symbolsByName[nameInScope] = symbol
 
 		#gather all the specified symbols
-		specifiedSymbolsByNameInScope = {}
 		for _, symbolsOnLine in self.regions[0].linesAndSymbols:
 				for symbol in symbolsOnLine:
-					specifiedSymbolsByNameInScope[symbol.nameInScope(useDeviceVersionIfAvailable=False)] = symbol
-
-		#make sure the user specified versions are used if available
-		for nameInScope in specifiedSymbolsByNameInScope:
-			symbol = specifiedSymbolsByNameInScope[nameInScope]
-			self.symbolsByName[nameInScope] = symbol
+					self.symbolsByName[symbol.nameInScope(useDeviceVersionIfAvailable=False)] = symbol
 
 		#update symbols referenced on specific lines (could be replaced with automatically added ones)
 		for region in self.regions:
@@ -466,6 +461,7 @@ This is not allowed for implementations using %s.\
 		self._additionalArguments = updateReferences(self._additionalArguments)
 		self._synthesizedSymbols = updateReferences(self._synthesizedSymbols)
 		self._symbolsToUpdate = updateReferences(self._symbolsToUpdate)
+		self.regions[0]._symbolsToAdd = updateReferences(self.regions[0]._symbolsToAdd)
 
 		#prepare type parameters
 		typeParametersByName = {}

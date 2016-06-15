@@ -325,7 +325,11 @@ class CallGraphParser(object):
             else:
                 self.state = 'inside_module_body'
         elif parallelRegionMatch:
-            raise UsageError("parallel region without parallel dependants")
+            self.processParallelRegionMatch(parallelRegionMatch)
+            if self.state == "inside_branch":
+                self.stateBeforeBranch = 'inside_parallelRegion'
+            else:
+                self.state = 'inside_parallelRegion'
         elif (self.patterns.subprocBeginPattern.match(line)):
             raise UsageError("subprocedure within subprocedure not allowed")
         elif templateMatch:
@@ -387,7 +391,10 @@ class CallGraphParser(object):
                 self.state = 'inside_module_body'
         elif parallelRegionMatch:
             self.processParallelRegionMatch(parallelRegionMatch)
-            self.state = 'inside_parallelRegion'
+            if self.state == "inside_branch":
+                self.stateBeforeBranch = 'inside_parallelRegion'
+            else:
+                self.state = 'inside_parallelRegion'
         elif self.patterns.subprocBeginPattern.match(line):
             raise UsageError("subprocedure within subprocedure not allowed")
         elif templateMatch:

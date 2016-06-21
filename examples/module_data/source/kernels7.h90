@@ -38,6 +38,10 @@ contains
     use my_module, only: c_hfdev
     @end if
 
+    @domainDependant{attribute(autoDom, host)}
+    c
+    @end domainDependant
+
     @if{architecture(GPU)}
     c(:,:,:) = c_hfdev(:,:,:)
     @end if

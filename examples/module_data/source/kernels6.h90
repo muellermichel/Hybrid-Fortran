@@ -25,8 +25,6 @@ module kernels6
 
 contains
   subroutine kernels6_initialize()
-    @domainDependant{}
-    @end domainDependant
     allocate(local(NX,NY,NZ))
     local(:,:,:) = 5.0d0
   end subroutine

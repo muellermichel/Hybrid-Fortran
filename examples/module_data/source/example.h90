@@ -120,6 +120,7 @@ program main
   use my_module, only: a, b, a2, b2, c, d, c2, d2, used_in_acc_routine, assert_values, a_dyn, b_dyn, c_dyn, d_dyn, implicitDataArray1, nx, ny, nz, cpu_add
   use kernels3, only: outer_wrapper3
   use kernels5, only: kernels5_initialize, kernels5_cleanup
+  use host_only_module, only: host_only_wrapper
 !   use kernels6, only: kernels6_initialize, kernels6_cleanup
   implicit none
   integer :: x, y, z
@@ -220,7 +221,7 @@ program main
   d_dyn(:,:,:) = 0.0d0
   call data_region_wrapper8()
   write(0,*) "calculation8 complete"
-  call assert_values(c_dyn, 3.0d0)
+  call assert_values(c_dyn, 4.0d0)
   call assert_values(d_dyn, 3.0d0)
   deallocate(a_dyn)
   deallocate(b_dyn)
@@ -238,6 +239,7 @@ program main
 
   c(:,:,:) = 0.0d0
   call data_region_wrapper9()
+  write(0,*) "calculation9 complete"
   call assert_values(c, 1.0d0)
 
   deallocate(a)
@@ -248,6 +250,8 @@ program main
   deallocate(b2)
   deallocate(c2)
   deallocate(d2)
+
+  call host_only_wrapper()
 
   stop
 end program main

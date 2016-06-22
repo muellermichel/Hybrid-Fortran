@@ -55,7 +55,7 @@ class FortranImplementation(object):
 		symbol.isUsingDevicePostfix = False
 		symbol.isOnDevice = False
 
-	def adjustCalleeName(self, calleeName, calleeImplementation, callerImplementation, calleeNode, callerNode):
+	def adjustCalleeName(self, calleeName, calleeImplementation, callerImplementation, calleeNode, callerNode, calleeIsKernelCaller):
 		if not calleeImplementation.onDevice:
 			return calleeName
 		if (calleeNode.getAttribute("parallelRegionPosition") in ["outside", "within"] \
@@ -66,6 +66,8 @@ class FortranImplementation(object):
 		):
 			#calling a device function from a host routine
 			return synthesizedHostRoutineName(calleeName)
+		if calleeNode.getAttribute("parallelRegionPosition") == "outside" or calleeIsKernelCaller:
+			return synthesizedDeviceRoutineName(calleeName)
 		return calleeName
 
 	def generateRoutines(self, routine):
@@ -784,6 +786,7 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 		if routine.node.getAttribute("parallelRegionPosition") == "outside":
 			hostRoutine = generateHostRoutine(routine)
 			routines.append(hostRoutine)
+			routines[0].name = synthesizedDeviceRoutineName(routines[0].name)
 
 		if routine.node.getAttribute("parallelRegionPosition") != "within":
 			return routines
@@ -816,7 +819,9 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 			kernelWrapperRegions.append(callRegion)
 			parallelRegionIndex += 1
 
+		routines[0].name = synthesizedDeviceRoutineName(routines[0].name)
 		routine.node.setAttribute("parallelRegionPosition", "inside")
+		routine.node.setAttribute("isKernelCaller", "yes")
 		routine.parallelRegionTemplates = []
 		routine.regions = kernelWrapperRegions
 		return routines

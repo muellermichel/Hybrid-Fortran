@@ -227,7 +227,8 @@ class CallRegion(Region):
 				self._callee.implementation,
 				parentRoutine.implementation,
 				self._callee.node,
-				parentRoutine.node
+				parentRoutine.node,
+				self._callee.isCallingKernel
 			)
 
 		if hasattr(self._callee, "implementation") and parallelRegionPosition == "within" and not isForeignModuleCall:

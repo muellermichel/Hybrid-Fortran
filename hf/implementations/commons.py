@@ -20,13 +20,23 @@
 
 from tools.commons import UsageError
 from tools.metadata import appliesTo, getDomainsWithParallelRegionTemplate, getReductionScalarsByOperator, getTemplate
+from tools.patterns import RegExPatterns
 import logging
 
+def originalRoutineName(routineName):
+	match = RegExPatterns.Instance().routineNamePattern.match(routineName)
+	if not match:
+		return ""
+	return match.group(1)
+
 def synthesizedKernelName(routineName, kernelNumber):
-	return "hfk%i_%s" %(kernelNumber, routineName)
+	return "hfk%i_%s" %(kernelNumber, originalRoutineName(routineName))
 
 def synthesizedHostRoutineName(routineName):
-	return "hfh_%s" %(routineName)
+	return originalRoutineName(routineName)
+
+def synthesizedDeviceRoutineName(routineName):
+	return "hfd_%s" %(originalRoutineName(routineName))
 
 def getImportStatements(symbolsOrModuleName, forceHostVersion=False):
 	def getSourceSymbol(symbol):

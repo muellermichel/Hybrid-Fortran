@@ -83,7 +83,7 @@ contains
     a, b, result
     @end domainDependant
 
-    result = a * b + 1.0d0
+    result = a + b + 1.0d0
   end subroutine
 
 end module kernels8

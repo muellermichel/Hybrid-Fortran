@@ -424,5 +424,51 @@ class TestSymbolAlgorithms(unittest.TestCase):
 			("real(8)", "real(8), dimension(n * (m + 1))", "a")
 		)
 
+class TestImplementationAlgorithms(unittest.TestCase):
+	def testRoutineNameSynthesis(self):
+		from implementations.commons import synthesizedKernelName
+		from implementations.commons import synthesizedHostRoutineName
+		from implementations.commons import synthesizedDeviceRoutineName
+		self.assertEqual(
+			synthesizedKernelName("a", 1),
+			"hfk1_a"
+		)
+		self.assertEqual(
+			synthesizedKernelName("_a", 1),
+			"hfk1__a"
+		)
+		self.assertEqual(
+			synthesizedKernelName("hfk1_a", 1),
+			"hfk1_a"
+		)
+		self.assertEqual(
+			synthesizedKernelName("hfd_a", 1),
+			"hfk1_a"
+		)
+		self.assertEqual(
+			synthesizedHostRoutineName("_a"),
+			"_a"
+		)
+		self.assertEqual(
+			synthesizedHostRoutineName("hfd_a"),
+			"a"
+		)
+		self.assertEqual(
+			synthesizedHostRoutineName("hfk1_a"),
+			"a"
+		)
+		self.assertEqual(
+			synthesizedDeviceRoutineName("_a"),
+			"hfd__a"
+		)
+		self.assertEqual(
+			synthesizedDeviceRoutineName("hfd_a"),
+			"hfd_a"
+		)
+		self.assertEqual(
+			synthesizedDeviceRoutineName("hfk1_a"),
+			"hfd_a"
+		)
+
 if __name__ == '__main__':
 	unittest.main()

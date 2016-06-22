@@ -115,6 +115,8 @@ class AnalyzableRoutine(Routine):
 
 	@property
 	def isCallingKernel(self):
+		if self.node.getAttribute("isKernelCaller") == "yes":
+			return True
 		for region in self._regions:
 			if isinstance(region, CallRegion) \
 			and region._callee \

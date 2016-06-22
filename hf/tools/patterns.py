@@ -65,6 +65,7 @@ class RegExPatterns:
         'singleMappedImportPattern': r'\s*(\w*)\s*=>\s*(\w*)\s*',
         'callArgumentPattern': r'\s*(\w*)\s*(.*)',
         'containsPattern': r'\s*contains\s*',
+        'routineNamePattern': r'(?:hfd_|hfk[0-9]*_)?(\w*)',
         'specificationStatementPattern': r"""
             ^\s*(
                 procedure|external|intrinsic

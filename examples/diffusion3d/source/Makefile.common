@@ -119,7 +119,7 @@ ${OPENACC_EXE}: etc.o main.o ${PROGRAM_NAME_PREFIX}_openacc.o
 
 ifdef GPU
 ${OPENACC_FORTRAN_EXE}: ${PROGRAM_NAME_PREFIX}_openACC_Fortran.o
-	pgf90 -acc -Mcuda=5.5,cc3x -ta=nvidia,cc3x -fast ${PROGRAM_NAME_PREFIX}_openACC_Fortran.o ../hybrid_source/time_profiling.o ../hybrid_source/helper_functions.o -o ${OPENACC_FORTRAN_EXE}
+	pgf90 -acc -Mcuda=7.5,cc3x -ta=nvidia,cc3x -fast ${PROGRAM_NAME_PREFIX}_openACC_Fortran.o ../hybrid_source/time_profiling.o ../hybrid_source/helper_functions.o -o ${OPENACC_FORTRAN_EXE}
 else
 ${OPENACC_FORTRAN_EXE}: ${PROGRAM_NAME_PREFIX}_openACC_Fortran.o
 	ifort -fast -openmp ${PROGRAM_NAME_PREFIX}_openACC_Fortran.o ../hybrid_source/time_profiling.o ../hybrid_source/helper_functions.o -o ${OPENACC_FORTRAN_EXE}
@@ -133,7 +133,7 @@ ${C_EXE_INTEL}: etc_intel.o main_intel.o ${PROGRAM_NAME_PREFIX}_c_version_intel.
 
 ifdef GPU
 ${HF_EXE}: ../hybrid_source/${PROGRAM_NAME_PREFIX}.o
-	pgf90 -Mcuda=5.5,cc3x -ta=nvidia,cc3x -fast ../hybrid_source/${PROGRAM_NAME_PREFIX}.o ../hybrid_source/time_profiling.o ../hybrid_source/helper_functions.o -o ${HF_EXE}
+	pgf90 -Mcuda=7.5,cc3x -ta=nvidia,cc3x -fast ../hybrid_source/${PROGRAM_NAME_PREFIX}.o ../hybrid_source/time_profiling.o ../hybrid_source/helper_functions.o -o ${HF_EXE}
 else
 ${HF_EXE}: ../hybrid_source/${PROGRAM_NAME_PREFIX}.o
 	pgf90 -fast ../hybrid_source/${PROGRAM_NAME_PREFIX}.o ../hybrid_source/time_profiling.o ../hybrid_source/helper_functions.o -o ${HF_EXE}
@@ -159,7 +159,7 @@ ${PROGRAM_NAME_PREFIX}_openacc.o: ${PROGRAM_NAME_PREFIX}.c ido.h
 
 ifdef GPU
 ${PROGRAM_NAME_PREFIX}_openACC_Fortran.o: ${PROGRAM_NAME_PREFIX}_openACC.F90
-	pgf90 -acc -Mcuda=5.5,cc3x -ta=nvidia,cc3x -fast -I../hybrid_source -c ${PROGRAM_NAME_PREFIX}_openACC.F90  -o ${PROGRAM_NAME_PREFIX}_openACC_Fortran.o
+	pgf90 -acc -Mcuda=7.5,cc3x -ta=nvidia,cc3x -fast -I../hybrid_source -c ${PROGRAM_NAME_PREFIX}_openACC.F90  -o ${PROGRAM_NAME_PREFIX}_openACC_Fortran.o
 else
 ${PROGRAM_NAME_PREFIX}_openACC_Fortran.o: ${PROGRAM_NAME_PREFIX}_openACC.F90
 	ifort -openmp -fast -I../hybrid_source -c ${PROGRAM_NAME_PREFIX}_openACC.F90 -o ${PROGRAM_NAME_PREFIX}_openACC_Fortran.o

@@ -45,10 +45,10 @@ endif
 FC=pgf90
 CC=pgcc
 LD=pgf90
-FFLAGS_PRODUCTION= -Mcuda=6.5,cc35 -ta=nvidia,cc35 -Minfo=inline,ipa -Mneginfo -fast
-FFLAGS_DEBUG= -g -Mcuda=6.5,cc35 -ta=nvidia,cc35 -Mbounds -Mchkptr -Minfo=accel,inline -Mneginfo -Minform=inform
-LDFLAGS_PRODUCTION= -Mcuda=6.5,cc35 -ta=nvidia,cc35 -L${NVDIR}/lib64 -l${HYBRID_LIBRARY_FILENAME_POSTFIX} -lcudart -lstdc++
-LDFLAGS_DEBUG= -Mcuda=6.5,cc35 -ta=nvidia,cc35 -L${NVDIR}/lib64 -l${HYBRID_LIBRARY_FILENAME_POSTFIX} -lcudart -lstdc++
+FFLAGS_PRODUCTION= -Mcuda=7.5,cc35 -ta=nvidia,cc35 -Minfo=inline,ipa -Mneginfo -fast
+FFLAGS_DEBUG= -g -Mcuda=7.5,cc35 -ta=nvidia,cc35 -Mbounds -Mchkptr -Minfo=accel,inline -Mneginfo -Minform=inform
+LDFLAGS_PRODUCTION= -Mcuda=7.5,cc35 -ta=nvidia,cc35 -L${NVDIR}/lib64 -l${HYBRID_LIBRARY_FILENAME_POSTFIX} -lcudart -lstdc++
+LDFLAGS_DEBUG= -Mcuda=7.5,cc35 -ta=nvidia,cc35 -L${NVDIR}/lib64 -l${HYBRID_LIBRARY_FILENAME_POSTFIX} -lcudart -lstdc++
 
 #############################################################################
 # uncomment these settings to use pgfortran                                 #

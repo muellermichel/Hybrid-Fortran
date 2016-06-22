@@ -11,8 +11,8 @@ export CUDA_PATH=/opt/cuda/6.0
 export LD_LIBRARY_PATH=$CUDA_PATH/lib64:$LD_LIBRARY_PATH
 
 #Setting up PGI
-export PGI=/opt/pgi/15.1
-export PGI_PATH=$PGI/linux86-64/15.1
+export PGI=/opt/pgi/16.5
+export PGI_PATH=$PGI/linux86-64/16.5
 export NVDIR=$CUDA_PATH
 export CUDADIR=$CUDA_PATH/bin
 export CUDALIB=$NVDIR/lib

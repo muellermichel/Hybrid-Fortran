@@ -20,25 +20,27 @@ implicit none
 contains
 
   @scheme{name(HOST_ONLY)}
-  subroutine host_only_subroutine(a, b, c)
+  subroutine host_only_subroutine(a, b, c, e)
     implicit none
     real, dimension(NX, NY, NZ), intent(in) :: a, b
-    real, dimension(NX, NY, NZ), intent(out) :: c
+    real, dimension(NX, NY, NZ), intent(out) :: c, e
     real, dimension(NX, NY, NZ) :: aloc, bloc, cloc, dloc
     integer(4) :: x, y, z
     @domainDependant{attribute(host, autoDom), domPP(DOM), accPP(AT)}
-    a, b, c
+    a, b, c, d
     @end domainDependant
 
     do y = 1, NY
       do x = 1, NX
         do z = 1, NZ
           call device_add(a(x,y,z), b(x,y,z), c(x,y,z))
+          call device_add(b(x,y,z) - a(x,y,z), 3.0, e(x,y,z))
         end do
       end do
     end do
     write(6,*) "device add in host loop complete"
     call assert_values(c, 3.0d0)
+    call assert_values(e, 4.0d0)
 
     aloc(:,:,:) = 1.0d0
     bloc(:,:,:) = 2.0d0
@@ -132,8 +134,9 @@ program main
   f(:,:,:) = 0.0d0
   test = .TRUE.
 
-  call host_only_subroutine(a, b, c) ! c = a + b = 3.0d0
+  call host_only_subroutine(a, b, c, e) ! c = a + b = 3.0d0
   write(6,*) "host only complete"
+  e(:,:,:) = 0.0d0
   call kernels(c, d, e, f)  ! e = c + d = 4.0d0 ; f = c * d = 3.0d0
   write(6,*) "e complete"
   call assert_values(e, 4.0d0)

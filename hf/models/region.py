@@ -144,22 +144,16 @@ class CallRegion(Region):
 
 	def _adjustedArguments(self, arguments):
 		def adjustArgument(argument, parallelRegionTemplate, iterators):
-			symbolMatch = RegExPatterns.Instance().symbolNamePattern.match(argument)
-			if not symbolMatch:
-				return argument
 			parentRoutine = self._routineRef()
-			symbol = self.parentRoutine.symbolsByName.get(symbolMatch.group(1))
-			if not symbol:
-				return argument
-			symbolAccessString, remainder = getSymbolAccessStringAndRemainder(
-				symbol,
+			return implement(
+				argument,
+				parentRoutine.symbolsByName.values(),
+				implementSymbolAccessStringAndRemainder,
 				iterators,
 				parallelRegionTemplate,
-				symbolMatch.group(2),
 				self._callee,
 				useDeviceVersionIfAvailable=parentRoutine.implementation.onDevice
 			)
-			return symbolAccessString + remainder
 
 		parallelRegionTemplate = None
 		if self._parentRegion and isinstance(self._parentRegion(), ParallelRegion):
@@ -202,7 +196,6 @@ class CallRegion(Region):
 				)
 
 		parentRoutine = self._routineRef()
-		isForeignModuleCall = parentRoutine.parentModule.name != self._callee.parentModule.name
 		calleesWithPackedReals = parentRoutine._packedRealSymbolsByCalleeName.keys()
 		for calleeName in calleesWithPackedReals:
 			usedCompactedParameters = [
@@ -222,6 +215,7 @@ class CallRegion(Region):
 
 		calleeName = parentRoutine._adjustedCalleeNamesByName[self._callee.name]
 
+		isForeignModuleCall = parentRoutine.parentModule.name != self._callee.parentModule.name
 		if hasattr(self._callee, "implementation") and parallelRegionPosition == "within" and not isForeignModuleCall:
 			if not self._callee.parallelRegionTemplates \
 			or len(self._callee.parallelRegionTemplates) == 0:

@@ -148,57 +148,66 @@ contains
       stop 2
     end if
   end subroutine
+
+  subroutine run_demo()
+    use secondary
+    implicit none
+
+    real, dimension(NX, NY) :: a, b, c, d
+
+    a(:,:) = 1.0d0
+    b(:,:) = 2.0d0
+    c(:,:) = 0.0d0
+    call kernel1(a, b, c)
+    call assert_values(c, 3.0d0)
+
+    c(:,:) = 0.0d0
+    call kernel2(a, b, c)
+    call assert_values(c, 5.0d0)
+
+    c(:,:) = 0.0d0
+    call kernel3(a, b, c)
+    call assert_values(c, 5.0d0)
+
+    call scalar_host_routine()
+
+    c(:,:) = 0.0d0
+    call kernel4(a, b, c)
+    call assert_values(c, 6.0d0)
+
+    my_external_param2 = 3.0d0
+    c(:,:) = 0.0d0
+    call kernel5(a, b, c)
+    call assert_values(c, 6.0d0)
+
+    my_external_array(1) = 0.0d0
+    my_external_array(2) = 1.0d0
+    c(:,:) = 0.0d0
+    call kernel6(a, b, c)
+    call assert_values(c, 4.0d0)
+
+    allocate(my_external_array2(2))
+    my_external_array2(1) = 0.0d0
+    my_external_array2(2) = 1.0d0
+    c(:,:) = 0.0d0
+    call kernel7(a, b, c)
+    call assert_values(c, 4.0d0)
+
+    c(:,:) = 0.0d0
+    d(:,:) = 0.0d0
+    call kernel8(a, b, c, d)
+    call assert_values(c, 3.0d0)
+    call assert_values(d, 4.0d0)
+  end subroutine
 end module
 
 program main
   use demo
-  use secondary
   implicit none
-  real, dimension(NX, NY) :: a, b, c, d
 
-  a(:,:) = 1.0d0
-  b(:,:) = 2.0d0
-  c(:,:) = 0.0d0
-  call kernel1(a, b, c)
-  call assert_values(c, 3.0d0)
-
-  c(:,:) = 0.0d0
-  call kernel2(a, b, c)
-  call assert_values(c, 5.0d0)
-
-  c(:,:) = 0.0d0
-  call kernel3(a, b, c)
-  call assert_values(c, 5.0d0)
-
-  call scalar_host_routine()
-
-  c(:,:) = 0.0d0
-  call kernel4(a, b, c)
-  call assert_values(c, 6.0d0)
-
-  my_external_param2 = 3.0d0
-  c(:,:) = 0.0d0
-  call kernel5(a, b, c)
-  call assert_values(c, 6.0d0)
-
-  my_external_array(1) = 0.0d0
-  my_external_array(2) = 1.0d0
-  c(:,:) = 0.0d0
-  call kernel6(a, b, c)
-  call assert_values(c, 4.0d0)
-
-  allocate(my_external_array2(2))
-  my_external_array2(1) = 0.0d0
-  my_external_array2(2) = 1.0d0
-  c(:,:) = 0.0d0
-  call kernel7(a, b, c)
-  call assert_values(c, 4.0d0)
-
-  c(:,:) = 0.0d0
-  d(:,:) = 0.0d0
-  call kernel8(a, b, c, d)
-  call assert_values(c, 3.0d0)
-  call assert_values(d, 4.0d0)
+  ! Hybrid Fortran can only convert code inside modules, not inside program structures.
+  ! To call kernels we thus need to use one level of indirection here.
+  call run_demo()
 
   stop
 end program main

@@ -41,6 +41,7 @@ class FortranImplementation(object):
 	supportsArbitraryDataAccessesOutsideOfKernels = True
 	supportsNativeMemsetsOutsideOfKernels = True
 	supportsNativeModuleImportsWithinKernels = True
+	usesDuplicatesAsHostRoutines = False
 
 	def __init__(self, optionFlags, appliesTo="CPU"):
 		self.patterns = RegExPatterns.Instance()
@@ -56,7 +57,7 @@ class FortranImplementation(object):
 		symbol.isOnDevice = False
 
 	def adjustCalleeName(self, calleeName, calleeImplementation, callerImplementation, calleeNode, callerNode, calleeIsKernelCaller):
-		if not calleeImplementation.onDevice:
+		if not calleeImplementation.usesDuplicatesAsHostRoutines:
 			return calleeName
 		if (calleeNode.getAttribute("parallelRegionPosition") in ["outside", "within"] \
 			and callerNode.getAttribute("parallelRegionPosition") in [None, ""] \
@@ -776,6 +777,7 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 	supportsArbitraryDataAccessesOutsideOfKernels = False
 	supportsNativeMemsetsOutsideOfKernels = True
 	supportsNativeModuleImportsWithinKernels = False
+	usesDuplicatesAsHostRoutines = True
 
 	def __init__(self, optionFlags):
 		self.currRoutineNode = None

@@ -70,10 +70,10 @@ test_example: example
 	@rm -r example
 	@make example
 	@cd example && ./configure
-	@echo "----- default target ------"
-	@cd example && make clean && make tests
 	@echo "----- debug target ------"
 	@cd example && make clean && make tests DEBUG=1
+	@echo "----- default target ------"
+	@cd example && make clean && make tests
 
 define test_rules
   test_$(1):
@@ -81,10 +81,10 @@ define test_rules
 	@echo "########################## attempting to test $(1) ###############################"
 	@echo "###########################################################################################"
 	@cd $(1) && ./configure
-	@echo "----- default target ------"
-	@cd $(1) && make clean && make tests
 	@echo "----- debug target ------"
 	@cd $(1) && make clean && make tests DEBUG=1
+	@echo "----- default target ------"
+	@cd $(1) && make clean && make tests
 endef
 
 clean_example:

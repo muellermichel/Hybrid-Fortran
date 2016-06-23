@@ -74,7 +74,7 @@ class RegExPatterns:
                 |pointer|protected|save
                 |target|value|volatile|implicit
                 |namelist|equivalence|common
-            )\s+(.*)\s*$
+            )(?:\s+(.*))?\s*$
         """
     }
 

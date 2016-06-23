@@ -405,8 +405,12 @@ This is not allowed for implementations using %s.\
         if self.state not in ['inside_module', 'inside_branch'] \
         or (self.state == 'inside_branch' and self.stateBeforeBranch != 'inside_module'):
             return
+        specificationStatementMatch = self.patterns.specificationStatementPattern.match(line)
+        adjustedLine = line
+        if specificationStatementMatch:
+            adjustedLine = self.implementation.adjustSpecificationForDevice(line, specificationStatementMatch.group(1))
         if not self.prepareLineCalledForCurrentLine:
-            self.prepareLine(self.processModuleDeclarationLineAndGetAdjustedLine(line), self.tab_outsideSub)
+            self.prepareLine(self.processModuleDeclarationLineAndGetAdjustedLine(adjustedLine), self.tab_outsideSub)
 
     def processInsideDeclarationsState(self, line):
         '''process everything that happens per h90 declaration line'''

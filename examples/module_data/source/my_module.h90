@@ -17,14 +17,20 @@
 
 module my_module
 	use more_indirection_module, only: indirection
+	implicit none
+	private
 
-	integer(4), parameter:: rlength = 4
-	real(rlength), dimension(:, :, :), allocatable :: a, b, c, d, a2, b2, c2, d2, used_in_acc_routine
-	real, dimension(:, :, :), allocatable :: a_dyn, b_dyn, c_dyn, d_dyn
-	real, allocatable :: implicitDataArray1(:)
-	real, parameter :: some_const = 1.0d0
-	integer :: more_indirection = indirection
-	integer(4) :: nx, ny, nz
+	public:: assert_values
+	public:: cpu_add
+	public:: kernel
+
+	integer(4), public, parameter:: rlength = 4
+	real(rlength), public, dimension(:, :, :), allocatable :: a, b, c, d, a2, b2, c2, d2, used_in_acc_routine
+	real, public, dimension(:, :, :), allocatable :: a_dyn, b_dyn, c_dyn, d_dyn
+	real, public, allocatable :: implicitDataArray1(:)
+	real, public, parameter :: some_const = 1.0d0
+	integer, public :: more_indirection = indirection
+	integer(4), public :: nx, ny, nz
 
 	@domainDependant{attribute(host), domName(x,y,z), domSize(NX,NY,NZ), domPP(DOM), accPP(AT)}
 	a, b, c, d, a2, b2, c2, d2, used_in_acc_routine

@@ -76,6 +76,11 @@ class FortranImplementation(object):
 		#(kernel number information contained in the name)
 		return calleeName
 
+	def adjustSpecificationForDevice(self, line, specification):
+		if self.usesDuplicatesAsHostRoutines and specification == "private":
+			return ""
+		return line
+
 	def generateRoutines(self, routine):
 		return [routine]
 

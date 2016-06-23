@@ -272,6 +272,11 @@ def run_accuracy_test_for_datfile(options, eps, epsSingle):
 				passedStr = "invalid value found: %s; FAIL <-------" %(str(firstInvalidValue))
 				firstErr = firstInvalidIndex
 				err = -1
+				maxErr = -1
+				firstErrVal = 0
+				expectedVal = 0
+				maxErrVal = 0
+				maxErrExpectedVal = 0
 			elif unpackedRef != None:
 				err, firstErr, firstErrVal, expectedVal, maxErr, maxErrVal, maxErrExpectedVal = rootMeanSquareDeviation(unpacked, unpackedRef, epsSingle)
 				if firstErr != -1 or err > eps:

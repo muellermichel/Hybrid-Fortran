@@ -97,6 +97,7 @@ class AnalyzableRoutine(Routine):
 		self._userSpecifiedSymbolNames = None
 		self._synthesizedSymbols = None
 		self._packedRealSymbolsByCalleeName = {}
+		self._adjustedCalleeNamesByName = None
 		self.usedSymbolNames = {}
 
 	@property
@@ -475,16 +476,32 @@ This is not allowed for implementations using %s.\
 		self.regions[0].loadTypeParameterSymbolsByName(typeParametersByName)
 
 	def _prepareCallRegions(self):
+		def updateAdjustedCalleeNamesByName(region):
+			adjustCalleeName = region._callee.nameInScope()
+			if hasattr(region._callee, "implementation"):
+				adjustCalleeName = self.implementation.adjustCalleeName(
+					adjustCalleeName,
+					region._callee.implementation,
+					self.implementation,
+					region._callee.node,
+					self.node,
+					region._callee.isCallingKernel
+				)
+			self._adjustedCalleeNamesByName[region._callee.name] = adjustCalleeName
+
+		self._adjustedCalleeNamesByName = {}
 		for region in self.regions:
 			if isinstance(region, ParallelRegion):
 				for subRegion in region._subRegions:
 					if not isinstance(subRegion, CallRegion):
 						continue
 					subRegion.loadPassedInSymbolsByName(self.symbolsByName)
+					updateAdjustedCalleeNamesByName(subRegion)
 				continue
 			if not isinstance(region, CallRegion):
 				continue
 			region.loadPassedInSymbolsByName(self.symbolsByName)
+			updateAdjustedCalleeNamesByName(region)
 
 	def _implementHeader(self):
 		parameterList = ""

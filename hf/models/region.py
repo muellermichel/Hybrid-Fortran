@@ -220,16 +220,7 @@ class CallRegion(Region):
 		if hasattr(self._callee, "implementation"):
 			parallelRegionPosition = self._callee.node.getAttribute("parallelRegionPosition")
 
-		calleeName = self._callee.nameInScope()
-		if hasattr(self._callee, "implementation"):
-			calleeName = parentRoutine.implementation.adjustCalleeName(
-				calleeName,
-				self._callee.implementation,
-				parentRoutine.implementation,
-				self._callee.node,
-				parentRoutine.node,
-				self._callee.isCallingKernel
-			)
+		calleeName = parentRoutine._adjustedCalleeNamesByName[self._callee.name]
 
 		if hasattr(self._callee, "implementation") and parallelRegionPosition == "within" and not isForeignModuleCall:
 			if not self._callee.parallelRegionTemplates \
@@ -505,9 +496,11 @@ class RoutineSpecificationRegion(Region):
 				if symbol != None:
 					text += getImportLine([symbol], parentRoutine)
 				else:
-					text += "use %s, only: %s => %s" %(sourceModule, nameInScope, sourceName) \
-						if nameInScope != sourceName \
-						else "use %s, only: %s" %(sourceModule, nameInScope)
+					adjustedSourceName = parentRoutine._adjustedCalleeNamesByName.get(sourceName, sourceName)
+					adjustedNameInScope = parentRoutine._adjustedCalleeNamesByName.get(nameInScope, nameInScope)
+					text += "use %s, only: %s => %s" %(sourceModule, adjustedNameInScope, adjustedSourceName) \
+						if adjustedNameInScope != adjustedSourceName \
+						else "use %s, only: %s" %(sourceModule, adjustedNameInScope)
 					if ConversionOptions.Instance().debugPrint and not skipDebugPrint:
 						text += " ! resynthesizing user input - no associated HF aware symbol found"
 					text += "\n"

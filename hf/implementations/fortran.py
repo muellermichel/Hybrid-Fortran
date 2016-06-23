@@ -66,8 +66,13 @@ class FortranImplementation(object):
 		):
 			#calling a device function from a host routine
 			return synthesizedHostRoutineName(calleeName)
-		if calleeNode.getAttribute("parallelRegionPosition") == "outside" or calleeIsKernelCaller:
+		if calleeNode.getAttribute("parallelRegionPosition") == "outside" \
+		or calleeIsKernelCaller \
+		or (not "hfk" in calleeName and calleeNode.getAttribute("parallelRegionPosition") == "within"):
+			#device routines OR routines already converted to kernel callers OR unconverted kernels
 			return synthesizedDeviceRoutineName(calleeName)
+		#this includes already converted kernels using CUDA Fortran implementation
+		#(kernel number information contained in the name)
 		return calleeName
 
 	def generateRoutines(self, routine):

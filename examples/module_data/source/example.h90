@@ -118,6 +118,7 @@ end module example
 program main
   use example
   use my_module, only: a, b, a2, b2, c, d, c2, d2, used_in_acc_routine, assert_values, a_dyn, b_dyn, c_dyn, d_dyn, implicitDataArray1, nx, ny, nz, cpu_add
+  use my_module, only: setup, cleanup
   use kernels3, only: outer_wrapper3
   use kernels5, only: kernels5_initialize, kernels5_cleanup
   use host_only_module, only: host_only_wrapper
@@ -208,13 +209,7 @@ program main
   call assert_values(d, 2.0d0)
 
 
-  nx = NX
-  ny = NY
-  nz = NZ
-  allocate(a_dyn(DOM(nx,ny,nz)))
-  allocate(b_dyn(DOM(nx,ny,nz)))
-  allocate(c_dyn(DOM(nx,ny,nz)))
-  allocate(d_dyn(DOM(nx,ny,nz)))
+  call setup(NX, NY, NZ)
   a_dyn(:,:,:) = 1.0d0
   b_dyn(:,:,:) = 2.0d0
   c_dyn(:,:,:) = 0.0d0
@@ -223,10 +218,7 @@ program main
   write(0,*) "calculation8 complete"
   call assert_values(c_dyn, 4.0d0)
   call assert_values(d_dyn, 3.0d0)
-  deallocate(a_dyn)
-  deallocate(b_dyn)
-  deallocate(c_dyn)
-  deallocate(d_dyn)
+  call cleanup()
 
   c(:,:,:) = 0.0d0
   call cpu_add

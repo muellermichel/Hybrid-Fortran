@@ -23,6 +23,8 @@ module my_module
 	public:: assert_values
 	public:: cpu_add
 	public:: kernel
+	public:: setup
+	public:: cleanup
 
 	integer(4), public, parameter:: rlength = 4
 	real(rlength), public, dimension(:, :, :), allocatable :: a, b, c, d, a2, b2, c2, d2, used_in_acc_routine
@@ -44,6 +46,28 @@ module my_module
 	implicitDataArray1
 	@end domainDependant
 contains
+	subroutine setup(nx_in, ny_in, nz_in)
+		implicit none
+		integer(4), intent(in) :: nx_in, ny_in, nz_in
+
+		nx = nx_in
+		ny = ny_in
+		nz = nz_in
+
+		allocate(a_dyn(nx,ny,nz))
+  		allocate(b_dyn(nx,ny,nz))
+  		allocate(c_dyn(nx,ny,nz))
+  		allocate(d_dyn(nx,ny,nz))
+	end subroutine
+
+	subroutine cleanup()
+		implicit none
+		deallocate(a_dyn)
+  		deallocate(b_dyn)
+  		deallocate(c_dyn)
+  		deallocate(d_dyn)
+	end subroutine
+
 	subroutine cpu_add()
 		implicit none
 		integer :: x, y, z

@@ -508,7 +508,7 @@ class DeviceDataFortranImplementation(FortranImplementation):
 			dimSizes = [dimSize for _, dimSize in symbol.domains]
 			if (routineIsKernelCaller or symbol.isToBeTransfered) and symbol.hasUndecidedDomainSizes:
 				if not ":" in dimSizes:
-					deviceInitStatements += domainSizesCheckConditional(dimSizes) + "\n"
+					deviceInitStatements += arrayCheckConditional(symbol) + "\n"
 					try:
 						deviceInitStatements += "allocate(%s)\n" %(symbol.allocationRepresentation())
 					except Exception as e:
@@ -522,7 +522,7 @@ class DeviceDataFortranImplementation(FortranImplementation):
 			if (symbol.intent in ["in", "inout"] or symbol.declarationType == DeclarationType.MODULE_ARRAY) \
 			and (routineIsKernelCaller or symbol.isToBeTransfered):
 				if not ":" in dimSizes:
-					deviceInitStatements += domainSizesCheckConditional(dimSizes) + "\n"
+					deviceInitStatements += arrayCheckConditional(symbol) + "\n"
 					symbol.isUsingDevicePostfix = False
 					originalStr = symbol.selectAllRepresentation()
 					symbol.isUsingDevicePostfix = True
@@ -546,7 +546,7 @@ class DeviceDataFortranImplementation(FortranImplementation):
 			if (symbol.intent in ["out", "inout"] or symbol.declarationType == DeclarationType.MODULE_ARRAY) \
 			and (routineIsKernelCaller or symbol.isToBeTransfered):
 				if not ":" in dimSizes:
-					deviceInitStatements += domainSizesCheckConditional(dimSizes) + "\n"
+					deviceInitStatements += arrayCheckConditional(symbol) + "\n"
 					symbol.isUsingDevicePostfix = False
 					originalStr = symbol.selectAllRepresentation()
 					symbol.isUsingDevicePostfix = True
@@ -555,7 +555,7 @@ class DeviceDataFortranImplementation(FortranImplementation):
 					deviceInitStatements += "end if\n"
 			if (routineIsKernelCaller or symbol.isToBeTransfered) and symbol.hasUndecidedDomainSizes:
 				if not ":" in dimSizes:
-					deviceInitStatements += domainSizesCheckConditional(dimSizes) + "\n"
+					deviceInitStatements += arrayCheckConditional(symbol) + "\n"
 					deviceInitStatements += "deallocate(%s)\n" %(symbol.nameInScope())
 					deviceInitStatements += "end if\n"
 		return deviceInitStatements + FortranImplementation.subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, isSubroutineEnd)

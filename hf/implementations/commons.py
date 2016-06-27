@@ -23,6 +23,16 @@ from tools.metadata import appliesTo, getDomainsWithParallelRegionTemplate, getR
 from tools.patterns import RegExPatterns
 import logging
 
+def domainSizesCheckConditional(domainSizes):
+	if not domainSizes:
+		raise Exception("cannot generate domain size conditional from empty domain sizes list")
+	return "if (%s) then" %(
+		" .and. ".join([
+			"%s .gt. 0" %(s.split(":")[-1])
+			for s in domainSizes
+		])
+	)
+
 def originalRoutineName(routineName):
 	match = RegExPatterns.Instance().routineNamePattern.match(routineName)
 	if not match:

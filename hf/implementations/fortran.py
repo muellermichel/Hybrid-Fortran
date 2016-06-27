@@ -505,23 +505,30 @@ class DeviceDataFortranImplementation(FortranImplementation):
 				continue
 			if symbol.isPresent:
 				continue
-			if (routineIsKernelCaller or symbol.isToBeTransfered) and symbol.hasUndecidedDomainSizes and not ":" in [dimSize for _, dimSize in symbol.domains]:
-				try:
-					deviceInitStatements += "allocate(%s)\n" %(symbol.allocationRepresentation())
-				except Exception as e:
-					raise Exception("Cannot allocate symbol %s (domains %s) here. Routine is kernel caller: %s, symbol to be transferred: %s" %(
-						symbol.name,
-						symbol.domains,
-						routineIsKernelCaller,
-						symbol.isToBeTransfered
-					))
+			dimSizes = [dimSize for _, dimSize in symbol.domains]
+			if (routineIsKernelCaller or symbol.isToBeTransfered) and symbol.hasUndecidedDomainSizes:
+				if not ":" in dimSizes:
+					deviceInitStatements += domainSizesCheckConditional(dimSizes) + "\n"
+					try:
+						deviceInitStatements += "allocate(%s)\n" %(symbol.allocationRepresentation())
+					except Exception as e:
+						raise Exception("Cannot allocate symbol %s (domains %s) here. Routine is kernel caller: %s, symbol to be transferred: %s" %(
+							symbol.name,
+							symbol.domains,
+							routineIsKernelCaller,
+							symbol.isToBeTransfered
+						))
+					deviceInitStatements += "end if\n"
 			if (symbol.intent in ["in", "inout"] or symbol.declarationType == DeclarationType.MODULE_ARRAY) \
 			and (routineIsKernelCaller or symbol.isToBeTransfered):
-				symbol.isUsingDevicePostfix = False
-				originalStr = symbol.selectAllRepresentation()
-				symbol.isUsingDevicePostfix = True
-				deviceStr = symbol.selectAllRepresentation()
-				deviceInitStatements += deviceStr + " = " + originalStr + "\n"
+				if not ":" in dimSizes:
+					deviceInitStatements += domainSizesCheckConditional(dimSizes) + "\n"
+					symbol.isUsingDevicePostfix = False
+					originalStr = symbol.selectAllRepresentation()
+					symbol.isUsingDevicePostfix = True
+					deviceStr = symbol.selectAllRepresentation()
+					deviceInitStatements += deviceStr + " = " + originalStr + "\n"
+					deviceInitStatements += "end if\n"
 			elif (routineIsKernelCaller or symbol.isToBeTransfered):
 				deviceInitStatements += symbol.selectAllRepresentation() + " = 0\n"
 		return deviceInitStatements
@@ -535,15 +542,22 @@ class DeviceDataFortranImplementation(FortranImplementation):
 				continue
 			if symbol.isPresent:
 				continue
+			dimSizes = [dimSize for _, dimSize in symbol.domains]
 			if (symbol.intent in ["out", "inout"] or symbol.declarationType == DeclarationType.MODULE_ARRAY) \
 			and (routineIsKernelCaller or symbol.isToBeTransfered):
-				symbol.isUsingDevicePostfix = False
-				originalStr = symbol.selectAllRepresentation()
-				symbol.isUsingDevicePostfix = True
-				deviceStr = symbol.selectAllRepresentation()
-				deviceInitStatements += originalStr + " = " + deviceStr + "\n"
+				if not ":" in dimSizes:
+					deviceInitStatements += domainSizesCheckConditional(dimSizes) + "\n"
+					symbol.isUsingDevicePostfix = False
+					originalStr = symbol.selectAllRepresentation()
+					symbol.isUsingDevicePostfix = True
+					deviceStr = symbol.selectAllRepresentation()
+					deviceInitStatements += originalStr + " = " + deviceStr + "\n"
+					deviceInitStatements += "end if\n"
 			if (routineIsKernelCaller or symbol.isToBeTransfered) and symbol.hasUndecidedDomainSizes:
-				deviceInitStatements += "deallocate(%s)\n" %(symbol.nameInScope())
+				if not ":" in dimSizes:
+					deviceInitStatements += domainSizesCheckConditional(dimSizes) + "\n"
+					deviceInitStatements += "deallocate(%s)\n" %(symbol.nameInScope())
+					deviceInitStatements += "end if\n"
 		return deviceInitStatements + FortranImplementation.subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, isSubroutineEnd)
 
 class PGIOpenACCFortranImplementation(DeviceDataFortranImplementation):

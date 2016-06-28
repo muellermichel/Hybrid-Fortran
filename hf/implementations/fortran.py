@@ -642,6 +642,8 @@ end subroutine
 		vectorSizePPNames = getVectorSizePPNames(parallelRegionTemplate)
 		regionStr += "!$acc kernels "
 		for symbol in dependantSymbols:
+			if len(symbol.domains) == 0:
+				continue
 			if symbol.isOnDevice:
 				regionStr += "deviceptr(%s) " %(symbol.name)
 		regionStr += "\n"

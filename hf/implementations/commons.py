@@ -28,7 +28,9 @@ def arrayCheckConditional(symbol):
 	if not domainSizes:
 		raise Exception("cannot generate domain size conditional from empty domain sizes list")
 	return "if (%s%s) then" %(
-		"allocated(%s) .and. " %(symbol.name) if symbol.hasUndecidedDomainSizes else "",
+		"allocated(%s) .and. " %(symbol.name) \
+			if symbol.hasUndecidedDomainSizes and not "pointer" in symbol.declarationPrefix \
+			else "",
 		" .and. ".join([
 			"%s .gt. 0" %(s.split(":")[-1])
 			for s in domainSizes

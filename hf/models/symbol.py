@@ -432,8 +432,6 @@ class Symbol(object):
 			return False
 		if self._isPresent:
 			return True
-		if self.parallelRegionPosition in ["within", "outside"]:
-			return True #as a general rule in HF, if we have a kernel in our subroutine, all symbols are to be already present on the device
 		return False
 
 	@isPresent.setter

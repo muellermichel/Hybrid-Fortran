@@ -42,6 +42,7 @@ class FortranImplementation(object):
 	supportsNativeMemsetsOutsideOfKernels = True
 	supportsNativeModuleImportsWithinKernels = True
 	usesDuplicatesAsHostRoutines = False
+	allowsMixedHostAndDeviceCode = True
 
 	def __init__(self, optionFlags, appliesTo="CPU"):
 		self.patterns = RegExPatterns.Instance()
@@ -51,8 +52,7 @@ class FortranImplementation(object):
 		if type(optionFlags) == list:
 			self.optionFlags = optionFlags
 
-	@staticmethod
-	def updateSymbolDeviceState(symbol, regionType, parallelRegionPosition):
+	def updateSymbolDeviceState(self, symbol, regionType, parallelRegionPosition):
 		symbol.isUsingDevicePostfix = False
 		symbol.isOnDevice = False
 
@@ -367,8 +367,7 @@ Symbols vs host attributes:\n%s" %(str([(symbol.name, symbol.isHostSymbol) for s
 	return alreadyOnDevice, copyHere, isOnHost
 
 class DeviceDataFortranImplementation(FortranImplementation):
-	@staticmethod
-	def updateSymbolDeviceState(symbol, regionType, parallelRegionPosition, postTransfer=False):
+	def updateSymbolDeviceState(self, symbol, regionType, parallelRegionPosition, postTransfer=False):
 		logging.debug("device state of symbol %s BEFORE update:\nisOnDevice: %s; isUsingDevicePostfix: %s" %(
 			symbol.name,
 			symbol.isOnDevice,
@@ -377,6 +376,10 @@ class DeviceDataFortranImplementation(FortranImplementation):
 
 		#packed symbols -> leave them alone
 		if symbol.isCompacted:
+			return
+
+		#symbol explicitely marked for host, which is allowed in this implementation - leave it alone
+		if self.allowsMixedHostAndDeviceCode and symbol.isHostSymbol:
 			return
 
 		if parallelRegionPosition in ["within", "outside"]:
@@ -803,6 +806,7 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 	supportsNativeMemsetsOutsideOfKernels = True
 	supportsNativeModuleImportsWithinKernels = False
 	usesDuplicatesAsHostRoutines = True
+	allowsMixedHostAndDeviceCode = False
 
 	def __init__(self, optionFlags):
 		self.currRoutineNode = None

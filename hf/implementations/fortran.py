@@ -42,6 +42,7 @@ class FortranImplementation(object):
 	supportsNativeMemsetsOutsideOfKernels = True
 	supportsNativeModuleImportsWithinKernels = True
 	usesDuplicatesAsHostRoutines = False
+	allowsMixedHostAndDeviceCode = True
 
 	def __init__(self, optionFlags, appliesTo="CPU"):
 		self.patterns = RegExPatterns.Instance()
@@ -51,8 +52,7 @@ class FortranImplementation(object):
 		if type(optionFlags) == list:
 			self.optionFlags = optionFlags
 
-	@staticmethod
-	def updateSymbolDeviceState(symbol, regionType, parallelRegionPosition):
+	def updateSymbolDeviceState(self, symbol, regionType, parallelRegionPosition):
 		symbol.isUsingDevicePostfix = False
 		symbol.isOnDevice = False
 
@@ -165,6 +165,8 @@ class FortranImplementation(object):
 		pass
 
 	def parallelRegionBegin(self, dependantSymbols, parallelRegionTemplate):
+		if not dependantSymbols:
+			raise UsageError("parallel region without any dependant arrays")
 		domains = getDomainsWithParallelRegionTemplate(parallelRegionTemplate)
 		regionStr = ''
 		for pos in range(len(domains)-1,-1,-1): #use inverted order (optimization of accesses for fortran storage order)
@@ -365,8 +367,7 @@ Symbols vs host attributes:\n%s" %(str([(symbol.name, symbol.isHostSymbol) for s
 	return alreadyOnDevice, copyHere, isOnHost
 
 class DeviceDataFortranImplementation(FortranImplementation):
-	@staticmethod
-	def updateSymbolDeviceState(symbol, regionType, parallelRegionPosition, postTransfer=False):
+	def updateSymbolDeviceState(self, symbol, regionType, parallelRegionPosition, postTransfer=False):
 		logging.debug("device state of symbol %s BEFORE update:\nisOnDevice: %s; isUsingDevicePostfix: %s" %(
 			symbol.name,
 			symbol.isOnDevice,
@@ -375,6 +376,10 @@ class DeviceDataFortranImplementation(FortranImplementation):
 
 		#packed symbols -> leave them alone
 		if symbol.isCompacted:
+			return
+
+		#symbol explicitely marked for host, which is allowed in this implementation - leave it alone
+		if self.allowsMixedHostAndDeviceCode and symbol.isHostSymbol:
 			return
 
 		if parallelRegionPosition in ["within", "outside"]:
@@ -634,6 +639,8 @@ end subroutine
 		return "!$acc loop seq"
 
 	def parallelRegionBegin(self, dependantSymbols, parallelRegionTemplate):
+		if not dependantSymbols:
+			raise UsageError("parallel region without any dependant arrays")
 		regionStr = ""
 		#$$$ may need to be replaced with CUDA Fortran style manual update
 		# for symbol in self.currDependantSymbols:
@@ -642,6 +649,8 @@ end subroutine
 		vectorSizePPNames = getVectorSizePPNames(parallelRegionTemplate)
 		regionStr += "!$acc kernels "
 		for symbol in dependantSymbols:
+			if len(symbol.domains) == 0:
+				continue
 			if symbol.isOnDevice:
 				regionStr += "deviceptr(%s) " %(symbol.name)
 		regionStr += "\n"
@@ -797,6 +806,7 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 	supportsNativeMemsetsOutsideOfKernels = True
 	supportsNativeModuleImportsWithinKernels = False
 	usesDuplicatesAsHostRoutines = True
+	allowsMixedHostAndDeviceCode = False
 
 	def __init__(self, optionFlags):
 		self.currRoutineNode = None
@@ -1112,6 +1122,8 @@ end if\n" %(calleeNode.getAttribute('name'))
 		return result
 
 	def parallelRegionBegin(self, dependantSymbols, parallelRegionTemplate):
+		if not dependantSymbols:
+			raise UsageError("parallel region without any dependant arrays")
 		domains = getDomainsWithParallelRegionTemplate(parallelRegionTemplate)
 		regionStr = self.iteratorDefinitionBeforeParallelRegion(domains)
 		regionStr += self.safetyOutsideRegion(domains)
@@ -1181,6 +1193,8 @@ class DebugEmulatedCUDAFortranImplementation(DebugCUDAFortranImplementation):
 		DebugCUDAFortranImplementation.__init__(self, optionFlags)
 
 	def parallelRegionBegin(self, dependantSymbols, parallelRegionTemplate):
+		if not dependantSymbols:
+			raise UsageError("parallel region without any dependant arrays")
 		domains = getDomainsWithParallelRegionTemplate(parallelRegionTemplate)
 		regionStr = self.iteratorDefinitionBeforeParallelRegion(domains)
 		routineName = self.currRoutineNode.getAttribute('name')

@@ -165,6 +165,8 @@ class FortranImplementation(object):
 		pass
 
 	def parallelRegionBegin(self, dependantSymbols, parallelRegionTemplate):
+		if not dependantSymbols:
+			raise UsageError("parallel region without any dependant arrays")
 		domains = getDomainsWithParallelRegionTemplate(parallelRegionTemplate)
 		regionStr = ''
 		for pos in range(len(domains)-1,-1,-1): #use inverted order (optimization of accesses for fortran storage order)
@@ -634,6 +636,8 @@ end subroutine
 		return "!$acc loop seq"
 
 	def parallelRegionBegin(self, dependantSymbols, parallelRegionTemplate):
+		if not dependantSymbols:
+			raise UsageError("parallel region without any dependant arrays")
 		regionStr = ""
 		#$$$ may need to be replaced with CUDA Fortran style manual update
 		# for symbol in self.currDependantSymbols:
@@ -1114,6 +1118,8 @@ end if\n" %(calleeNode.getAttribute('name'))
 		return result
 
 	def parallelRegionBegin(self, dependantSymbols, parallelRegionTemplate):
+		if not dependantSymbols:
+			raise UsageError("parallel region without any dependant arrays")
 		domains = getDomainsWithParallelRegionTemplate(parallelRegionTemplate)
 		regionStr = self.iteratorDefinitionBeforeParallelRegion(domains)
 		regionStr += self.safetyOutsideRegion(domains)
@@ -1183,6 +1189,8 @@ class DebugEmulatedCUDAFortranImplementation(DebugCUDAFortranImplementation):
 		DebugCUDAFortranImplementation.__init__(self, optionFlags)
 
 	def parallelRegionBegin(self, dependantSymbols, parallelRegionTemplate):
+		if not dependantSymbols:
+			raise UsageError("parallel region without any dependant arrays")
 		domains = getDomainsWithParallelRegionTemplate(parallelRegionTemplate)
 		regionStr = self.iteratorDefinitionBeforeParallelRegion(domains)
 		routineName = self.currRoutineNode.getAttribute('name')

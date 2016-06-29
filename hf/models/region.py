@@ -140,7 +140,7 @@ class CallRegion(Region):
 
 	@property
 	def usedSymbolNames(self):
-		return super(CallRegion, self).usedSymbolNames + self._callee.programmerArguments
+		return super(CallRegion, self).usedSymbolNames + [a.split("(")[0].strip() for a in self._callee.programmerArguments]
 
 	def _adjustedArguments(self, arguments):
 		def adjustArgument(argument, parallelRegionTemplate, iterators):
@@ -339,7 +339,7 @@ class ParallelRegion(Region):
 		text = ""
 		if hasParallelRegionWithin:
 			text += parentRoutine.implementation.parallelRegionBegin(
-				parentRoutine.symbolsByName.values(),
+				[s for s in parentRoutine.symbolsByName.values() if s.name in self.usedSymbolNames],
 				self._activeTemplate
 			).strip() + "\n"
 		text += "\n".join([region.implemented() for region in self._subRegions])

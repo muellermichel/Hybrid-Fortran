@@ -32,7 +32,10 @@ def arrayCheckConditional(symbol):
 			if symbol.hasUndecidedDomainSizes and not "pointer" in symbol.declarationPrefix \
 			else "",
 		" .and. ".join([
-			"%s .gt. 0" %(s.split(":")[-1])
+			"%s - %s .gt. 0" %(
+				s.split(":")[-1],
+				s.split(":")[0] + " + 1" if len(s.split(":")) > 1 else 0,
+			)
 			for s in domainSizes
 		])
 	)

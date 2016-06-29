@@ -513,6 +513,11 @@ class DeviceDataFortranImplementation(FortranImplementation):
 			dimSizes = [dimSize for _, dimSize in symbol.domains]
 			if (routineIsKernelCaller or symbol.isToBeTransfered) and symbol.hasUndecidedDomainSizes:
 				if not ":" in dimSizes:
+					if not symbol.isToBeTransfered:
+						logging.info("Generating implicit device data allocation for %s in %s" %(
+							symbol.name,
+							currRoutineNode.getAttribute("name")
+						))
 					deviceInitStatements += arrayCheckConditional(symbol) + "\n"
 					try:
 						deviceInitStatements += "allocate(%s)\n" %(symbol.allocationRepresentation())

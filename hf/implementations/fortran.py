@@ -52,7 +52,7 @@ class FortranImplementation(object):
 		if type(optionFlags) == list:
 			self.optionFlags = optionFlags
 
-	def updateSymbolDeviceState(self, symbol, regionType, parallelRegionPosition):
+	def updateSymbolDeviceState(self, symbol, symbolNamesUsedInKernel, regionType, parallelRegionPosition):
 		symbol.isUsingDevicePostfix = False
 		symbol.isOnDevice = False
 
@@ -367,7 +367,7 @@ Symbols vs host attributes:\n%s" %(str([(symbol.name, symbol.isHostSymbol) for s
 	return alreadyOnDevice, copyHere, isOnHost
 
 class DeviceDataFortranImplementation(FortranImplementation):
-	def updateSymbolDeviceState(self, symbol, regionType, parallelRegionPosition, postTransfer=False):
+	def updateSymbolDeviceState(self, symbol, symbolNamesUsedInKernel, regionType, parallelRegionPosition, postTransfer=False):
 		logging.debug("device state of symbol %s BEFORE update:\nisOnDevice: %s; isUsingDevicePostfix: %s" %(
 			symbol.name,
 			symbol.isOnDevice,
@@ -401,7 +401,9 @@ class DeviceDataFortranImplementation(FortranImplementation):
 				symbol.isUsingDevicePostfix = True
 				symbol.isOnDevice = False
 
-			elif symbol.isHostSymbol and regionType == RegionType.KERNEL_CALLER_DECLARATION:
+			elif symbol.isHostSymbol \
+			and regionType == RegionType.KERNEL_CALLER_DECLARATION \
+			and (symbolNamesUsedInKernel == None or symbol.name in symbolNamesUsedInKernel):
 				#for kernel calls, assume that the programmer or previous automation has handled the transfer through directives
 				symbol.isUsingDevicePostfix = True
 				symbol.isOnDevice = True
@@ -446,7 +448,12 @@ class DeviceDataFortranImplementation(FortranImplementation):
 		for symbol in dependantSymbols:
 			if regionType in [RegionType.MODULE_DECLARATION, RegionType.KERNEL_CALLER_DECLARATION] \
 			or symbol.isToBeTransfered:
-				self.updateSymbolDeviceState(symbol, regionType, parallelRegionPosition, postTransfer=True)
+				self.updateSymbolDeviceState(
+					symbol,
+					parentRoutine.usedSymbolNamesInKernels if parentRoutine else None,
+					regionType, parallelRegionPosition,
+					postTransfer=True
+				)
 		alreadyOnDevice = None
 		copyHere = None
 		try:
@@ -932,11 +939,8 @@ end if\n" %(calleeNode.getAttribute('name'))
 			dependantSymbols = dependantSymbolsOrModuleName
 
 		for symbol in dependantSymbols:
-			if symbol.isToBeTransfered or regionType in [
-				RegionType.KERNEL_CALLER_DECLARATION,
-				RegionType.MODULE_DECLARATION
-			]:
-				self.updateSymbolDeviceState(symbol, RegionType.OTHER, parallelRegionPosition, postTransfer=True)
+			if symbol.isToBeTransfered or regionType in [RegionType.MODULE_DECLARATION, RegionType.KERNEL_CALLER_DECLARATION]:
+				self.updateSymbolDeviceState(symbol, None, RegionType.OTHER, parallelRegionPosition, postTransfer=True)
 		try:
 			_, _, _ = _checkDeclarationConformity(dependantSymbols)
 		except UsageError as e:

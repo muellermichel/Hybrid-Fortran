@@ -99,6 +99,7 @@ class AnalyzableRoutine(Routine):
 		self._packedRealSymbolsByCalleeName = {}
 		self._adjustedCalleeNamesByName = None
 		self.usedSymbolNames = {}
+		self.usedSymbolNamesInKernels = {}
 
 	@property
 	def additionalArgumentSymbols(self):
@@ -203,6 +204,7 @@ This is not allowed for implementations using %s.\
 				symbol.loadRoutineNodeAttributes(self.node, self.parallelRegionTemplates)
 			self.implementation.updateSymbolDeviceState(
 				symbol,
+				self.usedSymbolNamesInKernels,
 				regionType,
 				self.node.getAttribute("parallelRegionPosition")
 			)
@@ -558,6 +560,8 @@ This is not allowed for implementations using %s.\
 		for region in self._regions:
 			for symbolName in region.usedSymbolNames:
 				self.usedSymbolNames[symbolName] = None
+				if isinstance(region, ParallelRegion):
+					self.usedSymbolNamesInKernels[symbolName] = None
 		for symbol in self._additionalArguments:
 			if not isinstance(symbol, FrameworkArray):
 				continue

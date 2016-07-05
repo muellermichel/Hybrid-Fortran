@@ -650,6 +650,9 @@ EXAMPLE:\n\
 						return mine
 				merged = []
 				for index, entry in enumerate(mine):
+					if entry[1] == ":":
+						merged.append(other[index])
+						continue
 					if entry[1] != other[index][1]:
 						break
 					myDomName = entry[0]
@@ -1296,7 +1299,12 @@ Please specify the domains and their sizes with domName and domSize attributes i
 		for i in range(len(self.domains)):
 			if i != 0:
 				result += ","
-			if (not parentRoutine or (not self.isToBeTransfered and not parentRoutine.isCallingKernel)) and self.hasUndecidedDomainSizes \
+			if (not parentRoutine or ( \
+					not self.isToBeTransfered \
+					and not parentRoutine.isCallingKernel \
+					and parentRoutine.node.getAttribute('parallelRegionPosition') not in ['within', 'outside'] \
+				)) \
+				and self.hasUndecidedDomainSizes \
 			or "pointer" in self.declarationPrefix:
 				result += ":"
 			else:

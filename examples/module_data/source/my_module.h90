@@ -107,7 +107,7 @@ contains
 		@end domainDependant
 
 		@parallelRegion{domName(x,y), domSize(NX, NY)}
-		do z=1,NZ
+		do z=1,nz
 		  c(z) = implicitDataArray1(z)
 		end do
 		@end parallelRegion

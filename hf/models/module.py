@@ -73,6 +73,9 @@ class Module(object):
 			routines += routine.implementation.generateRoutines(routine)
 
 		for routine in routines:
+			routine._analyseSymbolUsage() #need to do this twice to get additional context right
+
+		for routine in routines:
 			routine._checkParallelRegions()
 			routine._updateSymbolReferences()
 			routine._prepareAdditionalContext()

@@ -562,12 +562,13 @@ This is not allowed for implementations using %s.\
 				self.usedSymbolNames[symbolName] = None
 				if isinstance(region, ParallelRegion):
 					self.usedSymbolNamesInKernels[symbolName] = None
-		for symbol in self._additionalArguments:
-			if not isinstance(symbol, FrameworkArray):
-				continue
-			for compactedSymbol in symbol.compactedSymbols:
-				if compactedSymbol.name in self.usedSymbolNames:
-					self.usedSymbolNames[symbol.name] = None
+		if self._additionalArguments:
+			for symbol in self._additionalArguments:
+				if not isinstance(symbol, FrameworkArray):
+					continue
+				for compactedSymbol in symbol.compactedSymbols:
+					if compactedSymbol.name in self.usedSymbolNames:
+						self.usedSymbolNames[symbol.name] = None
 
 	def checkSymbols(self):
 		self._checkReferences(self._additionalArguments)

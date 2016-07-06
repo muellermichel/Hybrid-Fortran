@@ -33,6 +33,11 @@ module my_module
 	real, public, parameter :: some_const = 1.0d0
 	integer, public :: more_indirection = indirection
 	integer(4), public :: nx, ny, nz
+	integer(4), public :: overspecified_const
+
+	@domainDependant{attribute(host)}
+    overspecified_const
+    @end domainDependant
 
 	@domainDependant{attribute(host), domName(x,y,z), domSize(NX,NY,NZ), domPP(DOM), accPP(AT)}
 	a, b, c, d, a2, b2, c2, d2, used_in_acc_routine
@@ -49,6 +54,8 @@ contains
 	subroutine setup(nx_in, ny_in, nz_in)
 		implicit none
 		integer(4), intent(in) :: nx_in, ny_in, nz_in
+
+		overspecified_const = 0.0d0
 
 		nx = nx_in
 		ny = ny_in
@@ -108,7 +115,7 @@ contains
 
 		@parallelRegion{domName(x,y), domSize(NX, NY)}
 		do z=1,nz
-		  c(z) = implicitDataArray1(z)
+		  c(z) = implicitDataArray1(z) + overspecified_const
 		end do
 		@end parallelRegion
 	end subroutine

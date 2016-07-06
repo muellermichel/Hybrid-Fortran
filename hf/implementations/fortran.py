@@ -941,10 +941,6 @@ end if\n" %(calleeNode.getAttribute('name'))
 		for symbol in dependantSymbols:
 			if symbol.isToBeTransfered or regionType in [RegionType.MODULE_DECLARATION, RegionType.KERNEL_CALLER_DECLARATION]:
 				self.updateSymbolDeviceState(symbol, None, RegionType.OTHER, parallelRegionPosition, postTransfer=True)
-		try:
-			_, _, _ = _checkDeclarationConformity(dependantSymbols)
-		except UsageError as e:
-			raise UsageError("In imports: %s; symbols: %s" %(str(e), dependantSymbols))
 
 		if len(dependantSymbols) > 0:
 			if dependantSymbols[0].isTypeParameter:
@@ -1024,6 +1020,8 @@ end if\n" %(calleeNode.getAttribute('name'))
 					continue
 				if symbol.isDummySymbolForRoutine(routineName=parentNode.getAttribute('name')):
 					continue #already passed manually
+				if symbol.isHostSymbol:
+					continue
 				isModuleSymbol = symbol.declarationType in [
 					DeclarationType.LOCAL_MODULE_SCALAR,
 					DeclarationType.MODULE_ARRAY,
@@ -1078,8 +1076,8 @@ end if\n" %(calleeNode.getAttribute('name'))
 		mergeSymbols(routineDeclarations, indexedModuleSymbols[1])
 		mergeSymbols(additionalDummies, indexedModuleSymbols[0])
 		mergeSymbols(additionalDummies, indexedModuleSymbols[1])
-		for symbol in routineImports + indexedModuleSymbols[0].values() + routineDeclarations + indexedModuleSymbols[1].values() + additionalDummies:
-			symbol.isPresent = True
+		# for symbol in routineImports + indexedModuleSymbols[0].values() + routineDeclarations + indexedModuleSymbols[1].values() + additionalDummies:
+			# symbol.isPresent = True
 		return (
 			sorted(routineImports + indexedModuleSymbols[0].values()),
 			sorted(routineDeclarations + indexedModuleSymbols[1].values()),

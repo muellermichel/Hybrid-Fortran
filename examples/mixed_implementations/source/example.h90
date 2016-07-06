@@ -97,7 +97,6 @@ contains
 
   !using the @scheme directive and defining the implementation in MakesettingsGeneral, as shown in this example, we can override the default implementation and mix different ones,
   !for example mixing different debugging implementations. Note that the template can span over multiple parts of your file, such as multiple subroutines or even modules.
-  !please note: device data in the OpenACC implementation is currently *not* compatible with device data in CUDA Fortran implementation, so we can *not* do a 'transferHere' in wrapper_second_level already.
   @scheme{name(SEPARATE_KERNELS)}
   subroutine wrapper_separate_kernels(a, b, c, d)
     implicit none
@@ -165,10 +164,9 @@ contains
   end subroutine
 
   ! ############################################
-  ! With the OpenACC backend we can also combine
-  ! multiple kernels in one subroutine, so it is
-  ! not absolutely necessary to separate them like
-  ! in the first example
+  ! We use OpenACC backend implementation here by
+  ! specifying the scheme. Please note that CUDA Fortran backend
+  ! also supports multiple kernels in the same subroutine since HF 1.0
   ! ############################################
   subroutine inline_kernels(a, b, c, d)
     implicit none

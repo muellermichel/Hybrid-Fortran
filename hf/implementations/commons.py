@@ -21,7 +21,7 @@
 from tools.commons import UsageError
 from tools.metadata import appliesTo, getDomainsWithParallelRegionTemplate, getReductionScalarsByOperator, getTemplate
 from tools.patterns import RegExPatterns
-import logging
+import logging, re
 
 def arrayCheckConditional(symbol):
 	domainSizes = [s for _, s in symbol.domains]
@@ -446,16 +446,20 @@ def getDebugOffsetString(domainTuple, previousOffsets):
 		raise UsageError("Unexpected domain size specification: %s" %(domainSizeSpec))
 
 	#$$$ change this - it must be consistant with storage_order.F90
-	userdefinedDomNames = ["x", "y", "z", "nz", "i", "j", "vertical", "verticalPlus", "KMAX_CONST", "KMP1_CONST", "ntlm", "ngm", "id_qa_e", "1", "2", "3", "4"]
+	userdefinedDomNames = ["x", "y", "z", "nz", "i", "j", "vertical", "verticalPlus", "KMAX_CONST", "KMP1_CONST", "ntlm", "ngm", "nth", "id_qa_e", "id_mp_prc_e", "1", "2", "3", "4"]
 	(dependantDomName, dependantDomSize) = domainTuple
 	upperBound = getUpperBound(dependantDomSize)
 	offset = ""
 	if dependantDomName in userdefinedDomNames:
 		offset = "DEBUG_OUT_%s" %(dependantDomName.strip())
-	elif upperBound in userdefinedDomNames:
-		offset = "DEBUG_OUT_%s" %(upperBound)
 	else:
-		offset = "DEBUG_OUT_x"
+		upperBoundElements = re.split('\W+', upperBound)
+		for e in upperBoundElements:
+			if e in userdefinedDomNames:
+				offset = "DEBUG_OUT_%s" %(e)
+				break
+		else:
+			offset = "DEBUG_OUT_x"
 	if offset in previousOffsets:
 		#if there are multiple dimensions with the same sizes, use the second specified macro
 		# - else we'd be always showing the diagonal of quadratic matrices.
@@ -503,7 +507,9 @@ def getRuntimeDebugPrintStatements(symbolsByName, calleeRoutineNode, parallelReg
 	# 	result += "!$acc update host(%s)\n" %(", ".join(symbolClauses)) if len(symbolsToPrint) > 0 else ""
 	# 	result += "#endif\n"
 	for symbol in symbolsToPrint:
-		result = result + "hf_output_temp = %s\n" %(symbol.accessRepresentation([], offsetsBySymbolName[symbol.name], parallelRegionNode))
+		if len(symbol.domains) > 0:
+			result += arrayCheckConditional(symbol) + "\n"
+		result += "hf_output_temp = %s\n" %(symbol.accessRepresentation([], offsetsBySymbolName[symbol.name], parallelRegionNode))
 		#michel 2013-4-18: the Fortran-style memcopy as used right now in the above line creates a runtime error immediately
 		#                  if we'd like to catch such errors ourselves, we need to use the cuda API memcopy calls - however we
 		#                  then also need information about the symbol size, which isn't available in the current implementation
@@ -528,9 +534,11 @@ def getRuntimeDebugPrintStatements(symbolsByName, calleeRoutineNode, parallelReg
 		else:
 			formStr = "'(A,E16.8)'"
 			domainsStr = "scalar"
-		result = result + "write(0,%s) '%s@%s', hf_output_temp\n" %(formStr, symbol.name, domainsStr)
-	result = result + "write(0,*) '**********************************************'\n"
-	result = result + "write(0,*) ''\n"
+		result += "write(0,%s) '%s@%s', hf_output_temp\n" %(formStr, symbol.name, domainsStr)
+		if len(symbol.domains) > 0:
+			result += "end if\n"
+	result += "write(0,*) '**********************************************'\n"
+	result += "write(0,*) ''\n"
 	if calleeRoutineNode.getAttribute('parallelRegionPosition') == 'outside':
 		result += "end if\n"
 		result += "#endif\n"

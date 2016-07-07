@@ -257,12 +257,12 @@ class CallRegion(Region):
 		text += ", ".join(self._adjustedArguments(self._callee.programmerArguments)) + ")\n"
 
 		if hasattr(self._callee, "implementation") and not isForeignModuleCall:
-			allSymbolsPassedByName = dict(
-				(symbol.name, symbol)
-				for symbol in argumentSymbols
-			)
+			# allSymbolsPassedByName = dict(
+			# 	(symbol.name, symbol)
+			# 	for symbol in argumentSymbols
+			# )
 			text += self._callee.implementation.kernelCallPost(
-				allSymbolsPassedByName,
+				parentRoutine.symbolsByName,
 				self._callee.node
 			)
 			for symbol in argumentSymbols:

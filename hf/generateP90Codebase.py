@@ -98,10 +98,10 @@ except Exception as e:
 	logging.critical('Could not interpret implementation parameter as json file to read. Trying to use it as an implementation name directly')
 	implementationNamesByTemplateName = {'default':options.implementation}
 logging.debug('Initializing H90toF90Converter with the following implementations: %s' %(json.dumps(implementationNamesByTemplateName)))
-implementationsByTemplateName = {
-	templateName:getattr(implementations.fortran, implementationNamesByTemplateName[templateName])(optionFlags)
+implementationsByTemplateName = dict(
+	(templateName, getattr(implementations.fortran, implementationNamesByTemplateName[templateName])(optionFlags))
 	for templateName in implementationNamesByTemplateName.keys()
-}
+)
 
 #   parse the @domainDependant symbol declarations flags in all h90 files
 #   -> update the callgraph document with this information.

@@ -956,9 +956,11 @@ end if\n" %(calleeNode.getAttribute('name'))
 				)
 			if len(dependantSymbols) == 0:
 				return ""
-			if dependantSymbols[0].isPresent or dependantSymbols[0].isHostSymbol:
-				return getImportStatements(dependantSymbols)
-			if dependantSymbols[0].isToBeTransfered or regionType in [
+			if dependantSymbols[0].isHostSymbol:
+				return getImportStatements(dependantSymbols, forceHostVersion=True)
+			if dependantSymbols[0].isPresent \
+			or dependantSymbols[0].isToBeTransfered \
+			or regionType in [
 				RegionType.KERNEL_CALLER_DECLARATION,
 				RegionType.MODULE_DECLARATION
 			]:

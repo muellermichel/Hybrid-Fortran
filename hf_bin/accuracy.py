@@ -420,7 +420,7 @@ parser.add_option("-v", action="store_true", dest="verbose")
 parser.add_option("-e", "--epsilon", metavar="EPS", dest="epsilon", help="Throw an error if at any point the error becomes higher than EPS. Defaults to 1E-9.")
 (options, args) = parser.parse_args()
 eps = 1E-6
-epsSingle = 1E-8
+epsSingle = 1E-7
 if (options.epsilon):
 	eps = float(options.epsilon)
 if options.netcdf:

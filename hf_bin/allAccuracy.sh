@@ -90,6 +90,7 @@ if ! $output_file_found; then
      exit 1
 fi
 if $error_found; then
+	echo "an error was found when running allAccuracy.sh" 1>&2
 	exit 2
 fi
 exit $(( errorVal ))

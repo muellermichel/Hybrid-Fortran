@@ -257,11 +257,13 @@ class CallRegion(Region):
 					text += ", %s" %(bridgeStr1)
 		text += ", ".join(self._adjustedArguments(self._callee.programmerArguments)) + ")\n"
 
-		if hasattr(self._callee, "implementation") and not isForeignModuleCall:
+		if hasattr(self._callee, "implementation") \
+		and not self._callee.implementation.allowsMixedHostAndDeviceCode \
+		and not isForeignModuleCall:
 			activeSymbolsByName = dict(
 				(symbol.name, symbol)
 				for symbol in self._passedInSymbolsByName.values()
-				if symbol.name in parentRoutine.usedSymbolNames
+				if symbol.name in self._callee.usedSymbolNamesInKernels
 			)
 			text += self._callee.implementation.kernelCallPost(
 				activeSymbolsByName,
@@ -347,9 +349,7 @@ class ParallelRegion(Region):
 			).strip() + "\n"
 		text += "\n".join([region.implemented() for region in self._subRegions])
 		if hasParallelRegionWithin:
-			text += parentRoutine.implementation.parallelRegionEnd(
-				self._activeTemplate
-			).strip() + "\n"
+			text += parentRoutine.implementation.parallelRegionEnd(self._activeTemplate, parentRoutine).strip() + "\n"
 		return self._sanitize(text, skipDebugPrint)
 
 class RoutineSpecificationRegion(Region):

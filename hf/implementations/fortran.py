@@ -49,6 +49,7 @@ class FortranImplementation(object):
 		self.currDependantSymbols = None
 		self.currParallelRegionTemplateNode = None
 		self.appliesTo = appliesTo
+		self._currKernelNumber = 0
 		if type(optionFlags) == list:
 			self.optionFlags = optionFlags
 
@@ -104,11 +105,12 @@ class FortranImplementation(object):
 		return ""
 
 	def kernelCallPost(self, symbolsByName, calleeRoutineNode):
-		if calleeRoutineNode.getAttribute('parallelRegionPosition') not in ['within', 'outside']:
+		if calleeRoutineNode.getAttribute('parallelRegionPosition') != 'within':
 			return ""
 		result = ""
 		if 'DEBUG_PRINT' in self.optionFlags:
 			result += getRuntimeDebugPrintStatements(
+				calleeRoutineNode.getAttribute("name"),
 				symbolsByName,
 				calleeRoutineNode,
 				self.currParallelRegionTemplateNode,
@@ -179,19 +181,25 @@ class FortranImplementation(object):
 			pos = pos + 1
 		return regionStr
 
-	def parallelRegionEnd(self, parallelRegionTemplate):
+	def parallelRegionEnd(self, parallelRegionTemplate, routine, skipDebugPrint=False):
 		domains = getDomainsWithParallelRegionTemplate(parallelRegionTemplate)
-		pos = 0
-		regionStr = ''
+		result = ''
 		for domain in domains:
-			regionStr = regionStr + 'end do'
-			if pos != len(domains) - 1:
-				regionStr = regionStr + '\n '
-			pos = pos + 1
-		return regionStr
+			result += 'end do\n'
+		if not skipDebugPrint and 'DEBUG_PRINT' in self.optionFlags and self.allowsMixedHostAndDeviceCode:
+			result += getRuntimeDebugPrintStatements(
+				synthesizedKernelName(routine.name, self._currKernelNumber),
+				routine.symbolsByName,
+				routine.node,
+				parallelRegionTemplate,
+				useOpenACC=self.useOpenACCForDebugPrintStatements
+			)
+		self._currKernelNumber += 1
+		return result
 
 	def declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates):
 		self.currRoutineNode = currRoutineNode
+		self._currKernelNumber = 0
 		result = ""
 		if 'DEBUG_PRINT' in self.optionFlags:
 			result += "real(8) :: hf_output_temp\n"
@@ -296,9 +304,9 @@ class OpenMPFortranImplementation(FortranImplementation):
 		openMPLines += "SHARED(%s)\n" %(', '.join([symbol.nameInScope() for symbol in dependantSymbols]))
 		return openMPLines + FortranImplementation.parallelRegionBegin(self, dependantSymbols, parallelRegionTemplate)
 
-	def parallelRegionEnd(self, parallelRegionTemplate):
+	def parallelRegionEnd(self, parallelRegionTemplate, routine, skipDebugPrint=False):
 		openMPLines = "\n!$OMP END PARALLEL DO\n"
-		return FortranImplementation.parallelRegionEnd(self, parallelRegionTemplate) + openMPLines
+		return FortranImplementation.parallelRegionEnd(self, parallelRegionTemplate, routine, skipDebugPrint) + openMPLines
 
 def _checkDeclarationConformity(dependantSymbols):
 	#analyse state of symbols - already declared as on device or not?
@@ -683,13 +691,31 @@ end subroutine
 				regionStr += '\n '
 		return regionStr
 
-	def parallelRegionEnd(self, parallelRegionTemplate):
+	def parallelRegionEnd(self, parallelRegionTemplate, routine, skipDebugPrint=False):
 		additionalStatements = "\n!$acc end kernels\n"
 		#$$$ may need to be replaced with CUDA Fortran style manual update
 		# for symbol in self.currDependantSymbols:
 		# 	if symbol.declarationType == DeclarationType.LOCAL_ARRAY:
 		# 		additionalStatements += "!$acc update host(%s)\n" %(symbol.name)
-		return super(PGIOpenACCFortranImplementation, self).parallelRegionEnd(parallelRegionTemplate) + additionalStatements
+		result = super(PGIOpenACCFortranImplementation, self).parallelRegionEnd(
+			parallelRegionTemplate,
+			routine,
+			skipDebugPrint=True
+		) + additionalStatements
+		if not skipDebugPrint and 'DEBUG_PRINT' in self.optionFlags and self.allowsMixedHostAndDeviceCode:
+			activeSymbolsByName = dict(
+				(symbol.name, symbol)
+				for symbol in routine.symbolsByName.values()
+				if symbol.name in routine.usedSymbolNamesInKernels
+			)
+			result += getRuntimeDebugPrintStatements(
+				synthesizedKernelName(routine.name, self._currKernelNumber),
+				activeSymbolsByName,
+				routine.node,
+				parallelRegionTemplate,
+				useOpenACC=self.useOpenACCForDebugPrintStatements
+			)
+		return result
 
 	#MMU: we first need a branch analysis on the subroutine to do this
 	# def subroutinePostfix(self, routineNode):
@@ -1140,7 +1166,7 @@ end if\n" %(calleeNode.getAttribute('name'))
 		regionStr += self.safetyOutsideRegion(domains)
 		return regionStr
 
-	def parallelRegionEnd(self, parallelRegionTemplate):
+	def parallelRegionEnd(self, parallelRegionTemplate, routine, skipDebugPrint=False):
 		return ""
 
 	def declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates):

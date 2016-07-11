@@ -466,7 +466,7 @@ def getDebugOffsetString(domainTuple, previousOffsets):
 		offset += "_2"
 	return offset
 
-def getRuntimeDebugPrintStatements(symbolsByName, calleeRoutineNode, parallelRegionNode, useOpenACC=True):
+def getRuntimeDebugPrintStatements(kernelName, symbolsByName, calleeRoutineNode, parallelRegionNode, useOpenACC=True):
 	def wrap_in_acc_pp(string, symbol):
 		accPP = symbol.accPP()[0]
 		if accPP == "":
@@ -478,14 +478,11 @@ def getRuntimeDebugPrintStatements(symbolsByName, calleeRoutineNode, parallelReg
 		result += "#ifndef GPU\n"
 		result += "if (hf_debug_print_iterator == 0) then\n"
 
-	routineName = calleeRoutineNode.getAttribute('name')
-	if not routineName:
-		raise Exception("Callee routine name undefined.")
-	result += "write(0,*) '*********** kernel %s finished *************** '\n" %(routineName)
-	symbolsToPrint = [
+	result += "write(0,*) '*********** kernel %s finished *************** '\n" %(kernelName)
+	symbolsToPrint = sorted([
 		symbol for symbol in symbolsByName.values()
 		if "real" in symbol.declarationPrefix
-	]
+	])
 	offsetsBySymbolName = {}
 	for symbol in symbolsToPrint:
 		offsets = []

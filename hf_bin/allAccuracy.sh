@@ -63,6 +63,10 @@ for i in $output_file_pattern; do
 				formatParamCurr="${formatParam} --netcdf"
 			fi
 			output_file_found=true
+
+			# there is a conflict with the python path we use for debugging HF scripts. --> set it to empty here.
+			OLD_PYTHONPATH=$PYTHONPATH
+			export PYTHONPATH=
 			echo "calling accuracy with format paramter ${formatParam}" 1>&2
 			python ${HF_DIR}/hf_bin/accuracy.py -f $i --reference "$refPath" $formatParamCurr && :
 			rc=$?
@@ -73,6 +77,7 @@ for i in $output_file_pattern; do
 			    echo "Accuracy test has returned error $rc" 1>&2
 			    error_found=true
 			fi
+			export PYTHONPATH=$OLD_PYTHONPATH
 		fi
 	fi
 done

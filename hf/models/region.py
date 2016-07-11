@@ -262,7 +262,7 @@ class CallRegion(Region):
 		and not isForeignModuleCall:
 			activeSymbolsByName = dict(
 				(symbol.name, symbol)
-				for symbol in self._passedInSymbolsByName.values()
+				for symbol in self._callee.additionalArgumentSymbols + self._passedInSymbolsByName.values()
 				if symbol.name in self._callee.usedSymbolNamesInKernels
 			)
 			text += self._callee.implementation.kernelCallPost(

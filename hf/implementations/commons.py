@@ -504,6 +504,8 @@ def getRuntimeDebugPrintStatements(kernelName, symbolsByName, calleeRoutineNode,
 	# 	result += "!$acc update host(%s)\n" %(", ".join(symbolClauses)) if len(symbolsToPrint) > 0 else ""
 	# 	result += "#endif\n"
 	for symbol in symbolsToPrint:
+		if symbol.declarationType == DeclarationType.LOCAL_SCALAR:
+			continue #cannot guarantee that these types of symbols are initialized at this point
 		if len(symbol.domains) > 0:
 			result += arrayCheckConditional(symbol) + "\n"
 		result += "hf_output_temp = %s\n" %(symbol.accessRepresentation([], offsetsBySymbolName[symbol.name], parallelRegionNode))

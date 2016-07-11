@@ -182,18 +182,19 @@ class CallRegion(Region):
 			raise Exception("call not loaded for call region in %s" %(self._routineRef().name))
 
 		text = ""
-		argumentSymbols = None
-		#this hasattr is used to test the callee for analyzability without circular imports
-		if hasattr(self._callee, "implementation"):
-			argumentSymbols = [
-				symbol for symbol in self._callee.additionalArgumentSymbols + self._passedInSymbolsByName.values()
-				if symbol.name in self._callee.usedSymbolNames
-			]
-			for symbol in argumentSymbols:
-				text += self._callee.implementation.callPreparationForPassedSymbol(
-					self._routineRef().node,
-					symbolInCaller=symbol
-				)
+		#$$$ this code is dead because _callee doesn't know about its symbols
+		# argumentSymbols = None
+		# #this hasattr is used to test the callee for analyzability without circular imports
+		# if hasattr(self._callee, "implementation"):
+		# 	argumentSymbols = [
+		# 		symbol for symbol in self._callee.additionalArgumentSymbols + self._passedInSymbolsByName.values()
+		# 		if symbol.name in self._callee.usedSymbolNames
+		# 	]
+		# 	for symbol in argumentSymbols:
+		# 		text += self._callee.implementation.callPreparationForPassedSymbol(
+		# 			self._routineRef().node,
+		# 			symbolInCaller=symbol
+		# 		)
 
 		parentRoutine = self._routineRef()
 		calleesWithPackedReals = parentRoutine._packedRealSymbolsByCalleeName.keys()
@@ -259,18 +260,19 @@ class CallRegion(Region):
 		if hasattr(self._callee, "implementation") and not isForeignModuleCall:
 			activeSymbolsByName = dict(
 				(symbol.name, symbol)
-				for symbol in parentRoutine.symbolsByName.values()
-				if symbol.name in self._callee.usedSymbolNames
+				for symbol in self._passedInSymbolsByName.values()
+				if symbol.name in parentRoutine.usedSymbolNames
 			)
 			text += self._callee.implementation.kernelCallPost(
 				activeSymbolsByName,
 				self._callee.node
 			)
-			for symbol in argumentSymbols:
-				text += self._callee.implementation.callPostForPassedSymbol(
-					self._routineRef().node,
-					symbolInCaller=symbol
-				)
+			#$$$ this code is dead because _callee doesn't know about its symbols
+			# for symbol in argumentSymbols:
+			# 	text += self._callee.implementation.callPostForPassedSymbol(
+			# 		self._routineRef().node,
+			# 		symbolInCaller=symbol
+			# 	)
 		return self._sanitize(text, skipDebugPrint)
 
 class ParallelRegion(Region):

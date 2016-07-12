@@ -533,6 +533,7 @@ class DeviceDataFortranImplementation(FortranImplementation):
 		return adjustedLine + "\n"
 
 	def declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates):
+		self._currKernelNumber = 0
 		deviceInitStatements = ""
 		for symbol in dependantSymbols:
 			if not symbol.domains or len(symbol.domains) == 0:

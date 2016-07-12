@@ -21,6 +21,7 @@
 from tools.commons import UsageError
 from tools.metadata import appliesTo, getDomainsWithParallelRegionTemplate, getReductionScalarsByOperator, getTemplate
 from tools.patterns import RegExPatterns
+from models.symbol import DeclarationType
 import logging, re
 
 def arrayCheckConditional(symbol):

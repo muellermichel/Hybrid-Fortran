@@ -186,11 +186,16 @@ class FortranImplementation(object):
 		result = ''
 		for domain in domains:
 			result += 'end do\n'
+		numSkippedParallelRegions = 0
 		if not skipDebugPrint and 'DEBUG_PRINT' in self.optionFlags and self.allowsMixedHostAndDeviceCode:
 			activeParallelRegion = None
 			for region in routine.regions:
-				if isinstance(region, ParallelRegion) and region._activeTemplate is parallelRegionTemplate:
-					activeParallelRegion = region
+				if isinstance(region, ParallelRegion):
+					if numSkippedParallelRegions == self._currKernelNumber:
+						activeParallelRegion = region
+						break
+					else:
+						numSkippedParallelRegions += 1
 			if activeParallelRegion == None:
 				raise Exception("cannot find active parallel region")
 			activeSymbolsByName = dict(

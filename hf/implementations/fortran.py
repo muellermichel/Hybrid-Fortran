@@ -43,6 +43,7 @@ class FortranImplementation(object):
 	supportsNativeModuleImportsWithinKernels = True
 	usesDuplicatesAsHostRoutines = False
 	allowsMixedHostAndDeviceCode = True
+	useKernelPrefixesForDebugPrint = True
 
 	def __init__(self, optionFlags, appliesTo="CPU"):
 		self.patterns = RegExPatterns.Instance()
@@ -204,13 +205,14 @@ class FortranImplementation(object):
 				if symbol.name in activeParallelRegion.usedSymbolNames
 			)
 			result += getRuntimeDebugPrintStatements(
-				synthesizedKernelName(routine.name, self._currKernelNumber),
+				synthesizedKernelName(routine.name, self._currKernelNumber) \
+					if self.useKernelPrefixesForDebugPrint else routine.name,
 				activeSymbolsByName,
 				routine.node,
 				parallelRegionTemplate,
 				useOpenACC=self.useOpenACCForDebugPrintStatements
 			)
-		self._currKernelNumber += 1
+			self._currKernelNumber += 1
 		return result
 
 	def declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates):
@@ -732,6 +734,7 @@ end subroutine
 				parallelRegionTemplate,
 				useOpenACC=self.useOpenACCForDebugPrintStatements
 			)
+			self._currKernelNumber += 1
 		return result
 
 	#MMU: we first need a branch analysis on the subroutine to do this
@@ -871,6 +874,7 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 		def generateHostRoutine(routine):
 			hostRoutine = routine.clone(synthesizedHostRoutineName(routine.name))
 			hostRoutine.implementation = FortranImplementation(self.optionFlags, appliesTo="GPU")
+			hostRoutine.implementation.useKernelPrefixesForDebugPrint = False
 			return hostRoutine
 
 		routines = [routine]

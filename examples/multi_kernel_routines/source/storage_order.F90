@@ -14,6 +14,7 @@
 #define DEBUG_OUT_y 1
 #define DEBUG_OUT_z 1
 #define DEBUG_OUT_nz 4
+#define DEBUG_OUT_x_2 1
 
 ! ------ CUDA run configuration ------------
 #define CUDA_BLOCKSIZE_X 16

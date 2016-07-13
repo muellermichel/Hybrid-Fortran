@@ -2,6 +2,13 @@
 
 #define DEBUG_OUT_i 1
 #define DEBUG_OUT_j 1
+#define DEBUG_OUT_i_2 1
+#define DEBUG_OUT_j_2 1
+#define DEBUG_OUT_x 1
+#define DEBUG_OUT_y 1
+#define DEBUG_OUT_z 1
+#define DEBUG_OUT_nz 4
+#define DEBUG_OUT_x_2 1
 
 #define CUDA_BLOCKSIZE_X 32
 #define CUDA_BLOCKSIZE_Y 16

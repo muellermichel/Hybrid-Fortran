@@ -10,10 +10,15 @@
 ! Fortran, only the following domain names
 ! are supported for this functionality:
 ! x, y, nz, i, j, vertical, verticalPlus, KMAX_CONST, KMP1_CONST
+#define DEBUG_OUT_i 1
+#define DEBUG_OUT_j 1
+#define DEBUG_OUT_i_2 1
+#define DEBUG_OUT_j_2 1
 #define DEBUG_OUT_x 1
 #define DEBUG_OUT_y 1
 #define DEBUG_OUT_z 1
 #define DEBUG_OUT_nz 4
+#define DEBUG_OUT_x_2 1
 
 ! ------ CUDA run configuration ------------
 #define CUDA_BLOCKSIZE_X 32

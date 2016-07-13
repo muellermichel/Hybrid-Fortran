@@ -47,7 +47,7 @@ EXECUTABLES="example"
 # DEBUG_PRINT:
 # Adds debug print to the implementation.
 #
-OPTION_FLAGS=
+OPTION_FLAGS=DEBUG_PRINT
 
 #############################################################################
 # directories as seen from project directory.                               #

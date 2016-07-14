@@ -30,21 +30,61 @@ contains
     b(i,j) = a(i,j) + a(i+1,j)
     @end parallelRegion
   end subroutine
+
+  subroutine stencilPlus(n, m, a, b)
+    implicit none
+    integer(4), intent(in) :: n, m
+    real(8), intent(in), dimension(0:n,m) :: a
+    real(8), intent(out), dimension(0:n,m) :: b
+    @domainDependant{attribute(autoDom)}
+    a, b, n, m
+    @end domainDependant
+
+    @parallelRegion{domName(i,j), domSize(0:n,m), startAt(0,1), endAt(n-1,m)}
+    b(i,j) = a(i,j) + a(i+1,j)
+    @end parallelRegion
+  end subroutine
+
+  ! Hybrid Fortran needs to (a) rewrite the kernel call to one running on GPU and (b) only transpiles code within modules --> need to wrap the kernel call.
+  subroutine stencilWrapper(n, m, a, b)
+    implicit none
+    integer(4), intent(in) :: n, m
+    real(8), intent(in), dimension(n,m) :: a
+    real(8), intent(out), dimension(n,m) :: b
+    @domainDependant{attribute(autoDom)}
+    a, b, n, m
+    @end domainDependant
+
+    call stencil(n, m, a, b)
+  end subroutine
+
+  subroutine stencilPlusWrapper(n, m, a, b)
+    implicit none
+    integer(4), intent(in) :: n, m
+    real(8), intent(in), dimension(0:n,m) :: a
+    real(8), intent(out), dimension(0:n,m) :: b
+    @domainDependant{attribute(autoDom)}
+    a, b, n, m
+    @end domainDependant
+
+    call stencilPlus(n, m, a, b)
+  end subroutine
 end module
 
 program main
   use stencil
   implicit none
-  real(8), dimension(:,:), allocatable :: a, b
+  real(8), dimension(:,:), allocatable :: a, b, aPlus, bPlus
   integer(4) :: n, m, i, j
 
   n = 4
   m = 4
+
   allocate(a(n,m))
   allocate(b(n,m))
   a(:,:) = 1.0d0
   b(:,:) = 0.0d0
-  call stencil(n, m, a, b)
+  call stencilWrapper(n, m, a, b)
   do i=1,n-1
     do j=1,m
       if (b(i,j) .ne. 2.0d0) then
@@ -58,5 +98,25 @@ program main
   write(6,*) "test ok"
   deallocate(a)
   deallocate(b)
+
+  allocate(aPlus(0:n,m))
+  allocate(bPlus(0:n,m))
+  aPlus(:,:) = 1.0d0
+  bPlus(:,:) = 0.0d0
+  call stencilPlusWrapper(n, m, aPlus, bPlus)
+  do i=0,n-1
+    do j=1,m
+      if (bPlus(i,j) .ne. 2.0d0) then
+        write(6,*) "test2 failed, i=", i, "j=", j, "b=", bPlus(i,j)
+        deallocate(aPlus)
+        deallocate(bPlus)
+        stop 2
+      end if
+    end do
+  end do
+  write(6,*) "test2 ok"
+  deallocate(aPlus)
+  deallocate(bPlus)
+
   stop
 end program main

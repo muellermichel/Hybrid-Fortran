@@ -26,6 +26,20 @@ contains
     @end parallelRegion
   end subroutine
 
+  ! Hybrid Fortran needs to (a) rewrite the kernel call to one running on GPU and (b) only transpiles code within modules --> need to wrap the kernel call.
+  subroutine stencilWrapper(n, m, nz, a, b)
+    implicit none
+    integer(4), intent(in) :: n, m, nz
+    real(8), intent(in), dimension(n,m) :: a
+    real(8), intent(out), dimension(n,m) :: b
+
+    @domainDependant{attribute(autoDom)}
+    a, b
+    @end domainDependant
+
+    call stencil(n, m, nz, a, b)
+  end subroutine
+
   subroutine hostFunctionWithAllocatable(n, m, nz)
     !this routine has no actual functionality, but we're testing whether Hybrid Fortran doesn't get confused on allocations
     implicit none
@@ -51,7 +65,7 @@ program main
   allocate(b(n,m))
   a(:,:) = 1.0d0
   b(:,:) = 0.0d0
-  call stencil(n, m, nz, a, b)
+  call stencilWrapper(n, m, nz, a, b)
   do i=1,n-1
     do j=1,m
       if (b(i,j) .ne. 6.0d0) then

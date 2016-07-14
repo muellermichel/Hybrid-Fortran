@@ -1165,17 +1165,23 @@ end if\n" %(calleeNode.getAttribute('name'))
 		cudaDims = ("x", "y", "z")
 		result = ""
 		for index, domain in enumerate(domains):
-			result += "%s = (blockidx%%%s - 1) * blockDim%%%s + threadidx%%%s\n" %(domain.name, cudaDims[index], cudaDims[index], cudaDims[index])
+			startsAt = domain.startsAt if domain.startsAt != None else "1"
+			result += "%s = (blockidx%%%s - 1) * blockDim%%%s + threadidx%%%s + %s - 1\n" %(
+				domain.name,
+				cudaDims[index],
+				cudaDims[index],
+				cudaDims[index],
+				startsAt
+			)
 		return result
 
 	def safetyOutsideRegion(self, domains):
 		result = "if ("
 		for index, domain in enumerate(domains):
-			startsAt = domain.startsAt if domain.startsAt != None else "1"
 			endsAt = domain.endsAt if domain.endsAt != None else domain.size
 			if index != 0:
 				result += " .OR. "
-			result += "%s .GT. %s .OR. %s .LT. %s" %(domain.name, endsAt, domain.name, startsAt)
+			result += "%s .GT. %s" %(domain.name, endsAt)
 		result += ") then\nreturn\nend if\n"
 		return result
 

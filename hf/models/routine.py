@@ -238,13 +238,14 @@ This is not allowed for implementations using %s.\
 			# Note: currently only a single real type per subroutine is supported for compaction
 			#$$$ dangerous in case of mixed precition usage
 			currentDeclarationPrefix = symbol.getSanitizedDeclarationPrefix(purgeList=['intent', 'public', 'save'])
+
+			# CUDA Fortran supports parameters defined in kernels, at least as of v16.5
 			if declType in [
 				DeclarationType.FOREIGN_MODULE_SCALAR,
 				DeclarationType.LOCAL_MODULE_SCALAR,
 				DeclarationType.OTHER_SCALAR,
 				DeclarationType.LOCAL_SCALAR
 			] \
-			# CUDA Fortran supports parameters defined in kernels, at least as of v16.5
 			and not 'parameter' in currentDeclarationPrefix \
 			and ( \
 				'real' in currentDeclarationPrefix \

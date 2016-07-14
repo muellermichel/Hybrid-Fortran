@@ -78,9 +78,6 @@ def addAttributeToAllCallGraphAncestors(routines, callNodesByCalleeName, routine
 		for routine in routines:
 			if routine.getAttribute("name") != callerName:
 				continue
-			if attributeName == 'parallelRegionPosition' and not routine.getAttribute(attributeName) in [None, '', attributeValue]:
-				raise Exception("Routine %s contains one or more kernels and at the same time has one or more kernels in its inner callgraph. \
-This is not allowed in Hybrid Fortran. Please turn this subroutine into a kernel wrapper, putting its own parallel regions into seperate subroutines." %(callerName))
 			callerNode = routine
 			routine.setAttribute(attributeName, attributeValue)
 			for templateRelation in templateRelations:
@@ -106,9 +103,6 @@ def addAttributeToAllCallGraphHeirs(routines, callNodesByCallerName, routineNode
 		for routine in routines:
 			if routine.getAttribute("name") != calleeName:
 				continue
-			if attributeName == 'parallelRegionPosition' and not routine.getAttribute(attributeName) in [None, '', attributeValue]:
-				raise Exception("Routine %s contains one or more kernels and at the same time is being called inside a kernel. \
-This is not allowed in Hybrid Fortran. Please call this subroutine in a wrapper function instead, moving the other kernel into its own subroutine." %(callerName))
 			calleeNode = routine
 			routine.setAttribute(attributeName, attributeValue)
 			for templateRelation in templateRelations:
@@ -212,11 +206,6 @@ def analyseParallelRegions(doc, appliesTo):
 	for regionNum, parallelRegionNode in enumerate(parallelRegionNodes):
 		if not parallelRegionNode.parentNode.tagName == "routine":
 			raise Exception("Parallel region not within routine.")
-		if not parallelRegionNode.parentNode.getAttribute("parallelRegionPosition") in [None, '', 'within']:
-			raise Exception("Routine %s contains one or more kernels and at the same time is either called by or calls one or more other kernels. \
-This is not allowed in Hybrid Fortran. Please separate kernel routines from wrapper and inner routines." %(
-				parallelRegionNode.parentNode.getAttribute('name')
-			))
 		parallelRegionNode.parentNode.setAttribute("parallelRegionPosition", "within")
 		routine = parallelRegionNode.parentNode
 		routineName = routine.getAttribute("name")

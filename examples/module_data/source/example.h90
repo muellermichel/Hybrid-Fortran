@@ -205,7 +205,7 @@ program main
   d(:,:,:) = 0.0d0
   call data_region_wrapper7()
   write(0,*) "calculation7 complete"
-  call assert_values(c, 3.0d0)
+  call assert_values(c, 4.0d0)
   call assert_values(d, 2.0d0)
 
 

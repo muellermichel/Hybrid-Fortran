@@ -45,13 +45,14 @@ contains
     @if{architecture(GPU)}
     c(:,:,:) = c_hfdev(:,:,:)
     @end if
-    call assert_values(c, 3.0d0)
+    call assert_values(c, 4.0d0)
   end subroutine
 
   subroutine add7()
     use my_module, only: a, b, c
     implicit none
     integer :: z
+    real(8), parameter :: test_param = 1.0d0
 
     @domainDependant{attribute(autoDom, present)}
     a, b, c
@@ -59,7 +60,7 @@ contains
 
     @parallelRegion{domName(x,y), domSize(NX, NY)}
     do z=1,NZ
-      c(z) = a(z) + b(z)
+      c(z) = a(z) + b(z) + test_param
     end do
     @end parallelRegion
   end subroutine

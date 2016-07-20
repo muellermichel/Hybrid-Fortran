@@ -154,7 +154,8 @@ class CallRegion(Region):
 				self._callee,
 				useDeviceVersionIfAvailable=parentRoutine.implementation.onDevice
 			)
-
+		if not hasattr(self._callee, "implementation"):
+			return arguments
 		parallelRegionTemplate = None
 		if self._parentRegion and isinstance(self._parentRegion(), ParallelRegion):
 			parallelRegionTemplate = self._parentRegion().template

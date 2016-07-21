@@ -144,6 +144,7 @@ for i in "${!argStringsArr[@]}"; do
 	remoteCallPrefix=""
 
 	echo -n "calling ${executable_name} ( with parameters ${argString} ) for ${configuration_name} ,"
+	chmod +x ./${executable_name}
 	if [ -z "$HF_RUN_OVER_SSH" ]; then
 		timingResult=$(./${executable_name} ${argString} 2>./log_lastRun.txt && :)
 		rc=$?

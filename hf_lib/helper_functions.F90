@@ -310,30 +310,33 @@ contains
 	end subroutine
 
 	!2012-6-5 michel: helper function to save output
-	subroutine write1DToFile(path, array, n)
+	subroutine write1DToFile(path, array, n, endian)
 		implicit none
 
 		!input arguments
 		real(8), intent(in) :: array(n)
 		character(len=*), intent(in) :: path
 		integer(4), intent(in) :: n
+		character(len=*), optional :: endian
 
 		!temporary
 		integer(4) :: imt
 		character(len=:), allocatable :: dirname
+
+		if( .not. present(endian) ) endian = "native"
 		dirname = getDirectory(path)
 		call makeDirectory(dirname)
 		call findNewFileHandle(imt)
 		!NOTE: status = old means that the file must be present.
 		!Haven't found a better solution yet, status = 'new' will not overwrite
-		open(imt, file = path, form = 'unformatted', status = 'replace')
+		open(imt, file = path, form = 'unformatted', status = 'replace', convert = endian)
 		write(imt) array
 		close(imt)
 		deallocate(dirname)
 	end subroutine
 
 	!2012-6-5 michel: helper function to save output
-	subroutine write2DToFile(path, array, n1, n2)
+	subroutine write2DToFile(path, array, n1, n2, endian)
 		implicit none
 
 		!input arguments
@@ -343,18 +346,21 @@ contains
 		integer(4), intent(in) :: n2
 		integer(4) :: imt
 		character(len=:), allocatable :: dirname
+		character(len=*), optional :: endian
+
+		if( .not. present(endian) ) endian = "native"
 		dirname = getDirectory(path)
 		call makeDirectory(dirname)
 		deallocate(dirname)
 
 		call findNewFileHandle(imt)
-		open(imt, file = path, form = 'unformatted', status = 'replace')
+		open(imt, file = path, form = 'unformatted', status = 'replace', convert = endian)
 		write(imt) array
 		close(imt)
 	end subroutine
 
 	! $$$ TODO: This routine isn't really generally applicable - it assumes that the file should be in k-first-order.
-	subroutine write3DToFile(path, array, n1, n2, n3)
+	subroutine write3DToFile(path, array, n1, n2, n3, endian)
 		implicit none
 
 		!input arguments
@@ -366,6 +372,9 @@ contains
 		integer(4) :: imt, i, j, k
 		real(8) :: out_array(n3, n1, n2)
 		character(len=:), allocatable :: dirname
+		character(len=*), optional :: endian
+
+		if( .not. present(endian) ) endian = "native"
 		dirname = getDirectory(path)
 		call makeDirectory(dirname)
 		deallocate(dirname)
@@ -379,12 +388,12 @@ contains
 		end do
 
 		call findNewFileHandle(imt)
-		open(imt, file = path, form = 'unformatted', status = 'replace')
+		open(imt, file = path, form = 'unformatted', status = 'replace', convert = endian)
 		write(imt) out_array
 		close(imt)
 	end subroutine
 
-	subroutine write3DToFile_n3StartsAt(path, array, n1, n2, n3, start3)
+	subroutine write3DToFile_n3StartsAt(path, array, n1, n2, n3, start3, endian)
 		implicit none
 
 		!input arguments
@@ -397,10 +406,12 @@ contains
 		integer(4) :: imt, i, j, k
 		real(8) :: out_array(n3+1-start3, n1, n2)
 		character(len=:), allocatable :: dirname
+		character(len=*), optional :: endian
+
+		if( .not. present(endian) ) endian = "native"
 		dirname = getDirectory(path)
 		call makeDirectory(dirname)
 		deallocate(dirname)
-
 		do j=1, n2
 			do i=1, n1
 				do k=start3, n3
@@ -410,7 +421,7 @@ contains
 		end do
 
 		call findNewFileHandle(imt)
-		open(imt, file = path, form = 'unformatted', status = 'replace')
+		open(imt, file = path, form = 'unformatted', status = 'replace', convert = endian)
 		write(imt) out_array
 		close(imt)
 	end subroutine

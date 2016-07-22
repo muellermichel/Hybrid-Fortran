@@ -202,18 +202,32 @@ def checkIntegrity(tup):
 			return index, val
 	return -1, -1
 
+def getEndianFormatString(options, numOfBytesPerValue, fileUsedForAutomaticDetection):
+	def getTrialRecordsWithEndianFormat(endianFormat):
+		detectionRecords = []
+		for recordNum in range(100):
+			nextRecord = unpackNextRecord(fileUsedForAutomaticDetection, endianFormat, numOfBytesPerValue, False)
+			if nextRecord == None:
+				break
+			detectionRecords.append(nextRecord)
+		return detectionRecords
+
+	if (options.readEndian == "little"):
+		return '<'
+	if (options.readEndian == "big"):
+		return '>'
+	fileUsedForAutomaticDetection.seek(0)
+	records = getTrialRecordsWithEndianFormat('<')
+	fileUsedForAutomaticDetection.seek(0)
+	if len(records) == 100 and all([length(r) == 1 for r in records]):
+		return '>'
+	return '<'
+
 def run_accuracy_test_for_datfile(options, eps, epsSingle):
 	numOfBytesPerValue = int(options.bytes) if options.bytes != None else None
 	if numOfBytesPerValue != None and numOfBytesPerValue != 4 and numOfBytesPerValue != 8:
 		sys.stderr.write("Unsupported number of bytes per value specified.\n")
 		sys.exit(2)
-	readEndianFormat = '>'
-	if (options.readEndian == "little"):
-		readEndianFormat = '<'
-	sys.stderr.write("performing accuracy test with .DAT file, %s bytes per value, %s endian, float\n" %(
-		str(numOfBytesPerValue) if numOfBytesPerValue != None else "automatic",
-		readEndianFormat
-	))
 	inFile = None
 	refFile = None
 	try:
@@ -223,6 +237,11 @@ def run_accuracy_test_for_datfile(options, eps, epsSingle):
 			refFile = open(str(options.refFile),'r')
 		else:
 			sys.stderr.write("WARNING: No reference file specified - doing some basic checks on the input only\n")
+		readEndianFormat = getEndianFormatString(options, numOfBytesPerValue, refFile)
+		sys.stderr.write("performing accuracy test with .DAT file, %s bytes per value, %s endian, float\n" %(
+			str(numOfBytesPerValue) if numOfBytesPerValue != None else "automatic",
+			readEndianFormat
+		))
 		i = 0
 		errorState=False
 		while True:

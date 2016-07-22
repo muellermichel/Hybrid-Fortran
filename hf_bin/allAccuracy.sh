@@ -68,6 +68,7 @@ for i in $output_file_pattern; do
 			OLD_PYTHONPATH=$PYTHONPATH
 			export PYTHONPATH=
 			echo "calling accuracy with format paramter ${formatParam}" 1>&2
+			echo "${HF_DIR}/hf_bin/accuracy.py -f $i --reference \"$refPath\" $formatParamCurr"
 			python ${HF_DIR}/hf_bin/accuracy.py -f $i --reference "$refPath" $formatParamCurr && :
 			rc=$?
 			if [ $errorVal -eq 0 ] ; then

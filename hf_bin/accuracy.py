@@ -219,7 +219,7 @@ def getEndianFormatString(options, numOfBytesPerValue, fileUsedForAutomaticDetec
 	fileUsedForAutomaticDetection.seek(0)
 	records = getTrialRecordsWithEndianFormat('<')
 	fileUsedForAutomaticDetection.seek(0)
-	if len(records) == 100 and all([length(r) == 1 for r in records]):
+	if len(records) == 100 and all([len(r) in [0, 1] for r in records]):
 		return '>'
 	return '<'
 

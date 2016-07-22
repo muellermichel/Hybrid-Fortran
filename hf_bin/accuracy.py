@@ -300,8 +300,8 @@ def run_accuracy_test_for_datfile(options, eps, epsSingle):
 				err, firstErr, firstErrVal, expectedVal, maxErr, maxErrVal, maxErrExpectedVal = rootMeanSquareDeviation(unpacked, unpackedRef, epsSingle)
 				if firstErr != -1 or err > eps:
 					errorState=True
-					passedStr = "first error value: %s; expected: %s; max error value: %s; expected: %s; FAIL <-------" %(firstErrVal, expectedVal, maxErrVal, maxErrExpectedVal)
-			sys.stderr.write("%s, record %i: Length: %i; Mean square error: %e; First Error at: %i; Max Error at: %i; %s\n" %(
+					passedStr = "1st err val: %s; ref: %s; max err val: %s; ref: %s; FAIL" %(firstErrVal, expectedVal, maxErrVal, maxErrExpectedVal)
+			sys.stderr.write("%s, rec %i (len%i): RMSE: %e; 1st err idx: %i; max err idx: %i; %s\n" %(
 				options.inFile,
 				i,
 				len(unpacked),
@@ -404,7 +404,7 @@ def run_accuracy_test_for_netcdf(options, eps):
 					first_occurrence_index_tuple = numpy.unravel_index(first_occurrence, in_array.shape)
 					first_err_val = in_array[first_occurrence_index_tuple]
 					expected_val = ref_array[first_occurrence_index_tuple]
-					passed_string = "first error at:%s; first error value: %s; expected: %s; array size: %s; FAIL <-------" %(first_occurrence_index_tuple, first_err_val, expected_val, in_array.shape)
+					passed_string = "first err. at:%s; first err. val.: %s; ref: %s; array size: %s; FAIL <-------" %(first_occurrence_index_tuple, first_err_val, expected_val, in_array.shape)
 					# numpy.set_printoptions(precision=3)
 					# passed_string += "\n === curr === \n" + str(in_array)
 					# passed_string += "\n === ref === \n" + str(ref_array)

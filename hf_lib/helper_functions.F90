@@ -310,33 +310,38 @@ contains
 	end subroutine
 
 	!2012-6-5 michel: helper function to save output
-	subroutine write1DToFile(path, array, n, endian)
+	subroutine write1DToFile(path, array, n, opt_endian)
 		implicit none
 
 		!input arguments
 		real(8), intent(in) :: array(n)
 		character(len=*), intent(in) :: path
 		integer(4), intent(in) :: n
-		character(len=*), optional :: endian
+		character(len=*), optional :: opt_endian
 
 		!temporary
 		integer(4) :: imt
 		character(len=:), allocatable :: dirname
+		character(len=16) :: endian
 
-		if( .not. present(endian) ) endian = "native"
+		if( .not. present(opt_endian) ) then
+			endian = 'native'
+		else
+			endian = opt_endian
+		end if
 		dirname = getDirectory(path)
 		call makeDirectory(dirname)
 		call findNewFileHandle(imt)
 		!NOTE: status = old means that the file must be present.
 		!Haven't found a better solution yet, status = 'new' will not overwrite
-		open(imt, file = path, form = 'unformatted', status = 'replace', convert = endian)
+		open(imt, file = path, form = 'unformatted', status = 'replace', convert = trim(endian))
 		write(imt) array
 		close(imt)
 		deallocate(dirname)
 	end subroutine
 
 	!2012-6-5 michel: helper function to save output
-	subroutine write2DToFile(path, array, n1, n2, endian)
+	subroutine write2DToFile(path, array, n1, n2, opt_endian)
 		implicit none
 
 		!input arguments
@@ -346,21 +351,26 @@ contains
 		integer(4), intent(in) :: n2
 		integer(4) :: imt
 		character(len=:), allocatable :: dirname
-		character(len=*), optional :: endian
+		character(len=*), optional :: opt_endian
+		character(len=16) :: endian
 
-		if( .not. present(endian) ) endian = "native"
+		if( .not. present(opt_endian) ) then
+			endian = 'native'
+		else
+			endian = opt_endian
+		end if
 		dirname = getDirectory(path)
 		call makeDirectory(dirname)
 		deallocate(dirname)
 
 		call findNewFileHandle(imt)
-		open(imt, file = path, form = 'unformatted', status = 'replace', convert = endian)
+		open(imt, file = path, form = 'unformatted', status = 'replace', convert = trim(endian))
 		write(imt) array
 		close(imt)
 	end subroutine
 
 	! $$$ TODO: This routine isn't really generally applicable - it assumes that the file should be in k-first-order.
-	subroutine write3DToFile(path, array, n1, n2, n3, endian)
+	subroutine write3DToFile(path, array, n1, n2, n3, opt_endian)
 		implicit none
 
 		!input arguments
@@ -372,9 +382,14 @@ contains
 		integer(4) :: imt, i, j, k
 		real(8) :: out_array(n3, n1, n2)
 		character(len=:), allocatable :: dirname
-		character(len=*), optional :: endian
+		character(len=*), optional :: opt_endian
+		character(len=16) :: endian
 
-		if( .not. present(endian) ) endian = "native"
+		if( .not. present(opt_endian) ) then
+			endian = 'native'
+		else
+			endian = opt_endian
+		end if
 		dirname = getDirectory(path)
 		call makeDirectory(dirname)
 		deallocate(dirname)
@@ -388,12 +403,12 @@ contains
 		end do
 
 		call findNewFileHandle(imt)
-		open(imt, file = path, form = 'unformatted', status = 'replace', convert = endian)
+		open(imt, file = path, form = 'unformatted', status = 'replace', convert = trim(endian))
 		write(imt) out_array
 		close(imt)
 	end subroutine
 
-	subroutine write3DToFile_n3StartsAt(path, array, n1, n2, n3, start3, endian)
+	subroutine write3DToFile_n3StartsAt(path, array, n1, n2, n3, start3, opt_endian)
 		implicit none
 
 		!input arguments
@@ -406,9 +421,14 @@ contains
 		integer(4) :: imt, i, j, k
 		real(8) :: out_array(n3+1-start3, n1, n2)
 		character(len=:), allocatable :: dirname
-		character(len=*), optional :: endian
+		character(len=*), optional :: opt_endian
+		character(len=16) :: endian
 
-		if( .not. present(endian) ) endian = "native"
+		if( .not. present(opt_endian) ) then
+			endian = 'native'
+		else
+			endian = opt_endian
+		end if
 		dirname = getDirectory(path)
 		call makeDirectory(dirname)
 		deallocate(dirname)
@@ -421,7 +441,7 @@ contains
 		end do
 
 		call findNewFileHandle(imt)
-		open(imt, file = path, form = 'unformatted', status = 'replace', convert = endian)
+		open(imt, file = path, form = 'unformatted', status = 'replace', convert = trim(endian))
 		write(imt) out_array
 		close(imt)
 	end subroutine

@@ -24,11 +24,11 @@ from tools.patterns import RegExPatterns
 from models.symbol import DeclarationType
 import logging, re
 
-def arrayCheckConditional(symbol):
+def arrayCheckConditional(symbol, offsets=None):
 	domainSizes = [s for _, s in symbol.domains]
 	if not domainSizes:
 		raise Exception("cannot generate domain size conditional from empty domain sizes list")
-	return "if (%s%s) then" %(
+	result = "if ( %s%s" %(
 		"allocated(%s) .and. " %(symbol.name) \
 			if symbol.hasUndecidedDomainSizes and not "pointer" in symbol.declarationPrefix \
 			else "",
@@ -40,6 +40,14 @@ def arrayCheckConditional(symbol):
 			for s in domainSizes
 		])
 	)
+	if offsets != None and len(offsets) == len(domainSizes):
+		result += " .and. "
+		result += " .and. ".join([
+			"%s .ge. %s" %(s.split(":")[-1], offsets[idx])
+			for idx, s in enumerate(domainSizes)
+		])
+	result += " ) then"
+	return result
 
 def originalRoutineName(routineName):
 	match = RegExPatterns.Instance().routineNamePattern.match(routineName)
@@ -507,8 +515,9 @@ def getRuntimeDebugPrintStatements(kernelName, symbolsByName, calleeRoutineNode,
 	for symbol in symbolsToPrint:
 		if symbol.declarationType == DeclarationType.LOCAL_SCALAR:
 			continue #cannot guarantee that these types of symbols are initialized at this point
+		offsets = offsetsBySymbolName[symbol.name]
 		if len(symbol.domains) > 0:
-			result += arrayCheckConditional(symbol) + "\n"
+			result += arrayCheckConditional(symbol, offsets) + "\n"
 		result += "hf_output_temp = %s\n" %(symbol.accessRepresentation([], offsetsBySymbolName[symbol.name], parallelRegionNode))
 		#michel 2013-4-18: the Fortran-style memcopy as used right now in the above line creates a runtime error immediately
 		#                  if we'd like to catch such errors ourselves, we need to use the cuda API memcopy calls - however we
@@ -519,15 +528,14 @@ def getRuntimeDebugPrintStatements(kernelName, symbolsByName, calleeRoutineNode,
 		#         "\twrite(0, *) 'CUDA error when attempting to copy value from %s:', cudaGetErrorString(cuErrorMemcopy)\n" \
 		#         "stop 1\n" \
 		#     "end if\n" %(symbol.name)
-		joinedDomains = offsetsBySymbolName[symbol.name]
-		if len(joinedDomains) > 0:
+		if len(offsets) > 0:
 			domainsStr = "(',"
 			formStr = "'(A,"
-			for i in range(len(joinedDomains)):
+			for i in range(len(offsets)):
 				if i != 0:
 					domainsStr = domainsStr + ",', ',"
 					formStr = formStr + ",A,"
-				domainsStr = domainsStr + str(joinedDomains[i])
+				domainsStr = domainsStr + str(offsets[i])
 				formStr = formStr + "I3"
 			formStr = formStr + ",A,E19.11)'"
 			domainsStr = domainsStr + ",'):"

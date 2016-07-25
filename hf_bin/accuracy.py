@@ -117,6 +117,9 @@ def unpackNextRecord(f, readEndianFormat, numOfBytesPerValue, verbose=False):
 			sys.stderr.write("This record seems to be a float with value %s\n" %(str(content)))
 		return [content]
 
+	def valuesAreReasonable(unpacked):
+		return all([v > 1E-15 and v < 1E10 for v in unpacked])
+
 	if numOfBytesPerValue != None:
 		return tentativeUnpack(
 			f,
@@ -134,9 +137,10 @@ def unpackNextRecord(f, readEndianFormat, numOfBytesPerValue, verbose=False):
 		return unpacked8
 	f.seek(currentPosition)
 	unpacked4 = tentativeUnpack(f, readEndianFormat, 4, 'f', verbose)
+	reasonable4 = valuesAreReasonable(unpacked4) if unpacked4 else False
 	if unpacked8 == None and unpacked4 == None:
 		return None
-	if unpacked4 != None and len(unpacked4) > 1:
+	if unpacked4 != None and len(unpacked4) > 1 and reasonable4:
 		return unpacked4
 	if unpacked4 == None and unpacked8 != None:
 		return unpacked8
@@ -144,7 +148,7 @@ def unpackNextRecord(f, readEndianFormat, numOfBytesPerValue, verbose=False):
 		return unpacked4
 	if len(unpacked4) == len(unpacked8):
 		return unpacked4 #at this point an 4 byte integer is most likely
-	if len(unpacked4) == 1:
+	if len(unpacked4) == 1 and reasonable4:
 		return unpacked4
 	return unpacked8
 

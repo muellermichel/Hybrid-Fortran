@@ -128,13 +128,17 @@ for i in "${!argStringsArr[@]}"; do
 	fi
 
 	if [ "$configuration_name" = "validation" ]; then
-		if [ -e ./ref.tar.gz ] && [ ! -e $refPath ]; then
+		archive_path="./ref.tar.gz"
+		if [ ! -e "${archive_path}" ] && [ -e "${HF_REFERENCE_OUTPUT_DIR}/${executable_name}.ref.tar.gz" ]; then
+			archive_path="${HF_REFERENCE_OUTPUT_DIR}/${executable_name}.ref.tar.gz"
+		fi
+		if [ -e "${archive_path}" ] && [ ! -e $refPath ]; then
 			if ! $extractionAttempted; then
 				echo "extracting reference data"
-				tar -xzvf ./ref.tar.gz > /dev/null
+				tar -xzvf "${archive_path}" -C ./ > /dev/null
 				extractionAttempted=true
 			fi
-			if [ -e ./ref.tar.gz ] && [ ! -e $refPath ]; then
+			if [ -e "${archive_path}" ] && [ ! -e $refPath ]; then
 				echo "Error with ${configuration_name} tests: Reference data directory $refPath not part of the reference data in ./ref.tar.gz" 1>&2
 				exit 1
 			fi

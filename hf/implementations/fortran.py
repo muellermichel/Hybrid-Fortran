@@ -489,10 +489,10 @@ class DeviceDataFortranImplementation(FortranImplementation):
 		adjustedLine = line.rstrip()
 
 		#$$$ generalize this using using symbol.getSanitizedDeclarationPrefix with a new 'intent' parameter
-		purgedDeclarationDirectives, declarationDirectives, symbolDeclarationStr = splitAndPurgeSpecification(
-			line,
-			purgeList=['intent', 'dimension', 'save', 'optional']
-		)
+		purgeList=['intent', 'dimension', 'save', 'optional']
+		if len(dependantSymbols[0].domains) > 0:
+			purgeList.append('parameter') #data intrinsics are not allowed for device arrays.
+		purgedDeclarationDirectives, declarationDirectives, symbolDeclarationStr = splitAndPurgeSpecification(line, purgeList)
 		deviceType = "device"
 		declarationType = dependantSymbols[0].declarationType
 

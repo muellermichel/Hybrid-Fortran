@@ -196,11 +196,13 @@ def createOrGetFirstNodeWithName(nodeName, doc):
         doc.firstChild.appendChild(node)
     return node
 
-def getNodeValue(node):
+def getNodeValue(node, mergeEntries=False):
     if hasattr(node, "nodeValue") and node.nodeValue != None:
         return node.nodeValue
     elif node.childNodes and len(node.childNodes) == 1 and hasattr(node.childNodes[0], "nodeValue"):
         return node.childNodes[0].nodeValue
+    elif mergeEntries and all([n.tagName == "entry" for n in node.childNodes]):
+        return ",".join([getNodeValue(n).strip() for n in node.childNodes])
     return None
 
 def appendSeparatedTextAsNodes(text, separator, doc, parent, nodeName):
@@ -259,7 +261,7 @@ def hasDuplicateAttributes(node1, node2, ignoreIDs=True):
             continue
         newAttributeValue = node2.getAttribute(name)
         if (value != newAttributeValue):
-            break;
+            break
     else:
         #the inner loop has never breaked -> both nodes share all attributes.
         return True
@@ -295,7 +297,7 @@ def firstDuplicateChild(parent, newNode, cgDoc=None, ignoreIDs=True):
         return None
 
     newNodeContent = {}
-    newNodeValue = getNodeValue(newNode)
+    newNodeValue = getNodeValue(newNode, mergeEntries=True)
     if newNodeValue:
         newNodeContent["value"] = newNodeValue
 
@@ -304,7 +306,7 @@ def firstDuplicateChild(parent, newNode, cgDoc=None, ignoreIDs=True):
         if len(newNode.childNodes) != len(node.childNodes):
             continue
         newNodeContentCopy = newNodeContent.copy()
-        nodeValue = getNodeValue(node)
+        nodeValue = getNodeValue(node, mergeEntries=True)
         if newNodeContentCopy.get("value", None) != None:
             if not nodeValue:
                 continue

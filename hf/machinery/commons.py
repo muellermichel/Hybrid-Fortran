@@ -20,8 +20,13 @@
 
 import re, logging
 from tools.commons import BracketAnalyzer, Singleton, UsageError, findRightMostOccurrenceNotInsideQuotes, \
-    splitIntoComponentsAndRemainder, getComponentNameAndBracketContent
+    splitIntoComponentsAndRemainder, getComponentNameAndBracketContent, enum
 from tools.patterns import RegExPatterns
+
+TypeParameter = enum(
+    "ValueByteLength",
+    "Dimension"
+)
 
 def getAccessorsAndRemainder(accessorString):
     symbolAccessString_match = RegExPatterns.Instance().symbolAccessPattern.match(accessorString)
@@ -31,9 +36,11 @@ def getAccessorsAndRemainder(accessorString):
     return currBracketAnalyzer.getListOfArgumentsInOpenedBracketsAndRemainder(symbolAccessString_match.group(1))
 
 def updateTypeParameterProperties(symbolToCheckAsTypeParameter, symbolsToUpdate):
-    matchedSymbols = symbolIsTypeParameterFor(symbolToCheckAsTypeParameter, symbolsToUpdate)
+    matchedSymbols, typeParameterType = symbolIsTypeParameterFor(symbolToCheckAsTypeParameter, symbolsToUpdate)
     if len(matchedSymbols) > 0:
         symbolToCheckAsTypeParameter.isTypeParameter = True
+        if typeParameterType == TypeParameter.Dimension:
+            symbolToCheckAsTypeParameter.isDimensionParameter = True
     for matchedSymbol in matchedSymbols:
         matchedSymbol.usedTypeParameters.add(symbolToCheckAsTypeParameter)
 
@@ -41,16 +48,24 @@ def symbolIsTypeParameterFor(symbol, symbolsToCheck):
     if type(symbol.declarationPrefix) not in [str, unicode]:
         raise Exception("cannot check type dependencies, declaration of symbol %s has not been loaded at this point" %(symbol.name))
     if len(symbol.domains) > 0:
-        return []
+        return [], None
     if not 'integer' in symbol.declarationPrefix:
-        return []
+        return [], None
     symbolsMatched = []
+    typeParameterType = None
     for symbolToCheck in symbolsToCheck:
         if type(symbolToCheck.declarationPrefix) not in [str, unicode]:
             raise Exception("cannot check type dependencies against %s, declaration has not been loaded at this point" %(symbolToCheck.declarationPrefix))
         if symbol.typeDependencyPattern.match(symbolToCheck.declarationPrefix):
             symbolsMatched.append(symbolToCheck)
-    return symbolsMatched
+            typeParameterType = TypeParameter.ValueByteLength
+            continue
+        for _, domainSize in symbolToCheck.domains:
+            if symbol.typeDependencyPattern.match(domainSize):
+                symbolsMatched.append(symbolToCheck)
+                typeParameterType = TypeParameter.Dimension
+                break
+    return symbolsMatched, typeParameterType
 
 def parseSpecification(line):
     def parseDataObjectsAndRemainder(specRightHandSide):

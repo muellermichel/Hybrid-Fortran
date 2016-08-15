@@ -222,8 +222,8 @@ MERGEABLE_DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES = {
 	"isDeclaredExplicitely": False,
 	"hasUndecidedDomainSizes": False,
 	"isMatched": False,
-	"usedTypeParameters": set([]),
 	"_isTypeParameter": False,
+	"isDimensionParameter": False,
 	"_declarationPrefix": None,
 	"_sourceModuleIdentifier": None,
 	"_sourceSymbol": None,
@@ -268,7 +268,7 @@ class Symbol(object):
 		self.importPattern = self.patterns.get(r'^\s*use\s*(\w*)\s*,\s*only\s*.*?\W\s*' + re.escape(name) + r'(?:\W|$).*')
 		self.importMapPattern = self.patterns.get(r'.*?\W' + re.escape(name) + r'\s*\=\>\s*(\w*).*')
 		self.pointerOrAllocatablePattern = self.patterns.get(r'\s*(?:double\s+precision|real|integer|character|logical|complex).*?(?:pointer|allocatable).*?[\s,:]+' + re.escape(name))
-		self.typeDependencyPattern = self.patterns.get(r'.*?\W' + re.escape(name) + r'\W.*')
+		self.typeDependencyPattern = self.patterns.get(r'.*?(?:\W|^)' + re.escape(name) + r'(?:\W|$).*')
 		self.initLevel = Init.NOTHING_LOADED
 		self.routineNode = None
 		self.declarationSuffix = None
@@ -622,6 +622,7 @@ EXAMPLE:\n\
 		self.isPresent = False
 		self.isToBeTransfered = False
 		self._residingModule = None
+		self.usedTypeParameters = set([])
 		loadAttributesFromObject(MERGEABLE_DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES)
 		loadAttributesFromObject(MERGEABLE_DEFAULT_SYMBOL_INSTANCE_DOMAIN_ATTRIBUTES)
 

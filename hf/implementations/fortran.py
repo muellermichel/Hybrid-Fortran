@@ -989,7 +989,7 @@ end if\n" %(calleeNode.getAttribute('name'))
 				self.updateSymbolDeviceState(symbol, None, RegionType.OTHER, parallelRegionPosition, postTransfer=True)
 
 		if len(dependantSymbols) > 0:
-			if dependantSymbols[0].isTypeParameter:
+			if dependantSymbols[0].isTypeParameter and not dependantSymbols[0].isDimensionParameter:
 				return getImportStatements(dependantSymbols)
 			if parallelRegionPosition == "within":
 				return ""
@@ -1064,7 +1064,7 @@ end if\n" %(calleeNode.getAttribute('name'))
 					)
 					symbol.loadRoutineNodeAttributes(parentNode, callee.parallelRegionTemplates)
 					updateTypeParameterProperties(symbol, currRoutine.symbolsByName.values())
-				if symbol.isTypeParameter:
+				if symbol.isTypeParameter and not symbol.isDimensionParameter:
 					continue
 				if symbol.isDummySymbolForRoutine(routineName=parentNode.getAttribute('name')):
 					continue #already passed manually

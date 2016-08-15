@@ -21,7 +21,7 @@
 import copy, weakref, traceback
 from models.region import RegionType, RoutineSpecificationRegion, ParallelRegion, CallRegion
 from models.symbol import FrameworkArray, DeclarationType, ScopeError, limitLength
-from machinery.commons import ConversionOptions
+from machinery.commons import ConversionOptions, updateTypeParameterProperties
 from tools.commons import UsageError
 
 def getModuleArraysForCallee(calleeName, symbolAnalysisByRoutineNameAndSymbolName, symbolsByModuleNameAndSymbolName):
@@ -448,7 +448,9 @@ This is not allowed for implementations using %s.\
 
 		#update symbols in symbolsByName with additional ones
 		for symbol in self._additionalArguments \
-			+ self._synthesizedSymbols + self._symbolsToUpdate + self.regions[0]._symbolsToAdd:
+			+ self._synthesizedSymbols \
+			+ self._symbolsToUpdate \
+			+ self.regions[0]._symbolsToAdd:
 			nameInScope = symbol.nameInScope(useDeviceVersionIfAvailable=False)
 			if symbol.routineNode:
 				symbol.updateNameInScope(residingModule=self.parentModule.name)
@@ -474,9 +476,14 @@ This is not allowed for implementations using %s.\
 		self._symbolsToUpdate = updateReferences(self._symbolsToUpdate)
 		self.regions[0]._symbolsToAdd = updateReferences(self.regions[0]._symbolsToAdd)
 
-		#prepare type parameters
+		#gather type parameters (quadratic runtime!)
+		allSymbolsInScope = self.symbolsByName.values()
+		for symbol in allSymbolsInScope:
+			updateTypeParameterProperties(symbol, allSymbolsInScope)
+
+		#load type parameters into specification
 		typeParametersByName = {}
-		for symbol in self.symbolsByName.values():
+		for symbol in allSymbolsInScope:
 			for typeParameterSymbol in symbol.usedTypeParameters:
 				if typeParameterSymbol.sourceModule == self.parentModule.name:
 					continue

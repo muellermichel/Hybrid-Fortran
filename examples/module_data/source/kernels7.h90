@@ -16,6 +16,7 @@
 ! along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.'
 
 module kernels7
+use my_module, only: rlength
 contains
 
   ! This is a test of "quotes" in 'comments', also "a bit 'stranger'" 'one"s"'

@@ -183,19 +183,6 @@ class CallRegion(Region):
 			raise Exception("call not loaded for call region in %s" %(self._routineRef().name))
 
 		text = ""
-		#$$$ this code is dead because _callee doesn't know about its symbols
-		# argumentSymbols = None
-		# #this hasattr is used to test the callee for analyzability without circular imports
-		# if hasattr(self._callee, "implementation"):
-		# 	argumentSymbols = [
-		# 		symbol for symbol in self._callee.additionalArgumentSymbols + self._passedInSymbolsByName.values()
-		# 		if symbol.name in self._callee.usedSymbolNames
-		# 	]
-		# 	for symbol in argumentSymbols:
-		# 		text += self._callee.implementation.callPreparationForPassedSymbol(
-		# 			self._routineRef().node,
-		# 			symbolInCaller=symbol
-		# 		)
 
 		parentRoutine = self._routineRef()
 		calleesWithPackedReals = parentRoutine._packedRealSymbolsByCalleeName.keys()
@@ -423,6 +410,7 @@ class RoutineSpecificationRegion(Region):
 		textForKeywords = ""
 		textBeforeDeclarations = ""
 		textAfterDeclarations = ""
+		declarations = ""
 		symbolsToAddByScopedName = dict(
 			(symbol.nameInScope(), symbol)
 			for symbol in self._symbolsToAdd
@@ -465,8 +453,6 @@ class RoutineSpecificationRegion(Region):
 				))
 
 		text = ""
-
-		# try:
 		moduleNamesCompletelyImported = [
 			sourceModule for (sourceModule, nameInScope) in self._allImports if nameInScope == None
 		] if self._allImports else []
@@ -476,6 +462,8 @@ class RoutineSpecificationRegion(Region):
 			text += "!<----- type parameters --\n"
 		for typeParameterSymbol in self._typeParameterSymbolsByName.values():
 			if typeParameterSymbol.sourceModule in moduleNamesCompletelyImported:
+				continue
+			if typeParameterSymbol.isDimensionParameter:
 				continue
 			text += getImportLine([typeParameterSymbol], parentRoutine)
 		if self._allImports:
@@ -487,6 +475,9 @@ class RoutineSpecificationRegion(Region):
 					continue
 				if sourceModule in moduleNamesCompletelyImported:
 					continue
+				if nameInScope in self._typeParameterSymbolsByName \
+				and not self._typeParameterSymbolsByName[nameInScope].isDimensionParameter:
+					continue
 				sourceName = self._allImports[(sourceModule, nameInScope)]
 				symbol = parentRoutine.symbolsByName.get(sourceName)
 				if symbol != None and symbol.sourceModule == parentRoutine.parentModule.name:
@@ -496,9 +487,10 @@ class RoutineSpecificationRegion(Region):
 				else:
 					adjustedSourceName = parentRoutine._adjustedCalleeNamesByName.get(sourceName, sourceName)
 					adjustedNameInScope = parentRoutine._adjustedCalleeNamesByName.get(nameInScope, nameInScope)
-					text += "use %s, only: %s => %s" %(sourceModule, adjustedNameInScope, adjustedSourceName) \
+					importSpecification = "use %s, only: %s => %s" %(sourceModule, adjustedNameInScope, adjustedSourceName) \
 						if adjustedNameInScope != adjustedSourceName \
 						else "use %s, only: %s" %(sourceModule, adjustedNameInScope)
+					text += importSpecification
 					if ConversionOptions.Instance().debugPrint and not skipDebugPrint:
 						text += " ! resynthesizing user input - no associated HF aware symbol found"
 					text += "\n"
@@ -513,7 +505,7 @@ class RoutineSpecificationRegion(Region):
 		if len(declaredSymbolsByScopedName.keys()) > 0:
 			if ConversionOptions.Instance().debugPrint and not skipDebugPrint:
 				text += "!<----- declarations: -------\n"
-			text += "\n".join([
+			declarations = "\n".join([
 				parentRoutine.implementation.adjustDeclarationForDevice(
 					symbol.getDeclarationLine(parentRoutine, purgeList=[]),
 					[symbol],
@@ -524,6 +516,7 @@ class RoutineSpecificationRegion(Region):
 				for symbol in declaredSymbolsByScopedName.values()
 				if symbol.name in parentRoutine.usedSymbolNames
 			]).strip() + "\n"
+			text += declarations
 		if len(self._dataSpecificationLines) > 0 and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
 			text += "!<----- data specifications: --\n"
 		if len(self._dataSpecificationLines) > 0:

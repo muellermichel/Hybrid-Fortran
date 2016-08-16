@@ -232,7 +232,7 @@ program main
   c(:,:,:) = 0.0d0
   call data_region_wrapper9()
   write(0,*) "calculation9 complete"
-  call assert_values(c, 1.0d0)
+  call assert_values(c, 4.0d0)
 
   deallocate(a)
   deallocate(b)

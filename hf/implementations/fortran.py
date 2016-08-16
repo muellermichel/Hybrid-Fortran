@@ -421,7 +421,7 @@ class DeviceDataFortranImplementation(FortranImplementation):
 		#arrays..
 		elif len(symbol.domains) > 0:
 
-			#.. marked as host symbol
+			#.. marked as host symbol (which automatically gets deactivated when symbol is set to present!)
 			if symbol.isHostSymbol and regionType == RegionType.MODULE_DECLARATION:
 				#this might look confusing. We want to declare a device version but note that the data is not yet residing there
 				symbol.isUsingDevicePostfix = True
@@ -1128,6 +1128,9 @@ end if\n" %(calleeNode.getAttribute('name'))
 		mergeSymbols(additionalDummies, indexedModuleSymbols[1])
 		for symbol in routineImports + indexedModuleSymbols[0].values() + routineDeclarations + indexedModuleSymbols[1].values() + additionalDummies:
 			symbol.isPresent = True
+			newAttributes = [a for a in symbol.attributes if not a in ["host", "present"]]
+			newAttributes.append("present")
+			symbol.attributes = newAttributes
 		return (
 			sorted(routineImports + indexedModuleSymbols[0].values()),
 			sorted(routineDeclarations + indexedModuleSymbols[1].values()),

@@ -715,19 +715,47 @@ EXAMPLE:\n\
 				return True
 			return False
 
+		#input checks
 		if self.name != otherSymbol.name and self.sourceSymbol != otherSymbol.name and self.name != otherSymbol.sourceSymbol:
 			raise Exception("cannot merge %s with %s - doesn't seem to be be the same symbol" %(self.name, otherSymbol.name))
+
+		#merge everything from default mergable attribute list
 		for attribute in MERGEABLE_DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES:
 			setattr(self, attribute, getMergedSimpleAttributeValue(attribute))
+
+		#merge everything from default mergable domain attribute list
 		for domainAttributeName in MERGEABLE_DEFAULT_SYMBOL_INSTANCE_DOMAIN_ATTRIBUTES.keys():
 			if domainAttributeName == "domains":
 				self.domains = getMergedDomains()
 			else:
 				setattr(self, domainAttributeName, getMergedCollection(domainAttributeName))
-		self.isPresent = self.isPresent or otherSymbol.isPresent
-		#isToBeTransfered shall be kept from curr symbol
+
+		#reload domains for autoDom symbols when the other Symbol had explicitely set ones
+		#- generic merge doesn't work correctly in that case
 		if self.isAutoDom and not otherSymbol.isAutoDom and self.parallelRegionTemplates:
 			self.loadDomains(getDomNameAndSize(otherSymbol.template), self.parallelRegionTemplates)
+
+		#merge the domain dependant attributes (transferHere overrides present overrides host)
+		domainDependantAttributes = set([])
+		if self.attributes and ("transferHere" in self.attributes) \
+		or otherSymbol.attributes and ("transferHere" in otherSymbol.attributes):
+			domainDependantAttributes.add("transferHere")
+		elif self.attributes and ("present" in self.attributes) \
+		or otherSymbol.attributes and ("present" in otherSymbol.attributes):
+			domainDependantAttributes.add("present")
+		elif self.attributes and ("host" in self.attributes) \
+		or otherSymbol.attributes and ("host" in otherSymbol.attributes):
+			domainDependantAttributes.add("host")
+		for attribute in self.attributes:
+			if attribute not in ["present", "host", "transferHere"]:
+				domainDependantAttributes.add(attribute)
+		for attribute in otherSymbol.attributes:
+			if attribute not in ["present", "host", "transferHere"]:
+				domainDependantAttributes.add(attribute)
+		self.attributes = [a for a in domainDependantAttributes]
+		self.setOptionsFromAttributes(self.attributes)
+
+		#housekeeping
 		self.initLevel = max(self.initLevel, otherSymbol.initLevel)
 		self.checkIntegrityOfDomains()
 

@@ -1068,7 +1068,7 @@ end if\n" %(calleeNode.getAttribute('name'))
 					continue
 				if symbol.isDummySymbolForRoutine(routineName=parentNode.getAttribute('name')):
 					continue #already passed manually
-				if symbol.isHostSymbol \
+				if (symbol.isHostSymbol or (symbol.attributes and "host" in symbol.attributes)) \
 				and not symbol.name in currRoutine.usedSymbolNamesInKernels \
 				and not symbol.name in callee.usedSymbolNamesInKernels:
 					continue

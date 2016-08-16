@@ -101,6 +101,20 @@ contains
 		end do
 	end subroutine
 
+	!this kernel is never called, but we use it to test for a bug where the symbol state of a and b gets set to device present even in kernel() where it's supposed to be host
+	subroutine dummy_kernel()
+		implicit none
+		real :: dummy_value
+
+		@domainDependant{attribute(present, autoDom)}
+		a, b
+		@end domainDependant
+
+		@parallelRegion{domName(x,y), domSize(NX, NY)}
+		dummy_value = a(1) + b(1)
+		@end parallelRegion
+	end subroutine
+
 	subroutine kernel()
 		implicit none
 		integer :: z

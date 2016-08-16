@@ -582,6 +582,14 @@ This is not allowed for implementations using %s.\
 				for compactedSymbol in symbol.compactedSymbols:
 					if compactedSymbol.name in self.usedSymbolNames:
 						self.usedSymbolNames[symbol.name] = None
+		for symbolName in copy.copy(self.usedSymbolNames.keys()):
+			usedSymbol = self.symbolsByName.get(symbolName)
+			if not usedSymbol:
+				continue
+			for typeParameter in usedSymbol.usedTypeParameters:
+				if not typeParameter.isDimensionParameter:
+					continue #non-dimension typeparameters are handled separately in spec. region
+				self.usedSymbolNames[typeParameter.name] = None
 
 	def checkSymbols(self):
 		self._checkReferences(self._additionalArguments)

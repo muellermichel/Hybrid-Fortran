@@ -197,6 +197,7 @@ This is not allowed for implementations using %s.\
 	def _updateSymbolState(self):
 		regionType = RegionType.KERNEL_CALLER_DECLARATION if self.isCallingKernel else RegionType.OTHER
 		updatedSymbolsByName = {}
+
 		for symbol in self.symbolsByName.values():
 			#reset symbol device state - could have been influenced by neighboring kernels
 			symbol.isHostSymbol = False
@@ -205,28 +206,38 @@ This is not allowed for implementations using %s.\
 			if symbol.attributes:
 				symbol.setOptionsFromAttributes(symbol.attributes)
 			for routine in [self] + self.callees:
-				if symbol.name in routine.usedSymbolNamesInKernels:
+				if not hasattr(routine, "usedSymbolNamesInKernels"):
+					continue
+				if symbol._isHostSymbol and symbol.name in routine.usedSymbolNamesInKernels:
 					symbol.isPresent = True
 
+			#some other symbol state resets
 			symbol.parallelRegionPosition = self.node.getAttribute("parallelRegionPosition")
 			symbol.isCompacted = False
 			if not isinstance(symbol, FrameworkArray):
 				symbol.loadRoutineNodeAttributes(self.node, self.parallelRegionTemplates)
+
+			#implementation specific device state reset
 			self.implementation.updateSymbolDeviceState(
 				symbol,
 				self.usedSymbolNamesInKernels,
 				regionType,
 				self.node.getAttribute("parallelRegionPosition")
 			)
+
+			#scoped naming state reset
 			nameInScope = symbol.name
 			if not isinstance(symbol, FrameworkArray):
 				symbol.updateNameInScope(residingModule=self.parentModule.name)
 			nameInScope = symbol.nameInScope(useDeviceVersionIfAvailable=False)
 			updatedSymbolsByName[nameInScope] = symbol
+
+		#compacted state reset
 		for symbol in self.symbolsByName.values():
 			if isinstance(symbol, FrameworkArray):
 				for compactedSymbol in symbol.compactedSymbols:
 					compactedSymbol.isCompacted = True
+
 		self.symbolsByName = updatedSymbolsByName
 
 	def _listCompactedSymbolsAndDeclarationPrefixAndOtherSymbols(self, additionalImports):

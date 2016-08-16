@@ -1068,9 +1068,11 @@ end if\n" %(calleeNode.getAttribute('name'))
 					continue
 				if symbol.isDummySymbolForRoutine(routineName=parentNode.getAttribute('name')):
 					continue #already passed manually
-				if symbol.isHostSymbol \
+				if symbol._isHostSymbol \
 				and not symbol.name in currRoutine.usedSymbolNamesInKernels \
 				and not symbol.name in callee.usedSymbolNamesInKernels:
+					#we are not using symbol.isHostSymbol directly here because *this time* we don't want to be influenced by present state.
+					#please note that device state will be udpated separately in routine._updateSymbolState
 					continue
 				isModuleSymbol = symbol.declarationType in [
 					DeclarationType.LOCAL_MODULE_SCALAR,
@@ -1126,8 +1128,6 @@ end if\n" %(calleeNode.getAttribute('name'))
 		mergeSymbols(routineDeclarations, indexedModuleSymbols[1])
 		mergeSymbols(additionalDummies, indexedModuleSymbols[0])
 		mergeSymbols(additionalDummies, indexedModuleSymbols[1])
-		for symbol in routineImports + indexedModuleSymbols[0].values() + routineDeclarations + indexedModuleSymbols[1].values() + additionalDummies:
-			symbol.isPresent = True
 		return (
 			sorted(routineImports + indexedModuleSymbols[0].values()),
 			sorted(routineDeclarations + indexedModuleSymbols[1].values()),

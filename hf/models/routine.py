@@ -198,13 +198,6 @@ This is not allowed for implementations using %s.\
 		regionType = RegionType.KERNEL_CALLER_DECLARATION if self.isCallingKernel else RegionType.OTHER
 		updatedSymbolsByName = {}
 		for symbol in self.symbolsByName.values():
-			#reset device present state
-			symbol.isPresent = False
-			symbol.isToBeTransfered = False
-			symbol.isHostSymbol = False
-			if symbol.attributes:
-				symbol.setOptionsFromAttributes(symbol.attributes)
-
 			symbol.parallelRegionPosition = self.node.getAttribute("parallelRegionPosition")
 			symbol.isCompacted = False
 			if not isinstance(symbol, FrameworkArray):

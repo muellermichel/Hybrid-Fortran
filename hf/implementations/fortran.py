@@ -1068,7 +1068,7 @@ end if\n" %(calleeNode.getAttribute('name'))
 					continue
 				if symbol.isDummySymbolForRoutine(routineName=parentNode.getAttribute('name')):
 					continue #already passed manually
-				if (symbol.isHostSymbol or (symbol.attributes and "host" in symbol.attributes)) \
+				if symbol.isHostSymbol \
 				and not symbol.name in currRoutine.usedSymbolNamesInKernels \
 				and not symbol.name in callee.usedSymbolNamesInKernels:
 					continue
@@ -1128,9 +1128,6 @@ end if\n" %(calleeNode.getAttribute('name'))
 		mergeSymbols(additionalDummies, indexedModuleSymbols[1])
 		for symbol in routineImports + indexedModuleSymbols[0].values() + routineDeclarations + indexedModuleSymbols[1].values() + additionalDummies:
 			symbol.isPresent = True
-			newAttributes = [a for a in symbol.attributes if not a in ["host", "present"]]
-			newAttributes.append("present")
-			symbol.attributes = newAttributes
 		return (
 			sorted(routineImports + indexedModuleSymbols[0].values()),
 			sorted(routineDeclarations + indexedModuleSymbols[1].values()),

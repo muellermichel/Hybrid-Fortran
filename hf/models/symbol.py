@@ -730,30 +730,11 @@ EXAMPLE:\n\
 			else:
 				setattr(self, domainAttributeName, getMergedCollection(domainAttributeName))
 
-		#reload domains for autoDom symbols when the other Symbol had explicitely set ones
-		#- generic merge doesn't work correctly in that case
+		#fixup device state and domains
+		self.isPresent = self.isPresent or otherSymbol.isPresent
+		#isToBeTransfered shall be kept from curr symbol
 		if self.isAutoDom and not otherSymbol.isAutoDom and self.parallelRegionTemplates:
 			self.loadDomains(getDomNameAndSize(otherSymbol.template), self.parallelRegionTemplates)
-
-		#merge the domain dependant attributes (transferHere overrides present overrides host)
-		domainDependantAttributes = set([])
-		if self.attributes and ("transferHere" in self.attributes) \
-		or otherSymbol.attributes and ("transferHere" in otherSymbol.attributes):
-			domainDependantAttributes.add("transferHere")
-		elif self.attributes and ("present" in self.attributes) \
-		or otherSymbol.attributes and ("present" in otherSymbol.attributes):
-			domainDependantAttributes.add("present")
-		elif self.attributes and ("host" in self.attributes) \
-		or otherSymbol.attributes and ("host" in otherSymbol.attributes):
-			domainDependantAttributes.add("host")
-		for attribute in self.attributes:
-			if attribute not in ["present", "host", "transferHere"]:
-				domainDependantAttributes.add(attribute)
-		for attribute in otherSymbol.attributes:
-			if attribute not in ["present", "host", "transferHere"]:
-				domainDependantAttributes.add(attribute)
-		self.attributes = [a for a in domainDependantAttributes]
-		self.setOptionsFromAttributes(self.attributes)
 
 		#housekeeping
 		self.initLevel = max(self.initLevel, otherSymbol.initLevel)

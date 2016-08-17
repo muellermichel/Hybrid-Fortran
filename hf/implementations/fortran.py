@@ -566,6 +566,10 @@ class DeviceDataFortranImplementation(FortranImplementation):
 			if (symbol.intent in ["in", "inout"] or symbol.declarationType == DeclarationType.MODULE_ARRAY) \
 			and (routineIsKernelCaller or symbol.isToBeTransfered):
 				if not ":" in dimSizes:
+					logging.info("Generating device data transfer for %s in %s" %(
+						symbol.name,
+						currRoutineNode.getAttribute("name")
+					))
 					deviceInitStatements += arrayCheckConditional(symbol) + "\n"
 					symbol.isUsingDevicePostfix = False
 					originalStr = symbol.selectAllRepresentation()
@@ -574,6 +578,10 @@ class DeviceDataFortranImplementation(FortranImplementation):
 					deviceInitStatements += deviceStr + " = " + originalStr + "\n"
 					deviceInitStatements += "end if\n"
 			elif (routineIsKernelCaller or symbol.isToBeTransfered):
+				logging.info("Setting device data to 0 for %s in %s" %(
+					symbol.name,
+					currRoutineNode.getAttribute("name")
+				))
 				deviceInitStatements += symbol.selectAllRepresentation() + " = 0\n"
 		return deviceInitStatements
 

@@ -393,7 +393,7 @@ def run_accuracy_test_for_netcdf(options, eps, epsSingle):
 			in_array = get_array_from_netcdf_variable(in_variable)
 			ref_array = get_array_from_netcdf_variable(ref_variable)
 			mean_or_one = numpy.mean(in_array)
-			if abs(mean_or_one) < epsSingle:
+			if abs(mean_or_one) < 1E-15:
 				mean_or_one = 1.0
 			absolute_difference = numpy.abs(in_array - ref_array)
 			normalized_error = absolute_difference / mean_or_one

@@ -392,6 +392,12 @@ def run_accuracy_test_for_netcdf(options, eps, epsSingle):
 			#analyse NetCDF variable
 			in_array = get_array_from_netcdf_variable(in_variable)
 			ref_array = get_array_from_netcdf_variable(ref_variable)
+			if options.slice:
+				try:
+					in_array = in_array[int(options.slice)] if isinstance(in_array[0], numpy.ndarray) else in_array
+					ref_array = ref_array[int(options.slice)] if isinstance(ref_array[0], numpy.ndarray) else ref_array
+				except:
+					pass
 			mean_or_one = numpy.mean(in_array)
 			if abs(mean_or_one) < 1E-15:
 				mean_or_one = 1.0
@@ -454,6 +460,7 @@ parser.add_option("-b", "--bytesPerValue", dest="bytes")
 parser.add_option("-p", "--printFirstValues", dest="printNum", default="0")
 parser.add_option("-r", "--readEndian", dest="readEndian", default="little")
 parser.add_option("--netcdf", action="store_true", dest="netcdf")
+parser.add_option("--slice", dest="slice", default=None)
 parser.add_option("-v", action="store_true", dest="verbose")
 parser.add_option("-e", "--epsilon", metavar="EPS", dest="epsilon", help="Throw an error if at any point the error becomes higher than EPS. Defaults to 1E-6.")
 (options, args) = parser.parse_args()

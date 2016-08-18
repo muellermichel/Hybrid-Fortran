@@ -326,7 +326,13 @@ def run_accuracy_test_for_datfile(options, eps, epsSingle):
 	if errorState:
 		sys.exit(1)
 
-def run_accuracy_test_for_netcdf(options, eps):
+def run_accuracy_test_for_netcdf(options, eps, epsSingle):
+	def pad_to(text, total_length):
+		return "%s%s" %(
+			str(text),
+			" " * (total_length - len(str(text))) if len(str(text)) < total_length else ""
+		)
+
 	def get_array_from_netcdf_variable(netcdf_variable):
 		num_of_dimensions = len(netcdf_variable.dimensions)
 		if num_of_dimensions == 1:
@@ -382,42 +388,51 @@ def run_accuracy_test_for_netcdf(options, eps):
 				sys.stderr.write("Error: variable %s has different shapes - infile: %s, reference: %s\n" %(key, in_variable.shape, ref_variable.shape))
 				error_found = True
 				continue
+
+			#analyse NetCDF variable
 			in_array = get_array_from_netcdf_variable(in_variable)
 			ref_array = get_array_from_netcdf_variable(ref_variable)
 			mean_or_one = numpy.mean(in_array)
-			if abs(mean_or_one) < eps:
+			if abs(mean_or_one) < epsSingle:
 				mean_or_one = 1.0
 			absolute_difference = numpy.abs(in_array - ref_array)
-			greater_than_epsilon = (absolute_difference / mean_or_one) > eps
-			passed_string = "pass"
-			if numpy.count_nonzero(ref_array) == 0:
-				passed_string += "(WARNING:Reference is Zero Matrix!)"
+			normalized_error = absolute_difference / mean_or_one
+			greater_than_epsilon = normalized_error > epsSingle
+			passed_string = None
+			result = None
 			root_mean_square_deviation = numpy.sqrt(numpy.mean((in_array - ref_array)**2))
 			root_mean_square_deviation = root_mean_square_deviation / abs(mean_or_one)
+			max_error = numpy.argmax(normalized_error)
+			max_error_index_tuple = numpy.unravel_index(max_error, in_array.shape)
+
+			#error found?
 			if math.isnan(root_mean_square_deviation):
-				passed_string = "FAIL <-------"
+				result = "FAIL"
 				error_found = True
-			elif numpy.any(greater_than_epsilon):
+			elif numpy.any(greater_than_epsilon) or root_mean_square_deviation > eps:
+				result = "FAIL"
 				error_found = True
-				# first_error = numpy.unravel_index(numpy.argmax(greater_than_epsilon), greater_than_epsilon.shape)[0]
-				number_of_elements = numpy.prod(in_array.shape)
-				if number_of_elements <= 8:
-					passed_string = "input: \n%s\nexpected:\n%s\nerrors found at:%s\nFAIL <-------" %(in_array, ref_array, greater_than_epsilon)
-				else:
-					first_occurrence = numpy.argmax(greater_than_epsilon==True)
-					first_occurrence_index_tuple = numpy.unravel_index(first_occurrence, in_array.shape)
-					first_err_val = in_array[first_occurrence_index_tuple]
-					expected_val = ref_array[first_occurrence_index_tuple]
-					passed_string = "first err. at:%s; first err. val.: %s; ref: %s; array size: %s; FAIL <-------" %(first_occurrence_index_tuple, first_err_val, expected_val, in_array.shape)
-					# numpy.set_printoptions(precision=3)
-					# passed_string += "\n === curr === \n" + str(in_array)
-					# passed_string += "\n === ref === \n" + str(ref_array)
-			elif root_mean_square_deviation > eps:
-				error_found = True
-				passed_string = "FAIL <-------"
-			sys.stderr.write("%s, variable %s: Mean square error: %e; %s\n" %(
+			else:
+				result = "pass"
+
+			#print output
+			number_of_elements = numpy.prod(in_array.shape)
+			if number_of_elements <= 8 and result != "pass":
+				passed_string = "input: \n%s\nexpected:\n%s\nerrors found at:%s\n%s" %(in_array, ref_array, greater_than_epsilon, result)
+			else:
+				passed_string = "MaxErr: %s at: %s of: %s; val: %s; ref: %s; %s" %(
+					pad_to(normalized_error[max_error_index_tuple],17),
+					pad_to(max_error_index_tuple,18),
+					pad_to(in_array.shape,18),
+					pad_to(in_array[max_error_index_tuple],20),
+					pad_to(ref_array[max_error_index_tuple],20),
+					result
+				)
+			if numpy.count_nonzero(ref_array) == 0:
+				passed_string += "; (WARNING:Reference is Zero Matrix!)"
+			sys.stderr.write("%s, %s-> nRMSE: %e; %s\n" %(
 				options.inFile,
-				key,
+				pad_to(key,20),
 				root_mean_square_deviation,
 				passed_string
 			))
@@ -440,13 +455,13 @@ parser.add_option("-p", "--printFirstValues", dest="printNum", default="0")
 parser.add_option("-r", "--readEndian", dest="readEndian", default="little")
 parser.add_option("--netcdf", action="store_true", dest="netcdf")
 parser.add_option("-v", action="store_true", dest="verbose")
-parser.add_option("-e", "--epsilon", metavar="EPS", dest="epsilon", help="Throw an error if at any point the error becomes higher than EPS. Defaults to 1E-9.")
+parser.add_option("-e", "--epsilon", metavar="EPS", dest="epsilon", help="Throw an error if at any point the error becomes higher than EPS. Defaults to 1E-6.")
 (options, args) = parser.parse_args()
 eps = 1E-6
-epsSingle = 1E-7
+epsSingle = 1E-6
 if (options.epsilon):
 	eps = float(options.epsilon)
 if options.netcdf:
-	run_accuracy_test_for_netcdf(options, eps)
+	run_accuracy_test_for_netcdf(options, eps, epsSingle)
 else:
 	run_accuracy_test_for_datfile(options, eps, epsSingle)

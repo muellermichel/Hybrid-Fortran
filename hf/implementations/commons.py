@@ -491,7 +491,7 @@ def getRuntimeDebugPrintStatements(kernelName, symbolsByName, calleeRoutineNode,
 	symbolsToPrint = sorted([
 		symbol for symbol in symbolsByName.values()
 		if "real" in symbol.declarationPrefix
-	])
+	],  key=lambda symbol: symbol.name)
 	offsetsBySymbolName = {}
 	for symbol in symbolsToPrint:
 		offsets = []

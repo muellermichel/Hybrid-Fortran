@@ -937,6 +937,13 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 		return "<<< cugrid, cublock >>>"
 
 	def kernelCallPreparation(self, parallelRegionTemplate, calleeNode=None):
+		def domainSizeCalculationFromComponents(components):
+			if len(components) == 1:
+				return components[0]
+			if len(components) == 2:
+				return "%s - %s + 1" %(components[1], components[0])
+			raise Exception("invalid domain size component specification: %s" %(components))
+
 		result = super(CUDAFortranImplementation, self).kernelCallPreparation(parallelRegionTemplate, calleeNode)
 		if not appliesTo(["GPU"], parallelRegionTemplate):
 			return ""
@@ -961,15 +968,14 @@ end if\n" %(calleeNode.getAttribute('name'))
 				gridStr += ", "
 				blockStr += ", "
 			if i < len(domains):
-				domainComponents = domains[i].size.split(":")
-				domainSizeSpecification = None
-				if len(domainComponents) == 1:
-					domainSizeSpecification = domainComponents[0]
-				elif len(domainComponents) == 2:
-					domainSizeSpecification = "%s - %s + 1" %(domainComponents[1], domainComponents[0])
+				domainComponents = None
+				if domains[i].startsAt != None and domains[i].endsAt != None:
+					domainComponents = (domains[i].startsAt, domains[i].endsAt)
+				else:
+					domainComponents = domains[i].size.split(":")
 				gridPreparationStr += "%s = ceiling(real(%s) / real(%s))" %(
 					gridSizeVarNames[i],
-					domainSizeSpecification,
+					domainSizeCalculationFromComponents(domainComponents),
 					blockSizePPNames[i]
 				)
 				blockStr += "%s" %(blockSizePPNames[i])

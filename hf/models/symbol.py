@@ -460,9 +460,13 @@ class Symbol(object):
 
 	@property
 	def numOfParallelDomains(self):
+		return len(self.kernelDomainNames)
+
+	@property
+	def kernelDomainNames(self):
 		if self.parallelRegionPosition in ["outside", None, ""]:
-			return 0
-		return len(self._kernelDomainNames)
+			return []
+		return self._kernelDomainNames
 
 	@property
 	def activeDomainsMatchSpecification(self):
@@ -472,7 +476,7 @@ class Symbol(object):
 		return (self.isAutoDom and len(self.domains) in [
 				len(templateDomains),
 				len(templateDomains) + len(self._kernelInactiveDomainSizes),
-				len(self._kernelDomainNames) + len(self._kernelInactiveDomainSizes)
+				len(self.kernelDomainNames) + len(self._kernelInactiveDomainSizes)
 			]) \
 			or (not self.isAutoDom and len(self.domains) == len(templateDomains))
 
@@ -848,19 +852,9 @@ EXAMPLE:\n\
 				raise Exception("Invalid definition of domain in symbol %s: %s" %(self.name, str(domain)))
 		parallelDomainSizesDict = {}
 		for domainName, domainSize in self.domains:
-			if not domainName in self._kernelDomainNames:
+			if not domainName in self.kernelDomainNames:
 				continue
 			parallelDomainSizesDict[domainSize] = None
-		if self.initLevel >= Init.ROUTINENODE_ATTRIBUTES_LOADED \
-		and len(self.domains) != len(self._kernelDomainNames) + len(self._kernelInactiveDomainSizes):
-			raise Exception("Wrong number of domains for symbol %s: || active: %s; || inactive: %s || actual: %s || parallel dom index: %s || region position: %s" %(
-				self.name,
-				self._kernelDomainNames,
-				self._kernelInactiveDomainSizes,
-				self.domains,
-				self._knownKernelDomainSizesByName,
-				self.parallelRegionPosition
-			))
 		if self.initLevel >= Init.ROUTINENODE_ATTRIBUTES_LOADED \
 		and not self.isAutoDom \
 		and self.parallelRegionPosition in ["within", "inside"] \
@@ -873,13 +867,20 @@ EXAMPLE:\n\
 		if self.initLevel >= Init.ROUTINENODE_ATTRIBUTES_LOADED \
 		and self.parallelRegionPosition in ["outside", None, ""] \
 		and self.isAutoDom \
-		and len(self.domains) != len(self._kernelInactiveDomainSizes):
+		and not len(self.domains) in [
+			len(self._kernelInactiveDomainSizes) if self._kernelInactiveDomainSizes else 0,
+			len(self._templateDomains) if self._templateDomains else 0,
+			len(self.declaredDimensionSizes) if self.declaredDimensionSizes else 0,
+			len(self._kernelInactiveDomainSizes) + len(self._kernelDomainNames) if self._kernelInactiveDomainSizes and self._kernelDomainNames else 0,
+		]:
+			#if len(self._templateDomains) is different from len(self._kernelInactiveDomainSizes) we probably
+			#are dealing with manually passed in iterators
 			raise Exception("Wrong number of domains for autoDom symbol %s: || template: %s; || declared: %s || actual: %s || kernel: %s || non-kernel: %s" %(
 				self.name,
 				self._templateDomains,
 				self.declaredDimensionSizes,
 				self.domains,
-				self._kernelDomainNames,
+				self.kernelDomainNames,
 				self._kernelInactiveDomainSizes
 			))
 		if self.initLevel >= Init.DECLARATION_LOADED and self.declaredDimensionSizes == None:
@@ -902,7 +903,7 @@ EXAMPLE:\n\
 		logging.debug(
 			"[" + str(self) + ".init " + str(self.initLevel) + "] Domains loaded from callgraph information for symbol %s. Parallel active: %s. Parallel Inactive: %s. Declaration Prefix: %s. templateDomains: %s declarationPrefix: %s. Parallel Regions: %i\n" %(
 				str(self),
-				str(self._kernelDomainNames),
+				str(self.kernelDomainNames),
 				str(self._kernelInactiveDomainSizes),
 				declarationPrefixFromTemplate,
 				templateDomains,
@@ -1036,11 +1037,10 @@ EXAMPLE:\n\
 				if not domName in self._kernelDomainNames
 			]
 		if self.parallelRegionPosition in [None, "", "outside"]:
-			self._kernelDomainNames = []
 			self._kernelInactiveDomainSizes = [s for (_, s) in self.domains]
 		self.domains = [
 			(domName, domSize) for (domName, domSize) in self.domains
-			if domName in self._kernelDomainNames \
+			if domName in self.kernelDomainNames \
 			or domSize in self._kernelInactiveDomainSizes \
 			or domSize == ":"
 		]
@@ -1112,7 +1112,7 @@ Automatic reshaping is not supported since this is a pointer type. Domains in Di
 					self.name,
 					self.domains,
 					dimensionSizes,
-					self._kernelDomainNames,
+					self.kernelDomainNames,
 					self._kernelInactiveDomainSizes
 				))
 		elif self.isAutoDom:
@@ -1136,7 +1136,7 @@ Automatic reshaping is not supported since this is a pointer type. Domains in Di
 Please make sure to use the same string names for its dimensions both in the parallel region as well as in its declarations -or- declare its dimensions explicitely (without autoDom).\
 Declared domain: %s, Domain after init: %s, Parallel dims: %s, Independant dims: %s, \
 Parallel region position: %s, Current template: %s"
-				%(self.name, str(dimensionSizes), str(self.domains), str(self._kernelDomainNames), str(self._kernelInactiveDomainSizes), self.parallelRegionPosition, self.template.toxml())
+				%(self.name, str(dimensionSizes), str(self.domains), str(self.kernelDomainNames), str(self._kernelInactiveDomainSizes), self.parallelRegionPosition, self.template.toxml())
 			)
 		if not self.hasUndecidedDomainSizes:
 			self.domains = getReorderedDomainsAccordingToDeclaration(self.domains, dimensionSizes)
@@ -1217,7 +1217,7 @@ Current Domains: %s\n" %(
 				"[" + str(self) + ".init " + str(self.initLevel) + "] Symbol %s's initialization completed using module information.\nDomains found in module: %s; parallel active: %s; parallel inactive: %s\n" %(
 					str(self),
 					str(domains),
-					str(self._kernelDomainNames),
+					str(self.kernelDomainNames),
 					str(self._kernelInactiveDomainSizes)
 				)
 			)
@@ -1437,20 +1437,40 @@ Please specify the domains and their sizes with domName and domSize attributes i
 		numOfIndependentDomains = 0
 		if len(self.domains) > 0: #0 domains could be an external function call which we cannot touch
 			numOfIndependentDomains = len(self.domains) - self.numOfParallelDomains
-			if len(accessors) != numOfIndependentDomains and len(accessors) != len(self.domains) and len(accessors) != 0:
+			parallelDomainAccessors = []
+			for d in self._kernelDomainNames:
+				iteratorPattern = self.patterns.get(r".*?(?:^|\W)" + d + r"(?:$|\W).*")
+				for a in accessors:
+					if iteratorPattern.match(a):
+						parallelDomainAccessors.append(a)
+			if len(parallelDomainAccessors) > 0 and len(parallelDomainAccessors) != len(self._kernelDomainNames):
+				raise UsageError("%s uses a passed in parallel iterator type pattern - this is only supported if all (%s) parallel iterators are passed in." %(
+					self.name,
+					str(self._kernelDomainNames)
+				))
+			if not len(accessors) in [
+				0,
+				len(self.domains),
+				numOfIndependentDomains,
+				len(parallelDomainAccessors) + numOfIndependentDomains
+			]:
 				raise UsageError("Unexpected array access for symbol %s (%s): Please use either %i (number of parallel independant dimensions) \
-	or %i (dimensions of loaded domain for this array) or zero accessors. Symbol Domains: %s; Symbol Init Level: %i; Parallel Region Position: %s; Parallel Active: %s; Symbol template:\n%s\n" %(
+	or %i (dimensions of loaded domain for this array) or %i (passed in parallel iterator pattern) or zero accessors. Symbol Domains: %s; Symbol Init Level: %i; Parallel Region Position: %s; Parallel Active: %s; Symbol template:\n%s\n" %(
 					self.name,
 					str(accessors),
 					numOfIndependentDomains,
 					len(self.domains),
+					len(parallelDomainAccessors) + numOfIndependentDomains,
 					str(self.domains),
 					self.initLevel,
 					str(self.parallelRegionPosition),
 					self._kernelDomainNames,
 					self.template.toxml()
 				))
-			if callee and hasattr(callee, "node") and callee.node.getAttribute("parallelRegionPosition") != "outside":
+			if len(parallelDomainAccessors) > 0:
+				iterators = parallelDomainAccessors
+				accessors = [a for a in accessors if not a in parallelDomainAccessors]
+			elif callee and hasattr(callee, "node") and callee.node.getAttribute("parallelRegionPosition") != "outside":
 				iterators = [] #reset the parallel iterators if this symbol is accessed in a subroutine call and it's NOT being passed in inside a kernel
 
 		offsets = []

@@ -850,6 +850,11 @@ EXAMPLE:\n\
 		for domain in self.domains:
 			if not isinstance(domain, tuple):
 				raise Exception("Invalid definition of domain in symbol %s: %s" %(self.name, str(domain)))
+		seenDomainNames = set()
+		for n, _ in self.domains:
+			if n in seenDomainNames and not n.startswith("HF_"):
+				raise Exception("There are duplicate domain names present for symbol %s: %s" %(self.name, str(self.domains)))
+			seenDomainNames.add(n)
 		parallelDomainSizesDict = {}
 		for domainName, domainSize in self.domains:
 			if not domainName in self.kernelDomainNames:
@@ -918,6 +923,12 @@ EXAMPLE:\n\
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] declaration prefix loaded: %s" %(declarationPrefix))
 
 	def loadDomains(self, templateDomains, parallelRegionTemplates=[]):
+		def addDomainToIndex(index, domName, domSize):
+			domNames = index.get(domSize, [])
+			if not domName in domNames:
+				domNames.append(domName)
+			index[domSize] = domNames
+
 		if templateDomains == None or len(templateDomains) == 0:
 			dependantDomSizeByName = dict(
 				("%s_%i" %(value[0],index),value[1])
@@ -942,51 +953,65 @@ EXAMPLE:\n\
 
 		#   which of those dimensions are kernel dimensions?
 		#   -> build up index of domain sizes and and names and put them in the 'kernel domain names' set
-		parallelRegionDomNamesBySize = {}
+		regionDomNamesBySize = {}
+		orderedDomains = self._templateDomains if self._templateDomains else self.domains
 		for parallelRegionTemplate in parallelRegionTemplates:
 			regionDomNameAndSize = getDomNameAndSize(parallelRegionTemplate)
 			logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] analyzing domains for parallel region: %s; dependant domsize by name: %s" %(
 				str(regionDomNameAndSize),
 				str(dependantDomSizeByName)
 			))
-			for index, (regionDomName, regionDomSize) in enumerate(regionDomNameAndSize):
+			#Add the template information to the parallel region index; this is important in case the domainDependant template information differs from the parallel region
+			for regionDomName, regionDomSize in regionDomNameAndSize:
 				#The same domain name can sometimes have different domain sizes used in different parallel regions, so we build up a list of these sizes.
 				if not regionDomName in self._knownKernelDomainSizesByName:
 					self._knownKernelDomainSizesByName[regionDomName] = [regionDomSize]
 				elif regionDomSize not in self._knownKernelDomainSizesByName[regionDomName]:
 					self._knownKernelDomainSizesByName[regionDomName].append(regionDomSize)
-				parallelRegionDomNamesBySize[regionDomSize] = regionDomName
-		orderedDomains = self._templateDomains if self._templateDomains else self.domains
+			for regionDomName, regionDomSize in regionDomNameAndSize + orderedDomains:
+				#support quadratic domains
+				addDomainToIndex(regionDomNamesBySize, regionDomName, regionDomSize)
+		domNameIteratorsBySize = {}
+		for s in regionDomNamesBySize:
+			domNameIteratorsBySize[s] = 0
 		for domName, domSize in orderedDomains:
 			if domName in self._knownKernelDomainSizesByName:
 				self._kernelDomainNames.append(domName)
-			elif "HF_" in domName and domSize in parallelRegionDomNamesBySize:
-				self._kernelDomainNames.append(parallelRegionDomNamesBySize[domSize])
-
-		#   add the template information to the parallel region index; this is important in case the domainDependant template information differs from the parallel region
-		for dependantDomName, dependantDomSize in orderedDomains:
-			if not dependantDomName in self._kernelDomainNames:
-				continue
-			parallelRegionDomNamesBySize[dependantDomSize] = dependantDomName
+			elif "HF_" in domName and domSize in regionDomNamesBySize:
+				if domNameIteratorsBySize[domSize] >= len(regionDomNamesBySize[domSize]):
+					continue
+				self._kernelDomainNames.append(regionDomNamesBySize[domSize][domNameIteratorsBySize[domSize]])
+				domNameIteratorsBySize[domSize] += 1
 
 		#   match the domain sizes to those in the index. this is important so we don't cancel them out later in the region position adjustment code
 		dimsBeforeReset = copy.deepcopy(self.domains)
 		self.domains = []
+		domNameIteratorsBySize = {}
+		for _, s in dimsBeforeReset:
+			domNameIteratorsBySize[s] = 0
 		for (dependantDomName, dependantDomSize) in dimsBeforeReset:
-			domNameAlias = parallelRegionDomNamesBySize.get(dependantDomSize, dependantDomName)
-			self.domains.append((domNameAlias, dependantDomSize))
+			finalDomName = dependantDomName
+			domNameAliases = regionDomNamesBySize.get(dependantDomSize, [dependantDomName])
+			if domNameIteratorsBySize[dependantDomSize] < len(domNameAliases):
+				finalDomName = domNameAliases[domNameIteratorsBySize[dependantDomSize]]
+			self.domains.append((
+				finalDomName,
+				dependantDomSize
+			))
+			domNameIteratorsBySize[dependantDomSize] += 1
 
 		#   put the non parallel domains in the '_kernelInactiveDomainSizes' set.
 		for (dependantDomName, dependantDomSize) in self.domains:
 			#build up parallel inactive dimensions again
 			if not dependantDomName in self._kernelDomainNames \
-			and not dependantDomSize in parallelRegionDomNamesBySize: #$$$ can this second clause be removed?
+			and not dependantDomSize in regionDomNamesBySize: #$$$ can this second clause be removed?
 				self._kernelInactiveDomainSizes.append(dependantDomSize)
 			#use the declared domain size (potentially overriding automatic sizes)
-			domNameAlias = parallelRegionDomNamesBySize.get(dependantDomSize, "")
-			if domNameAlias in self._knownKernelDomainSizesByName \
-			and dependantDomSize not in self._knownKernelDomainSizesByName[domNameAlias]:
-				self._knownKernelDomainSizesByName[domNameAlias].append(dependantDomSize)
+			domNameAliases = regionDomNamesBySize.get(dependantDomSize, [])
+			for domNameAlias in domNameAliases:
+				if domNameAlias in self._knownKernelDomainSizesByName \
+				and dependantDomSize not in self._knownKernelDomainSizesByName[domNameAlias]:
+					self._knownKernelDomainSizesByName[domNameAlias].append(dependantDomSize)
 
 	def loadModuleNodeAttributes(self, moduleNode):
 		if self.initLevel < Init.DEPENDANT_ENTRYNODE_ATTRIBUTES_LOADED:

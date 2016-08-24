@@ -924,6 +924,7 @@ EXAMPLE:\n\
 
 	def loadDomains(self, templateDomains, parallelRegionTemplates=[]):
 		def addDomainToIndex(index, domName, domSize):
+			#support quadratic domains
 			domNames = index.get(domSize, [])
 			if not domName in domNames:
 				domNames.append(domName)
@@ -953,7 +954,8 @@ EXAMPLE:\n\
 
 		#   which of those dimensions are kernel dimensions?
 		#   -> build up index of domain sizes and and names and put them in the 'kernel domain names' set
-		regionDomNamesBySize = {}
+		allRegionDomNamesBySize = {}
+		parallelRegionDomNamesBySize = {}
 		orderedDomains = self._templateDomains if self._templateDomains else self.domains
 		for parallelRegionTemplate in parallelRegionTemplates:
 			regionDomNameAndSize = getDomNameAndSize(parallelRegionTemplate)
@@ -968,19 +970,21 @@ EXAMPLE:\n\
 					self._knownKernelDomainSizesByName[regionDomName] = [regionDomSize]
 				elif regionDomSize not in self._knownKernelDomainSizesByName[regionDomName]:
 					self._knownKernelDomainSizesByName[regionDomName].append(regionDomSize)
-			for regionDomName, regionDomSize in regionDomNameAndSize + orderedDomains:
-				#support quadratic domains
-				addDomainToIndex(regionDomNamesBySize, regionDomName, regionDomSize)
+			for regionDomName, regionDomSize in regionDomNameAndSize:
+				addDomainToIndex(parallelRegionDomNamesBySize, regionDomName, regionDomSize)
+				addDomainToIndex(allRegionDomNamesBySize, regionDomName, regionDomSize)
+		for regionDomName, regionDomSize in orderedDomains:
+			addDomainToIndex(allRegionDomNamesBySize, regionDomName, regionDomSize)
 		domNameIteratorsBySize = {}
-		for s in regionDomNamesBySize:
+		for s in parallelRegionDomNamesBySize:
 			domNameIteratorsBySize[s] = 0
 		for domName, domSize in orderedDomains:
 			if domName in self._knownKernelDomainSizesByName:
 				self._kernelDomainNames.append(domName)
-			elif "HF_" in domName and domSize in regionDomNamesBySize:
-				if domNameIteratorsBySize[domSize] >= len(regionDomNamesBySize[domSize]):
+			elif "HF_" in domName and domSize in parallelRegionDomNamesBySize:
+				if domNameIteratorsBySize[domSize] >= len(parallelRegionDomNamesBySize[domSize]):
 					continue
-				self._kernelDomainNames.append(regionDomNamesBySize[domSize][domNameIteratorsBySize[domSize]])
+				self._kernelDomainNames.append(parallelRegionDomNamesBySize[domSize][domNameIteratorsBySize[domSize]])
 				domNameIteratorsBySize[domSize] += 1
 
 		#   match the domain sizes to those in the index. this is important so we don't cancel them out later in the region position adjustment code
@@ -991,7 +995,7 @@ EXAMPLE:\n\
 			domNameIteratorsBySize[s] = 0
 		for (dependantDomName, dependantDomSize) in dimsBeforeReset:
 			finalDomName = dependantDomName
-			domNameAliases = regionDomNamesBySize.get(dependantDomSize, [dependantDomName])
+			domNameAliases = allRegionDomNamesBySize.get(dependantDomSize, [dependantDomName])
 			if domNameIteratorsBySize[dependantDomSize] < len(domNameAliases):
 				finalDomName = domNameAliases[domNameIteratorsBySize[dependantDomSize]]
 			self.domains.append((
@@ -1004,10 +1008,10 @@ EXAMPLE:\n\
 		for (dependantDomName, dependantDomSize) in self.domains:
 			#build up parallel inactive dimensions again
 			if not dependantDomName in self._kernelDomainNames \
-			and not dependantDomSize in regionDomNamesBySize: #$$$ can this second clause be removed?
+			and not dependantDomSize in parallelRegionDomNamesBySize: #$$$ can this second clause be removed?
 				self._kernelInactiveDomainSizes.append(dependantDomSize)
 			#use the declared domain size (potentially overriding automatic sizes)
-			domNameAliases = regionDomNamesBySize.get(dependantDomSize, [])
+			domNameAliases = allRegionDomNamesBySize.get(dependantDomSize, [])
 			for domNameAlias in domNameAliases:
 				if domNameAlias in self._knownKernelDomainSizesByName \
 				and dependantDomSize not in self._knownKernelDomainSizesByName[domNameAlias]:

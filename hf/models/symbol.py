@@ -1401,22 +1401,30 @@ Please specify the domains and their sizes with domName and domSize attributes i
 					continue
 
 				#if we reach this there are parallel iterators specified.
+
 				if len(offsets) == len(domains):
 					iterators.append(str(offsets[nextOffsetIndex]))
 					nextOffsetIndex += 1
-				elif domains[i][0] in parallelIterators:
-					iterators.append(str(domains[i][0]))
-				elif nextOffsetIndex < len(offsets):
-					iterators.append(str(offsets[nextOffsetIndex]))
-					nextOffsetIndex += 1
-				elif len(offsets) + len(parallelIterators) == len(domains) and i < len(parallelIterators):
-					iterators.append(str(parallelIterators[i]))
-				elif len(offsets) + len(parallelIterators) == len(domains):
-					iterators.append(str(offsets[i - len(parallelIterators)]))
 				else:
-					raise Exception("Cannot generate access representation for symbol %s: Unknown parallel iterators specified (%s) or not enough offsets (%s)."
-						%(str(self), str(parallelIterators), str(offsets))
-					)
+					adjustedIterator = None
+					iteratorPattern = self.patterns.get(r".*?(?:^|\W)" + domains[i][0] + r"(?:$|\W).*")
+					for it in parallelIterators:
+						if iteratorPattern.match(it):
+							adjustedIterator = it
+							break
+					if adjustedIterator:
+						iterators.append(adjustedIterator)
+					elif nextOffsetIndex < len(offsets):
+						iterators.append(str(offsets[nextOffsetIndex]))
+						nextOffsetIndex += 1
+					elif len(offsets) + len(parallelIterators) == len(domains) and i < len(parallelIterators):
+						iterators.append(str(parallelIterators[i]))
+					elif len(offsets) + len(parallelIterators) == len(domains):
+						iterators.append(str(offsets[i - len(parallelIterators)]))
+					else:
+						raise Exception("Cannot generate access representation for symbol %s: Unknown parallel iterators specified (%s) or not enough offsets (%s)."
+							%(str(self), str(parallelIterators), str(offsets))
+						)
 			if (callee or isPointerAssignment) and all([iterator == ':' for iterator in iterators]):
 				return [] #working around a problem in PGI 15.1: Inliner bails out in certain situations (module test kernel 3+4) if arrays are passed in like a(:,:,:).
 			return [iterator.strip().replace(" ", "") for iterator in iterators]

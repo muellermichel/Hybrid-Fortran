@@ -1468,6 +1468,7 @@ Please specify the domains and their sizes with domName and domSize attributes i
 
 		iterators = copy.copy(parallelIterators)
 		numOfIndependentDomains = 0
+		filteredAccessors = accessors
 		if len(self.domains) > 0: #0 domains could be an external function call which we cannot touch
 			numOfIndependentDomains = len(self.domains) - self.numOfParallelDomains
 			parallelDomainAccessors = []
@@ -1502,16 +1503,16 @@ Please specify the domains and their sizes with domName and domSize attributes i
 				))
 			if len(parallelDomainAccessors) > 0:
 				iterators = parallelDomainAccessors
-				accessors = [a for a in accessors if not a in parallelDomainAccessors]
+				filteredAccessors = [a for a in accessors if not a in parallelDomainAccessors]
 			elif callee and hasattr(callee, "node") and callee.node.getAttribute("parallelRegionPosition") != "outside":
 				iterators = [] #reset the parallel iterators if this symbol is accessed in a subroutine call and it's NOT being passed in inside a kernel
 
 		offsets = []
-		if len(accessors) == 0 and (callee or isPointerAssignment):
+		if len(filteredAccessors) == 0 and (callee or isPointerAssignment):
 			for i in range(len(self.domains) - self.numOfParallelDomains):
 				offsets.append(":")
 		else:
-			offsets += accessors
+			offsets += filteredAccessors
 
 		symbolNameUsedInAccessor = None
 		if (not self.isUsingDevicePostfix and len(offsets) == len(self.domains) and not all([offset == ':' for offset in offsets])) \
@@ -1526,13 +1527,13 @@ Please specify the domains and their sizes with domName and domSize attributes i
 		and len(offsets) != 0 \
 		and len(offsets) != len(self.domains) - self.numOfParallelDomains \
 		and len(offsets) != len(self.domains):
-			raise Exception("Unexpected number of offsets specified for symbol %s; Offsets: %s, Expected domains: %s" \
-				%(self.name, offsets, self.domains))
+			raise Exception("Unexpected number of offsets specified for symbol %s; Offsets: %s, Expected domains: %s; Accessors: %s" \
+				%(self.name, offsets, self.domains, accessors))
 		if len(iterators) != 0 \
 		and len(offsets) + len(iterators) != len(self.domains) \
 		and len(offsets) != len(self.domains):
-			raise Exception("Unexpected number of offsets and iterators specified for symbol %s; Offsets: %s, Iterators: %s, Expected domains: %s" \
-				%(self.name, offsets, iterators, self.domains))
+			raise Exception("Unexpected number of offsets and iterators specified for symbol %s; Offsets: %s, Iterators: %s, Expected domains: %s, Accessors: %s" \
+				%(self.name, offsets, iterators, self.domains, accessors))
 
 		result = symbolNameUsedInAccessor
 

@@ -1426,7 +1426,6 @@ Please specify the domains and their sizes with domName and domSize attributes i
 					continue
 
 				#if we reach this there are parallel iterators specified.
-
 				if len(offsets) == len(domains):
 					iterators.append(str(offsets[nextOffsetIndex]))
 					nextOffsetIndex += 1

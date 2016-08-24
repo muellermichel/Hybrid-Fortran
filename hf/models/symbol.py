@@ -1531,8 +1531,8 @@ Please specify the domains and their sizes with domName and domSize attributes i
 		if len(iterators) != 0 \
 		and len(offsets) + len(iterators) != len(self.domains) \
 		and len(offsets) != len(self.domains):
-			raise Exception("Unexpected number of offsets and iterators specified for symbol %s; Offsets: %s, Iterators: %s, Expected domains: %s, Accessors: %s" \
-				%(self.name, offsets, iterators, self.domains, accessors))
+			raise Exception("Unexpected number of offsets and iterators specified for symbol %s; Offsets: %s, Iterators: %s, Expected domains: %s, Accessors: %s, Original Iterators: %s" \
+				%(self.name, offsets, iterators, self.domains, accessors, parallelIterators))
 
 		result = symbolNameUsedInAccessor
 

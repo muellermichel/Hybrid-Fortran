@@ -24,7 +24,7 @@ contains
     implicit none
     real, dimension(NX, NY, NZ), intent(in) :: a, b
     real, dimension(NX, NY, NZ), intent(out) :: c, e
-    real, dimension(NX, NY, NZ) :: aloc, bloc, cloc, dloc
+    real, dimension(NX, NY, NZ) :: aloc, bloc, cloc, dloc, eloc
     integer(4) :: x, y, z
     @domainDependant{attribute(host, autoDom), domPP(DOM), accPP(AT)}
     a, b, c, d
@@ -46,10 +46,12 @@ contains
     bloc(:,:,:) = 2.0d0
     cloc(:,:,:) = 0.0d0
     dloc(:,:,:) = 0.0d0
-    call kernels(aloc, bloc, cloc, dloc)
+    eloc(:,:,:) = 0.0d0
+    call kernels(aloc, bloc, cloc, dloc, eloc)
     write(6,*) "kernels call in host only subroutine complete"
     call assert_values(cloc, 3.0d0)
     call assert_values(dloc, 2.0d0)
+    call assert_values(eloc, 3.0d0)
   end subroutine
   @end scheme
 
@@ -61,19 +63,80 @@ contains
     result = a + b
   end subroutine
 
-  subroutine kernels_wrapper(a, b, c, d)
+  subroutine kernels_wrapper(a, b, c, d, e)
     implicit none
     real, dimension(NX, NY, NZ), intent(in) :: a, b
-    real, dimension(NX, NY, NZ), intent(out) :: c, d
+    real, dimension(NX, NY, NZ), intent(out) :: c, d, e
 
-    call kernels(a, b, c, d)
+    call kernels(a, b, c, d, e)
   end subroutine
 
-  subroutine kernels(a, b, c, d)
+  subroutine kernels3_wrapper2(input1, input2, output)
+    implicit none
+    real, dimension(NZ), intent(in) :: input1, input2
+    real, dimension(NZ), intent(out) :: output
+
+    @domainDependant{attribute(autoDom, present), domName(x,y), domSize(NX,NY)}
+    input1, input2, output
+    @end domainDependant
+
+    @parallelRegion{appliesTo(CPU), domName(x,y), domSize(NX, NY)}
+    call kernels3_wrapper(input1, input2, output)
+    @end parallelRegion
+    @end if
+  end subroutine
+
+  subroutine kernels3_wrapper(input1, input2, output)
+    implicit none
+    real, dimension(NZ), intent(in) :: input1, input2
+    real, dimension(NZ), intent(out) :: output
+
+    @domainDependant{attribute(autoDom, present), domName(x,y), domSize(NX,NY)}
+    input1, input2, output
+    @end domainDependant
+
+    @if{architecture(CPU)}
+    call kernel3_1D(input1, input2, output)
+    @end if
+
+    @if{architecture(GPU)}
+    call kernel3_3D(input1, input2, output)
+    @end if
+  end subroutine
+
+  subroutine kernel3_3D(input1, input2, output)
+    implicit none
+    real, dimension(NX, NY, NZ), intent(in) :: input1, input2
+    real, dimension(NX, NY, NZ), intent(out) :: output
+    integer(4) :: z
+
+    @domainDependant{attribute(autoDom, present)}
+    input1, input2, output
+    @end domainDependant
+
+    @parallelRegion{domName(x,y), domSize(NX, NY)}
+    do z=1,NZ
+      output(z) = input1(z) + input2(z)
+    end do
+    @end parallelRegion
+  end subroutine
+
+  subroutine kernel3_1D(input1, input2, output)
+    implicit none
+    real, dimension(NZ), intent(in) :: input1, input2
+    real, dimension(NZ), intent(out) :: output
+    integer(4) :: z
+
+    do z=1,NZ
+      output(z) = input1(z) + input2(z)
+    end do
+  end subroutine
+
+  subroutine kernels(a, b, c, d, e)
     use host_only_module, only: host_only_array
     implicit none
     real, dimension(NX, NY, NZ), intent(in) :: a, b
-    real, dimension(NX, NY, NZ), intent(out) :: c, d
+    real, dimension(NX, NY, NZ), intent(out) :: c, d, e
     integer(4) :: z
     real :: dummy
 
@@ -98,6 +161,8 @@ contains
       d(z) = a(z) * b(z)
     end do
     @end parallelRegion
+
+    call kernels3_wrapper2(a, b, e)
   end subroutine
 
   subroutine assert_values(test_array, expected_value)
@@ -138,7 +203,7 @@ end module example
 program main
   use example
   use host_only_module, only: host_only_array
-  real, dimension(DOM(NX, NY, NZ)) :: a, b, c, d, e, f
+  real, dimension(DOM(NX, NY, NZ)) :: a, b, c, d, e, f, g
   integer :: x, y, z
   integer :: fail_x, fail_y, fail_z
   logical test
@@ -151,6 +216,7 @@ program main
   d(:,:,:) = 1.0d0
   e(:,:,:) = 0.0d0
   f(:,:,:) = 0.0d0
+  g(:,:,:) = 0.0d0
   test = .TRUE.
 
   call host_only_subroutine(a, b, c, e) ! c = a + b = 3.0d0
@@ -158,11 +224,13 @@ program main
   e(:,:,:) = 0.0d0
   ! calling a kernel directly from the program scope will not use the device version. This is because HF only touches code that is situated in a module
   ! and we need to convert the call to "kernel" to the device version.
-  call kernels_wrapper(c, d, e, f)  ! e = c + d = 4.0d0 ; f = c * d = 3.0d0
+  call kernels_wrapper(c, d, e, f, g)  ! e = c + d = 4.0d0 ; f = c * d = 3.0d0
   write(6,*) "e complete"
   call assert_values(e, 4.0d0)
   write(6,*) "f complete"
   call assert_values(f, 3.0d0)
+  write(6,*) "g complete"
+  call assert_values(g, 3.0d0)
 
   stop
 end program main

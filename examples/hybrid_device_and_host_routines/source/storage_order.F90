@@ -26,7 +26,7 @@
 ! at compile-time for the GPU. NX, NY can be changed at
 ! runtime with commandline arguments
 #define NX 256
-#define NY 256
+#define NY 128
 #define NZ 10
 
 ! ------ What Storage Orders are defined? -------

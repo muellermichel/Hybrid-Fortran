@@ -137,35 +137,6 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
         logging.debug("ending region on line %i" %(self.lineNo))
         self.currRegion = None
 
-    def prepareActiveParallelRegion(self, implementationFunctionName):
-        routineNode = self.routineNodesByProcName.get(self.currRoutine.name)
-        if not routineNode:
-            raise Exception("no definition found for routine '%s'", self.currRoutine.name)
-        if routineNode.getAttribute('parallelRegionPosition') != 'within':
-            return False
-        templates = self.parallelRegionTemplatesByProcName.get(self.currRoutine.name)
-        if not templates or len(templates) == 0:
-            raise Exception("Unexpected: no parallel template definition found for routine '%s'" \
-                %(self.currRoutine.name))
-        if len(templates) > 1 and self.implementation.multipleParallelRegionsPerSubroutineAllowed != True:
-            raise Exception("Unexpected: more than one parallel region templates found for subroutine '%s' containing a parallelRegion directive \
-This is not allowed for implementations using %s.\
-                " %(
-                    self.currRoutine.name,
-                    type(self.implementation).__name__
-                )
-            )
-        if implementationFunctionName == "parallelRegionBegin":
-            self.switchToNewRegion("ParallelRegion")
-            self.currParallelRegion = self.currRegion
-        implementationAttr = getattr(self, 'implementation')
-        functionAttr = getattr(implementationAttr, implementationFunctionName)
-        self.prepareLine(functionAttr(self.currParallelRegionTemplateNode, self.branchAnalyzer.level), self.tab_insideSub)
-        if implementationFunctionName == "parallelRegionEnd":
-            self.switchToNewRegion(oldRegion=self.currParallelRegion)
-            self.currParallelRegion = None
-        return True
-
     def filterOutSymbolsAlreadyAliveInCurrentScope(self, symbolList):
         return [
             symbol for symbol in symbolList

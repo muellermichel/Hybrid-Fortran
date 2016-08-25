@@ -64,7 +64,7 @@ def addTemplateRelation(routineNode, templateRelation):
 	if not firstDuplicateChild(parallelRegionNode, newTemplateRelationNode, ignoreIDs=False):
 		parallelRegionNode.appendChild(newTemplateRelationNode)
 
-def addAttributeToAllCallGraphAncestors(routines, callNodesByCalleeName, routineNode, attributeName, attributeValue):
+def setAncestryToParallelInsidePosition(routines, callNodesByCalleeName, routineNode):
 	routineName = routineNode.getAttribute("name")
 	templateRelations = getTemplateRelations(routineNode)
 	calls = callNodesByCalleeName.get(routineName)
@@ -78,14 +78,16 @@ def addAttributeToAllCallGraphAncestors(routines, callNodesByCalleeName, routine
 		for routine in routines:
 			if routine.getAttribute("name") != callerName:
 				continue
+			if routine.getAttribute("parallelRegionPosition") == "within":
+				continue
 			callerNode = routine
-			routine.setAttribute(attributeName, attributeValue)
+			routine.setAttribute("parallelRegionPosition", "inside")
 			for templateRelation in templateRelations:
 				addTemplateRelation(routine, templateRelation)
-			addAttributeToAllCallGraphAncestors(routines, callNodesByCalleeName, callerNode, attributeName, attributeValue)
+			setAncestryToParallelInsidePosition(routines, callNodesByCalleeName, callerNode)
 			break
 
-def addAttributeToAllCallGraphHeirs(routines, callNodesByCallerName, routineNode, attributeName, attributeValue):
+def setHeirsToParallelOutsidePosition(routines, callNodesByCallerName, routineNode):
 	routineName = routineNode.getAttribute("name")
 	parallelRegionPosition = routineNode.getAttribute("parallelRegionPosition")
 	templateRelations = getTemplateRelations(routineNode)
@@ -103,11 +105,13 @@ def addAttributeToAllCallGraphHeirs(routines, callNodesByCallerName, routineNode
 		for routine in routines:
 			if routine.getAttribute("name") != calleeName:
 				continue
+			if routine.getAttribute("parallelRegionPosition") == "within":
+				continue
 			calleeNode = routine
-			routine.setAttribute(attributeName, attributeValue)
+			routine.setAttribute("parallelRegionPosition", "outside")
 			for templateRelation in templateRelations:
 				addTemplateRelation(routine, templateRelation)
-			addAttributeToAllCallGraphHeirs(routines, callNodesByCallerName, calleeNode, attributeName, attributeValue)
+			setHeirsToParallelOutsidePosition(routines, callNodesByCallerName, calleeNode)
 			break
 
 #returns the first kernel caller that's being found in the calls by routine with name 'routineName'
@@ -211,8 +215,8 @@ def analyseParallelRegions(doc, appliesTo):
 		routineName = routine.getAttribute("name")
 		if routineName == None:
 			raise Exception("Kernel routine without name")
-		addAttributeToAllCallGraphAncestors(routineNodes, callNodesByCalleeName, routine, "parallelRegionPosition", "inside")
-		addAttributeToAllCallGraphHeirs(routineNodes, callNodesByCallerName, routine, "parallelRegionPosition", "outside")
+		setAncestryToParallelInsidePosition(routineNodes, callNodesByCalleeName, routine)
+		setHeirsToParallelOutsidePosition(routineNodes, callNodesByCallerName, routine)
 
 		#rename this parallelRegion node to 'activeParallelRegion'
 		children = parallelRegionNode.childNodes

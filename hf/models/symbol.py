@@ -1414,6 +1414,9 @@ Please specify the domains and their sizes with domName and domSize attributes i
 			nextOffsetIndex = 0
 			if len(parallelIterators) == 0 and len(offsets) == 0:
 				return iterators
+			if len(offsets) > len(domains):
+				return offsets
+
 			for i in range(len(domains)):
 				if len(parallelIterators) == 0 and len(offsets) == len(domains):
 					iterators.append(str(offsets[i]))
@@ -1475,7 +1478,7 @@ Please specify the domains and their sizes with domName and domSize attributes i
 		if len(self.domains) > 0: #0 domains could be an external function call which we cannot touch
 			numOfIndependentDomains = len(self.domains) - self.numOfParallelDomains
 			parallelDomainAccessors = []
-			for d in self._kernelDomainNames:
+			for d in self.kernelDomainNames:
 				iteratorPattern = self.patterns.get(r".*?(?:^|\W)" + d + r"(?:$|\W).*")
 				for a in accessors:
 					if iteratorPattern.match(a):
@@ -1489,15 +1492,17 @@ Please specify the domains and their sizes with domName and domSize attributes i
 				0,
 				len(self.domains),
 				numOfIndependentDomains,
-				len(parallelDomainAccessors) + numOfIndependentDomains
+				len(parallelDomainAccessors) + numOfIndependentDomains,
+				len(self._kernelDomainNames) + numOfIndependentDomains,
 			]:
 				raise UsageError("Unexpected array access for symbol %s (%s): Please use either %i (number of parallel independant dimensions) \
-	or %i (dimensions of loaded domain for this array) or %i (passed in parallel iterator pattern) or zero accessors. Symbol Domains: %s; Symbol Init Level: %i; Parallel Region Position: %s; Parallel Active: %s; Symbol template:\n%s\n" %(
+	or %i (dimensions of loaded domain for this array), %i or %i (passed in parallel iterator pattern) or zero accessors. Symbol Domains: %s; Symbol Init Level: %i; Parallel Region Position: %s; Parallel Active: %s; Symbol template:\n%s\n" %(
 					self.name,
 					str(accessors),
 					numOfIndependentDomains,
 					len(self.domains),
 					len(parallelDomainAccessors) + numOfIndependentDomains,
+					len(self._kernelDomainNames) + numOfIndependentDomains,
 					str(self.domains),
 					self.initLevel,
 					str(self.parallelRegionPosition),
@@ -1527,9 +1532,12 @@ Please specify the domains and their sizes with domName and domSize attributes i
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] producing access representation for symbol %s; parallel iterators: %s, offsets: %s" %(self.name, str(iterators), str(offsets)))
 
 		if len(iterators) == 0 \
-		and len(offsets) != 0 \
-		and len(offsets) != len(self.domains) - self.numOfParallelDomains \
-		and len(offsets) != len(self.domains):
+		and len(offsets) not in [
+			0,
+			len(self.domains) - self.numOfParallelDomains,
+			len(self.domains),
+			numOfIndependentDomains + len(self._kernelDomainNames)
+		]:
 			raise Exception("Unexpected number of offsets specified for symbol %s; Offsets: %s, Expected domains: %s; Accessors: %s" \
 				%(self.name, offsets, self.domains, accessors))
 		if len(iterators) != 0 \

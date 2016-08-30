@@ -35,7 +35,7 @@ def arrayCheckConditional(symbol, offsets=None):
 		" .and. ".join([
 			"%s - %s .gt. 0" %(
 				s.split(":")[-1],
-				s.split(":")[0] + " + 1" if len(s.split(":")) > 1 else 0,
+				s.split(":")[0] + " + 1" if len(s.split(":")) > 1 else "0",
 			)
 			for s in domainSizes
 		])
@@ -43,7 +43,18 @@ def arrayCheckConditional(symbol, offsets=None):
 	if offsets != None and len(offsets) == len(domainSizes):
 		result += " .and. "
 		result += " .and. ".join([
-			"%s .ge. %s" %(s.split(":")[-1], offsets[idx])
+			"%s .ge. %s" %(
+				s.split(":")[-1],
+				offsets[idx]
+			)
+			for idx, s in enumerate(domainSizes)
+		])
+		result += " .and. "
+		result += " .and. ".join([
+			"%s .le. %s" %(
+				s.split(":")[0] if len(s.split(":")) > 1 else "1",
+				offsets[idx]
+			)
 			for idx, s in enumerate(domainSizes)
 		])
 	result += " ) then"

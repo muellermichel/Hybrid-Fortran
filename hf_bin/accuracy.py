@@ -390,8 +390,10 @@ def run_accuracy_test_for_netcdf(options, eps, epsSingle):
 				continue
 
 			#analyse NetCDF variable
-			in_array = get_array_from_netcdf_variable(in_variable)
 			ref_array = get_array_from_netcdf_variable(ref_variable)
+			if numpy.any(numpy.isnan(ref_array)):
+				raise Exception("NaN values present in reference array")
+			in_array = get_array_from_netcdf_variable(in_variable)
 			if options.slice:
 				try:
 					in_array = in_array[int(options.slice)] if isinstance(in_array[0], numpy.ndarray) else in_array
@@ -401,21 +403,32 @@ def run_accuracy_test_for_netcdf(options, eps, epsSingle):
 			mean_or_one = numpy.mean(in_array)
 			if abs(mean_or_one) < 1E-15:
 				mean_or_one = 1.0
+
+			passed_string = None
+			result = None
+			max_error_index_tuple = None
+			max_error = None
+
 			absolute_difference = numpy.abs(in_array - ref_array)
 			normalized_error = absolute_difference / mean_or_one
 			greater_than_epsilon = normalized_error > epsSingle
-			passed_string = None
-			result = None
+
+			nan_values = numpy.isnan(in_array)
+			if numpy.any(nan_values):
+				max_error = numpy.NAN
+				max_error_index_tuple = numpy.unravel_index(numpy.argmax(numpy.isnan(in_array)), in_array.shape)
+			else:
+				max_error = numpy.argmax(normalized_error)
+				max_error_index_tuple = numpy.unravel_index(max_error, in_array.shape)
+
 			root_mean_square_deviation = numpy.sqrt(numpy.mean((in_array - ref_array)**2))
 			root_mean_square_deviation = root_mean_square_deviation / abs(mean_or_one)
-			max_error = numpy.argmax(normalized_error)
-			max_error_index_tuple = numpy.unravel_index(max_error, in_array.shape)
 
 			#error found?
 			if math.isnan(root_mean_square_deviation):
 				result = "FAIL"
 				error_found = True
-			elif numpy.any(greater_than_epsilon) or root_mean_square_deviation > eps:
+			elif math.isnan(max_error) or numpy.any(greater_than_epsilon) or root_mean_square_deviation > eps:
 				result = "FAIL"
 				error_found = True
 			else:

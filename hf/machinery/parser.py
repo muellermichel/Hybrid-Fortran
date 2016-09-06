@@ -1269,7 +1269,7 @@ class H90XMLSymbolDeclarationExtractor(H90CallGraphAndSymbolDeclarationsParser):
         moduleSymbolParsingRequired = not self.implementation.supportsNativeModuleImportsWithinKernels \
             and parentNode.getAttribute("parallelRegionPosition") in ["within", "outside"]
         moduleSymbolsByName = self.symbolsByModuleNameAndSymbolName.get(moduleName)
-        if not moduleSymbolsByName and moduleSymbolParsingRequired:
+        if moduleSymbolsByName == None and moduleSymbolParsingRequired:
             raise UsageError(
                 "No symbol information for module %s. Please make this module available to Hybrid Fortran by moving it to a .h90 (.H90) file and use @domainDependant{attribute(host)} directives to declare the module symbols." %(
                     moduleName

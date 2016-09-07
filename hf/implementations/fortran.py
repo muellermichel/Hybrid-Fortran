@@ -83,8 +83,10 @@ class FortranImplementation(object):
 			return ""
 		return line
 
-	def earlyExit(self):
-		return "exit outerParallelLoop" + str(self._currKernelNumber)
+	def earlyExit(self, parallelRegionPosition):
+		if parallelRegionPosition == "within":
+			return "exit outerParallelLoop" + str(self._currKernelNumber)
+		return "return"
 
 	def generateRoutines(self, routine):
 		return [routine]
@@ -885,7 +887,7 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 		self.currRoutineNode = None
 		super(CUDAFortranImplementation, self).__init__(optionFlags)
 
-	def earlyExit(self):
+	def earlyExit(self, parallelRegionPosition):
 		return "return"
 
 	def generateRoutines(self, routine):

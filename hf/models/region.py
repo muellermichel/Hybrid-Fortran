@@ -119,7 +119,7 @@ class Region(object):
 			if parallelRegionTemplate else []
 		text = "\n".join([
 			implement(
-				replaceEarlyExits(line, parentRoutine.implementation),
+				replaceEarlyExits(line, parentRoutine.implementation, parentRoutine.node.getAttribute('parallelRegionPosition')),
 				symbols,
 				implementSymbolAccessStringAndRemainder,
 				iterators,

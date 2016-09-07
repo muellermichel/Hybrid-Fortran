@@ -171,10 +171,10 @@ def implement(line, symbols, symbolImplementationFunction, iterators=[], paralle
         adjustedLine = "".join(lineSections).strip()
     return adjustedLine
 
-def replaceEarlyExits(line, implementation):
+def replaceEarlyExits(line, implementation, parallelRegionPosition):
     if not line:
         return line
-    return line.replace("@exit", implementation.earlyExit())
+    return line.replace("@exit", implementation.earlyExit(parallelRegionPosition))
 
 @Singleton
 class ConversionOptions:

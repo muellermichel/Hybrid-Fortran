@@ -286,7 +286,7 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
 
         templateRelations = self.parallelRegionTemplateRelationsByProcName.get(self.currRoutine.name)
         if templateRelations == None or len(templateRelations) == 0:
-            raise Exception("No parallel region template relation found for this region.")
+            raise Exception("No parallel region template relation found for this region even though it is colored 'within'.")
         for templateRelation in templateRelations:
             startLine = templateRelation.getAttribute("startLine")
             if startLine in [None, '']:
@@ -304,7 +304,9 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
                 self.currParallelRegionRelationNode = templateRelation
                 break
         else:
-            raise Exception("No parallel region template relation was matched for the current linenumber.")
+            #this is not the parallel region we're looking for. move along. (region for different target)
+            self.prepareLine("","")
+            return
         templates = self.parallelRegionTemplatesByProcName.get(self.currRoutine.name)
         if templates == None or len(templates) == 0:
             raise Exception("No parallel region template found for this region.")

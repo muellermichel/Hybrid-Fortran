@@ -1421,9 +1421,16 @@ Please specify the domains and their sizes with domName and domSize attributes i
 				if len(parallelIterators) == 0 and len(offsets) == len(domains):
 					iterators.append(str(offsets[i]))
 					continue
-				elif len(parallelIterators) == 0 \
-				and len(offsets) == len(domains) - self.numOfParallelDomains \
-				and i < self.numOfParallelDomains:
+				elif ( \
+					len(parallelIterators) == 0 \
+					and len(offsets) == len(domains) - self.numOfParallelDomains \
+					and i < self.numOfParallelDomains \
+				) \
+				or ( \
+					len(parallelIterators) == 0 \
+					and len(offsets) == len(self.declaredDimensionSizes) \
+					and i < len(self.domains) - len(offsets)
+				):
 					iterators.append(":")
 					continue
 				elif len(parallelIterators) == 0 \
@@ -1490,15 +1497,17 @@ Please specify the domains and their sizes with domName and domSize attributes i
 				))
 			if not len(accessors) in [
 				0,
+				len(self.declaredDimensionSizes),
 				len(self.domains),
 				numOfIndependentDomains,
 				len(parallelDomainAccessors) + numOfIndependentDomains,
 				len(self._kernelDomainNames) + numOfIndependentDomains,
 			]:
-				raise UsageError("Unexpected array access for symbol %s (%s): Please use either %i (number of parallel independant dimensions) \
+				raise UsageError("Unexpected array access for symbol %s (%s): Please use either %i(declared dimension sizes) or %i (number of parallel independant dimensions) \
 	or %i (dimensions of loaded domain for this array), %i or %i (passed in parallel iterator pattern) or zero accessors. Symbol Domains: %s; Symbol Init Level: %i; Parallel Region Position: %s; Parallel Active: %s; Symbol template:\n%s\n" %(
 					self.name,
 					str(accessors),
+					len(self.declaredDimensionSizes),
 					numOfIndependentDomains,
 					len(self.domains),
 					len(parallelDomainAccessors) + numOfIndependentDomains,
@@ -1536,7 +1545,8 @@ Please specify the domains and their sizes with domName and domSize attributes i
 			0,
 			len(self.domains) - self.numOfParallelDomains,
 			len(self.domains),
-			numOfIndependentDomains + len(self._kernelDomainNames)
+			numOfIndependentDomains + len(self._kernelDomainNames),
+			len(self.declaredDimensionSizes)
 		]:
 			raise Exception("Unexpected number of offsets specified for symbol %s; Offsets: %s, Expected domains: %s; Accessors: %s" \
 				%(self.name, offsets, self.domains, accessors))

@@ -54,7 +54,7 @@ class RegExPatterns:
         'typeEndPattern': r"^\s*end\s*type\s*$",
         'moduleBeginPattern': r'^\s*module\s*(\w*).*',
         'moduleEndPattern': r'^\s*end\s*module.*',
-        'earlyReturnPattern': r'^\s*return(?:\s.*|$)',
+        'earlyReturnPattern': r'^\s*return|@exit(?:\s.*|$)',
         'templatePattern': r'^\s*@scheme\s*{(.*)}.*',
         'templateEndPattern': r'^\s*@end\s*scheme.*',
         'symbolAccessPattern': r'\s*\((.*)',

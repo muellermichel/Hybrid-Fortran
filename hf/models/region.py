@@ -22,7 +22,7 @@ import weakref, copy, re
 from tools.commons import enum, UsageError, OrderedDict
 from tools.metadata import getArguments
 from tools.patterns import RegExPatterns
-from machinery.commons import ConversionOptions, getSymbolAccessStringAndRemainder, implement
+from machinery.commons import ConversionOptions, getSymbolAccessStringAndRemainder, implement, replaceEarlyExits
 from symbol import DeclarationType, FrameworkArray, frameworkArrayName, limitLength, uniqueIdentifier
 
 RegionType = enum(
@@ -119,7 +119,7 @@ class Region(object):
 			if parallelRegionTemplate else []
 		text = "\n".join([
 			implement(
-				line,
+				replaceEarlyExits(line, parentRoutine.implementation),
 				symbols,
 				implementSymbolAccessStringAndRemainder,
 				iterators,

@@ -171,6 +171,11 @@ def implement(line, symbols, symbolImplementationFunction, iterators=[], paralle
         adjustedLine = "".join(lineSections).strip()
     return adjustedLine
 
+def replaceEarlyExits(line, implementation):
+    if not line:
+        return line
+    return line.replace("@exit", implementation.earlyExit())
+
 @Singleton
 class ConversionOptions:
     debugPrint = False

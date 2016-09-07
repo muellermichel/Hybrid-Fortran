@@ -83,6 +83,9 @@ class FortranImplementation(object):
 			return ""
 		return line
 
+	def earlyExit(self):
+		return "exit outerParallelLoop" + str(self._currKernelNumber)
+
 	def generateRoutines(self, routine):
 		return [routine]
 
@@ -174,7 +177,10 @@ class FortranImplementation(object):
 			domain = domains[pos]
 			startsAt = domain.startsAt if domain.startsAt != None else "1"
 			endsAt = domain.endsAt if domain.endsAt != None else domain.size
-			regionStr = regionStr + 'do %s=%s,%s' %(domain.name, startsAt, endsAt)
+			if pos == len(domains) - 1:
+				regionStr = regionStr + 'outerParallelLoop%i: do %s=%s,%s' %(self._currKernelNumber, domain.name, startsAt, endsAt)
+			else:
+				regionStr = regionStr + 'do %s=%s,%s' %(domain.name, startsAt, endsAt)
 			if pos != 0:
 				regionStr = regionStr + '\n '
 			pos = pos + 1
@@ -183,8 +189,12 @@ class FortranImplementation(object):
 	def parallelRegionEnd(self, parallelRegionTemplate, routine, skipDebugPrint=False):
 		domains = getDomainsWithParallelRegionTemplate(parallelRegionTemplate)
 		result = ''
-		for domain in domains:
-			result += 'end do\n'
+		for index, domain in enumerate(domains):
+			result += 'end do'
+			if index == len(domains) - 1:
+				result += ' outerParallelLoop' + str(self._currKernelNumber)
+			result += '\n'
+
 		numSkippedParallelRegions = 0
 		if not skipDebugPrint and 'DEBUG_PRINT' in self.optionFlags and self.allowsMixedHostAndDeviceCode:
 			activeParallelRegion = None
@@ -707,7 +717,10 @@ end subroutine
 			domain = domains[pos]
 			startsAt = domain.startsAt if domain.startsAt != None else "1"
 			endsAt = domain.endsAt if domain.endsAt != None else domain.size
-			regionStr += 'do %s=%s,%s' %(domain.name, startsAt, endsAt)
+			if pos == len(domains) - 1:
+				regionStr = regionStr + 'outerParallelLoop%i: do %s=%s,%s' %(self._currKernelNumber, domain.name, startsAt, endsAt)
+			else:
+				regionStr = regionStr + 'do %s=%s,%s' %(domain.name, startsAt, endsAt)
 			if pos != 0:
 				regionStr += '\n '
 		return regionStr
@@ -871,6 +884,9 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 	def __init__(self, optionFlags):
 		self.currRoutineNode = None
 		super(CUDAFortranImplementation, self).__init__(optionFlags)
+
+	def earlyExit(self):
+		return "return"
 
 	def generateRoutines(self, routine):
 		def generateHostRoutine(routine):

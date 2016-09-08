@@ -120,10 +120,7 @@ class AnalyzableRoutine(Routine):
 		if self.node.getAttribute("isKernelCaller") == "yes":
 			return True
 		for region in self._regions:
-			if isinstance(region, CallRegion) \
-			and region._callee \
-			and isinstance(region._callee, AnalyzableRoutine) \
-			and region._callee.node.getAttribute("parallelRegionPosition") == "within":
+			if region.isCallingKernel:
 				return True
 		return False
 

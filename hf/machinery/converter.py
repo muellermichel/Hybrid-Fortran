@@ -498,10 +498,11 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
                     self.state = 'inside_parallelRegion'
             return
 
-        if (self.patterns.parallelRegionEndPattern.match(line)):
+        parallelRegionEndMatch = self.patterns.parallelRegionEndPattern.match(line)
+        if parallelRegionEndMatch:
             #note: this may occur when a parallel region is discarded because it doesn't apply
             #-> state stays within body and the region end line will trap here
-            self.prepareLine("","")
+            self.processParallelRegionEndMatch(parallelRegionEndMatch)
             return
 
         domainDependantMatch = self.patterns.domainDependantPattern.match(line)

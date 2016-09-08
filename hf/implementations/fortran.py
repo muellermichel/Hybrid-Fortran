@@ -174,7 +174,7 @@ class FortranImplementation(object):
 		return "outerParallelLoop%i: do\n" %(self._currKernelNumber)
 
 	def parallelRegionStubEnd(self):
-		return "exit outerParallelLoop%i\nend do\n" %(self._currKernelNumber)
+		return "exit outerParallelLoop%i\nend do outerParallelLoop%i\n" %(self._currKernelNumber, self._currKernelNumber)
 
 	def parallelRegionBegin(self, dependantSymbols, parallelRegionTemplate):
 		domains = getDomainsWithParallelRegionTemplate(parallelRegionTemplate)

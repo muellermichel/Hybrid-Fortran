@@ -80,6 +80,10 @@ class Region(object):
 	def parentRoutine(self):
 		return self._routineRef()
 
+	@property
+	def isCallingKernel(self):
+		return False
+
 	@parentRoutine.setter
 	def parentRoutine(self, _routine):
 		self._routineRef = weakref.ref(_routine)
@@ -143,6 +147,14 @@ class CallRegion(Region):
 		super(CallRegion, self).__init__(routine)
 		self._callee = None
 		self._passedInSymbolsByName = None
+
+	@property
+	def isCallingKernel(self):
+		if self._callee \
+		and hasattr(self._callee, "node") \
+		and self._callee.node.getAttribute("parallelRegionPosition") == "within":
+			return True
+		return False
 
 	@property
 	def usedSymbolNames(self):
@@ -282,6 +294,13 @@ class ParallelRegion(Region):
 	def __contains__(self, text):
 		for region in self._subRegions:
 			if text in region:
+				return True
+		return False
+
+	@property
+	def isCallingKernel(self):
+		for region in self._subRegions:
+			if region.isCallingKernel:
 				return True
 		return False
 

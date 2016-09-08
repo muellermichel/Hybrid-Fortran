@@ -297,7 +297,7 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
                     ))
                 if startLineInt == self.lineNo:
                     self.currParallelRegionRelationNode = templateRelation
-                break
+                    break
         templates = self.parallelRegionTemplatesByProcName.get(self.currRoutine.name)
         if self.currParallelRegionRelationNode and templates:
             activeTemplateID = self.currParallelRegionRelationNode.getAttribute("id")

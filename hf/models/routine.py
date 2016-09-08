@@ -82,7 +82,7 @@ class AnalyzableRoutine(Routine):
 		self.implementation = implementation
 		self.sisterRoutine = None
 		self.node = routineNode
-		self.parallelRegionTemplates = copy.copy(parallelRegionTemplates)
+		self.parallelRegionTemplates = parallelRegionTemplates
 		self.symbolsByName = None
 		self.callees = []
 		self._currRegion = RoutineSpecificationRegion(self)
@@ -149,6 +149,9 @@ This is not allowed for implementations using %s.\
 					type(self.implementation).__name__
 				)
 			)
+		for template in templates:
+			if template == None:
+				raise Exception("Invalid parallel region template loaded for %s" %(self.name))
 
 	def _updateSymbolReferences(self):
 		def updateIndex(indexByNameAndScopeName, symbol):

@@ -355,15 +355,11 @@ class ParallelRegion(Region):
 		return clone
 
 	def implemented(self, skipDebugPrint=False):
-		parentRoutine = self._routineRef()
-		hasParallelRegionWithin = parentRoutine.node.getAttribute('parallelRegionPosition') == 'within'
-		if hasParallelRegionWithin \
-		and not self._activeTemplate:
-			raise Exception("cannot implement parallel region without a template node loaded")
-
-		hasAtExits = None
 		text = ""
-		if hasParallelRegionWithin:
+		hasAtExits = None
+		parentRoutine = self._routineRef()
+		routineHasKernels = parentRoutine.node.getAttribute('parallelRegionPosition') == 'within'
+		if routineHasKernels and self._activeTemplate:
 			text += parentRoutine.implementation.parallelRegionBegin(
 				[s for s in parentRoutine.symbolsByName.values() if s.name in self.usedSymbolNames],
 				self._activeTemplate
@@ -373,7 +369,7 @@ class ParallelRegion(Region):
 			if hasAtExits:
 				text += parentRoutine.implementation.parallelRegionStubBegin()
 		text += "\n".join([region.implemented() for region in self._subRegions])
-		if hasParallelRegionWithin:
+		if routineHasKernels and self._activeTemplate:
 			text += parentRoutine.implementation.parallelRegionEnd(self._activeTemplate, parentRoutine).strip() + "\n"
 		elif hasAtExits:
 			text += parentRoutine.implementation.parallelRegionStubEnd()

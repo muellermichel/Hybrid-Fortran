@@ -913,7 +913,7 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 			return routines
 
 		routines.append(generateHostRoutine(routine))
-		parallelRegions = [region for region in routine.regions if isinstance(region, ParallelRegion)]
+		parallelRegions = [region for region in routine.regions if isinstance(region, ParallelRegion) and region.template]
 		kernelRoutinesByName = {}
 		for kernelNumber, parallelRegion in enumerate(parallelRegions):
 			kernelName = synthesizedKernelName(routine.name, kernelNumber)
@@ -931,6 +931,10 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 		for region in routine.regions:
 			if not isinstance(region, ParallelRegion):
 				kernelWrapperRegions.append(region)
+				continue
+			if not region.template:
+				for subRegion in region._subRegions:
+					kernelWrapperRegions.append(subRegion)
 				continue
 			kernelName = synthesizedKernelName(routine.name, parallelRegionIndex)
 			kernelRoutine = kernelRoutinesByName[kernelName]
@@ -963,7 +967,7 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 			raise Exception("invalid domain size component specification: %s" %(components))
 
 		result = super(CUDAFortranImplementation, self).kernelCallPreparation(parallelRegionTemplate, calleeNode)
-		if not appliesTo(["GPU"], parallelRegionTemplate):
+		if (not parallelRegionTemplate) or (not appliesTo(["GPU"], parallelRegionTemplate)):
 			return ""
 		gridPreparationStr = ""
 		if calleeNode != None and "DO_NOT_TOUCH_GPU_CACHE_SETTINGS" not in self.optionFlags:
@@ -1252,7 +1256,7 @@ class DebugCUDAFortranImplementation(CUDAFortranImplementation):
 
 	def kernelCallPreparation(self, parallelRegionTemplate, calleeNode=None):
 		result = CUDAFortranImplementation.kernelCallPreparation(self, parallelRegionTemplate, calleeNode)
-		if calleeNode != None:
+		if parallelRegionTemplate and calleeNode:
 			iterators = self.getIterators(parallelRegionTemplate)
 			gridSizeVarNames = ["cugridSizeX", "cugridSizeY", "cugridSizeZ"]
 			routineName = calleeNode.getAttribute('name')

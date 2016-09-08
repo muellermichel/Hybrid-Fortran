@@ -84,9 +84,7 @@ class FortranImplementation(object):
 		return line
 
 	def earlyExit(self, parallelRegionPosition):
-		if parallelRegionPosition == "within":
-			return "exit outerParallelLoop" + str(self._currKernelNumber)
-		return "return"
+		return "exit outerParallelLoop" + str(self._currKernelNumber)
 
 	def generateRoutines(self, routine):
 		return [routine]
@@ -171,6 +169,12 @@ class FortranImplementation(object):
 
 	def processModuleEnd(self):
 		pass
+
+	def parallelRegionStubBegin(self):
+		return "outerParallelLoop%i: do\n" %(self._currKernelNumber)
+
+	def parallelRegionStubEnd(self):
+		return "exit outerParallelLoop%i\nend do\n" %(self._currKernelNumber)
 
 	def parallelRegionBegin(self, dependantSymbols, parallelRegionTemplate):
 		domains = getDomainsWithParallelRegionTemplate(parallelRegionTemplate)

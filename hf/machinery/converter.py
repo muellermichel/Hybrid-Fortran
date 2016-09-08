@@ -280,50 +280,39 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
             "...parallel region starts on line %i with active symbols %s" %(self.lineNo, str(self.currSymbolsByName.values())),
             extra={"hfLineNo":currLineNo, "hfFile":currFile}
         )
-        if self.currRoutine.node.getAttribute('parallelRegionPosition') != "within":
-            self.prepareLine("","")
-            return
-
         templateRelations = self.parallelRegionTemplateRelationsByProcName.get(self.currRoutine.name)
-        if templateRelations == None or len(templateRelations) == 0:
-            raise Exception("No parallel region template relation found for this region even though it is colored 'within'.")
-        for templateRelation in templateRelations:
-            startLine = templateRelation.getAttribute("startLine")
-            if startLine in [None, '']:
-                continue
-            startLineInt = 0
-            try:
-                startLineInt = int(startLine)
-            except ValueError:
-                raise Exception("Invalid startLine definition for parallel region template relation: %s\n. All active template relations: %s\nRoutine node: %s" %(
-                    templateRelation.toxml(),
-                    [templateRelation.toxml() for templateRelation in templateRelations],
-                    self.currRoutine.node.toprettyxml()
-                ))
-            if startLineInt == self.lineNo:
-                self.currParallelRegionRelationNode = templateRelation
+        if templateRelations:
+            for templateRelation in templateRelations:
+                startLine = templateRelation.getAttribute("startLine")
+                if startLine in [None, '']:
+                    continue
+                startLineInt = 0
+                try:
+                    startLineInt = int(startLine)
+                except ValueError:
+                    raise Exception("Invalid startLine definition for parallel region template relation: %s\n. All active template relations: %s\nRoutine node: %s" %(
+                        templateRelation.toxml(),
+                        [templateRelation.toxml() for templateRelation in templateRelations],
+                        self.currRoutine.node.toprettyxml()
+                    ))
+                if startLineInt == self.lineNo:
+                    self.currParallelRegionRelationNode = templateRelation
                 break
-        else:
-            #this is not the parallel region we're looking for. move along. (region for different target)
-            self.prepareLine("","")
-            return
         templates = self.parallelRegionTemplatesByProcName.get(self.currRoutine.name)
-        if templates == None or len(templates) == 0:
-            raise Exception("No parallel region template found for this region.")
-        activeTemplateID = self.currParallelRegionRelationNode.getAttribute("id")
-        for template in templates:
-            if template.getAttribute("id") == activeTemplateID:
-                self.currParallelRegionTemplateNode = template
-                break
-        else:
-            raise Exception("No parallel region template has matched the active template ID.")
-        self.currParallelIterators = self.implementation.getIterators(self.currParallelRegionTemplateNode)
-        if not self.currParallelIterators:
-            self.prepareLine("","")
-            return
+        if self.currParallelRegionRelationNode and templates:
+            activeTemplateID = self.currParallelRegionRelationNode.getAttribute("id")
+            for template in templates:
+                if template.getAttribute("id") == activeTemplateID:
+                    self.currParallelRegionTemplateNode = template
+                    break
+            else:
+                raise Exception("No parallel region template has matched the active template ID.")
+        if self.currParallelRegionRelationNode:
+            self.currParallelIterators = self.implementation.getIterators(self.currParallelRegionTemplateNode)
         self.switchToNewRegion("ParallelRegion")
         self.currParallelRegion = self.currRegion
-        self.currParallelRegion.loadActiveParallelRegionTemplate(self.currParallelRegionTemplateNode)
+        if self.currParallelRegionTemplateNode:
+            self.currParallelRegion.loadActiveParallelRegionTemplate(self.currParallelRegionTemplateNode)
         self.prepareLine("", self.tab_insideSub)
 
     def processParallelRegionEndMatch(self, parallelRegionEndMatch):

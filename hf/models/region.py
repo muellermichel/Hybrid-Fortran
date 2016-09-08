@@ -62,6 +62,12 @@ class Region(object):
 		self._routineRef = None
 		self.loadParentRoutine(routine)
 
+	def __contains__(self, text):
+		for line, _ in self._linesAndSymbols:
+			if text in line:
+				return True
+		return False
+
 	@property
 	def usedSymbolNames(self):
 		return [symbol.name for symbol in sum([symbols for (_, symbols) in self._linesAndSymbols], [])]
@@ -273,6 +279,12 @@ class ParallelRegion(Region):
 		self._activeTemplate = None
 		super(ParallelRegion, self).__init__(routine)
 
+	def __contains__(self, text):
+		for region in self._subRegions:
+			if text in region:
+				return True
+		return False
+
 	@property
 	def linesAndSymbols(self):
 		return sum([
@@ -313,7 +325,8 @@ class ParallelRegion(Region):
 
 	def clone(self):
 		clone = super(ParallelRegion, self).clone()
-		clone.loadActiveParallelRegionTemplate(self._activeTemplate)
+		if self._activeTemplate:
+			clone.loadActiveParallelRegionTemplate(self._activeTemplate)
 		clone._subRegions = []
 		for region in self._subRegions:
 			clonedRegion = region.clone()
@@ -329,15 +342,22 @@ class ParallelRegion(Region):
 		and not self._activeTemplate:
 			raise Exception("cannot implement parallel region without a template node loaded")
 
+		hasAtExits = None
 		text = ""
 		if hasParallelRegionWithin:
 			text += parentRoutine.implementation.parallelRegionBegin(
 				[s for s in parentRoutine.symbolsByName.values() if s.name in self.usedSymbolNames],
 				self._activeTemplate
 			).strip() + "\n"
+		else:
+			hasAtExits = "@exit" in self
+			if hasAtExits:
+				text += parentRoutine.implementation.parallelRegionStubBegin()
 		text += "\n".join([region.implemented() for region in self._subRegions])
 		if hasParallelRegionWithin:
 			text += parentRoutine.implementation.parallelRegionEnd(self._activeTemplate, parentRoutine).strip() + "\n"
+		elif hasAtExits:
+			text += parentRoutine.implementation.parallelRegionStubEnd()
 		return self._sanitize(text, skipDebugPrint)
 
 class RoutineSpecificationRegion(Region):

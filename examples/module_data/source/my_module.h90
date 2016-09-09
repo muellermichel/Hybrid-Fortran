@@ -34,6 +34,15 @@ module my_module
 	integer, public :: more_indirection = indirection
 	integer(4), public :: nx, ny, nz
 	integer(4), public :: overspecified_const
+	real, public :: to_be_expanded_variable
+
+	@if{architecture(GPU)}
+	real, public, device, allocatable, dimension(:,:) :: to_be_expanded_variable_hfdev
+	@end if
+
+	@domainDependant{attribute(autoDom, host), domName(x,y), domSize(NX,NY)}
+    to_be_expanded_variable
+    @end domainDependant
 
 	@domainDependant{attribute(host)}
     overspecified_const
@@ -65,6 +74,10 @@ contains
   		allocate(b_dyn(nx,ny,nz))
   		allocate(c_dyn(nx,ny,nz))
   		allocate(d_dyn(nx,ny,nz))
+
+  		@if{architecture(GPU)}
+		allocate(to_be_expanded_variable_hfdev(nx,ny))
+		@end if
 	end subroutine
 
 	subroutine cleanup()

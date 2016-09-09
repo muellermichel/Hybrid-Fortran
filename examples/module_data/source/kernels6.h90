@@ -54,6 +54,7 @@ contains
     @end domainDependant
 
     @parallelRegion{domName(x,y), domSize(NX, NY)}
+    to_be_expanded_variable = min(max(x, y), 1.0d0) !everything should be 1.0d0 except
     call inner(a(:), b(:), x, y, c(:))
     @end parallelRegion
   end subroutine

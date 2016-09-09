@@ -113,6 +113,18 @@ contains
     call kernel()
   end subroutine
 
+  subroutine data_region_wrapper10()
+    use kernels10, only: wrapper10
+    use my_module, only: a, b, c, d
+    implicit none
+
+    @domainDependant{attribute(autoDom,transferHere)}
+    a, b, c, d
+    @end domainDependant
+
+    call wrapper10()
+  end subroutine
+
 end module example
 
 program main
@@ -127,7 +139,6 @@ program main
   integer :: x, y, z
   integer :: fail_x, fail_y, fail_z
   logical test
-  real :: fail_val
 
   allocate(a(DOM(NX,NY,NZ)))
   allocate(b(DOM(NX,NY,NZ)))
@@ -142,8 +153,6 @@ program main
   b(:,:,:) = 2.0d0
   c(:,:,:) = 0.0d0
   d(:,:,:) = 0.0d0
-  test = .TRUE.
-
   call data_region_wrapper()
   write(0,*) "calculation1 complete"
   call assert_values(c, 3.0d0)
@@ -233,6 +242,35 @@ program main
   call data_region_wrapper9()
   write(0,*) "calculation9 complete"
   call assert_values(c, 4.0d0)
+
+  c(:,:,:) = 0.0d0
+  d(:,:,:) = 0.0d0
+  call data_region_wrapper10()
+  write(0,*) "calculation10 complete"
+  call assert_values(d, 2.0d0)
+  test = .TRUE.
+  do y=1,NY
+  do x=1,NX
+  do z=1,NZ
+    if ( &
+      & (test .EQ. .TRUE. .AND. x .eq. 1 .and. y .eq. 1 .and. c(x,y,z) .NE. 3.0d0) &
+      & .or. (test .EQ. .TRUE. .and. (x .ne. 1 .or. y .ne. 1) .and. c(x,y,z) .NE. 4.0d0) &
+    & ) then
+      test = .FALSE.
+      fail_x = x
+      fail_y = y
+      fail_z = z
+    end if
+  end do
+  end do
+  end do
+  if (test .EQ. .TRUE.) then
+    write(0,*) "test ok"
+  else
+    write(0,*) "test failed"
+    write(0,*) "fails at", fail_x, fail_y, fail_z, "test_array:", c(fail_x,fail_y,fail_z)
+    stop 2
+  end if
 
   deallocate(a)
   deallocate(b)

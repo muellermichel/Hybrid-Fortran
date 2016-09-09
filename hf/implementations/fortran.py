@@ -25,7 +25,7 @@ from models.region import RegionType, ParallelRegion, CallRegion
 from tools.analysis import getAnalysisForSymbol
 from tools.patterns import RegExPatterns
 from tools.commons import UsageError
-from tools.metadata import getDomainDependantTemplatesAndEntries
+from tools.metadata import getDomainDependantTemplatesAndEntries, appliesTo
 from implementations.commons import *
 
 class FortranImplementation(object):
@@ -897,8 +897,12 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 		return "return"
 
 	def generateRoutines(self, routine):
-		def generateHostRoutine(routine):
+		def generateHostRoutine(routine, parallelRegions=[]):
 			hostRoutine = routine.clone(synthesizedHostRoutineName(routine.name))
+			if routine.node.getAttribute("parallelRegionPosition") == "within" \
+			and len(parallelRegions) > 0 \
+			and not appliesTo("CPU", parallelRegions[0].template):
+				hostRoutine.node.setAttribute("parallelRegionPosition", "outside")
 			hostRoutine.implementation = FortranImplementation(self.optionFlags, appliesTo="GPU")
 			hostRoutine.implementation.useKernelPrefixesForDebugPrint = False
 			return hostRoutine
@@ -912,8 +916,8 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 		if routine.node.getAttribute("parallelRegionPosition") != "within":
 			return routines
 
-		routines.append(generateHostRoutine(routine))
 		parallelRegions = [region for region in routine.regions if isinstance(region, ParallelRegion) and region.template]
+		routines.append(generateHostRoutine(routine, parallelRegions))
 		kernelRoutinesByName = {}
 		for kernelNumber, parallelRegion in enumerate(parallelRegions):
 			kernelName = synthesizedKernelName(routine.name, kernelNumber)

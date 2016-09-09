@@ -33,7 +33,7 @@ helper_functions_gpu.o: helper_functions.o
 # ADD YOUR DEPENDENCIES BELOW THIS LINE
 # -------->
 
-example.o: kernels.o kernels2.o kernels3.o kernels4.o kernels5.o kernels7.o kernels8.o my_module.o host_only_module.o helper_functions.o ${USER_LIB}
+example.o: kernels.o kernels2.o kernels3.o kernels4.o kernels5.o kernels7.o kernels8.o kernels10.o my_module.o host_only_module.o helper_functions.o ${USER_LIB}
 my_module.o: more_indirection_module.o helper_functions.o
 host_only_module.o: kernels8.o
 kernels.o: my_module.o helper_functions.o
@@ -44,3 +44,4 @@ kernels5.o: my_module.o helper_functions.o
 # kernels6.o: my_module.o helper_functions.o
 kernels7.o: my_module.o helper_functions.o
 kernels8.o: my_module.o helper_functions.o
+kernels10.o: my_module.o helper_functions.o

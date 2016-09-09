@@ -1,0 +1,92 @@
+! Copyright (C) 2016 Michel Müller, Tokyo Institute of Technology
+
+! This file is part of Hybrid Fortran.
+
+! Hybrid Fortran is free software: you can redistribute it and/or modify
+! it under the terms of the GNU Lesser General Public License as published by
+! the Free Software Foundation, either version 3 of the License, or
+! (at your option) any later version.
+
+! Hybrid Fortran is distributed in the hope that it will be useful,
+! but WITHOUT ANY WARRANTY; without even the implied warranty of
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+! GNU Lesser General Public License for more details.
+
+! You should have received a copy of the GNU Lesser General Public License
+! along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.'
+
+module kernels10
+use my_module, only: rlength
+contains
+
+  ! This is a test of "quotes" in 'comments', also "a bit 'stranger'" 'one"s"'
+  ! Here we've got another test (single quote character in text)
+  subroutine wrapper10()
+  	use my_module, only: a, b, c, d
+    implicit none
+    integer(4) :: x, y
+
+    @domainDependant{attribute(host, autoDom)}
+	a, b, c, d
+	@end domainDependant
+
+    @parallelRegion{appliesTo(CPU), domName(x,y), domSize(NX, NY)}
+    call expanded_variable_set(x,y)
+    call add10(a(x,y,:), b(x,y,:), c(x,y,:))
+    call mult10(a(x,y,:), b(x,y,:), d(x,y,:))
+    @end parallelRegion
+  end subroutine
+
+  subroutine expanded_variable_set(x,y)
+  	use my_module, only: to_be_expanded_variable
+  	implicit none
+
+  	integer(4), intent(in) :: x, y
+
+  	@domainDependant{attribute(autoDom, present)}
+    to_be_expanded_variable
+    @end domainDependant
+
+    @parallelRegion{appliesTo(GPU), domName(x,y), domSize(NX, NY)}
+  	to_be_expanded_variable = min(real(max(x-1, y-1)), 1.0d0) !everything should be 1.0d0 except x = 0, y = 0
+  	@end parallelRegion
+  end subroutine
+
+  subroutine add10(a, b, c)
+    use my_module, only: to_be_expanded_variable
+    implicit none
+    real, dimension(NZ) :: a, b, c
+    integer :: z
+
+    @domainDependant{attribute(autoDom, present)}
+    to_be_expanded_variable
+    @end domainDependant
+
+    @domainDependant{attribute(autoDom, present), domName(x,y), domSize(NX, NY)}
+    a, b, c
+    @end domainDependant
+
+    @parallelRegion{appliesTo(GPU), domName(x,y), domSize(NX, NY)}
+    do z=1,NZ
+      c(z) = a(z) + b(z) + to_be_expanded_variable
+    end do
+    @end parallelRegion
+  end subroutine
+
+  subroutine mult10(a, b, d)
+    implicit none
+    real, dimension(NZ) :: a, b, d
+    integer :: z
+
+    @domainDependant{attribute(autoDom, present), domName(x,y), domSize(NX, NY)}
+    a, b, d
+    @end domainDependant
+
+    @parallelRegion{appliesTo(GPU), domName(x,y), domSize(NX, NY)}
+    do z=1,NZ
+      d(z) = a(z) * b(z)
+    end do
+    @end parallelRegion
+  end subroutine
+
+end module kernels10

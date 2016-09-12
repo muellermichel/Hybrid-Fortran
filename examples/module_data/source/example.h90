@@ -253,8 +253,8 @@ program main
   do x=1,NX
   do z=1,NZ
     if ( &
-      & (test .EQ. .TRUE. .AND. x .eq. 1 .and. y .eq. 1 .and. c(x,y,z) .NE. 3.0d0) &
-      & .or. (test .EQ. .TRUE. .and. (x .ne. 1 .or. y .ne. 1) .and. c(x,y,z) .NE. 4.0d0) &
+      & (test .EQ. .TRUE. .AND. x .eq. 1 .and. y .eq. 1 .and. c(AT(x,y,z)) /= 3.0d0) &
+      & .or. (test .EQ. .TRUE. .and. (x .ne. 1 .or. y .ne. 1) .and. c(AT(x,y,z)) /= 4.0d0) &
     & ) then
       test = .FALSE.
       fail_x = x

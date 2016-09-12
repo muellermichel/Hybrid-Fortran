@@ -59,7 +59,7 @@ contains
     a, b, c, d
     @end domainDependant
 
-    @if {parallelRegion(inside)}
+    @if {architecture(GPU)}
     stride_x_size = min(nx, NX_STRIDE_MAX)
     stride_y_size = min(ny, NY_STRIDE_MAX)
     num_strides_x = nx / stride_x_size
@@ -79,7 +79,7 @@ contains
     end do
     @end if
 
-    @if {parallelRegion(outside)}
+    @if {architecture(CPU)}
     call kernel_wrapper(nx, ny, a, b, c, d)
     @end if
   end subroutine

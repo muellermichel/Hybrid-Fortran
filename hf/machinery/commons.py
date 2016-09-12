@@ -125,9 +125,7 @@ def getSymbolAccessStringAndRemainder(
     useDeviceVersionIfAvailable=True
 ):
     accessors = []
-    remainder = accessorString
-    if len(symbol.domains) > 0: #0 domains could be an external function - need to retain postfix
-        accessors, remainder = getAccessorsAndRemainder(accessorString)
+    accessors, remainder = getAccessorsAndRemainder(accessorString)
     symbolAccessString = symbol.accessRepresentation(
         parallelIterators,
         accessors,

@@ -1409,6 +1409,16 @@ Please specify the domains and their sizes with domName and domSize attributes i
 		callee=None,
 		useDeviceVersionIfAvailable=True
 	):
+		def matchIteratorListForDomain(iteratorList, domainName):
+			adjustedIterator = None
+			iteratorPattern = self.patterns.get(r".*?(?:^|\W)" + domainName + r"(?:$|\W).*")
+			for it in iteratorList:
+				if iteratorPattern.match(it):
+					adjustedIterator = it
+					break
+			return adjustedIterator
+
+
 		def getIterators(domains, parallelIterators, offsets):
 			iterators = []
 			nextOffsetIndex = 0
@@ -1418,10 +1428,15 @@ Please specify the domains and their sizes with domName and domSize attributes i
 				return offsets
 
 			for i in range(len(domains)):
+				if len(parallelIterators) == 0 and len(offsets) == len(domains) \
+				and i < self.numOfParallelDomains \
+				and self.parallelRegionPosition not in ['within', 'outside']:
+					iterators.append(":")
+					continue
 				if len(parallelIterators) == 0 and len(offsets) == len(domains):
 					iterators.append(str(offsets[i]))
 					continue
-				elif ( \
+				if ( \
 					len(parallelIterators) == 0 \
 					and len(offsets) == len(domains) - self.numOfParallelDomains \
 					and i < self.numOfParallelDomains \
@@ -1433,23 +1448,18 @@ Please specify the domains and their sizes with domName and domSize attributes i
 				):
 					iterators.append(":")
 					continue
-				elif len(parallelIterators) == 0 \
+				if len(parallelIterators) == 0 \
 				and len(offsets) == len(domains) - self.numOfParallelDomains \
 				and i >= self.numOfParallelDomains:
 					iterators.append(str(offsets[i - self.numOfParallelDomains]))
 					continue
 
-				#if we reach this there are parallel iterators specified.
 				if len(offsets) == len(domains):
 					iterators.append(str(offsets[nextOffsetIndex]))
 					nextOffsetIndex += 1
 				else:
-					adjustedIterator = None
-					iteratorPattern = self.patterns.get(r".*?(?:^|\W)" + domains[i][0] + r"(?:$|\W).*")
-					for it in parallelIterators:
-						if iteratorPattern.match(it):
-							adjustedIterator = it
-							break
+					#if we reach this there are parallel iterators specified.
+					adjustedIterator = matchIteratorListForDomain(parallelIterators, domains[i][0])
 					if adjustedIterator:
 						iterators.append(adjustedIterator)
 					elif nextOffsetIndex < len(offsets):

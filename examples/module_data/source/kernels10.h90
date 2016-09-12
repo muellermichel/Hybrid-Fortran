@@ -27,8 +27,8 @@ contains
     integer(4) :: x, y
 
     @domainDependant{attribute(host, autoDom)}
-	a, b, c, d
-	@end domainDependant
+  	a, b, c, d
+  	@end domainDependant
 
     @parallelRegion{appliesTo(CPU), domName(x,y), domSize(NX, NY)}
     call expanded_variable_set(x,y)
@@ -43,7 +43,7 @@ contains
 
   	integer(4), intent(in) :: x, y
 
-  	@domainDependant{attribute(autoDom, present)}
+  	@domainDependant{attribute(autoDom, present), domName(x,y), domSize(NX, NY)}
     to_be_expanded_variable
     @end domainDependant
 
@@ -58,7 +58,7 @@ contains
     real, dimension(NZ) :: a, b, c
     integer :: z
 
-    @domainDependant{attribute(autoDom, present)}
+    @domainDependant{attribute(autoDom, present), domName(x,y), domSize(NX, NY)}
     to_be_expanded_variable
     @end domainDependant
 

@@ -1416,6 +1416,8 @@ Please specify the domains and their sizes with domName and domSize attributes i
 			nextOffsetIndex = 0
 			if len(parallelIterators) == 0 and len(offsets) == 0:
 				return iterators
+			if not allowsSlicing and len(parallelIterators) == 0 and len(domains) == len(offsets):
+				return offsets
 			for i in range(len(domains)):
 				if allowsSlicing \
 				and len(parallelIterators) == 0 \
@@ -1472,7 +1474,7 @@ Please specify the domains and their sizes with domName and domSize attributes i
 						raise Exception("Cannot generate access representation for symbol %s: Unknown parallel iterators specified (%s) or not enough offsets (%s)."
 							%(str(self), str(parallelIterators), str(offsets))
 						)
-			if (callee or isPointerAssignment) and all([iterator == ':' for iterator in iterators]):
+			if allowsSlicing and all([iterator == ':' for iterator in iterators]):
 				return [] #working around a problem in PGI 15.1: Inliner bails out in certain situations (module test kernel 3+4) if arrays are passed in like a(:,:,:).
 			return [iterator.strip().replace(" ", "") for iterator in iterators]
 
@@ -1514,7 +1516,8 @@ Please specify the domains and their sizes with domName and domSize attributes i
 
 		offsets = []
 		if len(filteredAccessors) == 0 and (callee or isPointerAssignment):
-			for i in range(len(self.domains) - self.numOfParallelDomains):
+			numOfIteratedDomains = self.numOfParallelDomains if callee.node.getAttribute("parallelRegionPosition") == "outside" else 0
+			for i in range(len(self.domains) - numOfIteratedDomains):
 				offsets.append(":")
 		else:
 			offsets += filteredAccessors
@@ -1533,7 +1536,12 @@ Please specify the domains and their sizes with domName and domSize attributes i
 		if len(self.domains) == 0:
 			logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] Symbol has 0 domains - only returning name.")
 			return result
-		iterators = getIterators(self.domains, iterators, offsets, callee != None or isPointerAssignment)
+		iterators = getIterators(
+			self.domains,
+			iterators,
+			offsets,
+			isPointerAssignment or (callee and hasattr(callee, "node") and callee.node.getAttribute("parallelRegionPosition") in ["within, inside"])
+		)
 		if len(iterators) == 0:
 			logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] No iterators have been determined - only returning name.")
 			return result

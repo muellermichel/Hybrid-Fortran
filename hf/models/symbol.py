@@ -1411,13 +1411,15 @@ Please specify the domains and their sizes with domName and domSize attributes i
 					break
 			return adjustedIterator
 
-		def getIterators(domains, parallelIterators, offsets):
+		def getIterators(domains, parallelIterators, offsets, allowsSlicing):
 			iterators = []
 			nextOffsetIndex = 0
 			if len(parallelIterators) == 0 and len(offsets) == 0:
 				return iterators
 			for i in range(len(domains)):
-				if len(parallelIterators) == 0 and len(offsets) == len(domains) \
+				if allowsSlicing \
+				and len(parallelIterators) == 0 \
+				and len(offsets) == len(domains) \
 				and i < self.numOfParallelDomains \
 				and self.parallelRegionPosition not in ['within', 'outside']:
 					iterators.append(":")
@@ -1425,7 +1427,7 @@ Please specify the domains and their sizes with domName and domSize attributes i
 				if len(parallelIterators) == 0 and len(offsets) == len(domains):
 					iterators.append(str(offsets[i]))
 					continue
-				if ( \
+				if allowsSlicing and (( \
 					len(parallelIterators) == 0 \
 					and len(offsets) == len(domains) - self.numOfParallelDomains \
 					and i < self.numOfParallelDomains \
@@ -1434,7 +1436,7 @@ Please specify the domains and their sizes with domName and domSize attributes i
 					len(parallelIterators) == 0 \
 					and len(offsets) == len(self.declaredDimensionSizes) \
 					and i < len(self.domains) - len(offsets)
-				):
+				)):
 					iterators.append(":")
 					continue
 				if len(parallelIterators) == 0 \
@@ -1502,30 +1504,6 @@ Please specify the domains and their sizes with domName and domSize attributes i
 					self.name,
 					str(self._kernelDomainNames)
 				))
-	# 		if not len(accessors) in [
-	# 			0,
-	# 			len(self.declaredDimensionSizes),
-	# 			len(self.domains),
-	# 			numOfIndependentDomains,
-	# 			len(parallelDomainAccessors) + numOfIndependentDomains,
-	# 			len(self._kernelDomainNames) + numOfIndependentDomains,
-	# 		]:
-	# 			raise UsageError("Unexpected array access for symbol %s (%s): Please use either %i(declared dimension sizes) or %i (number of parallel independant dimensions) \
-	# or %i (dimensions of loaded domain for this array), %i or %i (passed in parallel iterator pattern) or %i (parallel domains and independent domains) zero accessors. Symbol Domains: %s; Symbol Init Level: %i; Parallel Region Position: %s; Parallel Active: %s; Symbol template:\n%s\n" %(
-	# 				self.name,
-	# 				str(accessors),
-	# 				len(self.declaredDimensionSizes),
-	# 				numOfIndependentDomains,
-	# 				len(self.domains),
-	# 				len(parallelDomainAccessors) + numOfIndependentDomains,
-	# 				len(self._kernelDomainNames) + numOfIndependentDomains,
-	# 				self.numOfParallelDomains + numOfIndependentDomains,
-	# 				str(self.domains),
-	# 				self.initLevel,
-	# 				str(self.parallelRegionPosition),
-	# 				self._kernelDomainNames,
-	# 				self.template.toxml()
-	# 			))
 			if callee and hasattr(callee, "node") and callee.node.getAttribute("parallelRegionPosition") != "outside":
 				iterators = [] #reset the parallel iterators if this symbol is accessed in a subroutine call and it's NOT being passed in inside a kernel
 			elif len(parallelDomainAccessors) > 0:
@@ -1550,28 +1528,12 @@ Please specify the domains and their sizes with domName and domSize attributes i
 
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] producing access representation for symbol %s; parallel iterators: %s, offsets: %s" %(self.name, str(iterators), str(offsets)))
 
-		# if len(iterators) == 0 \
-		# and len(offsets) not in [
-		# 	0,
-		# 	len(self.domains) - self.numOfParallelDomains,
-		# 	len(self.domains),
-		# 	numOfIndependentDomains + len(self._kernelDomainNames),
-		# 	len(self.declaredDimensionSizes)
-		# ]:
-		# 	raise Exception("Unexpected number of offsets specified for symbol %s; Offsets: %s, Expected domains: %s; Accessors: %s" \
-		# 		%(self.name, offsets, self.domains, accessors))
-		# if len(iterators) != 0 \
-		# and len(offsets) + len(iterators) != len(self.domains) \
-		# and len(offsets) != len(self.domains):
-		# 	raise Exception("Unexpected number of offsets and iterators specified for symbol %s; Offsets: %s, Iterators: %s, Expected domains: %s, Accessors: %s, Original Iterators: %s" \
-		# 		%(self.name, offsets, iterators, self.domains, accessors, parallelIterators))
-
 		result = symbolNameUsedInAccessor
 
 		if len(self.domains) == 0:
 			logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] Symbol has 0 domains - only returning name.")
 			return result
-		iterators = getIterators(self.domains, iterators, offsets)
+		iterators = getIterators(self.domains, iterators, offsets, callee != None or isPointerAssignment)
 		if len(iterators) == 0:
 			logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] No iterators have been determined - only returning name.")
 			return result

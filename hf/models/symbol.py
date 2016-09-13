@@ -1416,8 +1416,14 @@ Please specify the domains and their sizes with domName and domSize attributes i
 			nextOffsetIndex = 0
 			if len(parallelIterators) == 0 and len(offsets) == 0:
 				return iterators
+
 			if not allowsSlicing and len(parallelIterators) == 0 and len(domains) == len(offsets):
 				return offsets
+
+			#length of domains is potentially smaller than offsets if we have passed in iterators in parallel outside position
+			if len(offsets) > len(domains) and self.parallelRegionPosition == "outside":
+				return offsets
+
 			for i in range(len(domains)):
 				if allowsSlicing \
 				and len(parallelIterators) == 0 \

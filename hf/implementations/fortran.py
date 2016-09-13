@@ -902,7 +902,7 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 			if routine.node.getAttribute("parallelRegionPosition") == "within" \
 			and len(parallelRegions) > 0 \
 			and not appliesTo("CPU", parallelRegions[0].template):
-				hostRoutine.node.setAttribute("parallelRegionPosition", "outside")
+				hostRoutine.node.setAttribute("parallelRegionPosition", "")
 			hostRoutine.implementation = FortranImplementation(self.optionFlags, appliesTo="GPU")
 			hostRoutine.implementation.useKernelPrefixesForDebugPrint = False
 			return hostRoutine

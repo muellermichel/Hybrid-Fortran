@@ -81,7 +81,9 @@ contains
 		@end domainDependant
 
 		@parallelRegion{appliesTo(GPU), domName(x,y), domSize(nx, ny)}
+		@if {architecture(GPU)}
 		sliced(x,y) = original(x + offset_x, y + offset_y)
+		@end if
 		@end parallelRegion
 	end subroutine
 
@@ -138,7 +140,9 @@ contains
 		@end domainDependant
 
 		@parallelRegion{appliesTo(GPU), domName(x,y), domSize(nx, ny)}
+		@if {architecture(GPU)}
 		sliced(x,y) = original(x + offset_x, y + offset_y)
+		@end if
 		@end parallelRegion
 	end subroutine
 
@@ -196,9 +200,11 @@ contains
 		@end domainDependant
 
 		@parallelRegion{appliesTo(GPU), domName(x,y), domSize(nx, ny)}
+		@if {architecture(GPU)}
 		do z = 1, nz
 			sliced(x,y,z) = original(x + offset_x, y + offset_y, z + offset_z)
 		end do
+		@end if
 		@end parallelRegion
 	end subroutine
 
@@ -255,7 +261,9 @@ contains
 		@end domainDependant
 
 		@parallelRegion{appliesTo(GPU), domName(x,y), domSize(nx, ny)}
+		@if {architecture(GPU)}
 		original(x + offset_x, y + offset_y) = sliced(x,y)
+		@end if
 		@end parallelRegion
 	end subroutine
 
@@ -312,9 +320,11 @@ contains
 		@end domainDependant
 
 		@parallelRegion{appliesTo(GPU), domName(x,y), domSize(nx, ny)}
+		@if {architecture(GPU)}
 		do z = 1, nz
 			original(x + offset_x, y + offset_y, z + offset_z) = sliced(x,y,z)
 		end do
+		@end if
 		@end parallelRegion
 	end subroutine
 	@end scheme

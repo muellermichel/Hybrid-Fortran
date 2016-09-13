@@ -1411,7 +1411,6 @@ Please specify the domains and their sizes with domName and domSize attributes i
 					break
 			return adjustedIterator
 
-
 		def getIterators(domains, parallelIterators, offsets):
 			iterators = []
 			nextOffsetIndex = 0
@@ -1532,6 +1531,8 @@ Please specify the domains and their sizes with domName and domSize attributes i
 			elif len(parallelDomainAccessors) > 0:
 				iterators = parallelDomainAccessors
 				filteredAccessors = [a for a in accessors if not a in parallelDomainAccessors]
+			elif iterators and self.numOfParallelDomains == 0:
+				iterators = []
 
 		offsets = []
 		if len(filteredAccessors) == 0 and (callee or isPointerAssignment):

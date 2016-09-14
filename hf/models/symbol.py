@@ -1420,8 +1420,11 @@ Please specify the domains and their sizes with domName and domSize attributes i
 			if not allowsSlicing and len(parallelIterators) == 0 and len(domains) == len(offsets):
 				return offsets
 
-			#length of domains is potentially smaller than offsets if we have passed in iterators in parallel outside position
-			if len(offsets) > len(domains) and self.parallelRegionPosition == "outside":
+			#length of domains is potentially smaller than offsets if we have
+			# 1) passed in iterators in parallel outside position
+			# 2) used an unrecognised array format such as character arrays
+			if len(offsets) > len(domains) \
+			and (self.parallelRegionPosition == "outside" or "character" in self.declarationPrefix):
 				return offsets
 
 			for i in range(len(domains)):
@@ -1485,7 +1488,7 @@ Please specify the domains and their sizes with domName and domSize attributes i
 			return [iterator.strip().replace(" ", "") for iterator in iterators]
 
 		if isPointerAssignment \
-		or len(self.domains) == 0 \
+		or (len(self.domains) == 0 and len(accessors) == 0) \
 		or ( \
 			not isInsideParallelRegion \
 			and not callee \
@@ -1533,12 +1536,7 @@ Please specify the domains and their sizes with domName and domSize attributes i
 			symbolNameUsedInAccessor = self.nameInScope(useDeviceVersionIfAvailable=useDeviceVersionIfAvailable)
 
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] producing access representation for symbol %s; parallel iterators: %s, offsets: %s" %(self.name, str(iterators), str(offsets)))
-
 		result = symbolNameUsedInAccessor
-
-		if len(self.domains) == 0:
-			logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] Symbol has 0 domains - only returning name.")
-			return result
 		iterators = getIterators(
 			self.domains,
 			iterators,

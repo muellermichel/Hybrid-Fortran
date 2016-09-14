@@ -17,6 +17,38 @@
 
 module stencil
 contains
+  subroutine character_check(len_one_string, char)
+    character(len=1), intent(in) :: len_one_string
+    character, intent(in) :: char
+
+    if (len_one_string(1:1) /= char) then
+      write(6,*) "wrong character value"
+      stop 2
+    end if
+  end subroutine
+
+  subroutine character_array_test()
+    implicit none
+    character(len=256) :: string
+    integer(4) :: i
+
+    do i = 1, 256
+      if (modulo(i,2) == 0) then
+        string(i:i) = 'a'
+      else
+        string(i:i) = 'b'
+      end if
+    end do
+
+    do i = 1, 256
+      if (modulo(i,2) == 0) then
+        call character_check(string(i:i), 'a')
+      else
+        call character_check(string(i:i), 'b')
+      end if
+    end do
+  end subroutine
+
   subroutine stencil(n, m, a, b)
     implicit none
     integer(4), intent(in) :: n, m
@@ -53,6 +85,8 @@ program main
   implicit none
   real(8), dimension(:,:), allocatable :: a, b
   integer(4) :: n, m, i, j
+
+  call character_array_test()
 
   n = 8
   m = 8

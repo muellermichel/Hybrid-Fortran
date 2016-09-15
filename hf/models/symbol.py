@@ -950,7 +950,10 @@ EXAMPLE:\n\
 
 		#   get tentative domains
 		tentativeDomains = None
-		if self.domains == None or not self.isAutoDom:
+		if self.isAutoDom and not templateDomains and not self.domains and self.declaredDimensionSizes:
+			#this happens when automatically parsed symbols are loaded as imports
+			tentativeDomains = [("HF_IMPORTED_UNKNOWN_DIM", dimSize) for dimSize in self.declaredDimensionSizes]
+		elif self.domains == None or not self.isAutoDom:
 			tentativeDomains = templateDomains
 		else:
 			tentativeDomains = self.domains
@@ -1009,7 +1012,7 @@ EXAMPLE:\n\
 		for _, s in tentativeDomains:
 			domNameIteratorsBySize[s] = 0
 		for (dependantDomName, dependantDomSize) in tentativeDomains:
-			if dependantDomSize == ":":
+			if dependantDomSize == ":" and dependantDomName != "HF_IMPORTED_UNKNOWN_DIM":
 				continue
 			finalDomName = dependantDomName
 			domNameAliases = allRegionDomNamesBySize.get(dependantDomSize, [dependantDomName])
@@ -1208,9 +1211,6 @@ Parallel region position: %s, Current template: %s"
 			)
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] +++++++++ LOADING IMPORT INFORMATION ++++++++++ ")
 		self._sourceModuleIdentifier = moduleNode.getAttribute('name')
-
-		#   From this point on we need this list set in order for intermittent consistency checks to pass
-		self.declaredDimensionSizes = []
 
 		#   The name used in the import pattern is just self.name - so store this as the scoped name for now
 		self._nameInScope = self.name

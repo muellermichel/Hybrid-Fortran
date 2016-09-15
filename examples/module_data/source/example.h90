@@ -95,10 +95,6 @@ contains
     use my_module, only: nx, ny, nz !still have to do this import manually currently - this should not be necessary anymore in later versions of HF
     implicit none
 
-    @domainDependant{attribute(autoDom,host)}
-    host_only_array
-    @end domainDependant
-
     @domainDependant{attribute(autoDom,transferHere)}
     a_dyn, b_dyn, c_dyn, d_dyn
     @end domainDependant

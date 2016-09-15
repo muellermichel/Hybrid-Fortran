@@ -1537,13 +1537,14 @@ Please specify the domains and their sizes with domName and domSize attributes i
 
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] producing access representation for symbol %s; parallel iterators: %s, offsets: %s" %(self.name, str(iterators), str(offsets)))
 		result = symbolNameUsedInAccessor
+		isBindingToOtherSymbol = isPointerAssignment or (callee and hasattr(callee, "node") and callee.node.getAttribute("parallelRegionPosition") in ["within, inside"])
 		iterators = getIterators(
 			self.domains,
 			iterators,
 			offsets,
-			isPointerAssignment or (callee and hasattr(callee, "node") and callee.node.getAttribute("parallelRegionPosition") in ["within, inside"])
+			isBindingToOtherSymbol
 		)
-		if len(iterators) == 0 or all([it == ':' for it in iterators]):
+		if len(iterators) == 0 or (isBindingToOtherSymbol and all([it == ':' for it in iterators])):
 			logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] No iterators have been determined - only returning name.")
 			return result
 

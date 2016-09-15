@@ -26,27 +26,74 @@ contains
     real, dimension(NX, NY, NZ, NZ, 1), intent(in) :: array_5D
     real, dimension(NZ, NZ, 1), intent(in) :: input_3D
     real, dimension(NX, NY, NZ), intent(out) :: c
+    real, dimension(NX, NY, NZ, 1) :: local_4D
+    integer :: x, y
 
     @domainDependant{attribute(autoDom, present)}
-    a, b, c, array_5D, input_3D
+    a, b, c, array_5D, input_3D, local_4D
     @end domainDependant
 
+    local_4D(:,:,:,:) = 0.0d0
+
     @parallelRegion{appliesTo(CPU), domName(x,y), domSize(NX, NY)}
-    call add(a, b, array_5D, input_3D, c)
+    call prePrepare4D(x, y, local_4D)
+    call prepare4D(local_4D(x,y,:,:))
+    call add(a, b, array_5D, input_3D, local_4D, c)
     @end parallelRegion
 
   end subroutine
 
-  subroutine add(a, b, array_5D, input_3D, c)
+  subroutine prePrepare4D(x, y, local_4D)
+    implicit none
+    integer, intent(in) :: x, y
+    real, dimension(NZ, 1), intent(inout) :: local_4D
+
+    @domainDependant{attribute(autoDom, present), domName(x,y), domSize(NX, NY)}}
+    local_4D
+    @end domainDependant
+
+    @parallelRegion{appliesTo(GPU), domName(x,y), domSize(NX, NY)}
+    local_4D(1,1) = real(max(x,y))
+    @end parallelRegion
+  end subroutine
+
+  subroutine prepare4D(local_4D)
+    implicit none
+    real, dimension(NZ, 1), intent(inout) :: local_4D
+    integer :: z
+
+    real, dimension(NZ, 1) :: more_local_4D
+
+    @domainDependant{attribute(autoDom, present), domName(x,y), domSize(NX, NY)}
+    local_4D, more_local_4D
+    @end domainDependant
+
+    @parallelRegion{appliesTo(GPU), domName(x,y), domSize(NX, NY)}
+    do z=1,NZ
+      more_local_4D(z,1) = 0.0d0 - local_4D(1,1)
+    end do
+    @end parallelRegion
+
+    @parallelRegion{appliesTo(GPU), domName(x,y), domSize(NX, NY)}
+    do z=NZ,1,-1
+      !cancel out the effect of prePrepare.
+      !This tests whether more_local_4D is actually storing / reading the correct data
+      local_4D( z,1 )= 1.0d0 + more_local_4D( z,1 ) + local_4D( 1,1 )
+    end do
+    @end parallelRegion
+  end subroutine
+
+  subroutine add(a, b, array_5D, input_3D, local_4D, c)
     implicit none
     real, dimension(NZ), intent(in) :: a, b
     real, dimension(NZ, NZ, 1), intent(in) :: array_5D
     real, dimension(NZ, NZ, 1), intent(in) :: input_3D
+    real, dimension(NZ, 1), intent(in) :: local_4D
     real, dimension(NZ), intent(out) :: c
     integer :: z
 
     @domainDependant{attribute(autoDom, present), domName(x,y), domSize(NX,NY)}
-    a, b, c, array_5D
+    a, b, c, array_5D, local_4D
     @end domainDependant
 
     @domainDependant{attribute(autoDom, present)}
@@ -55,7 +102,7 @@ contains
 
     @parallelRegion{appliesTo(GPU), domName(x,y), domSize(NX, NY)}
     do z=1,NZ
-      c(z) = a(z) + b(z) + array_5D(z,z,1) + input_3D(z,z,1)
+      c(z) = a(z) + b(z) + array_5D(z,z,1) + input_3D(z,z,1) + local_4D(z,1)
     end do
     @end parallelRegion
   end subroutine
@@ -91,7 +138,7 @@ program main
   do y=1,NY
   do x=1,NX
   do z=1,NZ
-    if (test .EQ. .TRUE. .AND. c(AT(x,y,z)) /= 5.0d0) then
+    if (test .EQ. .TRUE. .AND. c(AT(x,y,z)) /= 6.0d0) then
       test = .FALSE.
       fail_x = x
       fail_y = y

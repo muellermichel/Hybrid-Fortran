@@ -65,6 +65,10 @@ contains
 		implicit none
 		integer(4), intent(in) :: nx_in, ny_in, nz_in
 
+		@domainDependant{attribute(host, autoDom)}
+		host_only_array
+		@end domainDependant
+
 		overspecified_const = 0.0d0
 
 		nx = nx_in

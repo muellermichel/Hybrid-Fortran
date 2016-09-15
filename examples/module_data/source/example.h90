@@ -89,11 +89,27 @@ contains
     call wrapper7()
   end subroutine
 
+  @scheme{name(HOST_ONLY)}
+  subroutine test_host_only_scheme()
+    use my_module, only: host_only_array
+    implicit none
+
+    if (host_only_array(2) /= 1.0d0) then
+      write(0,*) "error in initialization of host_only_array when accessed from host only scheme"
+      stop 2
+    end if
+  end subroutine
+  @end scheme
+
   subroutine data_region_wrapper8()
     use kernels8, only: wrapper8
     use my_module, only: a_dyn, b_dyn, c_dyn, d_dyn, host_only_array
     use my_module, only: nx, ny, nz !still have to do this import manually currently - this should not be necessary anymore in later versions of HF
     implicit none
+
+    @domainDependant{attribute(autoDom,host)}
+    host_only_array
+    @end domainDependant
 
     @domainDependant{attribute(autoDom,transferHere)}
     a_dyn, b_dyn, c_dyn, d_dyn
@@ -103,6 +119,7 @@ contains
       write(0,*) "error in initialization of host_only_array"
       stop 2
     end if
+    call test_host_only_scheme()
     call wrapper8()
   end subroutine
 

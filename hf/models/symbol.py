@@ -948,15 +948,21 @@ EXAMPLE:\n\
 		self._knownKernelDomainSizesByName = {}
 		self._templateDomains = templateDomains
 
-		#   adjust the loaded domains by the new information given:
-		if not self.domains or len(self.domains) <= len(templateDomains):
-			self.domains = templateDomains
+		#   get tentative domains
+		tentativeDomains = None
+		if self.domains == None or not self.isAutoDom:
+			tentativeDomains = templateDomains
+		else:
+			tentativeDomains = self.domains
+
+		if tentativeDomains == None:
+			raise Exception("no tentative domains for symbol %s" %(self.name))
 
 		#   which of those dimensions are kernel dimensions?
 		#   -> build up index of domain sizes and and names and put them in the 'kernel domain names' set
 		allRegionDomNamesBySize = {}
 		parallelRegionDomNamesBySize = {}
-		orderedDomains = self._templateDomains if self._templateDomains else self.domains
+		orderedDomains = self._templateDomains if self._templateDomains else tentativeDomains
 		for parallelRegionTemplate in parallelRegionTemplates:
 			regionDomNameAndSize = getDomNameAndSize(parallelRegionTemplate)
 			logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] analyzing domains for parallel region: %s; dependant domsize by name: %s" %(
@@ -988,12 +994,23 @@ EXAMPLE:\n\
 				domNameIteratorsBySize[domSize] += 1
 
 		#   match the domain sizes to those in the index. this is important so we don't cancel them out later in the region position adjustment code
-		dimsBeforeReset = copy.deepcopy(self.domains)
 		self.domains = []
+		tentativeDomNamesBySize = {}
+		for domName, domSize in tentativeDomains:
+			addDomainToIndex(tentativeDomNamesBySize, domName, domSize)
+		domainsNotInTentativeList = [
+			(domName, domSize)
+			for domName, domSize in orderedDomains
+			if domSize not in tentativeDomNamesBySize
+		]
+		for domain in domainsNotInTentativeList:
+			self.domains.append(domain)
 		domNameIteratorsBySize = {}
-		for _, s in dimsBeforeReset:
+		for _, s in tentativeDomains:
 			domNameIteratorsBySize[s] = 0
-		for (dependantDomName, dependantDomSize) in dimsBeforeReset:
+		for (dependantDomName, dependantDomSize) in tentativeDomains:
+			if dependantDomSize == ":":
+				continue
 			finalDomName = dependantDomName
 			domNameAliases = allRegionDomNamesBySize.get(dependantDomSize, [dependantDomName])
 			if domNameIteratorsBySize[dependantDomSize] < len(domNameAliases):
@@ -1016,6 +1033,7 @@ EXAMPLE:\n\
 				if domNameAlias in self._knownKernelDomainSizesByName \
 				and dependantDomSize not in self._knownKernelDomainSizesByName[domNameAlias]:
 					self._knownKernelDomainSizesByName[domNameAlias].append(dependantDomSize)
+		return #just so we have a place to break. should maybe put a coffee machine here.
 
 	def loadModuleNodeAttributes(self, moduleNode):
 		if self.initLevel < Init.DEPENDANT_ENTRYNODE_ATTRIBUTES_LOADED:

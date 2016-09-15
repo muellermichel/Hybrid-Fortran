@@ -1234,8 +1234,7 @@ Parallel region position: %s, Current template: %s"
 			break
 		else:
 			return
-			#MMU 2015-9-14: This check fails with older CUDA Fortran based implementations where module data wasn't yet supported
-			# raise Exception("Symbol %s not found in module information available to Hybrid Fortran. Please use an appropriate @domainDependant specification." %(self.name))
+
 		informationLoadedFromModule = True
 		logging.debug(
 				"[" + str(self) + ".init " + str(self.initLevel) + "] Loading symbol information for %s imported from %s\n\
@@ -1435,7 +1434,8 @@ Please specify the domains and their sizes with domName and domSize attributes i
 			if len(parallelIterators) == 0 and len(offsets) == 0:
 				return iterators
 
-			if not allowsSlicing and len(parallelIterators) == 0 and len(domains) == len(offsets):
+			if (not allowsSlicing and len(parallelIterators) == 0 and len(domains) == len(offsets)) \
+			or self.isHostSymbol:
 				return offsets
 
 			#length of domains is potentially smaller than offsets if we have

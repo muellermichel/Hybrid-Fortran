@@ -29,6 +29,7 @@ module my_module
 	integer(4), public, parameter:: rlength = 4
 	real(rlength), public, dimension(:, :, :), allocatable :: a, b, c, d, a2, b2, c2, d2, used_in_acc_routine
 	real, public, dimension(:, :, :), allocatable :: a_dyn, b_dyn, c_dyn, d_dyn
+	real, public, dimension(:), allocatable :: host_only_array
 	real, public, allocatable :: implicitDataArray1(:)
 	real, public, parameter :: some_const = 1.0d0
 	integer, public :: more_indirection = indirection
@@ -74,10 +75,14 @@ contains
   		allocate(b_dyn(nx,ny,nz))
   		allocate(c_dyn(nx,ny,nz))
   		allocate(d_dyn(nx,ny,nz))
+  		allocate(host_only_array(3))
 
   		@if{architecture(GPU)}
 		allocate(to_be_expanded_variable_hfdev(nx,ny))
 		@end if
+
+		host_only_array(:) = 0.0d0
+		host_only_array(2) = 1.0d0
 	end subroutine
 
 	subroutine cleanup()

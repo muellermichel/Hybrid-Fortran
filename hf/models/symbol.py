@@ -1434,8 +1434,7 @@ Please specify the domains and their sizes with domName and domSize attributes i
 			if len(parallelIterators) == 0 and len(offsets) == 0:
 				return iterators
 
-			if (not allowsSlicing and len(parallelIterators) == 0 and len(domains) == len(offsets)) \
-			or self.isHostSymbol:
+			if not allowsSlicing and len(parallelIterators) == 0 and len(domains) == len(offsets):
 				return offsets
 
 			#length of domains is potentially smaller than offsets if we have
@@ -1517,51 +1516,53 @@ Please specify the domains and their sizes with domName and domSize attributes i
 		):
 			return self.nameInScope()
 
-		iterators = copy.copy(parallelIterators)
-		filteredAccessors = accessors if accessors else []
-		if len(self.domains) > 0: #0 domains could be an external function call which we cannot touch
-			parallelDomainAccessors = []
-			for d in self.kernelDomainNames:
-				matchedAccessor = matchIteratorListForDomain(accessors, d)
-				if matchedAccessor:
-					parallelDomainAccessors.append(matchedAccessor)
-			if len(parallelDomainAccessors) > 0 and len(parallelDomainAccessors) != len(self._kernelDomainNames):
-				raise UsageError("%s uses a passed in parallel iterator type pattern - this is only supported if all (%s) parallel iterators are passed in." %(
-					self.name,
-					str(self._kernelDomainNames)
-				))
-			if callee and hasattr(callee, "node") and callee.node.getAttribute("parallelRegionPosition") != "outside":
-				iterators = [] #reset the parallel iterators if this symbol is accessed in a subroutine call and it's NOT being passed in inside a kernel
-				filteredAccessors = [a for a in accessors if not a in parallelDomainAccessors]
-			elif len(parallelDomainAccessors) > 0:
-				iterators = parallelDomainAccessors
-				filteredAccessors = [a for a in accessors if not a in parallelDomainAccessors]
-			elif iterators and self.numOfParallelDomains == 0:
-				iterators = []
-
-		offsets = []
-		if callee or isPointerAssignment:
-			numOfIteratedDomains = self.numOfParallelDomains if callee.node.getAttribute("parallelRegionPosition") == "outside" else 0
-			for i in range(len(self.domains) - numOfIteratedDomains - len(filteredAccessors)):
-				offsets.append(":")
-		offsets += filteredAccessors
-
+		iterators = None
+		isBindingToOtherSymbol = isPointerAssignment or (callee and hasattr(callee, "node") and callee.node.getAttribute("parallelRegionPosition") in ["within, inside"])
+		if self.isHostSymbol:
+			iterators = accessors
+			offsets = accessors
+		else:
+			iterators = copy.copy(parallelIterators)
+			filteredAccessors = accessors if accessors else []
+			if len(self.domains) > 0: #0 domains could be an external function call which we cannot touch
+				parallelDomainAccessors = []
+				for d in self.kernelDomainNames:
+					matchedAccessor = matchIteratorListForDomain(accessors, d)
+					if matchedAccessor:
+						parallelDomainAccessors.append(matchedAccessor)
+				if len(parallelDomainAccessors) > 0 and len(parallelDomainAccessors) != len(self._kernelDomainNames):
+					raise UsageError("%s uses a passed in parallel iterator type pattern - this is only supported if all (%s) parallel iterators are passed in." %(
+						self.name,
+						str(self._kernelDomainNames)
+					))
+				if callee and hasattr(callee, "node") and callee.node.getAttribute("parallelRegionPosition") != "outside":
+					iterators = [] #reset the parallel iterators if this symbol is accessed in a subroutine call and it's NOT being passed in inside a kernel
+					filteredAccessors = [a for a in accessors if not a in parallelDomainAccessors]
+				elif len(parallelDomainAccessors) > 0:
+					iterators = parallelDomainAccessors
+					filteredAccessors = [a for a in accessors if not a in parallelDomainAccessors]
+				elif iterators and self.numOfParallelDomains == 0:
+					iterators = []
+			offsets = []
+			if callee or isPointerAssignment:
+				numOfIteratedDomains = self.numOfParallelDomains if callee.node.getAttribute("parallelRegionPosition") == "outside" else 0
+				for i in range(len(self.domains) - numOfIteratedDomains - len(filteredAccessors)):
+					offsets.append(":")
+			offsets += filteredAccessors
+			iterators = getIterators(
+				self.domains,
+				iterators,
+				offsets,
+				isBindingToOtherSymbol
+			)
+		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] producing access representation for symbol %s; parallel iterators: %s, offsets: %s" %(self.name, str(iterators), str(offsets)))
 		symbolNameUsedInAccessor = None
 		if (not self.isUsingDevicePostfix and len(offsets) == len(self.domains) and not all([offset == ':' for offset in offsets])) \
 		or (callee and not hasattr(callee, "implementation")):
 			symbolNameUsedInAccessor = self.nameInScope(useDeviceVersionIfAvailable=False) #not on device or scalar accesses to symbol that can't change
 		else:
 			symbolNameUsedInAccessor = self.nameInScope(useDeviceVersionIfAvailable=useDeviceVersionIfAvailable)
-
-		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] producing access representation for symbol %s; parallel iterators: %s, offsets: %s" %(self.name, str(iterators), str(offsets)))
 		result = symbolNameUsedInAccessor
-		isBindingToOtherSymbol = isPointerAssignment or (callee and hasattr(callee, "node") and callee.node.getAttribute("parallelRegionPosition") in ["within, inside"])
-		iterators = getIterators(
-			self.domains,
-			iterators,
-			offsets,
-			isBindingToOtherSymbol
-		)
 		if len(iterators) == 0 or (isBindingToOtherSymbol and all([it == ':' for it in iterators])):
 			logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] No iterators have been determined - only returning name.")
 			return result

@@ -453,7 +453,10 @@ class RoutineSpecificationRegion(Region):
 		for (line, symbols) in self._linesAndSymbols:
 			if not symbols or len(symbols) == 0:
 				allImportMatch = RegExPatterns.Instance().importAllPattern.match(line)
+				selectiveImportMatch = RegExPatterns.Instance().importPattern.match(line)
 				if allImportMatch:
+					importsFound = True
+				elif selectiveImportMatch:
 					importsFound = True
 				elif not importsFound:
 					textForKeywords += line.strip() + "\n"

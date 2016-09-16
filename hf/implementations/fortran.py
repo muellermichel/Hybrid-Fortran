@@ -44,6 +44,7 @@ class FortranImplementation(object):
 	usesDuplicatesAsHostRoutines = False
 	allowsMixedHostAndDeviceCode = True
 	useKernelPrefixesForDebugPrint = True
+	canHandleDeviceData = False
 
 	def __init__(self, optionFlags, appliesTo="CPU"):
 		self.patterns = RegExPatterns.Instance()
@@ -407,6 +408,8 @@ Symbols vs host attributes:\n%s" %(str([(symbol.name, symbol.isHostSymbol) for s
 	return alreadyOnDevice, copyHere, isOnHost
 
 class DeviceDataFortranImplementation(FortranImplementation):
+	canHandleDeviceData = True
+
 	def updateSymbolDeviceState(self, symbol, symbolNamesUsedInKernel, regionType, parallelRegionPosition, postTransfer=False):
 		logging.debug("device state of symbol %s BEFORE update:\nisOnDevice: %s; isUsingDevicePostfix: %s" %(
 			symbol.name,
@@ -905,31 +908,84 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 				hostRoutine.node.setAttribute("parallelRegionPosition", "")
 			hostRoutine.implementation = FortranImplementation(self.optionFlags, appliesTo="GPU")
 			hostRoutine.implementation.useKernelPrefixesForDebugPrint = False
+			for region in hostRoutine.regions:
+				if not isinstance(region, CallRegion):
+					continue
+				if region._callee.node.getAttribute("parallelRegionPosition") == "inside":
+					#we currently do not support calling routines that have kernels inside (due to potential device data parameters)
+					#--> do not generate host routine as it would break compilation
+					return None
 			return hostRoutine
 
 		routines = [routine]
 		if routine.node.getAttribute("parallelRegionPosition") == "outside":
 			hostRoutine = generateHostRoutine(routine)
-			routines.append(hostRoutine)
-			routines[0].name = synthesizedDeviceRoutineName(routines[0].name)
+			if hostRoutine:
+				routines.append(hostRoutine)
+				routines[0].name = synthesizedDeviceRoutineName(routines[0].name)
 
 		if routine.node.getAttribute("parallelRegionPosition") != "within":
 			return routines
 
 		parallelRegions = [region for region in routine.regions if isinstance(region, ParallelRegion) and region.template]
-		routines.append(generateHostRoutine(routine, parallelRegions))
+		hostRoutine = generateHostRoutine(routine, parallelRegions)
+		if hostRoutine:
+			routines.append(hostRoutine)
 		kernelRoutinesByName = {}
 		for kernelNumber, parallelRegion in enumerate(parallelRegions):
 			kernelName = synthesizedKernelName(routine.name, kernelNumber)
 			kernelRoutine = routine.createCloneWithMetadata(kernelName)
 			kernelRoutine.resetRegions(routine.regions[0].clone())
+			#filter out routine imports and add imports of device routines manually
+			adjustedSpecLinesAndSymbols = []
+			for (line, symbols) in kernelRoutine.regions[0]._linesAndSymbols:
+				if symbols:
+					adjustedSpecLinesAndSymbols.append((line, symbols))
+				else:
+					allImportMatch = RegExPatterns.Instance().importAllPattern.match(line)
+					selectiveImportMatch = RegExPatterns.Instance().importPattern.match(line)
+					if not allImportMatch and not selectiveImportMatch:
+						adjustedSpecLinesAndSymbols.append((line, symbols))
+			kernelRoutine.regions[0]._linesAndSymbols = adjustedSpecLinesAndSymbols
+			if kernelRoutine._allImports:
+				adjustedImports = {}
+				moduleNamesCompletelyImported = [
+					sourceModule for (sourceModule, nameInScope) in kernelRoutine._allImports if nameInScope == None
+				] if kernelRoutine._allImports else []
+				kernelRoutine._prepareCallRegions()
+				for (sourceModule, nameInScope) in kernelRoutine._allImports:
+					if not nameInScope:
+						adjustedImports[(sourceModule, nameInScope)] = kernelRoutine._allImports[(sourceModule, nameInScope)]
+						continue
+					if sourceModule in moduleNamesCompletelyImported:
+						adjustedImports[(sourceModule, nameInScope)] = kernelRoutine._allImports[(sourceModule, nameInScope)]
+						continue
+					if kernelRoutine.regions[0]._typeParameterSymbolsByName \
+					and nameInScope in kernelRoutine.regions[0]._typeParameterSymbolsByName \
+					and not kernelRoutine.regions[0]._typeParameterSymbolsByName[nameInScope].isDimensionParameter:
+						adjustedImports[(sourceModule, nameInScope)] = kernelRoutine._allImports[(sourceModule, nameInScope)]
+						continue
+					sourceName = kernelRoutine._allImports[(sourceModule, nameInScope)]
+					symbol = kernelRoutine.symbolsByName.get(sourceName)
+					if symbol != None and symbol.sourceModule == parentRoutine.parentModule.name:
+						adjustedImports[(sourceModule, nameInScope)] = kernelRoutine._allImports[(sourceModule, nameInScope)]
+						continue
+					if symbol != None:
+						adjustedImports[(sourceModule, nameInScope)] = kernelRoutine._allImports[(sourceModule, nameInScope)]
+						continue
+					adjustedSourceName = parentRoutine._adjustedCalleeNamesByName.get(sourceName)
+					adjustedNameInScope = parentRoutine._adjustedCalleeNamesByName.get(nameInScope)
+					if not adjustedSourceName and not adjustedNameInScope:
+						#routine imports which are not called -> filter out
+						continue
+					adjustedImports[(sourceModule, nameInScope)] = kernelRoutine._allImports[(sourceModule, nameInScope)]
+				kernelRoutine._allImports = adjustedImports
 			kernelRoutine.addRegion(parallelRegion)
 			kernelRoutine.node.setAttribute("parallelRegionPosition", "within")
 			kernelRoutine.node.setAttribute("name", kernelName)
 			kernelRoutine.parallelRegionTemplates = [parallelRegion.template]
 			kernelRoutinesByName[kernelName] = kernelRoutine
 			routines.append(kernelRoutine)
-
 		kernelWrapperRegions = []
 		parallelRegionIndex = 0
 		for region in routine.regions:

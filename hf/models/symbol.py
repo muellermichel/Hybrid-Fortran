@@ -1402,10 +1402,8 @@ Please specify the domains and their sizes with domName and domSize attributes i
 
 	def useOrderingMacro(self, iterators, useDomainReordering, accPP, accPPIsExplicit):
 		return useDomainReordering and accPP != "" \
-			and ( \
-				self.numOfParallelDomains > 0 \
-				or ( accPPIsExplicit and len(iterators) >= 3 ) \
-			) \
+			and len(iterators) >= 3 \
+			and ( self.numOfParallelDomains > 0 or accPPIsExplicit ) \
 			and self.activeDomainsMatchSpecification
 
 	def accessRepresentation(

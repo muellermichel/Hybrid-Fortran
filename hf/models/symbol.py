@@ -1517,7 +1517,6 @@ Please specify the domains and their sizes with domName and domSize attributes i
 			return self.nameInScope()
 
 		iterators = None
-		isBindingToOtherSymbol = isPointerAssignment or (callee and hasattr(callee, "node") and callee.node.getAttribute("parallelRegionPosition") in ["within, inside"])
 		if self.isHostSymbol:
 			iterators = accessors
 			offsets = accessors
@@ -1549,20 +1548,22 @@ Please specify the domains and their sizes with domName and domSize attributes i
 				for i in range(len(self.domains) - numOfIteratedDomains - len(filteredAccessors)):
 					offsets.append(":")
 			offsets += filteredAccessors
+			allowsSlicing = isPointerAssignment or (callee and hasattr(callee, "node") and callee.node.getAttribute("parallelRegionPosition") in ["within, inside"])
 			iterators = getIterators(
 				self.domains,
 				iterators,
 				offsets,
-				isBindingToOtherSymbol
+				allowsSlicing
 			)
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] producing access representation for symbol %s; parallel iterators: %s, offsets: %s" %(self.name, str(iterators), str(offsets)))
 		symbolNameUsedInAccessor = None
-		if (not self.isUsingDevicePostfix and len(offsets) == len(self.domains) and not all([offset == ':' for offset in offsets])) \
+		if (not self.isUsingDevicePostfix and len(offsets) == len(self.domains) and not all([it == ':' for it in iterators])) \
 		or (callee and not hasattr(callee, "implementation")):
 			symbolNameUsedInAccessor = self.nameInScope(useDeviceVersionIfAvailable=False) #not on device or scalar accesses to symbol that can't change
 		else:
 			symbolNameUsedInAccessor = self.nameInScope(useDeviceVersionIfAvailable=useDeviceVersionIfAvailable)
 		result = symbolNameUsedInAccessor
+		isBindingToOtherSymbol = isPointerAssignment or callee != None
 		if len(iterators) == 0 or (isBindingToOtherSymbol and all([it == ':' for it in iterators])):
 			logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] No iterators have been determined - only returning name.")
 			return result

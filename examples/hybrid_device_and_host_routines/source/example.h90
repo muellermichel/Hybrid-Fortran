@@ -21,6 +21,7 @@ contains
 
   @scheme{name(HOST_ONLY)}
   subroutine host_only_subroutine(a, b, c, e)
+    use host_only_module, only: device_add2
     implicit none
     real, dimension(NX, NY, NZ), intent(in) :: a, b
     real, dimension(NX, NY, NZ), intent(out) :: c, e
@@ -42,6 +43,17 @@ contains
     call assert_values(c, 3.0d0)
     call assert_values(e, 4.0d0)
 
+    c(:,:,:) = 0.0d0
+    do y = 1, NY
+      do x = 1, NX
+        do z = 1, NZ
+          call device_add2(a(x,y,z), b(x,y,z), c(x,y,z))
+        end do
+      end do
+    end do
+    write(6,*) "device add in host loop complete"
+    call assert_values(c, 3.0d0)
+
     aloc(:,:,:) = 1.0d0
     bloc(:,:,:) = 2.0d0
     cloc(:,:,:) = 0.0d0
@@ -49,7 +61,7 @@ contains
     call kernels(aloc, bloc, cloc, dloc)
     write(6,*) "kernels call in host only subroutine complete"
     call assert_values(cloc, 3.0d0)
-    call assert_values(dloc, 2.0d0)
+    call assert_values(dloc, 6.0d0)
   end subroutine
   @end scheme
 
@@ -70,7 +82,7 @@ contains
   end subroutine
 
   subroutine kernels(a, b, c, d)
-    use host_only_module, only: host_only_array
+    use host_only_module, only: host_only_array, device_add2
     implicit none
     real, dimension(NX, NY, NZ), intent(in) :: a, b
     real, dimension(NX, NY, NZ), intent(out) :: c, d
@@ -90,12 +102,13 @@ contains
     @parallelRegion{domName(x,y), domSize(NX, NY)}
     do z=1,NZ
       call device_add(a(z), b(z), c(z))
+      call device_add2(a(z), b(z), d(z))
     end do
     @end parallelRegion
 
     @parallelRegion{domName(x,y), domSize(NX, NY)}
     do z=1,NZ
-      d(z) = a(z) * b(z)
+      d(z) = d(z) * b(z)
     end do
     @end parallelRegion
   end subroutine
@@ -158,11 +171,11 @@ program main
   e(:,:,:) = 0.0d0
   ! calling a kernel directly from the program scope will not use the device version. This is because HF only touches code that is situated in a module
   ! and we need to convert the call to "kernel" to the device version.
-  call kernels_wrapper(c, d, e, f)  ! e = c + d = 4.0d0 ; f = c * d = 3.0d0
+  call kernels_wrapper(c, d, e, f)  ! e = c + d = 4.0d0 ; f = e * d = 4.0d0
   write(6,*) "e complete"
   call assert_values(e, 4.0d0)
   write(6,*) "f complete"
-  call assert_values(f, 3.0d0)
+  call assert_values(f, 4.0d0)
 
   stop
 end program main

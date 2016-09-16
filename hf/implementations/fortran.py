@@ -917,26 +917,8 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 					return None
 			return hostRoutine
 
-		routines = [routine]
-		if routine.node.getAttribute("parallelRegionPosition") == "outside":
-			hostRoutine = generateHostRoutine(routine)
-			if hostRoutine:
-				routines.append(hostRoutine)
-				routines[0].name = synthesizedDeviceRoutineName(routines[0].name)
-
-		if routine.node.getAttribute("parallelRegionPosition") != "within":
-			return routines
-
-		parallelRegions = [region for region in routine.regions if isinstance(region, ParallelRegion) and region.template]
-		hostRoutine = generateHostRoutine(routine, parallelRegions)
-		if hostRoutine:
-			routines.append(hostRoutine)
-		kernelRoutinesByName = {}
-		for kernelNumber, parallelRegion in enumerate(parallelRegions):
-			kernelName = synthesizedKernelName(routine.name, kernelNumber)
-			kernelRoutine = routine.createCloneWithMetadata(kernelName)
-			kernelRoutine.resetRegions(routine.regions[0].clone())
-			#filter out routine imports and add imports of device routines manually
+		def adjustImportsForKernelRoutine(kernelRoutine):
+			#filter out routine imports except keep imports of device routines
 			adjustedSpecLinesAndSymbols = []
 			for (line, symbols) in kernelRoutine.regions[0]._linesAndSymbols:
 				if symbols:
@@ -967,24 +949,45 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 						continue
 					sourceName = kernelRoutine._allImports[(sourceModule, nameInScope)]
 					symbol = kernelRoutine.symbolsByName.get(sourceName)
-					if symbol != None and symbol.sourceModule == parentRoutine.parentModule.name:
+					if symbol != None and symbol.sourceModule == kernelRoutine.parentModule.name:
 						adjustedImports[(sourceModule, nameInScope)] = kernelRoutine._allImports[(sourceModule, nameInScope)]
 						continue
 					if symbol != None:
 						adjustedImports[(sourceModule, nameInScope)] = kernelRoutine._allImports[(sourceModule, nameInScope)]
 						continue
-					adjustedSourceName = parentRoutine._adjustedCalleeNamesByName.get(sourceName)
-					adjustedNameInScope = parentRoutine._adjustedCalleeNamesByName.get(nameInScope)
+					adjustedSourceName = kernelRoutine._adjustedCalleeNamesByName.get(sourceName)
+					adjustedNameInScope = kernelRoutine._adjustedCalleeNamesByName.get(nameInScope)
 					if not adjustedSourceName and not adjustedNameInScope:
 						#routine imports which are not called -> filter out
 						continue
 					adjustedImports[(sourceModule, nameInScope)] = kernelRoutine._allImports[(sourceModule, nameInScope)]
 				kernelRoutine._allImports = adjustedImports
+
+		routines = [routine]
+		if routine.node.getAttribute("parallelRegionPosition") == "outside":
+			hostRoutine = generateHostRoutine(routine)
+			if hostRoutine:
+				routines.append(hostRoutine)
+				routines[0].name = synthesizedDeviceRoutineName(routines[0].name)
+
+		if routine.node.getAttribute("parallelRegionPosition") != "within":
+			return routines
+
+		parallelRegions = [region for region in routine.regions if isinstance(region, ParallelRegion) and region.template]
+		hostRoutine = generateHostRoutine(routine, parallelRegions)
+		if hostRoutine:
+			routines.append(hostRoutine)
+		kernelRoutinesByName = {}
+		for kernelNumber, parallelRegion in enumerate(parallelRegions):
+			kernelName = synthesizedKernelName(routine.name, kernelNumber)
+			kernelRoutine = routine.createCloneWithMetadata(kernelName)
+			kernelRoutine.resetRegions(routine.regions[0].clone())
 			kernelRoutine.addRegion(parallelRegion)
 			kernelRoutine.node.setAttribute("parallelRegionPosition", "within")
 			kernelRoutine.node.setAttribute("name", kernelName)
 			kernelRoutine.parallelRegionTemplates = [parallelRegion.template]
 			kernelRoutinesByName[kernelName] = kernelRoutine
+			adjustImportsForKernelRoutine(kernelRoutine)
 			routines.append(kernelRoutine)
 		kernelWrapperRegions = []
 		parallelRegionIndex = 0

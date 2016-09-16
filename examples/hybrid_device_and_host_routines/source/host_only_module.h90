@@ -24,4 +24,13 @@ module host_only_module
   host_only_array
   @end domainDependant
 
+  contains
+
+  subroutine device_add2(a, b, result)
+    implicit none
+    real, intent(in) :: a, b
+    real, intent(out) :: result
+
+    result = a + b
+  end subroutine
 end module

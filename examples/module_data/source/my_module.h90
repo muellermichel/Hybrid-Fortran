@@ -42,12 +42,12 @@ module my_module
 	@end if
 
 	@domainDependant{attribute(autoDom, host), domName(x,y), domSize(NX,NY)}
-    to_be_expanded_variable
-    @end domainDependant
+	to_be_expanded_variable
+	@end domainDependant
 
 	@domainDependant{attribute(host)}
-    overspecified_const
-    @end domainDependant
+	overspecified_const
+	@end domainDependant
 
 	@domainDependant{attribute(host), domName(x,y,z), domSize(NX,NY,NZ), domPP(DOM), accPP(AT)}
 	a, b, c, d, a2, b2, c2, d2, used_in_acc_routine
@@ -76,12 +76,12 @@ contains
 		nz = nz_in
 
 		allocate(a_dyn(nx,ny,nz))
-  		allocate(b_dyn(nx,ny,nz))
-  		allocate(c_dyn(nx,ny,nz))
-  		allocate(d_dyn(nx,ny,nz))
-  		allocate(host_only_array(3))
+		allocate(b_dyn(nx,ny,nz))
+		allocate(c_dyn(nx,ny,nz))
+		allocate(d_dyn(nx,ny,nz))
+		allocate(host_only_array(3))
 
-  		@if{architecture(GPU)}
+		@if{architecture(GPU)}
 		allocate(to_be_expanded_variable_hfdev(nx,ny))
 		@end if
 
@@ -92,9 +92,9 @@ contains
 	subroutine cleanup()
 		implicit none
 		deallocate(a_dyn)
-  		deallocate(b_dyn)
-  		deallocate(c_dyn)
-  		deallocate(d_dyn)
+		deallocate(b_dyn)
+		deallocate(c_dyn)
+		deallocate(d_dyn)
 	end subroutine
 
 	subroutine cpu_add()
@@ -180,21 +180,21 @@ contains
 		do y=1,NY
 		do x=1,NX
 		do z=1,NZ
-		  if (test .EQ. .TRUE. .AND. test_array(x,y,z) .NE. expected_value) then
-			test = .FALSE.
-			fail_x = x
-			fail_y = y
-			fail_z = z
-		  end if
+			if (test .EQ. .TRUE. .AND. test_array(x,y,z) .NE. expected_value) then
+				test = .FALSE.
+				fail_x = x
+				fail_y = y
+				fail_z = z
+			end if
 		end do
 		end do
 		end do
 		if (test .EQ. .TRUE.) then
-		  write(0,*) "test ok"
+			write(0,*) "test ok"
 		else
-		  write(0,*) "test failed"
-		  write(0,*) "fails at", fail_x, fail_y, fail_z, "test_array:", test_array(fail_x,fail_y,fail_z)
-		  stop 2
+			write(0,*) "test failed"
+			write(0,*) "fails at", fail_x, fail_y, fail_z, "test_array:", test_array(fail_x,fail_y,fail_z)
+			stop 2
 		end if
 	end subroutine
 end module

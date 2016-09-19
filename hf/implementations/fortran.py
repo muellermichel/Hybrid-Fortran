@@ -21,7 +21,7 @@
 import os, logging
 from machinery.commons import updateTypeParameterProperties
 from models.symbol import Symbol, DeclarationType, splitAndPurgeSpecification, uniqueIdentifier
-from models.region import RegionType, ParallelRegion, CallRegion
+from models.region import RegionType, ParallelRegion, CallRegion, regionWithInertCode
 from tools.analysis import getAnalysisForSymbol
 from tools.patterns import RegExPatterns
 from tools.commons import UsageError
@@ -902,19 +902,27 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 	def generateRoutines(self, routine):
 		def generateHostRoutine(routine, parallelRegions=[]):
 			hostRoutine = routine.clone(synthesizedHostRoutineName(routine.name))
+			for region in hostRoutine.regions:
+				if not isinstance(region, CallRegion):
+					continue
+				if region._callee.node.getAttribute("parallelRegionPosition") == "inside":
+					#we currently do not support calling routines that have kernels inside (due to potential device data parameters)
+					#--> only generate a shell of this routine
+					adjustedRegions = [hostRoutine.regions[0]]
+					adjustedRegions.append(regionWithInertCode(hostRoutine, [
+						"write(0, *) 'Error: %s does not have a callable host version - aborting'\n" %(hostRoutine.name),
+						"stop 2\n"
+					]))
+					hostRoutine.regions = adjustedRegions
+					hostRoutine.node.setAttribute("parallelRegionPosition", "")
+					hostRoutine.parallelRegionTemplates = []
+					return hostRoutine
 			if routine.node.getAttribute("parallelRegionPosition") == "within" \
 			and len(parallelRegions) > 0 \
 			and not appliesTo("CPU", parallelRegions[0].template):
 				hostRoutine.node.setAttribute("parallelRegionPosition", "")
 			hostRoutine.implementation = FortranImplementation(self.optionFlags, appliesTo="GPU")
 			hostRoutine.implementation.useKernelPrefixesForDebugPrint = False
-			for region in hostRoutine.regions:
-				if not isinstance(region, CallRegion):
-					continue
-				if region._callee.node.getAttribute("parallelRegionPosition") == "inside":
-					#we currently do not support calling routines that have kernels inside (due to potential device data parameters)
-					#--> do not generate host routine as it would break compilation
-					return None
 			return hostRoutine
 
 		def adjustImportsForKernelRoutine(kernelRoutine):

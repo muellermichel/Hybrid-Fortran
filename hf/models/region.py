@@ -55,6 +55,13 @@ def implementSymbolAccessStringAndRemainder(
 		raise UsageError("%s; Print of Line: %s" %(str(e), line))
 	return symbolAccessString, remainder
 
+#retuns a new region with some code. does not support symbols being used within the code
+def regionWithInertCode(routine, codeLines):
+	region = Region(routine)
+	for line in codeLines:
+		region.loadLine(line)
+	return region
+
 class Region(object):
 	def __init__(self, routine):
 		self._linesAndSymbols = []
@@ -115,7 +122,7 @@ class Region(object):
 			return
 		self._linesAndSymbols.append((
 			stripped,
-			symbolsOnCurrentLine
+			symbolsOnCurrentLine if symbolsOnCurrentLine else []
 		))
 
 	def implemented(self, skipDebugPrint=False):

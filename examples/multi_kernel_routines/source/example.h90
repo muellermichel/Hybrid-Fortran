@@ -125,7 +125,7 @@ contains
     @end domainDependant
 
     !we need to specify domPP / accPP explicitely here because CPU version is inside of || region
-    @domainDependant{attribute(autoDom,present), domPP(DOM), accPP(AT)}
+    @domainDependant{attribute(present), domPP(DOM), accPP(AT), domName(x,y,z), domSize(NX,NY,NZ)}
     c, d
     @end domainDependant
 

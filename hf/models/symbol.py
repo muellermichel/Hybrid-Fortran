@@ -1075,9 +1075,12 @@ EXAMPLE:\n\
 				("HF_GENERIC_PARALLEL_INACTIVE_DIM", domSize) for domSize in self.declaredDimensionSizes
 			]
 		elif self.parallelRegionPosition in [None, "", "outside"]:
+			#kernel domains that have been added
 			self.domains = [
 				(domName, domSize) for (domName, domSize) in self.domains
-				if not domName in self._kernelDomainNames
+				if not domName in self._kernelDomainNames or ( \
+					self.declaredDimensionSizes and domSize in self.declaredDimensionSizes \
+				)
 			]
 		if self.parallelRegionPosition in [None, "", "outside"]:
 			self._kernelInactiveDomainSizes = [s for (_, s) in self.domains]
@@ -1551,7 +1554,7 @@ Please specify the domains and their sizes with domName and domSize attributes i
 				self.domains,
 				iterators,
 				offsets,
-				allowsSlicing
+				allowsSlicing,
 			)
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] producing access representation for symbol %s; parallel iterators: %s, offsets: %s" %(self.name, str(iterators), str(offsets)))
 		symbolNameUsedInAccessor = None

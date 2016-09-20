@@ -1537,11 +1537,15 @@ Please specify the domains and their sizes with domName and domSize attributes i
 			iterators = copy.copy(parallelIterators)
 			filteredAccessors = accessors if accessors else []
 			if len(self.domains) > 0: #0 domains could be an external function call which we cannot touch
-				parallelDomainAccessors = []
-				for d in set(self.kernelDomainNames + self.globalParallelDomainNames.keys()):
-					matchedAccessor = matchIteratorListForDomain(accessors, d)
-					if matchedAccessor:
-						parallelDomainAccessors.append(matchedAccessor)
+				if len(iterators) > 0:
+					parallelDomainAccessors = iterators
+				else:
+					parallelDomainAccessors = []
+					kernelDomainNames = set(self.kernelDomainNames + self.globalParallelDomainNames.keys())
+					for a in accessors:
+						matchedAccessor = matchIteratorListForDomain(kernelDomainNames, a)
+						if matchedAccessor:
+							parallelDomainAccessors.append(matchedAccessor)
 				if callee and hasattr(callee, "node") and callee.node.getAttribute("parallelRegionPosition") != "outside":
 					iterators = [] #reset the parallel iterators if this symbol is accessed in a subroutine call and it's NOT being passed in inside a kernel
 					filteredAccessors = [a for a in accessors if not a in parallelDomainAccessors]
@@ -1552,7 +1556,7 @@ Please specify the domains and their sizes with domName and domSize attributes i
 					iterators = []
 			offsets = []
 			if callee or isPointerAssignment:
-				numOfIteratedDomains = self.numOfParallelDomains if callee.node.getAttribute("parallelRegionPosition") == "outside" else 0
+				numOfIteratedDomains = len(parallelDomainAccessors) if callee.node.getAttribute("parallelRegionPosition") == "outside" else 0
 				for i in range(len(self.domains) - numOfIteratedDomains - len(filteredAccessors)):
 					offsets.append(":")
 			offsets += filteredAccessors

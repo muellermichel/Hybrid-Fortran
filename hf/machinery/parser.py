@@ -45,6 +45,7 @@ class CallGraphParser(object):
     stateSwitch = None
     currSymbolsByName = None
     stateBeforeBranch = None
+    globalParallelDomainNames = {}
 
     def __init__(self):
         self.patterns = RegExPatterns.Instance()
@@ -677,7 +678,7 @@ class H90XMLCallGraphGenerator(CallGraphParser):
             return
         addAndGetEntries(self.doc, self.currDomainDependantRelationNode, line)
 
-def getSymbolsByName(cgDoc, parentNode, parallelRegionTemplates=[], currentModuleName=None, currentSymbolsByName={}, symbolAnalysisByRoutineNameAndSymbolName={}, isModuleSymbols=False):
+def getSymbolsByName(cgDoc, parentNode, parallelRegionTemplates=[], currentModuleName=None, currentSymbolsByName={}, symbolAnalysisByRoutineNameAndSymbolName={}, isModuleSymbols=False, globalParallelDomainNames={}):
     patterns = RegExPatterns.Instance()
     templatesAndEntries = getDomainDependantTemplatesAndEntries(cgDoc, parentNode)
     symbolsByName = {}
@@ -692,7 +693,8 @@ def getSymbolsByName(cgDoc, parentNode, parallelRegionTemplates=[], currentModul
             symbolEntry=entry,
             scopeNode=parentNode,
             analysis=getAnalysisForSymbol(symbolAnalysisByRoutineNameAndSymbolName, parentName, dependantName),
-            parallelRegionTemplates=parallelRegionTemplates
+            parallelRegionTemplates=parallelRegionTemplates,
+            globalParallelDomainNames=globalParallelDomainNames
         )
         nameOfScope = entry.getAttribute("nameOfScope")
         existingSymbol = symbolsByName.get(uniqueIdentifier(dependantName, entry.getAttribute("nameOfScope")))
@@ -800,7 +802,8 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
             isModuleSymbols=isModuleSymbols,
             symbolAnalysisByRoutineNameAndSymbolName=self.symbolAnalysisByRoutineNameAndSymbolName \
                 if hasattr(self, 'symbolAnalysisByRoutineNameAndSymbolName') \
-                else {}
+                else {},
+            globalParallelDomainNames=self.globalParallelDomainNames
         ))
         logging.debug(
             "Symbols loaded from template. Symbols currently active in scope: %s. Module Symbol Property: %s" %(
@@ -828,7 +831,8 @@ class H90CallGraphAndSymbolDeclarationsParser(CallGraphParser):
                 template=template,
                 symbolEntry=entry,
                 scopeNode=parent,
-                parallelRegionTemplates=parallelRegionTemplates
+                parallelRegionTemplates=parallelRegionTemplates,
+                globalParallelDomainNames=self.globalParallelDomainNames
             )
             symbols.append(symbol)
         return symbols

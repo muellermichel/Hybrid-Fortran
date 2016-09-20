@@ -60,6 +60,10 @@ def getSymbolsByRoutineNameAndSymbolName(cgDoc, routineNodesByProcName, parallel
         )
     return symbolsByRoutineNameAndSymbolName
 
+def addGlobalParallelDomainNames(symbols, globalParallelDomainNames):
+    for symbol in symbols:
+        symbol.globalParallelDomainNames = globalParallelDomainNames
+
 class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
     currentLineNeedsPurge = False
     tab_insideSub = "\t\t"
@@ -74,7 +78,8 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
         parallelRegionData=None,
         symbolAnalysisByRoutineNameAndSymbolName=None,
         symbolsByModuleNameAndSymbolName=None,
-        symbolsByRoutineNameAndSymbolName=None
+        symbolsByRoutineNameAndSymbolName=None,
+        globalParallelDomainNames={}
     ):
         super(H90toF90Converter, self).__init__(
             cgDoc,
@@ -82,6 +87,7 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
             parallelRegionData=parallelRegionData,
             implementationsByTemplateName=implementationsByTemplateName
         )
+        self.globalParallelDomainNames = globalParallelDomainNames
         self.outputStream = outputStream
         self.currSubroutineImplementationNeedsToBeCommented = False
         self.currParallelIterators = []
@@ -105,6 +111,10 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
                 self.symbolsByModuleNameAndSymbolName = symbolsByModuleNameAndSymbolName
             else:
                 self.symbolsByModuleNameAndSymbolName = getSymbolsByModuleNameAndSymbolName(self.cgDoc, self.moduleNodesByName, self.symbolAnalysisByRoutineNameAndSymbolName)
+            addGlobalParallelDomainNames(
+                sum([index.values() for index in self.symbolsByModuleNameAndSymbolName.values()], []),
+                globalParallelDomainNames
+            )
 
             if symbolsByRoutineNameAndSymbolName != None:
                 self.symbolsByRoutineNameAndSymbolName = symbolsByRoutineNameAndSymbolName
@@ -115,6 +125,11 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
                     self.parallelRegionTemplatesByProcName,
                     self.symbolAnalysisByRoutineNameAndSymbolName
                 )
+            addGlobalParallelDomainNames(
+                sum([index.values() for index in self.symbolsByRoutineNameAndSymbolName.values()], []),
+                globalParallelDomainNames
+            )
+            
         except UsageError as e:
             logging.error('%s' %(str(e)), extra={"hfLineNo":currLineNo, "hfFile":currFile})
             sys.exit(1)

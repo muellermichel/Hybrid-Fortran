@@ -576,6 +576,13 @@ def getDomainsWithParallelRegionTemplate(parallelRegionTemplate):
         ))
     return domains
 
+def getParallelDomainNames(cgDoc):
+    parallelDomainNames = {}
+    for t in regionTemplatesByID(cgDoc, 'parallelRegionTemplate').values():
+        for n in [d.name for d in getDomainsWithParallelRegionTemplate(t)]:
+            parallelDomainNames[n] = None
+    return parallelDomainNames
+
 def appliesTo(appliesToTests, parallelRegionTemplate):
     appliesToNodes = parallelRegionTemplate.getElementsByTagName("appliesTo")
     if not appliesToNodes or len(appliesToNodes) == 0:

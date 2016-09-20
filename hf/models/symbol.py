@@ -247,14 +247,25 @@ MERGEABLE_DEFAULT_SYMBOL_INSTANCE_DOMAIN_ATTRIBUTES = {
 	"domains": [],
 	"_kernelDomainNames": [], #!Important: The order of this list must remain insignificant when it is used
 	"_kernelInactiveDomainSizes": [], #!Important: The order of this list must remain insignificant when it is used
-	"_knownKernelDomainSizesByName": {}
+	"_knownKernelDomainSizesByName": {},
+	"globalParallelDomainNames": {}
 }
 
 class ScopeError(Exception):
     pass
 
 class Symbol(object):
-	def __init__(self, name, template=None, patterns=None, symbolEntry=None, scopeNode=None, analysis=None, parallelRegionTemplates=[]):
+	def __init__(
+		self,
+		name,
+		template=None,
+		patterns=None,
+		symbolEntry=None,
+		scopeNode=None,
+		analysis=None,
+		parallelRegionTemplates=[],
+		globalParallelDomainNames={}
+	):
 		if not name or name == "":
 			raise Exception("Name required for initializing symbol")
 
@@ -265,6 +276,7 @@ class Symbol(object):
 		else:
 			self.patterns = RegExPatterns.Instance()
 		self.analysis = analysis
+		self.globalParallelDomainNames = globalParallelDomainNames
 		self.importPattern = self.patterns.get(r'^\s*use\s*(\w*)\s*,\s*only\s*.*?\W\s*' + re.escape(name) + r'(?:\W|$).*')
 		self.importMapPattern = self.patterns.get(r'.*?\W' + re.escape(name) + r'\s*\=\>\s*(\w*).*')
 		self.pointerOrAllocatablePattern = self.patterns.get(r'\s*(?:double\s+precision|real|integer|character|logical|complex).*?(?:pointer|allocatable).*?[\s,:]+' + re.escape(name))
@@ -1526,15 +1538,10 @@ Please specify the domains and their sizes with domName and domSize attributes i
 			filteredAccessors = accessors if accessors else []
 			if len(self.domains) > 0: #0 domains could be an external function call which we cannot touch
 				parallelDomainAccessors = []
-				for d in self.kernelDomainNames:
+				for d in set(self.kernelDomainNames + self.globalParallelDomainNames.keys()):
 					matchedAccessor = matchIteratorListForDomain(accessors, d)
 					if matchedAccessor:
 						parallelDomainAccessors.append(matchedAccessor)
-				if len(parallelDomainAccessors) > 0 and len(parallelDomainAccessors) != len(self._kernelDomainNames):
-					raise UsageError("%s uses a passed in parallel iterator type pattern - this is only supported if all (%s) parallel iterators are passed in." %(
-						self.name,
-						str(self._kernelDomainNames)
-					))
 				if callee and hasattr(callee, "node") and callee.node.getAttribute("parallelRegionPosition") != "outside":
 					iterators = [] #reset the parallel iterators if this symbol is accessed in a subroutine call and it's NOT being passed in inside a kernel
 					filteredAccessors = [a for a in accessors if not a in parallelDomainAccessors]

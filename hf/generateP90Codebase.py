@@ -19,9 +19,9 @@
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
 from xml.dom.minidom import Document
-from tools.metadata import parseString, ImmutableDOMDocument, getClonedDocument
+from tools.metadata import parseString, ImmutableDOMDocument, getClonedDocument, getParallelDomainNames
 from optparse import OptionParser
-from machinery.parser import H90XMLSymbolDeclarationExtractor, getSymbolsByName, getModuleNodesByName, getParallelRegionData
+from machinery.parser import H90XMLSymbolDeclarationExtractor, getModuleNodesByName, getParallelRegionData
 from machinery.converter import H90toF90Converter, getSymbolsByRoutineNameAndSymbolName, getSymbolsByModuleNameAndSymbolName
 from machinery.commons import ConversionOptions
 from tools.commons import UsageError, openFile, getDataFromFile, setupDeferredLogging, printProgressIndicator, progressIndicatorReset
@@ -140,6 +140,10 @@ for fileNum, fileInDir in enumerate(filesInDir):
 progressIndicatorReset(sys.stderr)
 
 #   build up meta informations about the whole codebase
+symbolAnalysisByRoutineNameAndSymbolName = None
+symbolsByModuleNameAndSymbolName = None
+symbolsByRoutineNameAndSymbolName = None
+parallelDomainNames = None
 try:
 	sys.stderr.write('Processing informations about the whole codebase\n')
 	moduleNodesByName = getModuleNodesByName(cgDoc)
@@ -158,6 +162,7 @@ try:
 		parallelRegionData[1],
 		symbolAnalysisByRoutineNameAndSymbolName=symbolAnalysisByRoutineNameAndSymbolName
 	)
+	parallelDomainNames = getParallelDomainNames(cgDoc)
 except UsageError as e:
 	logging.error('Error: %s' %(str(e)))
 	sys.exit(1)
@@ -183,6 +188,7 @@ for fileNum, fileInDir in enumerate(filesInDir):
 			symbolAnalysisByRoutineNameAndSymbolName,
 			symbolsByModuleNameAndSymbolName,
 			symbolsByRoutineNameAndSymbolName,
+			parallelDomainNames
 		)
 		converter.processFile(fileInDir)
 	except UsageError as e:

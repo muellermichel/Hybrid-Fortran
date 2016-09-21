@@ -81,7 +81,7 @@ contains
 		@end domainDependant
 
 		@parallelRegion{appliesTo(GPU), domName(x,y), domSize(nx, ny)}
-		@if {architecture(GPU)}
+		@if {parallelRegion(within)}
 		sliced(x,y) = original(x + offset_x, y + offset_y)
 		@end if
 		@end parallelRegion
@@ -131,7 +131,7 @@ contains
 		@end domainDependant
 
 		@parallelRegion{appliesTo(GPU), domName(x,y), domSize(nx, ny)}
-		@if {architecture(GPU)}
+		@if {parallelRegion(within)}
 		sliced(x,y) = original(x + offset_x, y + offset_y)
 		@end if
 		@end parallelRegion
@@ -182,7 +182,7 @@ contains
 		@end domainDependant
 
 		@parallelRegion{appliesTo(GPU), domName(x,y), domSize(nx, ny)}
-		@if {architecture(GPU)}
+		@if {parallelRegion(within)}
 		do z = 1, nz
 			sliced(x,y,z) = original(x + offset_x, y + offset_y, z + offset_z)
 		end do
@@ -234,7 +234,7 @@ contains
 		@end domainDependant
 
 		@parallelRegion{appliesTo(GPU), domName(x,y), domSize(nx, ny)}
-		@if {architecture(GPU)}
+		@if {parallelRegion(within)}
 		original(x + offset_x, y + offset_y) = sliced(x,y)
 		@end if
 		@end parallelRegion
@@ -284,7 +284,7 @@ contains
 		@end domainDependant
 
 		@parallelRegion{appliesTo(GPU), domName(x,y), domSize(nx, ny)}
-		@if {architecture(GPU)}
+		@if {parallelRegion(within)}
 		do z = 1, nz
 			original(x + offset_x, y + offset_y, z + offset_z) = sliced(x,y,z)
 		end do

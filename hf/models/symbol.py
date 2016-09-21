@@ -1519,8 +1519,8 @@ Please specify the domains and their sizes with domName and domSize attributes i
 					elif len(offsets) + len(parallelIterators) == len(domains):
 						iterators.append(str(offsets[i - len(parallelIterators)]))
 					else:
-						raise Exception("Cannot generate access representation for symbol %s: Unknown parallel iterators specified (%s) or not enough offsets (%s)."
-							%(str(self), str(parallelIterators), str(offsets))
+						raise Exception("Cannot generate access representation for symbol %s: Unknown parallel iterators specified (%s) or not enough offsets (%s). Loaded domains: %s"
+							%(str(self), str(parallelIterators), str(offsets), str(self.domains))
 						)
 			if allowsSlicing and all([iterator == ':' for iterator in iterators]):
 				return [] #working around a problem in PGI 15.1: Inliner bails out in certain situations (module test kernel 3+4) if arrays are passed in like a(:,:,:).
@@ -1538,31 +1538,38 @@ Please specify the domains and their sizes with domName and domSize attributes i
 		):
 			return self.nameInScope()
 
-		iterators = None
 		if self.isHostSymbol:
 			iterators = accessors
 			offsets = accessors
 		else:
-			iterators = copy.copy(parallelIterators)
+			parallelIterators = copy.copy(parallelIterators)
 			filteredAccessors = accessors if accessors else []
 			if len(self.domains) > 0: #0 domains could be an external function call which we cannot touch
-				if len(iterators) > 0 and len(iterators) == len(self.kernelDomainNames):
-					parallelDomainAccessors = iterators
-				else:
-					parallelDomainAccessors = []
-					kernelDomainNames = set(self.kernelDomainNames + self.globalParallelDomainNames.keys())
-					for a in accessors:
-						matchedAccessor = matchIteratorListForAccessor(kernelDomainNames, a)
-						if matchedAccessor:
-							parallelDomainAccessors.append(a)
+				parallelDomainAccessors = []
+				kernelDomainNames = []
+				if len(self.kernelDomainNames) > 0:
+					kernelDomainNames = self.kernelDomainNames
+				elif self.parallelRegionPosition == "outside":
+					#we don't have parallel region information stored locally (because template is outside), so search globally
+					kernelDomainNames = self.globalParallelDomainNames.keys()
+				for a in accessors:
+					matchedAccessor = matchIteratorListForAccessor(kernelDomainNames, a)
+					if matchedAccessor:
+						parallelDomainAccessors.append(a)
+				if len(parallelIterators) > 0 \
+				and len(parallelIterators) == len(self.kernelDomainNames) \
+				and len(parallelDomainAccessors) != len(self.kernelDomainNames):
+					parallelDomainAccessors = parallelIterators
+
 				if callee and hasattr(callee, "node") and callee.node.getAttribute("parallelRegionPosition") != "outside":
-					iterators = [] #reset the parallel iterators if this symbol is accessed in a subroutine call and it's NOT being passed in inside a kernel
+					parallelIterators = [] #reset the parallel iterators if this symbol is accessed in a subroutine call and it's NOT being passed in inside a kernel
 					filteredAccessors = [a for a in accessors if not a in parallelDomainAccessors]
 				elif len(parallelDomainAccessors) > 0:
-					iterators = parallelDomainAccessors
+					parallelIterators = parallelDomainAccessors
 					filteredAccessors = [a for a in accessors if not a in parallelDomainAccessors]
-				elif iterators and self.numOfParallelDomains == 0:
-					iterators = []
+				elif parallelIterators and self.numOfParallelDomains == 0:
+					parallelIterators = []
+
 			offsets = []
 			if callee or isPointerAssignment:
 				numOfIteratedDomains = len(parallelDomainAccessors) if callee.node.getAttribute("parallelRegionPosition") == "outside" else 0
@@ -1570,12 +1577,29 @@ Please specify the domains and their sizes with domName and domSize attributes i
 					offsets.append(":")
 			offsets += filteredAccessors
 			allowsSlicing = isPointerAssignment or (callee and hasattr(callee, "node") and callee.node.getAttribute("parallelRegionPosition") in ["within, inside"])
-			iterators = getIterators(
-				self.domains,
-				iterators,
-				offsets,
-				allowsSlicing,
-			)
+			if len(parallelIterators) + len(offsets) != len(self.domains):
+				if len(offsets) == len(self.domains):
+					iterators = offsets
+				elif len(parallelIterators) == len(self.domains):
+					iterators = parallelIterators
+				elif len(self.domains) == 0:
+					iterators = []
+				elif len(offsets) > len(self.domains):
+					iterators = offsets[-len(self.domains):]
+				else:
+					raise Exception("Cannot make sense out of parallel iterators (%s) and offsets (%s) for %s (%s)" %(
+						parallelIterators,
+						offsets,
+						self.name,
+						self.domains
+					))
+			else:
+				iterators = getIterators(
+					self.domains,
+					parallelIterators,
+					offsets,
+					allowsSlicing,
+				)
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] producing access representation for symbol %s; parallel iterators: %s, offsets: %s" %(self.name, str(iterators), str(offsets)))
 		symbolNameUsedInAccessor = None
 		if (not self.isUsingDevicePostfix and len(offsets) == len(self.domains) and not all([it == ':' for it in iterators])) \

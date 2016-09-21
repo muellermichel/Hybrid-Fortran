@@ -1451,21 +1451,11 @@ Please specify the domains and their sizes with domName and domSize attributes i
 			return adjustedIterator
 
 		def getIterators(domains, parallelIterators, offsets, allowsSlicing):
+			if not allowsSlicing and len(parallelIterators) == 0 and len(offsets) == len(domains):
+				return offsets
+
 			iterators = []
 			nextOffsetIndex = 0
-			if len(parallelIterators) == 0 and len(offsets) == 0:
-				return iterators
-
-			if not allowsSlicing and len(parallelIterators) == 0 and len(domains) == len(offsets):
-				return offsets
-
-			#length of domains is potentially smaller than offsets if we have
-			# 1) passed in iterators in parallel outside position
-			# 2) used an unrecognised array format such as character arrays
-			if len(offsets) > len(domains) \
-			and (self.parallelRegionPosition == "outside" or "character" in self.declarationPrefix):
-				return offsets
-
 			for i in range(len(domains)):
 				if allowsSlicing \
 				and len(parallelIterators) == 0 \
@@ -1538,6 +1528,7 @@ Please specify the domains and their sizes with domName and domSize attributes i
 		):
 			return self.nameInScope()
 
+		iterators = None
 		if self.isHostSymbol:
 			iterators = accessors
 			offsets = accessors
@@ -1549,8 +1540,8 @@ Please specify the domains and their sizes with domName and domSize attributes i
 				kernelDomainNames = []
 				if len(self.kernelDomainNames) > 0:
 					kernelDomainNames = self.kernelDomainNames
-				elif self.parallelRegionPosition == "outside":
-					#we don't have parallel region information stored locally (because template is outside), so search globally
+				elif self.parallelRegionPosition in ["outside", "inside"]:
+					#we don't have parallel region information stored locally (because position is not 'within'), so search globally
 					kernelDomainNames = self.globalParallelDomainNames.keys()
 				for a in accessors:
 					matchedAccessor = matchIteratorListForAccessor(kernelDomainNames, a)
@@ -1578,21 +1569,20 @@ Please specify the domains and their sizes with domName and domSize attributes i
 			offsets += filteredAccessors
 			allowsSlicing = isPointerAssignment or (callee and hasattr(callee, "node") and callee.node.getAttribute("parallelRegionPosition") in ["within, inside"])
 			if len(parallelIterators) + len(offsets) != len(self.domains):
-				if len(offsets) == len(self.domains):
+				if len(offsets) > len(self.domains) \
+				and (self.parallelRegionPosition == "outside" or "character" in self.declarationPrefix):
+					#length of domains is potentially smaller than offsets if we have
+					# 1) passed in iterators in parallel outside position
+					# 2) used an unrecognised array format such as character arrays
 					iterators = offsets
-				elif len(parallelIterators) == len(self.domains):
-					iterators = parallelIterators
 				elif len(self.domains) == 0:
 					iterators = []
 				elif len(offsets) > len(self.domains):
 					iterators = offsets[-len(self.domains):]
+				elif len(parallelIterators) == len(self.domains):
+					iterators = parallelIterators
 				else:
-					raise Exception("Cannot make sense out of parallel iterators (%s) and offsets (%s) for %s (%s)" %(
-						parallelIterators,
-						offsets,
-						self.name,
-						self.domains
-					))
+					iterators = []
 			else:
 				iterators = getIterators(
 					self.domains,

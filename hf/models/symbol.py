@@ -1441,6 +1441,15 @@ Please specify the domains and their sizes with domName and domSize attributes i
 					break
 			return adjustedIterator
 
+		def matchIteratorListForAccessor(iteratorList, accessor):
+			adjustedIterator = None
+			for it in iteratorList:
+				iteratorPattern = self.patterns.get(r".*?(?:^|\W)" + it + r"(?:$|\W).*")
+				if iteratorPattern.match(accessor):
+					adjustedIterator = it
+					break
+			return adjustedIterator
+
 		def getIterators(domains, parallelIterators, offsets, allowsSlicing):
 			iterators = []
 			nextOffsetIndex = 0
@@ -1537,15 +1546,15 @@ Please specify the domains and their sizes with domName and domSize attributes i
 			iterators = copy.copy(parallelIterators)
 			filteredAccessors = accessors if accessors else []
 			if len(self.domains) > 0: #0 domains could be an external function call which we cannot touch
-				if len(iterators) > 0:
+				if len(iterators) > 0 and len(iterators) == len(self.kernelDomainNames):
 					parallelDomainAccessors = iterators
 				else:
 					parallelDomainAccessors = []
 					kernelDomainNames = set(self.kernelDomainNames + self.globalParallelDomainNames.keys())
 					for a in accessors:
-						matchedAccessor = matchIteratorListForDomain(kernelDomainNames, a)
+						matchedAccessor = matchIteratorListForAccessor(kernelDomainNames, a)
 						if matchedAccessor:
-							parallelDomainAccessors.append(matchedAccessor)
+							parallelDomainAccessors.append(a)
 				if callee and hasattr(callee, "node") and callee.node.getAttribute("parallelRegionPosition") != "outside":
 					iterators = [] #reset the parallel iterators if this symbol is accessed in a subroutine call and it's NOT being passed in inside a kernel
 					filteredAccessors = [a for a in accessors if not a in parallelDomainAccessors]

@@ -67,6 +67,7 @@ contains
 		@if{architecture(GPU)}
 		integer(4), intent(out) :: sliced
 		@end if
+		integer(4) :: x, y
 
 		@domainDependant{}
 		nx, ny, nx_original, ny_original, offset_x, offset_y
@@ -126,6 +127,7 @@ contains
 		@if{architecture(GPU)}
 		real(8), intent(out) :: sliced
 		@end if
+		integer(4) :: x, y
 
 		@domainDependant{}
 		nx, ny, nx_original, ny_original, offset_x, offset_y
@@ -185,7 +187,7 @@ contains
 		@if{architecture(GPU)}
 		real(8), intent(out) :: sliced(nz)
 		@end if
-		integer(4) :: z
+		integer(4) :: x, y, z
 
 		@domainDependant{}
 		nx, ny, nz, nx_original, ny_original, nz_original, offset_x, offset_y, offset_z
@@ -247,6 +249,7 @@ contains
 		@if{architecture(GPU)}
 		real(8), intent(in) :: sliced
 		@end if
+		integer(4) :: x, y
 
 		@domainDependant{}
 		nx, ny, nx_original, ny_original, offset_x, offset_y
@@ -305,7 +308,7 @@ contains
 		@if{architecture(GPU)}
 		real(8), intent(in) :: sliced(nz)
 		@end if
-		integer(4) :: z
+		integer(4) :: x, y, z
 
 		@domainDependant{}
 		nx, ny, nz, nx_original, ny_original, nz_original, offset_x, offset_y, offset_z

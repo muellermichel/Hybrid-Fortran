@@ -66,6 +66,7 @@ contains
 		integer(4), intent(in) :: nx, ny, nx_original, ny_original, offset_x, offset_y
 		integer(4), intent(in) :: original
 		integer(4) INTENT_SLICED_OUT :: sliced
+		integer(4) :: x, y
 
 		@domainDependant{}
 		nx, ny, nx_original, ny_original, offset_x, offset_y
@@ -115,6 +116,7 @@ contains
 		integer(4), intent(in) :: nx, ny, nx_original, ny_original, offset_x, offset_y
 		real(8), intent(in) :: original
 		real(8) INTENT_SLICED_OUT :: sliced
+		integer(4) :: x, y
 
 		@domainDependant{}
 		nx, ny, nx_original, ny_original, offset_x, offset_y
@@ -165,6 +167,7 @@ contains
 		real(8), intent(in) :: original(nz_original)
 		real(8) INTENT_SLICED_OUT :: sliced(nz)
 		integer(4) :: z
+		integer(4) :: x, y
 
 		@domainDependant{}
 		nx, ny, nz, nx_original, ny_original, nz_original, offset_x, offset_y, offset_z
@@ -216,6 +219,7 @@ contains
 		integer(4), intent(in) :: nx, ny, nx_original, ny_original, offset_x, offset_y
 		real(8) INTENT_SLICED_OUT :: original
 		real(8) INTENT_SLICED_IN :: sliced
+		integer(4) :: x, y
 
 		@domainDependant{}
 		nx, ny, nx_original, ny_original, offset_x, offset_y
@@ -265,6 +269,7 @@ contains
 		real(8) INTENT_SLICED_OUT :: original(nz_original)
 		real(8) INTENT_SLICED_IN :: sliced(nz)
 		integer(4) :: z
+		integer(4) :: x, y
 
 		@domainDependant{}
 		nx, ny, nz, nx_original, ny_original, nz_original, offset_x, offset_y, offset_z

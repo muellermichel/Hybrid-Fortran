@@ -1504,8 +1504,8 @@ Please specify the domains and their sizes with domName and domSize attributes i
 					elif nextOffsetIndex < len(offsets):
 						iterators.append(str(offsets[nextOffsetIndex]))
 						nextOffsetIndex += 1
-					elif len(offsets) + len(parallelIterators) == len(domains) and i < len(parallelIterators):
-						iterators.append(str(parallelIterators[i]))
+					elif len(offsets) + len(parallelIterators) == len(domains) and i - nextOffsetIndex < len(parallelIterators):
+						iterators.append(str(parallelIterators[i - nextOffsetIndex]))
 					elif len(offsets) + len(parallelIterators) == len(domains):
 						iterators.append(str(offsets[i - len(parallelIterators)]))
 					else:
@@ -1530,6 +1530,11 @@ Please specify the domains and their sizes with domName and domSize attributes i
 
 		iterators = None
 		if self.isHostSymbol:
+			iterators = accessors
+			offsets = accessors
+		elif len(accessors) == len(self.domains) \
+		and all(["GENERIC" in domName and domSize == ":" for (domName, domSize) in self.domains]):
+			#we should not reorder anything here, just use the user given accessors (and potentially use a storage order macro)
 			iterators = accessors
 			offsets = accessors
 		else:

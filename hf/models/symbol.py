@@ -1540,8 +1540,28 @@ Please specify the domains and their sizes with domName and domSize attributes i
 				return elemListFromTuplesWithIndices(offsetsAndIndices)
 			if len(offsetsAndIndices) == 0:
 				return elemListFromTuplesWithIndices(parallelIteratorsAndIndices)
+
 			#we don't have a total ordering given by user -> prepend parallel iterators (assume domain expansion)
-			return elemListFromTuplesWithIndices(parallelIteratorsAndIndices + offsetsAndIndices)
+			iterators = []
+			nextOffsetIndex = 0
+			parallelIterators = elemListFromTuplesWithIndices(parallelIteratorsAndIndices)
+			offsets = elemListFromTuplesWithIndices(offsetsAndIndices)
+			for idx, domain in enumerate(self.domains):
+				adjustedIterator = matchIteratorListForDomain(parallelIterators, domain[0])
+				if adjustedIterator:
+					iterators.append(adjustedIterator)
+				elif nextOffsetIndex < len(offsets):
+					iterators.append(offsets[nextOffsetIndex])
+					nextOffsetIndex += 1
+				elif len(offsets) + len(parallelIterators) == len(self.domains) and idx - nextOffsetIndex < len(parallelIterators):
+					iterators.append(parallelIterators[idx - nextOffsetIndex])
+				elif len(offsets) + len(parallelIterators) == len(self.domains):
+					iterators.append(offsets[idx - len(parallelIterators)])
+				else:
+					raise Exception("Cannot generate access representation for symbol %s: Unknown parallel iterators specified (%s) or not enough offsets (%s). Loaded domains: %s"
+						%(str(self), str(parallelIterators), str(offsets), str(self.domains))
+					)
+			return iterators
 
 		if isPointerAssignment \
 		or (len(self.domains) == 0 and len(accessors) == 0) \

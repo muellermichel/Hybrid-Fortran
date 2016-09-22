@@ -1516,6 +1516,33 @@ Please specify the domains and their sizes with domName and domSize attributes i
 				return [] #working around a problem in PGI 15.1: Inliner bails out in certain situations (module test kernel 3+4) if arrays are passed in like a(:,:,:).
 			return [iterator.strip().replace(" ", "") for iterator in iterators]
 
+		def createTuplesWithIndices(listObj):
+			return [(elem, idx) for idx, elem in enumerate(listObj)]
+
+		def elemListFromTuplesWithIndices(listObj):
+			return [elem for elem, idx in listObj]
+
+		def indexListFromTuplesWithIndices(listObj):
+			return [idx for elem, idx in listObj]
+
+		def listIsUnique(listObj):
+			return len(listObj) == len(set(listObj))
+
+		def sortByIndex(listObj):
+			return sorted(listObj, key=lambda elem: elem[1])
+
+		def mergeIterators(parallelIteratorsAndIndices, offsetsAndIndices):
+			if listIsUnique(indexListFromTuplesWithIndices(parallelIteratorsAndIndices + offsetsAndIndices)):
+				return elemListFromTuplesWithIndices(
+					sortByIndex(parallelIteratorsAndIndices + offsetsAndIndices)
+				)
+			if len(parallelIteratorsAndIndices) == 0:
+				return elemListFromTuplesWithIndices(offsetsAndIndices)
+			if len(offsetsAndIndices) == 0:
+				return elemListFromTuplesWithIndices(parallelIteratorsAndIndices)
+			#we don't have a total ordering given by user -> prepend parallel iterators (assume domain expansion)
+			return elemListFromTuplesWithIndices(parallelIteratorsAndIndices + offsetsAndIndices)
+
 		if isPointerAssignment \
 		or (len(self.domains) == 0 and len(accessors) == 0) \
 		or ( \
@@ -1538,63 +1565,66 @@ Please specify the domains and their sizes with domName and domSize attributes i
 			iterators = accessors
 			offsets = accessors
 		else:
-			parallelIterators = copy.copy(parallelIterators)
-			filteredAccessors = accessors if accessors else []
+			parallelIteratorsAndIndices = createTuplesWithIndices(parallelIterators)
+			accessorsWithIndices = createTuplesWithIndices(accessors) if accessors else []
 			if len(self.domains) > 0: #0 domains could be an external function call which we cannot touch
-				parallelDomainAccessors = []
 				kernelDomainNames = []
 				if len(self.kernelDomainNames) > 0:
 					kernelDomainNames = self.kernelDomainNames
 				elif self.parallelRegionPosition in ["outside", "inside"]:
 					#we don't have parallel region information stored locally (because position is not 'within'), so search globally
 					kernelDomainNames = self.globalParallelDomainNames.keys()
-				for a in accessors:
+				parallelDomainAccessorsWithIndices = []
+				for a, idx in accessorsWithIndices:
 					matchedAccessor = matchIteratorListForAccessor(kernelDomainNames, a)
 					if matchedAccessor:
-						parallelDomainAccessors.append(a)
-				if len(parallelIterators) > 0 \
-				and len(parallelIterators) == len(self.kernelDomainNames) \
-				and len(parallelDomainAccessors) != len(self.kernelDomainNames):
-					parallelDomainAccessors = parallelIterators
+						parallelDomainAccessorsWithIndices.append((a,idx))
+				if len(parallelIteratorsAndIndices) > 0 \
+				and len(parallelIteratorsAndIndices) == len(self.kernelDomainNames) \
+				and len(parallelDomainAccessorsWithIndices) != len(self.kernelDomainNames):
+					parallelDomainAccessorsWithIndices = parallelIteratorsAndIndices
 
 				if callee and hasattr(callee, "node") and callee.node.getAttribute("parallelRegionPosition") != "outside":
-					parallelIterators = [] #reset the parallel iterators if this symbol is accessed in a subroutine call and it's NOT being passed in inside a kernel
-					filteredAccessors = [a for a in accessors if not a in parallelDomainAccessors]
-				elif len(parallelDomainAccessors) > 0:
-					parallelIterators = parallelDomainAccessors
-					filteredAccessors = [a for a in accessors if not a in parallelDomainAccessors]
-				elif parallelIterators and self.numOfParallelDomains == 0:
-					parallelIterators = []
+					parallelIteratorsAndIndices = [] #reset the parallel iterators if this symbol is accessed in a subroutine call and it's NOT being passed in inside a kernel
+					parallelDomainAccessors = elemListFromTuplesWithIndices(parallelDomainAccessorsWithIndices)
+					accessorsWithIndices = [(a, idx) for a, idx in accessorsWithIndices if not a in parallelDomainAccessors]
+				elif len(parallelDomainAccessorsWithIndices) > 0:
+					parallelIteratorsAndIndices = parallelDomainAccessorsWithIndices
+					parallelDomainAccessors = elemListFromTuplesWithIndices(parallelDomainAccessorsWithIndices)
+					accessorsWithIndices = [(a, idx) for a, idx in accessorsWithIndices if not a in parallelDomainAccessors]
+				elif parallelIteratorsAndIndices and self.numOfParallelDomains == 0:
+					parallelIteratorsAndIndices = []
 
-			offsets = []
+			offsetsWithIndices = []
 			if callee or isPointerAssignment:
-				numOfIteratedDomains = len(parallelDomainAccessors) if callee.node.getAttribute("parallelRegionPosition") == "outside" else 0
-				for i in range(len(self.domains) - numOfIteratedDomains - len(filteredAccessors)):
-					offsets.append(":")
-			offsets += filteredAccessors
+				numOfIteratedDomains = len(parallelDomainAccessorsWithIndices) if callee.node.getAttribute("parallelRegionPosition") == "outside" else 0
+				for i in range(len(self.domains) - numOfIteratedDomains - len(accessorsWithIndices)):
+					offsetsWithIndices.append((":", i))
+			offsetsWithIndices += accessorsWithIndices
 			allowsSlicing = isPointerAssignment or (callee and hasattr(callee, "node") and callee.node.getAttribute("parallelRegionPosition") in ["within, inside"])
-			if len(parallelIterators) + len(offsets) != len(self.domains):
-				if len(offsets) > len(self.domains) \
+			if len(parallelIteratorsAndIndices) + len(offsetsWithIndices) != len(self.domains):
+				if len(offsetsWithIndices) > len(self.domains) \
 				and (self.parallelRegionPosition == "outside" or "character" in self.declarationPrefix):
 					#length of domains is potentially smaller than offsets if we have
 					# 1) passed in iterators in parallel outside position
 					# 2) used an unrecognised array format such as character arrays
-					iterators = offsets
+					iterators = elemListFromTuplesWithIndices(sortByIndex(offsetsWithIndices))
 				elif len(self.domains) == 0:
 					iterators = []
-				elif len(offsets) > len(self.domains):
-					iterators = offsets[-len(self.domains):]
-				elif len(parallelIterators) == len(self.domains):
-					iterators = parallelIterators
+				elif len(offsetsWithIndices) > len(self.domains):
+					iterators = elemListFromTuplesWithIndices(offsetsWithIndices[-len(self.domains):])
+				elif len(parallelIteratorsAndIndices) == len(self.domains):
+					iterators = elemListFromTuplesWithIndices(sortByIndex(parallelIteratorsAndIndices))
 				else:
 					iterators = []
 			else:
 				iterators = getIterators(
 					self.domains,
-					parallelIterators,
-					offsets,
+					[],
+					mergeIterators(parallelIteratorsAndIndices, offsetsWithIndices),
 					allowsSlicing,
 				)
+			offsets = elemListFromTuplesWithIndices(offsetsWithIndices)
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] producing access representation for symbol %s; parallel iterators: %s, offsets: %s" %(self.name, str(iterators), str(offsets)))
 		symbolNameUsedInAccessor = None
 		if (not self.isUsingDevicePostfix and len(offsets) == len(self.domains) and not all([it == ':' for it in iterators])) \

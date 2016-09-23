@@ -1621,9 +1621,11 @@ Please specify the domains and their sizes with domName and domSize attributes i
 				for i in range(len(self.domains) - numOfIteratedDomains - len(accessorsWithIndices)):
 					offsetsWithIndices.append((":", i))
 			offsetsWithIndices += accessorsWithIndices
-			allowsSlicing = isPointerAssignment or (callee and hasattr(callee, "node") and callee.node.getAttribute("parallelRegionPosition") in ["within, inside"])
 			if len(parallelIteratorsAndIndices) + len(offsetsWithIndices) != len(self.domains):
-				if len(offsetsWithIndices) > len(self.domains) \
+				if len(offsetsWithIndices) == len(self.domains):
+					#example: parallel region in within position, but the parallel domains are on purpose passed in completely to subroutine
+					iterators = elemListFromTuplesWithIndices(sortByIndex(offsetsWithIndices))
+				elif len(offsetsWithIndices) > len(self.domains) \
 				and (self.parallelRegionPosition == "outside" or "character" in self.declarationPrefix):
 					#length of domains is potentially smaller than offsets if we have
 					# 1) passed in iterators in parallel outside position
@@ -1638,6 +1640,7 @@ Please specify the domains and their sizes with domName and domSize attributes i
 				else:
 					iterators = []
 			else:
+				allowsSlicing = isPointerAssignment or (callee and hasattr(callee, "node") and callee.node.getAttribute("parallelRegionPosition") in ["within, inside"])
 				iterators = getIterators(
 					self.domains,
 					[],

@@ -1450,7 +1450,7 @@ Please specify the domains and their sizes with domName and domSize attributes i
 					break
 			return adjustedIterator
 
-		def getIterators(domains, parallelIterators, offsets, allowsSlicing):
+		def adjustSlicing(domains, parallelIterators, offsets, allowsSlicing):
 			if not allowsSlicing and len(parallelIterators) == 0 and len(offsets) == len(domains):
 				return offsets
 
@@ -1641,13 +1641,17 @@ Please specify the domains and their sizes with domName and domSize attributes i
 					iterators = []
 			else:
 				allowsSlicing = isPointerAssignment or (callee and hasattr(callee, "node") and callee.node.getAttribute("parallelRegionPosition") in ["within, inside"])
-				iterators = getIterators(
+				iterators = adjustSlicing(
 					self.domains,
 					[],
 					mergeIterators(parallelIteratorsAndIndices, offsetsWithIndices),
 					allowsSlicing,
 				)
 			offsets = elemListFromTuplesWithIndices(offsetsWithIndices)
+
+		#we now have our set of iterators. next, take out all whitespace because it could disturb the macro expansion from P90 to f90.
+		iterators = [re.sub(r"\s+", '', it) for it in iterators]
+
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] producing access representation for symbol %s; parallel iterators: %s, offsets: %s" %(self.name, str(iterators), str(offsets)))
 		symbolNameUsedInAccessor = None
 		if (not self.isUsingDevicePostfix and len(offsets) == len(self.domains) and not all([it == ':' for it in iterators])) \

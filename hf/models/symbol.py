@@ -1583,7 +1583,7 @@ Please specify the domains and their sizes with domName and domSize attributes i
 			offsetsWithIndices = []
 			if callee or isPointerAssignment:
 				#fill up offsets with slices for accesses that are passed in or are pointer assignments
-				numOfIteratedDomains = len(parallelDomainAccessorsWithIndices) if callee.node.getAttribute("parallelRegionPosition") == "outside" else 0
+				numOfIteratedDomains = len(parallelIteratorsAndIndices) if callee.node.getAttribute("parallelRegionPosition") == "outside" else 0
 				for i in range(len(self.domains) - numOfIteratedDomains - len(accessorsWithIndices)):
 					offsetsWithIndices.append((":", i))
 			#add remaining user defined accessors to offsets

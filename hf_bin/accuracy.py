@@ -413,13 +413,17 @@ def run_accuracy_test_for_netcdf(options, eps, epsSingle):
 			normalized_error = absolute_difference / mean_or_one
 			greater_than_epsilon = normalized_error > epsSingle
 
-			nan_values = numpy.isnan(in_array)
-			if numpy.any(nan_values):
-				max_error = numpy.NAN
-				max_error_index_tuple = numpy.unravel_index(numpy.argmax(numpy.isnan(in_array)), in_array.shape)
+			if int(options.index) > -1:
+				max_error_index_tuple = tuple([min(int(options.index), in_array.shape[dim] - 1) for dim in range(len(in_array.shape))])
+				max_error = normalized_error[max_error_index_tuple]
 			else:
-				max_error = numpy.argmax(normalized_error)
-				max_error_index_tuple = numpy.unravel_index(max_error, in_array.shape)
+				nan_values = numpy.isnan(in_array)
+				if numpy.any(nan_values):
+					max_error = numpy.NAN
+					max_error_index_tuple = numpy.unravel_index(numpy.argmax(numpy.isnan(in_array)), in_array.shape)
+				else:
+					max_error = numpy.argmax(normalized_error)
+					max_error_index_tuple = numpy.unravel_index(max_error, in_array.shape)
 
 			root_mean_square_deviation = numpy.sqrt(numpy.mean((in_array - ref_array)**2))
 			root_mean_square_deviation = root_mean_square_deviation / abs(mean_or_one)
@@ -439,7 +443,8 @@ def run_accuracy_test_for_netcdf(options, eps, epsSingle):
 			if number_of_elements <= 8 and result != "pass":
 				passed_string = "input: \n%s\nexpected:\n%s\nerrors found at:%s\n%s" %(in_array, ref_array, greater_than_epsilon, result)
 			else:
-				passed_string = "MaxErr: %s at: %s of: %s; val: %s; ref: %s; %s" %(
+				passed_string = "%s: %s at: %s of: %s; val: %s; ref: %s; %s" %(
+					"Index" if int(options.index) > -1 else "MaxErr",
 					pad_to(normalized_error[max_error_index_tuple],17),
 					pad_to(max_error_index_tuple,18),
 					pad_to(in_array.shape,18),
@@ -473,12 +478,13 @@ parser.add_option("-b", "--bytesPerValue", dest="bytes")
 parser.add_option("-p", "--printFirstValues", dest="printNum", default="0")
 parser.add_option("-r", "--readEndian", dest="readEndian", default="little")
 parser.add_option("--netcdf", action="store_true", dest="netcdf")
+parser.add_option("--index", dest="index", default="-1")
 parser.add_option("--slice", dest="slice", default=None)
 parser.add_option("-v", action="store_true", dest="verbose")
-parser.add_option("-e", "--epsilon", metavar="EPS", dest="epsilon", help="Throw an error if at any point the error becomes higher than EPS. Defaults to 1E-6.")
+parser.add_option("-e", "--epsilon", metavar="EPS", dest="epsilon", help="Throw an error if at any point the normalized root mean square error becomes higher than EPS. Defaults to 1E-10.")
 (options, args) = parser.parse_args()
-eps = 1E-6
-epsSingle = 1E-6
+eps = 1E-10
+epsSingle = 1E-9
 if (options.epsilon):
 	eps = float(options.epsilon)
 if options.netcdf:

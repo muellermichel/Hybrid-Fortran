@@ -483,8 +483,8 @@ parser.add_option("--slice", dest="slice", default=None)
 parser.add_option("-v", action="store_true", dest="verbose")
 parser.add_option("-e", "--epsilon", metavar="EPS", dest="epsilon", help="Throw an error if at any point the normalized root mean square error becomes higher than EPS. Defaults to 1E-10.")
 (options, args) = parser.parse_args()
-eps = 1E-10
-epsSingle = 1E-9
+eps = 1E-6
+epsSingle = 1E-6
 if (options.epsilon):
 	eps = float(options.epsilon)
 if options.netcdf:

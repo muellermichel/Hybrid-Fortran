@@ -52,7 +52,6 @@ for i in $output_file_pattern; do
 	if [ ! -f ${refPath} ]; then
 		echo "skipping ${refPath} (doesn't exist)" 1>&2
 	else
-		echo "checking against ${refPath}" 1>&2
 		if [ ! -f "${i}" ]; then
 			echo "output file ${i} expected but not found from $(pwd)" 1>&2
 			error_found=true
@@ -67,7 +66,6 @@ for i in $output_file_pattern; do
 			# there is a conflict with the python path we use for debugging HF scripts. --> set it to empty here.
 			OLD_PYTHONPATH=$PYTHONPATH
 			export PYTHONPATH=
-			echo "calling accuracy with format paramter ${formatParam}" 1>&2
 			echo "${HF_DIR}/hf_bin/accuracy.py -f $i --reference \"$refPath\" $formatParamCurr"
 			python ${HF_DIR}/hf_bin/accuracy.py -f $i --reference "$refPath" $formatParamCurr && :
 			rc=$?
@@ -75,7 +73,6 @@ for i in $output_file_pattern; do
 			    errorVal=$rc
 			fi
 			if [ $rc -ne 0 ] ; then
-			    echo "Accuracy test has returned error $rc" 1>&2
 			    error_found=true
 			fi
 			export PYTHONPATH=$OLD_PYTHONPATH

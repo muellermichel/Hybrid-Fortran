@@ -789,13 +789,14 @@ EXAMPLE:\n\
 		self.initLevel = max(self.initLevel, Init.TEMPLATE_LOADED)
 
 	def setOptionsFromAttributes(self, attributes):
-		if "present" in attributes:
+		attributesLower = [a.lower() for a in attributes]
+		if "present" in attributesLower:
 			self.isPresent = True
-		if "autoDom" in attributes:
+		if "autodom" in attributesLower:
 			self.isAutoDom = True
-		if "host" in attributes:
+		if "host" in attributesLower:
 			self.isHostSymbol = True
-		if "transferHere" in attributes:
+		if "transferhere" in attributesLower:
 			self._isToBeTransfered = True
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] attributes set")
 

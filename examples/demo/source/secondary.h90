@@ -7,4 +7,33 @@ module secondary
   @domainDependant{attribute(host), domName(dom1), domSize(2)}
   my_external_array2
   @end domainDependant
+
+  contains
+  subroutine kernel9_cpu_scalar_1(input, temporary)
+  	implicit none
+    real(4), intent(in) :: input
+    real(4), intent(out) :: temporary
+
+    @domainDependant{attribute(autoDom, present), domName(x,y), domSize(NX,NY)}
+    input, temporary
+    @end domainDependant
+
+    @parallelRegion{appliesTo(GPU), domName(x,y), domSize(NX, NY)}
+    temporary = input * 2
+    @end parallelRegion
+  end subroutine
+
+  subroutine kernel9_cpu_scalar_2(temporary, temporary2)
+  	implicit none
+    real(4), intent(in) :: temporary
+    real(4), intent(out) :: temporary2
+
+    @domainDependant{attribute(autoDom, present), domName(x,y), domSize(NX,NY)}
+    temporary2, temporary
+    @end domainDependant
+
+    @parallelRegion{appliesTo(GPU), domName(x,y), domSize(NX, NY)}
+    temporary2 = temporary + 1
+    @end parallelRegion
+  end subroutine
 end module

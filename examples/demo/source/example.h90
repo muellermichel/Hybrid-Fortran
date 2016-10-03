@@ -122,6 +122,40 @@ contains
     @end parallelRegion
   end subroutine
 
+  subroutine kernel9_cpu_parallel(input, output)
+    implicit none
+    real(4), dimension(NX, NY), intent(in) :: input
+    real(4), dimension(NX, NY), intent(out) :: output
+
+    @domainDependant{attribute(autoDom, transferHere)}
+    input, output
+    @end domainDependant
+
+    @parallelRegion{appliesTo(CPU), domName(x,y), domSize(NX, NY)}
+    call kernel9_cpu_scalar_outer(input(x,y), output(x,y))
+    @end parallelRegion
+  end subroutine
+
+  subroutine kernel9_cpu_scalar_outer(input, output)
+    use secondary, only: kernel9_cpu_scalar_1, kernel9_cpu_scalar_2
+    implicit none
+    real(4), intent(in) :: input
+    real(4), intent(out) :: output
+    real(4) :: temporary, temporary2
+
+    @domainDependant{attribute(autoDom, present), domName(x,y), domSize(NX,NY)}
+    input, output, temporary, temporary2
+    @end domainDependant
+
+    ! you can mix calls to other GPU kernels with GPU kernel definitions in the same subroutine
+    call kernel9_cpu_scalar_1(input, temporary)
+    call kernel9_cpu_scalar_2(temporary, temporary2)
+
+    @parallelRegion{appliesTo(GPU), domName(x,y), domSize(NX, NY)}
+    output = temporary2 + 1
+    @end parallelRegion
+  end subroutine
+
   subroutine assert_values(test_array, expected_value)
     implicit none
     real, dimension(NX, NY), intent(in) :: test_array
@@ -198,6 +232,11 @@ contains
     call kernel8(a, b, c, d)
     call assert_values(c, 3.0d0)
     call assert_values(d, 4.0d0)
+
+    c(:,:) = 0.0d0
+    call kernel9_cpu_parallel(a, c)
+    call assert_values(c, 4.0d0)
+
   end subroutine
 end module
 

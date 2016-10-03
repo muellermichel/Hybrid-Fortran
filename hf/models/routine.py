@@ -289,6 +289,13 @@ This is not allowed for implementations using %s.\
 			raise Exception("global context not loaded correctly for routine %s" %(self.name))
 
 		try:
+			#make sure that the symbols we have currently in scope have their attributes updated.
+			#example where this was needed: local symbol that gets expanded with parallel dimensions otherwise
+			#can get treated as compaction symbol for kernels where it isn't used as an argument
+			for symbol in self.symbolsByName.values():
+				symbol.parallelRegionPosition = self.node.getAttribute("parallelRegionPosition")
+				symbol.loadRoutineNodeAttributes(self.node, self.parallelRegionTemplates)
+
 			#build list of additional subroutine parameters
 			#(parameters that the user didn't specify but that are necessary based on the features of the underlying technology
 			# and the symbols declared by the user, such us temporary arrays and imported symbols)

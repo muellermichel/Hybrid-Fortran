@@ -244,6 +244,7 @@ This is not allowed for implementations using %s.\
 		toBeCompacted = []
 		otherImports = []
 		declarationPrefix = None
+		purgeList=['intent', 'public', 'save', 'allocatable']
 		for symbol in additionalImports:
 			declType = symbol.declarationType
 
@@ -258,7 +259,7 @@ This is not allowed for implementations using %s.\
 			# why not integers? because they can be used as array boundaries.
 			# Note: currently only a single real type per subroutine is supported for compaction
 			#$$$ dangerous in case of mixed precition usage
-			currentDeclarationPrefix = symbol.getSanitizedDeclarationPrefix(purgeList=['intent', 'public', 'save'])
+			currentDeclarationPrefix = symbol.getSanitizedDeclarationPrefix(purgeList=purgeList)
 
 			# CUDA Fortran supports parameters defined in kernels, at least as of v16.5
 			if declType in [
@@ -279,7 +280,7 @@ This is not allowed for implementations using %s.\
 				otherImports.append(symbol)
 		arrayDeclarationPrefix = None
 		if len(toBeCompacted) > 0:
-			arrayDeclarationPrefix = toBeCompacted[0].getSanitizedDeclarationPrefix()
+			arrayDeclarationPrefix = toBeCompacted[0].getSanitizedDeclarationPrefix(purgeList=purgeList)
 		return toBeCompacted, arrayDeclarationPrefix, otherImports
 
 	def _prepareAdditionalContext(self):

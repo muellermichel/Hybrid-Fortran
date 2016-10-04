@@ -229,7 +229,7 @@ class FortranImplementation(object):
 				parallelRegionTemplate,
 				useOpenACC=self.useOpenACCForDebugPrintStatements
 			)
-			self._currKernelNumber += 1
+		self._currKernelNumber += 1
 		return result
 
 	def declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates):
@@ -760,7 +760,7 @@ end subroutine
 				parallelRegionTemplate,
 				useOpenACC=self.useOpenACCForDebugPrintStatements
 			)
-			self._currKernelNumber += 1
+		self._currKernelNumber += 1
 		return result
 
 	#MMU: we first need a branch analysis on the subroutine to do this

@@ -1175,6 +1175,10 @@ end if\n" %(calleeNode.getAttribute('name'))
 					continue
 				if symbol.isDummySymbolForRoutine(routineName=parentNode.getAttribute('name')):
 					continue #already passed manually
+				if callee.regions != None \
+				and not symbol.name in callee.usedSymbolNamesInKernels:
+					#we have the full routine context available for callee -> use this information to reduce unneeded scope.
+					continue
 				if symbol._isHostSymbol \
 				and not symbol.name in currRoutine.usedSymbolNamesInKernels \
 				and not symbol.name in callee.usedSymbolNamesInKernels:

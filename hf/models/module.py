@@ -18,6 +18,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
+import weakref
 from models.routine import AnalyzableRoutine
 
 class Module(object):
@@ -32,9 +33,13 @@ class Module(object):
 		self._undecidedText = ""
 		self._firstRoutinesByName = {}
 		self._routinesForImplementation = None
+		self.modulesByName = None
+		self.routinesByName = None
 
 	@property
 	def routines(self):
+		if self._routinesForImplementation:
+			return self._routinesForImplementation
 		return sum([
 			v.values()
 			for _, v in self._routinesByNameAndImplementationClass.iteritems()
@@ -76,6 +81,10 @@ class Module(object):
 		for routine in self._routinesForImplementation:
 			routine._analyseSymbolUsage() #need to do this twice to get additional context right
 
+	def implemented(self, modulesByName, routinesByName):
+		self.modulesByName = modulesByName
+		self.routinesByName = routinesByName
+
 		for routine in self._routinesForImplementation:
 			routine._checkParallelRegions()
 			routine._updateSymbolReferences()
@@ -89,7 +98,6 @@ class Module(object):
 		for routine in self._routinesForImplementation:
 			routine.checkSymbols()
 
-	def implemented(self):
 		self._footerText = self._undecidedText
 		self._undecidedText = ""
 		implementedModuleElements = \

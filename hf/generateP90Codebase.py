@@ -194,14 +194,21 @@ progressIndicatorReset(sys.stderr)
 
 #   Preprocess all modules.
 #   Routines will be split according to architecture.
-#   Additional symbols will be passed in according to architecture (emulate module scope for GPU).
 #   Symbol usage will be analysed so this info is available globally.
-#   Checks will be performed
+modulesByName = {}
+routinesByName = {}
 for fileNum, fc in enumerate(fileContents):
 	printProgressIndicator(sys.stderr, fc['fileName'], fileNum + 1, len(fileContents), "Prepare Modules for Implementation")
 	try:
 		for m in fc['modules']:
 			m.prepareForImplementation()
+			if modulesByName.get(m.name) != None:
+				raise UsageError("Multiple modules with name %s found" %(m.name))
+			modulesByName[m.name] = m
+			for r in m.routines:
+				if routinesByName.get(r.name) != None:
+					raise UsageError("Multiple routines with name %s found" %(r.name))
+				routinesByName[r.name] = r
 	except UsageError as e:
 		logging.error('Error: %s' %(str(e)))
 		sys.exit(1)
@@ -219,7 +226,7 @@ for fileNum, fc in enumerate(fileContents):
 	try:
 		outputStream.write(codeSanitizer.sanitizeLines(fc['prefix'] + "\n"))
 		for m in fc['modules']:
-			outputStream.write(codeSanitizer.sanitizeLines(m.implemented() + "\n\n"))
+			outputStream.write(codeSanitizer.sanitizeLines(m.implemented(modulesByName, routinesByName) + "\n\n"))
 			outputStream.write(codeSanitizer.sanitizeLines(fc['appendixByModuleName'].get(m.name, "") + "\n"))
 	except UsageError as e:
 		logging.error('Error: %s' %(str(e)))

@@ -48,10 +48,19 @@ class Routine(object):
 			raise Exception("no valid name passed when trying to initialize routine")
 		self.name = name
 		self._programmerArguments = None
+		self._regions = None
 		if moduleRequiresStrongReference:
 			self._parentModule = module
 		else:
 			self._parentModule = weakref.ref(module)
+
+	@property
+	def regions(self):
+		return self._regions
+
+	@regions.setter
+	def regions(self, _regions):
+		self._regions = _regions
 
 	@property
 	def parentModule(self):
@@ -123,14 +132,6 @@ class AnalyzableRoutine(Routine):
 			if region.isCallingKernel:
 				return True
 		return False
-
-	@property
-	def regions(self):
-		return self._regions
-
-	@regions.setter
-	def regions(self, _regions):
-		self._regions = _regions
 
 	def _checkParallelRegions(self):
 		if self.node.getAttribute('parallelRegionPosition') != 'within':
@@ -342,11 +343,19 @@ This is not allowed for implementations using %s.\
 						continue
 					if self.parentModule.name != callee.parentModule.name:
 						continue
+
+					#the callee routine has all the information about what's going on inside the routine,
+					#, as opposed to only the interface information that is available in callee. this allows
+					#detailed symbol usage analysis
+					calleeRoutine = self.parentModule.routinesByName.get(callee.name)
+					if not calleeRoutine:
+						calleeRoutine = callee
+
 					additionalImportsForDeviceCompatibility, \
 					additionalDeclarationsForDeviceCompatibility, \
 					additionalDummies = callee.implementation.getAdditionalKernelParameters(
 						currRoutine=self,
-						callee=callee,
+						callee=calleeRoutine,
 						moduleNodesByName=self._moduleNodesByName,
 						symbolAnalysisByRoutineNameAndSymbolName=self._symbolAnalysisByRoutineNameAndSymbolName
 					)

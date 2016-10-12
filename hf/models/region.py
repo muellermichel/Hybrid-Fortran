@@ -208,26 +208,24 @@ class CallRegion(Region):
 			raise Exception("call not loaded for call region in %s" %(self._routineRef().name))
 
 		text = ""
-
 		parentRoutine = self._routineRef()
-		calleesWithPackedReals = parentRoutine._packedRealSymbolsByCalleeName.keys()
-		for calleeName in calleesWithPackedReals:
-			usedCompactedParameters = [
-				s for s in sorted(parentRoutine._packedRealSymbolsByCalleeName[calleeName])
-				if s.name in self._callee.usedSymbolNames
-			]
-			for idx, symbol in enumerate(usedCompactedParameters):
-				text += "%s(%i) = %s" %(
-					limitLength(frameworkArrayName(calleeName)),
-					idx+1,
-					symbol.nameInScope()
-				) + " ! type %i symbol compaction for callee %s\n" %(symbol.declarationType, calleeName)
+		calleeName = parentRoutine._adjustedCalleeNamesByName[self._callee.name]
+
+		usedCompactedParameters = [
+			s for s in sorted(parentRoutine._packedRealSymbolsByCalleeName.get(calleeName, []))
+			if s.name in self._callee.usedSymbolNames
+		]
+		for idx, symbol in enumerate(usedCompactedParameters):
+			text += "%s(%i) = %s" %(
+				limitLength(frameworkArrayName(calleeName)),
+				idx+1,
+				symbol.nameInScope()
+			) + " ! type %i symbol compaction for callee %s\n" %(symbol.declarationType, calleeName)
 
 		parallelRegionPosition = None
 		if hasattr(self._callee, "implementation"):
 			parallelRegionPosition = self._callee.node.getAttribute("parallelRegionPosition")
 
-		calleeName = parentRoutine._adjustedCalleeNamesByName[self._callee.name]
 
 		isForeignModuleCall = parentRoutine.parentModule.name != self._callee.parentModule.name
 		if hasattr(self._callee, "implementation") and parallelRegionPosition == "within" and not isForeignModuleCall:

@@ -23,7 +23,7 @@ from tools.metadata import parseString, ImmutableDOMDocument, getClonedDocument,
 from optparse import OptionParser
 from machinery.parser import H90XMLSymbolDeclarationExtractor, getModuleNodesByName, getParallelRegionData
 from machinery.converter import H90toF90Converter, getSymbolsByRoutineNameAndSymbolName, getSymbolsByModuleNameAndSymbolName
-from machinery.commons import ConversionOptions
+from machinery.commons import ConversionOptions, FortranCodeSanitizer
 from tools.commons import UsageError, openFile, getDataFromFile, setupDeferredLogging, printProgressIndicator, progressIndicatorReset
 from tools.filesystem import dirEntries
 from tools.analysis import SymbolDependencyAnalyzer
@@ -171,18 +171,14 @@ except Exception as e:
 	logging.info(traceback.format_exc())
 	sys.exit(1)
 
-
-
-#   Finally, do the conversion based on all the information above.
+#   Prepare the content for all files based on all the information above.
+fileContents = []
 for fileNum, fileInDir in enumerate(filesInDir):
-	outputPath = os.path.join(os.path.normpath(options.outputDir), os.path.splitext(os.path.basename(fileInDir))[0] + ".P90.temp")
-	printProgressIndicator(sys.stderr, fileInDir, fileNum + 1, len(filesInDir), "Converting to Standard Fortran")
-	outputStream = FileIO(outputPath, mode="wb")
+	printProgressIndicator(sys.stderr, fileInDir, fileNum + 1, len(filesInDir), "Preparing File Content")
 	try:
 		converter = H90toF90Converter(
 			ImmutableDOMDocument(cgDoc), #using our immutable version we can speed up ALL THE THINGS through caching
 			implementationsByTemplateName,
-			outputStream,
 			moduleNodesByName,
 			parallelRegionData,
 			symbolAnalysisByRoutineNameAndSymbolName,
@@ -190,7 +186,26 @@ for fileNum, fileInDir in enumerate(filesInDir):
 			symbolsByRoutineNameAndSymbolName,
 			parallelDomainNames
 		)
-		converter.processFile(fileInDir)
+		fileContents.append(converter.prepareFileContent(fileInDir))
+	except UsageError as e:
+		logging.error('Error: %s' %(str(e)))
+		sys.exit(1)
+progressIndicatorReset(sys.stderr)
+
+#   Finally, do the conversion based on the prepare content
+codeSanitizer = FortranCodeSanitizer()
+for fileNum, fc in enumerate(fileContents):
+	outputPath = os.path.join(
+		os.path.normpath(options.outputDir),
+		os.path.splitext(os.path.basename(fc['fileName']))[0] + ".P90.temp"
+	)
+	printProgressIndicator(sys.stderr, fc['fileName'], fileNum + 1, len(fileContents), "Implementing as Standard Fortran")
+	outputStream = FileIO(outputPath, mode="wb")
+	try:
+		outputStream.write(codeSanitizer.sanitizeLines(fc['prefix'] + "\n"))
+		for m in fc['modules']:
+			outputStream.write(codeSanitizer.sanitizeLines(m.implemented() + "\n\n"))
+			outputStream.write(codeSanitizer.sanitizeLines(fc['appendixByModuleName'].get(m.name, "") + "\n"))
 	except UsageError as e:
 		logging.error('Error: %s' %(str(e)))
 		sys.exit(1)

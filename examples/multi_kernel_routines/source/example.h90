@@ -80,15 +80,19 @@ contains
   subroutine inline_kernels(a, b, c, d)
     real, dimension(NZ), intent(in) :: a, b
     real, dimension(NZ), intent(out) :: c, d
-    integer :: z
+    integer :: z, z_end
+    real :: temp
 
     @domainDependant{attribute(present), domName(x,y,z), domSize(NX,NY,NZ), domPP(DOM), accPP(AT)}
     a, b, c, d
     @end domainDependant
 
+    z_end = NZ
+
     @parallelRegion{appliesTo(GPU), domName(x,y), domSize(NX, NY)}
-    do z=1,NZ
-      c(z) = a(z) + b(z)
+    do z=1,z_end
+      temp = a(z) + b(z)
+      c(z) = temp
     end do
     @end parallelRegion
 

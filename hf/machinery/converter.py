@@ -27,7 +27,7 @@ from tools.metadata import *
 from tools.commons import UsageError, BracketAnalyzer, stacktrace
 from tools.analysis import SymbolDependencyAnalyzer, getAnalysisForSymbol, getArguments
 from machinery.parser import H90CallGraphAndSymbolDeclarationsParser, getSymbolsByName, currFile, currLineNo
-from machinery.commons import FortranCodeSanitizer, ConversionOptions, parseSpecification
+from machinery.commons import ConversionOptions, parseSpecification
 
 def getSymbolsByModuleNameAndSymbolName(cgDoc, moduleNodesByName, symbolAnalysisByRoutineNameAndSymbolName={}):
     symbolsByModuleNameAndSymbolName = {}
@@ -73,7 +73,6 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
         self,
         cgDoc,
         implementationsByTemplateName,
-        outputStream=sys.stdout,
         moduleNodesByName=None,
         parallelRegionData=None,
         symbolAnalysisByRoutineNameAndSymbolName=None,
@@ -88,7 +87,6 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
             implementationsByTemplateName=implementationsByTemplateName
         )
         self.globalParallelDomainNames = globalParallelDomainNames
-        self.outputStream = outputStream
         self.currSubroutineImplementationNeedsToBeCommented = False
         self.currParallelIterators = []
         self.currRoutine = None
@@ -96,11 +94,14 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
         self.currParallelRegion = None
         self.currModule = None
         self.currCallee = None
-        self.codeSanitizer = FortranCodeSanitizer()
         self.currParallelRegionRelationNode = None
         self.currParallelRegionTemplateNode = None
         self.prepareLineCalledForCurrentLine = False
         self.preparedBy = None
+        self.modulesInFile = []
+        self.prefix = ""
+        self.appendixByModuleName = {}
+        self.lastModuleName = None
         try:
             if symbolAnalysisByRoutineNameAndSymbolName != None:
                 self.symbolAnalysisByRoutineNameAndSymbolName = symbolAnalysisByRoutineNameAndSymbolName
@@ -129,7 +130,7 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
                 sum([index.values() for index in self.symbolsByRoutineNameAndSymbolName.values()], []),
                 globalParallelDomainNames
             )
-            
+
         except UsageError as e:
             logging.error('%s' %(str(e)), extra={"hfLineNo":currLineNo, "hfFile":currFile})
             sys.exit(1)
@@ -161,6 +162,39 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
                 and symbol.analysis.argumentIndexByRoutineName.get(self.currRoutine.name, -1) == -1 \
             )
         ]
+
+    def loadLine(self, line):
+        if line == "":
+            return
+        if self.currRegion:
+            self.currRegion.loadLine(line, self.symbolsOnCurrentLine + self.importsOnCurrentLine)
+        elif self.currRoutine:
+            self.currRoutine.loadLine(line, self.symbolsOnCurrentLine + self.importsOnCurrentLine)
+        elif self.currModule:
+            self.currModule.loadLine(line)
+        elif not self.lastModuleName:
+            self.prefix += line
+        else:
+            appendix = self.appendixByModuleName.get(self.lastModuleName, "")
+            appendix += line
+            self.appendixByModuleName[self.lastModuleName] = appendix
+
+    #TODO: remove tab argument everywhere
+    def prepareLine(self, line, tab):
+        if self.prepareLineCalledForCurrentLine:
+            raise Exception(
+                "Line has already been prepared by %s - there is an error in the transpiler logic. Please contact the Hybrid Fortran maintainers. Parser state: %s; before branch: %s" %(
+                    self.preparedBy,
+                    self.state,
+                    self.stateBeforeBranch
+                )
+            )
+        self.preparedBy = ""
+        if ConversionOptions.Instance().debugPrint:
+            import inspect
+            self.preparedBy = inspect.getouterframes(inspect.currentframe(), 2)[1][3]
+        self.prepareLineCalledForCurrentLine = True
+        self.loadLine(line)
 
     def processModuleSymbolImportAndGetAdjustedLine(self, line, symbols):
         if len(symbols) == 0:
@@ -245,11 +279,12 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
             self.currModuleName,
             self.moduleNodesByName[self.currModuleName]
         )
+        self.modulesInFile.append(self.currModule)
         self.prepareLine(moduleBeginMatch.group(0), self.tab_outsideSub)
 
     def processModuleEndMatch(self, moduleEndMatch):
         self.prepareLine(moduleEndMatch.group(0), self.tab_outsideSub)
-        self.outputStream.write(self.codeSanitizer.sanitizeLines(self.currModule.implemented() + "\n\n"))
+        self.lastModuleName = self.currModule.name
         self.currModule = None
         self.implementation.processModuleEnd()
         super(H90toF90Converter, self).processModuleEndMatch(moduleEndMatch)
@@ -613,34 +648,13 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
             )
 
     def processFile(self, fileName):
-        self.outputStream.write(self.implementation.filePreparation(fileName))
         super(H90toF90Converter, self).processFile(fileName)
 
-    def putLine(self, line):
-        if line == "":
-            return
-        if self.currRegion:
-            self.currRegion.loadLine(line, self.symbolsOnCurrentLine + self.importsOnCurrentLine)
-        elif self.currRoutine:
-            self.currRoutine.loadLine(line, self.symbolsOnCurrentLine + self.importsOnCurrentLine)
-        elif self.currModule:
-            self.currModule.loadLine(line)
-        else:
-            self.outputStream.write(self.codeSanitizer.sanitizeLines(line))
-
-    #TODO: remove tab argument everywhere
-    def prepareLine(self, line, tab):
-        if self.prepareLineCalledForCurrentLine:
-            raise Exception(
-                "Line has already been prepared by %s - there is an error in the transpiler logic. Please contact the Hybrid Fortran maintainers. Parser state: %s; before branch: %s" %(
-                    self.preparedBy,
-                    self.state,
-                    self.stateBeforeBranch
-                )
-            )
-        self.preparedBy = ""
-        if ConversionOptions.Instance().debugPrint:
-            import inspect
-            self.preparedBy = inspect.getouterframes(inspect.currentframe(), 2)[1][3]
-        self.prepareLineCalledForCurrentLine = True
-        self.putLine(line)
+    def prepareFileContent(self, fileName):
+        self.processFile(fileName)
+        return {
+            "fileName": fileName,
+            "prefix": self.implementation.filePreparation(fileName) + self.prefix,
+            "modules": self.modulesInFile,
+            "appendixByModuleName": self.appendixByModuleName
+        }

@@ -192,6 +192,21 @@ for fileNum, fileInDir in enumerate(filesInDir):
 		sys.exit(1)
 progressIndicatorReset(sys.stderr)
 
+#   Preprocess all modules.
+#   Routines will be split according to architecture.
+#   Additional symbols will be passed in according to architecture (emulate module scope for GPU).
+#   Symbol usage will be analysed so this info is available globally.
+#   Checks will be performed
+for fileNum, fc in enumerate(fileContents):
+	printProgressIndicator(sys.stderr, fc['fileName'], fileNum + 1, len(fileContents), "Prepare Modules for Implementation")
+	try:
+		for m in fc['modules']:
+			m.prepareForImplementation()
+	except UsageError as e:
+		logging.error('Error: %s' %(str(e)))
+		sys.exit(1)
+progressIndicatorReset(sys.stderr)
+
 #   Finally, do the conversion based on the prepare content
 codeSanitizer = FortranCodeSanitizer()
 for fileNum, fc in enumerate(fileContents):

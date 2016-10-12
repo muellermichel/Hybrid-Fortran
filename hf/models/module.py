@@ -31,6 +31,7 @@ class Module(object):
 		self._footerText = ""
 		self._undecidedText = ""
 		self._firstRoutinesByName = {}
+		self._routinesForImplementation = None
 
 	@property
 	def routines(self):
@@ -67,37 +68,37 @@ class Module(object):
 		self._postTextByRoutine[routine.name] = ""
 		return routine
 
-	def implemented(self):
-		routines = []
+	def prepareForImplementation(self):
+		self._routinesForImplementation = []
 		for routine in self.routines:
-			routines += routine.implementation.generateRoutines(routine)
+			self._routinesForImplementation += routine.implementation.generateRoutines(routine)
 
-		for routine in routines:
+		for routine in self._routinesForImplementation:
 			routine._analyseSymbolUsage() #need to do this twice to get additional context right
 
-		for routine in routines:
+		for routine in self._routinesForImplementation:
 			routine._checkParallelRegions()
 			routine._updateSymbolReferences()
 			routine._prepareAdditionalContext()
 
-		for routine in routines:
+		for routine in self._routinesForImplementation:
 			routine._analyseSymbolUsage()
 			routine._mergeSynthesizedWithExistingSymbols()
 			routine._prepareCallRegions()
 
-		for routine in routines:
+		for routine in self._routinesForImplementation:
 			routine.checkSymbols()
 
+	def implemented(self):
 		self._footerText = self._undecidedText
 		self._undecidedText = ""
-
 		implementedModuleElements = \
 			[self._headerText.strip()] \
 			+ [
 				(
 					routine.implemented() + "\n" + self._postTextByRoutine.get(routine.name, "").strip()
 				).strip()
-				for routine in routines
+				for routine in self._routinesForImplementation
 			] \
 			+ [self._footerText.strip()]
 		purgedModuleElements = [

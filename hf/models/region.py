@@ -496,15 +496,12 @@ class RoutineSpecificationRegion(Region):
 				))
 
 		text = ""
-		moduleNamesCompletelyImported = [
-			sourceModule for (sourceModule, nameInScope) in self._allImports if nameInScope == None
-		] if self._allImports else []
 		if len(self._typeParameterSymbolsByName.keys()) > 0 \
 		and ConversionOptions.Instance().debugPrint \
 		and not skipDebugPrint:
 			text += "!<----- type parameters --\n"
 		for typeParameterSymbol in self._typeParameterSymbolsByName.values():
-			if typeParameterSymbol.sourceModule in moduleNamesCompletelyImported:
+			if typeParameterSymbol.sourceModule in parentRoutine.moduleNamesCompletelyImported:
 				continue
 			if typeParameterSymbol.isDimensionParameter:
 				continue
@@ -516,7 +513,7 @@ class RoutineSpecificationRegion(Region):
 				if not nameInScope:
 					text += getImportLine(sourceModule, parentRoutine)
 					continue
-				if sourceModule in moduleNamesCompletelyImported:
+				if sourceModule in parentRoutine.moduleNamesCompletelyImported:
 					continue
 				if nameInScope in self._typeParameterSymbolsByName \
 				and not self._typeParameterSymbolsByName[nameInScope].isDimensionParameter:

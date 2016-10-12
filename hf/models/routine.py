@@ -109,6 +109,7 @@ class AnalyzableRoutine(Routine):
 		self._adjustedCalleeNamesByName = None
 		self.usedSymbolNames = {}
 		self.usedSymbolNamesInKernels = {}
+		self._moduleNamesCompletelyImported = None
 
 	@property
 	def additionalArgumentSymbols(self):
@@ -132,6 +133,17 @@ class AnalyzableRoutine(Routine):
 			if region.isCallingKernel:
 				return True
 		return False
+
+	@property
+	def moduleNamesCompletelyImported(self):
+		if not self._allImports:
+			return []
+		if self._moduleNamesCompletelyImported != None:
+			return self._moduleNamesCompletelyImported
+		self._moduleNamesCompletelyImported = [
+			sourceModule for (sourceModule, nameInScope) in self._allImports if nameInScope == None
+		]
+		return self._moduleNamesCompletelyImported
 
 	def _checkParallelRegions(self):
 		if self.node.getAttribute('parallelRegionPosition') != 'within':
@@ -597,7 +609,7 @@ This is not allowed for implementations using %s.\
 		if not self._additionalImports or len(self._additionalImports) == 0:
 			return self.implementation.additionalIncludes()
 		return self.implementation.getImportSpecification(
-			self._additionalImports,
+			[i for i in self._additionalImports if not i.sourceModule in self.moduleNamesCompletelyImported],
 			RegionType.KERNEL_CALLER_DECLARATION if self.isCallingKernel else RegionType.OTHER,
 			self.node.getAttribute('parallelRegionPosition'),
 			self.parallelRegionTemplates

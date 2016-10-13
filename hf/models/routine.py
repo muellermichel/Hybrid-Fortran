@@ -359,7 +359,8 @@ This is not allowed for implementations using %s.\
 					#the callee routine has all the information about what's going on inside the routine,
 					#, as opposed to only the interface information that is available in callee. this allows
 					#detailed symbol usage analysis
-					calleeRoutine = self.parentModule.routinesByName.get(callee.name)
+					adjustedCalleeName = self._adjustedCalleeNamesByName.get(callee.name, callee.name)
+					calleeRoutine = self.parentModule.routinesByName.get(adjustedCalleeName)
 					if not calleeRoutine:
 						calleeRoutine = callee
 

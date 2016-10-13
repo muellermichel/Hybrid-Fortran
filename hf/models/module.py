@@ -87,13 +87,17 @@ class Module(object):
 
 		for routine in self._routinesForImplementation:
 			routine._checkParallelRegions()
+
+		for routine in self._routinesForImplementation:
 			routine._updateSymbolReferences()
+			routine._prepareCallRegions()
+
+		for routine in self._routinesForImplementation:
 			routine._prepareAdditionalContext()
 
 		for routine in self._routinesForImplementation:
 			routine._analyseSymbolUsage()
 			routine._mergeSynthesizedWithExistingSymbols()
-			routine._prepareCallRegions()
 
 		for routine in self._routinesForImplementation:
 			routine.checkSymbols()

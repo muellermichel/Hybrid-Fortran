@@ -679,7 +679,7 @@ class RoutineSpecificationRegion(Region):
 		declarationEndText = parentRoutine.implementation.declarationEnd(
 			[
 				s for s in parentRoutine.symbolsByName.values() + parentRoutine.additionalImports
-				if s.name in parentRoutine.usedSymbolNames
+				if s.isToBeTransfered or s.name in parentRoutine.usedSymbolNames
 			],
 			parentRoutine.isCallingKernel,
 			parentRoutine.node,
@@ -708,7 +708,7 @@ class RoutineEarlyExitRegion(Region):
 		text = parentRoutine.implementation.subroutineExitPoint(
 			[
 				s for s in parentRoutine.symbolsByName.values()
-				if s.name in parentRoutine.usedSymbolNames
+				if s.isToBeTransfered or s.name in parentRoutine.usedSymbolNames
 			],
 			parentRoutine.isCallingKernel,
 			isSubroutineEnd=False

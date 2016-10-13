@@ -618,7 +618,10 @@ This is not allowed for implementations using %s.\
 
 	def _implementFooter(self):
 		return self.implementation.subroutineExitPoint(
-			self.symbolsByName.values(),
+			[
+				s for s in self.symbolsByName.values()
+				if s.isToBeTransfered or s.name in self.usedSymbolNames
+			],
 			self.isCallingKernel,
 			isSubroutineEnd=True
 		) + "end subroutine\n"

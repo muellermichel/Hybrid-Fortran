@@ -125,6 +125,17 @@ class Region(object):
 			symbolsOnCurrentLine if symbolsOnCurrentLine else []
 		))
 
+	def firstAccessTypeOfScalar(self, symbol):
+		if symbol.domains:
+			raise Exception("non scalars not supported for this operation")
+		for line, symbols in self._linesAndSymbols:
+			if not symbol in symbols:
+				continue
+			if symbol.scalarWriteAccessPattern.match(line):
+				return "w"
+			return "r"
+		return None
+
 	def implemented(self, skipDebugPrint=False):
 		parentRoutine = self._routineRef()
 		parallelRegionTemplate = None
@@ -371,6 +382,13 @@ class ParallelRegion(Region):
 		clone._currRegion = clone._subRegions[0]
 		return clone
 
+	def firstAccessTypeOfScalar(self, symbol):
+		for region in self._subRegions:
+			accessType = region.firstAccessTypeOfScalar(symbol)
+			if accessType != None:
+				return accessType
+		return None
+
 	def implemented(self, skipDebugPrint=False):
 		text = ""
 		hasAtExits = None
@@ -441,6 +459,9 @@ class RoutineSpecificationRegion(Region):
 
 	def loadTypeParameterSymbolsByName(self, typeParameterSymbolsByName):
 		self._typeParameterSymbolsByName = copy.copy(typeParameterSymbolsByName)
+
+	def firstAccessTypeOfScalar(self, symbol):
+		return None
 
 	def implemented(self, skipDebugPrint=False):
 		def getImportLine(importedSymbols, parentRoutine):

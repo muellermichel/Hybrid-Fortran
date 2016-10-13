@@ -145,6 +145,13 @@ class AnalyzableRoutine(Routine):
 		]
 		return self._moduleNamesCompletelyImported
 
+	def firstAccessTypeOfScalar(self, symbol):
+		for region in self.regions:
+			accessType = region.firstAccessTypeOfScalar(symbol)
+			if accessType != None:
+				return accessType
+		return None
+
 	def _checkParallelRegions(self):
 		if self.node.getAttribute('parallelRegionPosition') != 'within':
 			return

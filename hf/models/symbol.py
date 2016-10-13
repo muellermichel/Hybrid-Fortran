@@ -281,6 +281,7 @@ class Symbol(object):
 		self.importMapPattern = self.patterns.get(r'.*?\W' + re.escape(name) + r'\s*\=\>\s*(\w*).*')
 		self.pointerOrAllocatablePattern = self.patterns.get(r'\s*(?:double\s+precision|real|integer|character|logical|complex).*?(?:pointer|allocatable).*?[\s,:]+' + re.escape(name))
 		self.typeDependencyPattern = self.patterns.get(r'.*?(?:\W|^)' + re.escape(name) + r'(?:\W|$).*')
+		self.scalarWriteAccessPattern = self.patterns.get(r'[^(]*?(?:[^\w(]|^)' + re.escape(name) + r'\s*=[^=].*')
 		self.initLevel = Init.NOTHING_LOADED
 		self.routineNode = None
 		self.declarationSuffix = None

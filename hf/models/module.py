@@ -79,7 +79,7 @@ class Module(object):
 			self._routinesForImplementation += routine.implementation.generateRoutines(routine)
 
 		for routine in self._routinesForImplementation:
-			routine._analyseSymbolUsage() #need to do this twice to get additional context right
+			routine._analyseSymbolUsage()
 
 	def implemented(self, modulesByName, routinesByName):
 		self.modulesByName = modulesByName
@@ -96,7 +96,7 @@ class Module(object):
 			routine._prepareAdditionalContext()
 
 		for routine in self._routinesForImplementation:
-			routine._analyseSymbolUsage()
+			routine._analyseSymbolUsage() #need to do this a second time to get additional context right
 			routine._mergeSynthesizedWithExistingSymbols()
 
 		for routine in self._routinesForImplementation:

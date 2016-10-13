@@ -165,7 +165,19 @@ class CallRegion(Region):
 
 	@property
 	def usedSymbolNames(self):
-		return super(CallRegion, self).usedSymbolNames + [a.split("(")[0].strip() for a in self._callee.programmerArguments]
+		compactedSymbols = sum([
+			 s.compactedSymbols for s in self._callee._additionalArguments
+			 if isinstance(s, FrameworkArray)
+		], []) if self._callee._additionalArguments else []
+
+		additionalArgumentSymbols = [
+			s for s in self._callee._additionalArguments
+			if not isinstance(s, FrameworkArray)
+		] if self._callee._additionalArguments else []
+
+		return super(CallRegion, self).usedSymbolNames \
+			+ [a.split("(")[0].strip() for a in self._callee.programmerArguments] \
+			+ [s.name for s in compactedSymbols + additionalArgumentSymbols]
 
 	def _adjustedArguments(self, arguments):
 		def adjustArgument(argument, parallelRegionTemplate, iterators):
@@ -391,6 +403,13 @@ class RoutineSpecificationRegion(Region):
 		self._typeParameterSymbolsByName = None
 		self._dataSpecificationLines = []
 
+	@property
+	def usedSymbolNames(self):
+		result = []
+		for symbol in sum([symbols for _, symbols in self._linesAndSymbols], []):
+			result += [tp.name for tp in symbol.usedTypeParameters if tp.isDimensionParameter]
+		return result
+
 	def clone(self):
 		clone = super(RoutineSpecificationRegion, self).clone()
 		clone.loadAdditionalContext(
@@ -554,7 +573,6 @@ class RoutineSpecificationRegion(Region):
 					parentRoutine.node.getAttribute('parallelRegionPosition')
 				).strip()
 				for symbol in declaredSymbolsByScopedName.values()
-				if symbol.name in parentRoutine.usedSymbolNames
 			]).strip() + "\n"
 			text += declarations
 		if len(self._dataSpecificationLines) > 0 and ConversionOptions.Instance().debugPrint and not skipDebugPrint:

@@ -424,7 +424,7 @@ This is not allowed for implementations using %s.\
 				additionalSubroutineParameters + additionalCompactedSubroutineParameters
 			)
 
-			#prepare context in callees and load it into our specification region
+			#prepare context in callees
 			compactionDeclarationPrefixByCalleeName = {}
 			for callee in self.callees:
 				if not isinstance(callee, AnalyzableRoutine):
@@ -455,7 +455,7 @@ This is not allowed for implementations using %s.\
 					self._synthesizedSymbols.append(compactedArray)
 				callee._additionalArguments = copy.copy(sorted(notToBeCompacted + compactedArrayList))
 
-			#load into the specification region
+			#load it into the specification region
 			self.regions[0].loadAdditionalContext(
 				additionalParametersByKernelName,
 				ourSymbolsToAdd,

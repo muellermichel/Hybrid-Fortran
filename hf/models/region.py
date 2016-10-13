@@ -168,12 +168,12 @@ class CallRegion(Region):
 		compactedSymbols = sum([
 			 s.compactedSymbols for s in self._callee._additionalArguments
 			 if isinstance(s, FrameworkArray)
-		], []) if self._callee._additionalArguments else []
+		], []) if hasattr(self._callee, "_additionalArguments") and self._callee._additionalArguments else []
 
 		additionalArgumentSymbols = [
 			s for s in self._callee._additionalArguments
 			if not isinstance(s, FrameworkArray)
-		] if self._callee._additionalArguments else []
+		] if hasattr(self._callee, "_additionalArguments") and self._callee._additionalArguments else []
 
 		return super(CallRegion, self).usedSymbolNames \
 			+ [a.split("(")[0].strip() for a in self._callee.programmerArguments] \

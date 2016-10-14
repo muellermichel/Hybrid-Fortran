@@ -667,8 +667,9 @@ This is not allowed for implementations using %s.\
 				continue
 			if symbol.domains:
 				continue #only add scalars
-			if symbol.declarationType == DeclarationType.LOCAL_MODULE_SCALAR:
-				continue #don't include module scalars here - programmer has to add those in each routine manually
+			if symbol.declarationType == DeclarationType.LOCAL_MODULE_SCALAR \
+			and not symbol.isDimensionParameter:
+				continue #don't include general module scalars here - programmer has to add those in each routine manually
 			self.usedSymbolNames[symbol.name] = None
 
 	def checkSymbols(self):

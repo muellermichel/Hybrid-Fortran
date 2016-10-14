@@ -583,7 +583,8 @@ This is not allowed for implementations using %s.\
 		parameterList = ""
 		requiredAdditionalArguments = [
 			symbol for symbol in self._additionalArguments
-			if symbol.name in self.usedSymbolNames
+			if symbol.name in self.usedSymbolNames \
+			and (not symbol.isTypeParameter or symbol.isDimensionParameter)
 		] if self._additionalArguments else []
 		if requiredAdditionalArguments:
 			parameterList += "&\n&"
@@ -654,6 +655,21 @@ This is not allowed for implementations using %s.\
 				if not typeParameter.isDimensionParameter:
 					continue #non-dimension typeparameters are handled separately in spec. region
 				self.usedSymbolNames[typeParameter.name] = None
+
+		#$$$ this is a quick fix for missing scope, because some type parameters
+		# don't get loaded correctly. Check adv_calcflxz_1d as a testcase.
+		symbolsByUserDefinedName = {}
+		for symbol in self.symbolsByName.values():
+			symbolsByUserDefinedName[symbol.name] = symbol
+		for symbolName in self._userSpecifiedSymbolNames:
+			symbol = symbolsByUserDefinedName.get(symbolName)
+			if not symbol:
+				continue
+			if symbol.domains:
+				continue #only add scalars
+			if symbol.declarationType == DeclarationType.LOCAL_MODULE_SCALAR:
+				continue #don't include module scalars here - programmer has to add those in each routine manually
+			self.usedSymbolNames[symbol.name] = None
 
 	def checkSymbols(self):
 		self._checkReferences(self._additionalArguments)

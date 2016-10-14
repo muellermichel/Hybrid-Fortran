@@ -1185,7 +1185,7 @@ end if\n" %(calleeNode.getAttribute('name'))
 					#we are not using symbol.isHostSymbol directly here because *this time* we don't want to be influenced by present state.
 					#please note that device state will be udpated separately in routine._updateSymbolState
 					continue
-				if not symbol.domains and callee.firstAccessTypeOfScalar(symbol) == "w":
+				if not symbol.domains and not symbol.isDimensionParameter and callee.firstAccessTypeOfScalar(symbol) == "w":
 					continue #scalars that are written to first don't need to be passed in. We are assuming no reductions (is not supported in CUDAFortran implementation)
 				isModuleSymbol = symbol.declarationType in [
 					DeclarationType.LOCAL_MODULE_SCALAR,

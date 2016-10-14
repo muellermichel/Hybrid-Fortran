@@ -96,8 +96,8 @@ class Module(object):
 			routine._prepareAdditionalContext()
 
 		for routine in self._routinesForImplementation:
-			routine._analyseSymbolUsage() #need to do this a second time to get additional context right
 			routine._mergeSynthesizedWithExistingSymbols()
+			routine._analyseSymbolUsage() #need to do this a second time to get additional context right
 
 		for routine in self._routinesForImplementation:
 			routine.checkSymbols()

@@ -272,7 +272,8 @@ class CallRegion(Region):
 		if hasattr(self._callee, "implementation"):
 			requiredAdditionalArgumentSymbols = [
 				symbol for symbol in self._callee.additionalArgumentSymbols
-				if symbol.name in self._callee.usedSymbolNames
+				if symbol.name in self._callee.usedSymbolNames \
+				and (not symbol.isTypeParameter or symbol.isDimensionParameter)
 			]
 			if len(requiredAdditionalArgumentSymbols) > 0:
 				text += " &\n"
@@ -618,6 +619,8 @@ class RoutineSpecificationRegion(Region):
 		for symbol in self._symbolsToAdd:
 			if not symbol.name in parentRoutine.usedSymbolNames:
 				continue
+			if symbol.isTypeParameter and not symbol.isDimensionParameter:
+				continue
 			if isinstance(symbol, FrameworkArray):
 				symbol.compactedSymbols = [
 					s for s in symbol.compactedSymbols
@@ -654,6 +657,8 @@ class RoutineSpecificationRegion(Region):
 					# through module association (we assume the kernel and its wrapper reside in the same module)
 					continue
 				if not symbol.name in parentRoutine.usedSymbolNames:
+					continue
+				if symbol.isTypeParameter and not symbol.isDimensionParameter:
 					continue
 				if symbol.nameInScope(useDeviceVersionIfAvailable=False) in declaredSymbolsByScopedName:
 					continue

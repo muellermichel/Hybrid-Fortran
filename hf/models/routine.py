@@ -670,6 +670,8 @@ This is not allowed for implementations using %s.\
 			if symbol.declarationType == DeclarationType.LOCAL_MODULE_SCALAR \
 			and not symbol.isDimensionParameter:
 				continue #don't include general module scalars here - programmer has to add those in each routine manually
+			if not "integer" in symbol.declarationPrefix:
+				continue #we only want dimension parameters; note: adv_calcflxz_1d doesn't recognise some of them as dimension params, so this is a workaround.
 			self.usedSymbolNames[symbol.name] = None
 
 	def checkSymbols(self):

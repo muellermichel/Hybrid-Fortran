@@ -524,8 +524,12 @@ class DeviceDataFortranImplementation(FortranImplementation):
 		#scalars in kernels ...
 		if parallelRegionPosition == "within" \
 		and len(dependantSymbols[0].domains) == 0:
+			#... scalar parameters -> leave them alone, CUDA kernels can handle them fine
+			if "parameter" in declarationDirectives:
+				adjustedLine = declarationDirectives + " :: " + symbolDeclarationStr
+
 			#... not meant for output (if we can't do reductions just induce a potential compiler error at this point)
-			if ( \
+			elif ( \
 				intent not in ["out", "inout"] or not self.assignmentToScalarsInKernelsAllowed \
 			) \
 			and not "character" in purgedDeclarationDirectives:
@@ -1192,6 +1196,8 @@ end if\n" %(calleeNode.getAttribute('name'))
 					DeclarationType.MODULE_ARRAY,
 					DeclarationType.MODULE_ARRAY_PASSED_IN_AS_ARGUMENT
 				]
+				if not symbol.domains and not isModuleSymbol and "parameter" in symbol.declarationPrefix:
+					continue
 				if isModuleSymbol and currRoutine.node.getAttribute('module') == symbol.sourceModule:
 					logging.debug("decl added for %s" %(symbol))
 					additionalDeclarations.append(symbol)

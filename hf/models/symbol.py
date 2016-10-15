@@ -167,6 +167,7 @@ def splitAndPurgeSpecification(line, purgeList=['intent']):
 		rightHandSpecificationFromDataObjectTuple(dataObjectTuple)
 		for dataObjectTuple in specTuple[1]
 	)
+	symbolDeclarationStr += " " + specTuple[2] if specTuple[2] else ""
 	return purgeFromDeclarationDirectives(declarationDirectives, purgeList), declarationDirectives, symbolDeclarationStr
 
 def getReorderedDomainsAccordingToDeclaration(domains, dimensionSizesInDeclaration, purgeUndeclared=False):

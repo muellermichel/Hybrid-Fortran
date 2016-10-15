@@ -423,6 +423,13 @@ class TestSymbolAlgorithms(unittest.TestCase):
 			),
 			("real(8)", "real(8), dimension(n * (m + 1))", "a")
 		)
+		self.assertEqual(
+			splitAndPurgeSpecification(
+				"real, parameter :: my_parameter = 1.0d0",
+				purgeList=[]
+			),
+			("real, parameter", "real, parameter", "my_parameter = 1.0d0")
+		)
 
 class TestImplementationAlgorithms(unittest.TestCase):
 	def testRoutineNameSynthesis(self):

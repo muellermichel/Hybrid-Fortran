@@ -81,6 +81,7 @@ contains
     real, dimension(NZ), intent(in) :: a, b
     real, dimension(NZ), intent(out) :: c, d
     integer :: z, z_end
+    real, parameter :: my_parameter = 1.0d0
     real :: temp
 
     @domainDependant{attribute(present), domName(x,y,z), domSize(NX,NY,NZ), domPP(DOM), accPP(AT)}
@@ -92,7 +93,7 @@ contains
     @parallelRegion{appliesTo(GPU), domName(x,y), domSize(NX, NY)}
     do z=1,z_end
       temp = a(z) + b(z)
-      c(z) = temp
+      c(z) = temp + my_parameter
     end do
     @end parallelRegion
 
@@ -199,7 +200,7 @@ program main
   d(:,:,:) = 0.0d0
   call wrapper_inline_kernels(a, b, c, d)
   write(6,*) "calculation inline complete"
-  call assert_values(c, 3.0d0)
+  call assert_values(c, 4.0d0)
   call assert_values(d, 2.0d0)
 
   c(:,:,:) = 0.0d0

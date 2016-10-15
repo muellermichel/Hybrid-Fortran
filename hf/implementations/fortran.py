@@ -1193,6 +1193,7 @@ end if\n" %(calleeNode.getAttribute('name'))
 					continue #scalars that are written to first don't need to be passed in. We are assuming no reductions (is not supported in CUDAFortran implementation)
 				isModuleSymbol = symbol.declarationType in [
 					DeclarationType.LOCAL_MODULE_SCALAR,
+					DeclarationType.FOREIGN_MODULE_SCALAR,
 					DeclarationType.MODULE_ARRAY,
 					DeclarationType.MODULE_ARRAY_PASSED_IN_AS_ARGUMENT
 				]

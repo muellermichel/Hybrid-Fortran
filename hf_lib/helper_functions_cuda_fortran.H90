@@ -55,7 +55,7 @@ contains
 		sliced
 		@end domainDependant
 
-		@if {architecture(GPU)}
+		@if {parallelRegion(inside)}
 		call getSlice2D_kernel_int_cf(sliced, original, nx, ny, nx_original, ny_original, offset_x, offset_y)
 		@end if
 
@@ -105,7 +105,7 @@ contains
 		sliced
 		@end domainDependant
 
-		@if {architecture(GPU)}
+		@if {parallelRegion(inside)}
 		call getSlice2D_kernel_cf(sliced, original, nx, ny, nx_original, ny_original, offset_x, offset_y)
 		@end if
 
@@ -155,7 +155,7 @@ contains
 		sliced
 		@end domainDependant
 
-		@if {architecture(GPU)}
+		@if {parallelRegion(inside)}
 		call getSlice3D_kernel_cf(sliced, original, nx, ny, nz, nx_original, ny_original, nz_original, offset_x, offset_y, offset_z)
 		@end if
 
@@ -208,7 +208,7 @@ contains
 		sliced
 		@end domainDependant
 
-		@if {architecture(GPU)}
+		@if {parallelRegion(inside)}
 		call storeSlice2D_kernel_cf(original, sliced, nx_original, ny_original, nx, ny, offset_x, offset_y)
 		@end if
 
@@ -258,7 +258,7 @@ contains
 		sliced
 		@end domainDependant
 
-		@if {architecture(GPU)}
+		@if {parallelRegion(inside)}
 		call storeSlice3D_kernel_cf(original, sliced, nx_original, ny_original, nz_original, nx, ny, nz, offset_x, offset_y, offset_z)
 		@end if
 	end subroutine

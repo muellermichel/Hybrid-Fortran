@@ -42,7 +42,7 @@ class RegExPatterns:
         'dimensionPattern': r'(.*?),?\s*dimension\s*\(\s*(.*?)\s*\)(.*)',
         'multiSpecPattern': r'^(.*?)::(.*)',
         'doublePrecisionPattern': r'^\s*double\s+precision\s+(.*)',
-        'standardTypePattern':r'^\s*((?:double\s+precision|real|integer|character|logical|complex)\s*(?:\(\s*[\w\,\s=*:]*\s*\))?).*',
+        'standardTypePattern':r'^\s*((?:double\s+precision|real|integer|character|logical|complex|type)\s*(?:\(\s*[\w\,\s=*:]*\s*\))?).*',
         'dataStatementPattern': r'^\s*data\s+.*',
         'declarationKindPattern': r'(.*?)\s*kind\s*=\s*(\w*)\s*(.*)',
         'pointerAssignmentPattern': r"^\s*\w+\s*\=\>\s*\w+.*",

@@ -70,8 +70,7 @@ class FortranImplementation(object):
 		):
 			#calling a device function from a host routine
 			return synthesizedHostRoutineName(calleeName)
-		if calleeNode.getAttribute("parallelRegionPosition") == "outside" \
-		or calleeIsKernelCaller \
+		if calleeNode.getAttribute("parallelRegionPosition") in ["outside", "inside"] \
 		or (not "hfk" in calleeName and calleeNode.getAttribute("parallelRegionPosition") == "within"):
 			#device routines OR routines already converted to kernel callers OR unconverted kernels
 			return synthesizedDeviceRoutineName(calleeName)
@@ -906,8 +905,12 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 	def generateRoutines(self, routine):
 		def generateHostRoutine(routine, parallelRegions=[]):
 			hostRoutine = routine.clone(synthesizedHostRoutineName(routine.name))
+			hostRoutine.implementation = FortranImplementation(self.optionFlags, appliesTo="CPU")
+			hostRoutine.implementation.useKernelPrefixesForDebugPrint = False
 			for region in hostRoutine.regions:
 				if not isinstance(region, CallRegion):
+					continue
+				if not hasattr(region._callee, "node"):
 					continue
 				if region._callee.node.getAttribute("parallelRegionPosition") == "inside":
 					#we currently do not support calling routines that have kernels inside (due to potential device data parameters)
@@ -925,8 +928,6 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 			and len(parallelRegions) > 0 \
 			and not appliesTo("CPU", parallelRegions[0].template):
 				hostRoutine.node.setAttribute("parallelRegionPosition", "")
-			hostRoutine.implementation = FortranImplementation(self.optionFlags, appliesTo="GPU")
-			hostRoutine.implementation.useKernelPrefixesForDebugPrint = False
 			return hostRoutine
 
 		def adjustImportsForKernelRoutine(kernelRoutine):
@@ -976,19 +977,20 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 				kernelRoutine._allImports = adjustedImports
 
 		routines = [routine]
-		if routine.node.getAttribute("parallelRegionPosition") == "outside":
+		hostRoutine = None
+		parallelRegions = None
+		if routine.node.getAttribute("parallelRegionPosition") == "within":
+			parallelRegions = [region for region in routine.regions if isinstance(region, ParallelRegion) and region.template]
+			hostRoutine = generateHostRoutine(routine, parallelRegions)
+		else:
 			hostRoutine = generateHostRoutine(routine)
-			if hostRoutine:
-				routines.append(hostRoutine)
-				routines[0].name = synthesizedDeviceRoutineName(routines[0].name)
+		if hostRoutine:
+			routines.append(hostRoutine)
+			routines[0].name = synthesizedDeviceRoutineName(routines[0].name)
 
 		if routine.node.getAttribute("parallelRegionPosition") != "within":
 			return routines
 
-		parallelRegions = [region for region in routine.regions if isinstance(region, ParallelRegion) and region.template]
-		hostRoutine = generateHostRoutine(routine, parallelRegions)
-		if hostRoutine:
-			routines.append(hostRoutine)
 		kernelRoutinesByName = {}
 		for kernelNumber, parallelRegion in enumerate(parallelRegions):
 			kernelName = synthesizedKernelName(routine.name, kernelNumber)
@@ -1018,7 +1020,6 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 			kernelWrapperRegions.append(callRegion)
 			parallelRegionIndex += 1
 
-		routines[0].name = synthesizedDeviceRoutineName(routines[0].name)
 		routine.node.setAttribute("parallelRegionPosition", "inside")
 		routine.node.setAttribute("isKernelCaller", "yes")
 		routine.parallelRegionTemplates = []

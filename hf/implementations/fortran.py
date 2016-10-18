@@ -74,10 +74,10 @@ class FortranImplementation(object):
 		):
 			#calling a device function from a host routine
 			return synthesizedHostRoutineName(calleeName)
-		if callee.isUsedInHostOnlyContext and ( \
-			callee.node.getAttribute("parallelRegionPosition") in ["outside", "inside"] \
-			or (not "hfk" in calleeName and callee.node.getAttribute("parallelRegionPosition") == "within") \
-		):
+		if callee.isUsedInHostOnlyContext \
+		and not "hfk" in calleeName \
+		and callee.implementation.canHandleDeviceData \
+		and callee.implementation.supportsHostOnlyRoutineCopies:
 			#device routines OR routines already converted to kernel callers OR unconverted kernels
 			return synthesizedDeviceRoutineName(calleeName)
 

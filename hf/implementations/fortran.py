@@ -515,6 +515,8 @@ class DeviceDataFortranImplementation(FortranImplementation):
 		purgeList=['intent', 'dimension', 'save', 'optional']
 		if len(dependantSymbols[0].domains) > 0:
 			purgeList.append('parameter') #data intrinsics are not allowed for device arrays.
+		if parentRoutine:
+			purgeList += ['public', 'private'] #module data object attributes that need to be purged
 		purgedDeclarationDirectives, declarationDirectives, symbolDeclarationStr = splitAndPurgeSpecification(line, purgeList)
 		deviceType = "device"
 		declarationType = dependantSymbols[0].declarationType

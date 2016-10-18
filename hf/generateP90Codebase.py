@@ -34,7 +34,9 @@ import os, errno, sys, json, traceback, logging
 def setDeviceHandlingFlagsInCallGraph(routine, calleesByCallerName, calleesByCalleeName, routinesByName):
 	routine.isUsedInHostOnlyContext = True
 	for callee in calleesByCallerName.get(routine.name, []):
-		routinesByName[callee.name].isUsedInHostOnlyContext = True #duplicate the flag setting for the implementation routines
+		routine = routinesByName.get(callee.name)
+		if routine:
+			routine.isUsedInHostOnlyContext = True #duplicate the flag setting for the implementation routines
 		setDeviceHandlingFlagsInCallGraph(callee, calleesByCallerName, calleesByCalleeName, routinesByName)
 		for indirectCallee in calleesByCalleeName.get(callee.name, []):
 			setDeviceHandlingFlagsInCallGraph(indirectCallee, calleesByCallerName, calleesByCalleeName, routinesByName)

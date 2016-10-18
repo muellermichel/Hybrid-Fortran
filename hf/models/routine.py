@@ -554,16 +554,10 @@ This is not allowed for implementations using %s.\
 
 	def _prepareCallRegions(self):
 		def updateAdjustedCalleeNamesByName(region):
-			if hasattr(region._callee, "implementation"):
-				adjustedCalleeName = self.implementation.adjustCalleeName(
-					self,
-					region._callee
-					# region._callee.implementation,
-					# self.implementation,
-					# region._callee.node,
-					# self.node,
-					# region._callee.isCallingKernel
-				)
+			adjustedCalleeName = self.implementation.adjustCalleeName(
+				self,
+				region._callee
+			)
 			self._adjustedCalleeNamesByName[region._callee.name] = adjustedCalleeName
 
 		self._adjustedCalleeNamesByName = {}

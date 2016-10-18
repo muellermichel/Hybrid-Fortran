@@ -62,6 +62,8 @@ class FortranImplementation(object):
 
 	def adjustCalleeName(self, caller, callee):
 		calleeName = callee.nameInScope()
+		if not hasattr(callee, "implementation"):
+			return calleeName
 		if not callee.implementation.usesDuplicatesAsHostRoutines:
 			return calleeName
 		if (callee.node.getAttribute("parallelRegionPosition") in ["outside", "within"] \

@@ -51,10 +51,7 @@ contains
 		sliced
 		@end domainDependant
 
-		@if {architecture(GPU)}
 		call getSlice2D_kernel_int(sliced, original, nx, ny, nx_original, ny_original, offset_x, offset_y)
-		@end if
-
 	end subroutine
 
 	subroutine getSlice2D_kernel_int(sliced, original, nx, ny, nx_original, ny_original, offset_x, offset_y)
@@ -81,10 +78,8 @@ contains
 		sliced
 		@end domainDependant
 
-		@parallelRegion{appliesTo(GPU), domName(x,y), domSize(nx, ny)}
-		@if {parallelRegion(within)}
+		@parallelRegion{domName(x,y), domSize(nx, ny)}
 		sliced(x,y) = original(x + offset_x, y + offset_y)
-		@end if
 		@end parallelRegion
 	end subroutine
 
@@ -111,10 +106,7 @@ contains
 		sliced
 		@end domainDependant
 
-		@if {architecture(GPU)}
 		call getSlice2D_kernel(sliced, original, nx, ny, nx_original, ny_original, offset_x, offset_y)
-		@end if
-
 	end subroutine
 
 	subroutine getSlice2D_kernel(sliced, original, nx, ny, nx_original, ny_original, offset_x, offset_y)
@@ -141,10 +133,8 @@ contains
 		sliced
 		@end domainDependant
 
-		@parallelRegion{appliesTo(GPU), domName(x,y), domSize(nx, ny)}
-		@if {parallelRegion(within)}
+		@parallelRegion{domName(x,y), domSize(nx, ny)}
 		sliced(x,y) = original(x + offset_x, y + offset_y)
-		@end if
 		@end parallelRegion
 	end subroutine
 
@@ -201,12 +191,10 @@ contains
 		sliced
 		@end domainDependant
 
-		@parallelRegion{appliesTo(GPU), domName(x,y), domSize(nx, ny)}
-		@if {parallelRegion(within)}
+		@parallelRegion{domName(x,y), domSize(nx, ny)}
 		do z = 1, nz
 			sliced(x,y,z) = original(x + offset_x, y + offset_y, z + offset_z)
 		end do
-		@end if
 		@end parallelRegion
 	end subroutine
 
@@ -233,10 +221,7 @@ contains
 		sliced
 		@end domainDependant
 
-		@if {architecture(GPU)}
 		call storeSlice2D_kernel(original, sliced, nx_original, ny_original, nx, ny, offset_x, offset_y)
-		@end if
-
 	end subroutine
 
 	subroutine storeSlice2D_kernel(original, sliced, nx_original, ny_original, nx, ny, offset_x, offset_y)
@@ -263,10 +248,8 @@ contains
 		sliced
 		@end domainDependant
 
-		@parallelRegion{appliesTo(GPU), domName(x,y), domSize(nx, ny)}
-		@if {parallelRegion(within)}
+		@parallelRegion{domName(x,y), domSize(nx, ny)}
 		original(x + offset_x, y + offset_y) = sliced(x,y)
-		@end if
 		@end parallelRegion
 	end subroutine
 
@@ -293,9 +276,7 @@ contains
 		sliced
 		@end domainDependant
 
-		@if {architecture(GPU)}
 		call storeSlice3D_kernel(original, sliced, nx_original, ny_original, nz_original, nx, ny, nz, offset_x, offset_y, offset_z)
-		@end if
 	end subroutine
 
 	subroutine storeSlice3D_kernel(original, sliced, nx_original, ny_original, nz_original, nx, ny, nz, offset_x, offset_y, offset_z)
@@ -322,12 +303,10 @@ contains
 		sliced
 		@end domainDependant
 
-		@parallelRegion{appliesTo(GPU), domName(x,y), domSize(nx, ny)}
-		@if {parallelRegion(within)}
+		@parallelRegion{domName(x,y), domSize(nx, ny)}
 		do z = 1, nz
 			original(x + offset_x, y + offset_y, z + offset_z) = sliced(x,y,z)
 		end do
-		@end if
 		@end parallelRegion
 	end subroutine
 	@end scheme

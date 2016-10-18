@@ -31,6 +31,12 @@ import implementations.fortran
 from io import FileIO
 import os, errno, sys, json, traceback, logging
 
+def setDeviceHandlingFlagsInCallGraph(routine, calleesByCallerName, routinesByName):
+	routine.isUsedInHostOnlyContext = True
+	for callee in calleesByCallerName.get(routine.name, []):
+		routinesByName[callee.name].isUsedInHostOnlyContext = True #duplicate the flag setting for the implementation routines
+		setDeviceHandlingFlagsInCallGraph(callee, calleesByCallerName, routinesByName)
+
 ##################### MAIN ##############################
 #get all program arguments
 parser = OptionParser()
@@ -192,23 +198,42 @@ for fileNum, fileInDir in enumerate(filesInDir):
 		sys.exit(1)
 progressIndicatorReset(sys.stderr)
 
+#   Analyse Callgraph for Implementation specific behavior
+modulesByName = {}
+routinesByName = {}
+calleesByCallerName = {}
+for fileNum, fc in enumerate(fileContents):
+	printProgressIndicator(sys.stderr, fc['fileName'], fileNum + 1, len(fileContents), "CG Analysis")
+	for m in fc['modules']:
+		if modulesByName.get(m.name) != None:
+			logging.error("Error: Multiple modules with name %s found" %(m.name))
+			sys.exit(1)
+		modulesByName[m.name] = m
+		for r in m.routines:
+			if routinesByName.get(r.name) != None:
+				logging.error("Error: Multiple routines with name %s found" %(r.name))
+				sys.exit(1)
+			routinesByName[r.name] = r
+			for callee in r.callees:
+				callees = calleesByCallerName.get(r.name, [])
+				callees.append(callee)
+				calleesByCallerName[r.name] = callees
+for r in routinesByName.values():
+	if not hasattr(r, "implementation"):
+		continue
+	if r.implementation.canHandleDeviceData:
+		continue
+	setDeviceHandlingFlagsInCallGraph(r, calleesByCallerName, routinesByName)
+progressIndicatorReset(sys.stderr)
+
 #   Preprocess all modules.
 #   Routines will be split according to architecture.
 #   Symbol usage will be analysed so this info is available globally.
-modulesByName = {}
-routinesByName = {}
 for fileNum, fc in enumerate(fileContents):
 	printProgressIndicator(sys.stderr, fc['fileName'], fileNum + 1, len(fileContents), "Prepare Modules for Implementation")
 	try:
 		for m in fc['modules']:
 			m.prepareForImplementation()
-			if modulesByName.get(m.name) != None:
-				raise UsageError("Multiple modules with name %s found" %(m.name))
-			modulesByName[m.name] = m
-			for r in m.routines:
-				if routinesByName.get(r.name) != None:
-					raise UsageError("Multiple routines with name %s found" %(r.name))
-				routinesByName[r.name] = r
 	except UsageError as e:
 		logging.error('Error: %s' %(str(e)))
 		sys.exit(1)

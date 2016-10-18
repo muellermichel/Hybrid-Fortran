@@ -45,6 +45,7 @@ class FortranImplementation(object):
 	allowsMixedHostAndDeviceCode = True
 	useKernelPrefixesForDebugPrint = True
 	canHandleDeviceData = False
+	supportsHostOnlyRoutineCopies = False
 
 	def __init__(self, optionFlags, appliesTo="CPU"):
 		self.patterns = RegExPatterns.Instance()
@@ -59,21 +60,25 @@ class FortranImplementation(object):
 		symbol.isUsingDevicePostfix = False
 		symbol.isOnDevice = False
 
-	def adjustCalleeName(self, calleeName, calleeImplementation, callerImplementation, calleeNode, callerNode, calleeIsKernelCaller):
-		if not calleeImplementation.usesDuplicatesAsHostRoutines:
+	def adjustCalleeName(self, caller, callee):
+		calleeName = callee.nameInScope()
+		if not callee.implementation.usesDuplicatesAsHostRoutines:
 			return calleeName
-		if (calleeNode.getAttribute("parallelRegionPosition") in ["outside", "within"] \
-			and callerNode.getAttribute("parallelRegionPosition") in [None, ""] \
+		if (callee.node.getAttribute("parallelRegionPosition") in ["outside", "within"] \
+			and caller.node.getAttribute("parallelRegionPosition") in [None, ""] \
 		) \
-		or (not callerImplementation.onDevice \
-			and not calleeNode.getAttribute("parallelRegionPosition") in [None, ""] \
+		or (not caller.implementation.onDevice \
+			and not callee.node.getAttribute("parallelRegionPosition") in [None, ""] \
 		):
 			#calling a device function from a host routine
 			return synthesizedHostRoutineName(calleeName)
-		if calleeNode.getAttribute("parallelRegionPosition") in ["outside", "inside"] \
-		or (not "hfk" in calleeName and calleeNode.getAttribute("parallelRegionPosition") == "within"):
+		if callee.isUsedInHostOnlyContext and ( \
+			callee.node.getAttribute("parallelRegionPosition") in ["outside", "inside"] \
+			or (not "hfk" in calleeName and callee.node.getAttribute("parallelRegionPosition") == "within") \
+		):
 			#device routines OR routines already converted to kernel callers OR unconverted kernels
 			return synthesizedDeviceRoutineName(calleeName)
+
 		#this includes already converted kernels using CUDA Fortran implementation
 		#(kernel number information contained in the name)
 		return calleeName
@@ -894,6 +899,7 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 	supportsNativeModuleImportsWithinKernels = False
 	usesDuplicatesAsHostRoutines = True
 	allowsMixedHostAndDeviceCode = False
+	supportsHostOnlyRoutineCopies = True
 
 	def __init__(self, optionFlags):
 		self.currRoutineNode = None
@@ -910,10 +916,9 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 			for region in hostRoutine.regions:
 				if not isinstance(region, CallRegion):
 					continue
-				if not hasattr(region._callee, "node"):
+				if not hasattr(region._callee, "implementation"):
 					continue
-				if region._callee.node.getAttribute("parallelRegionPosition") == "inside":
-					#we currently do not support calling routines that have kernels inside (due to potential device data parameters)
+				if not region._callee.implementation.supportsHostOnlyRoutineCopies:
 					#--> only generate a shell of this routine
 					adjustedRegions = [hostRoutine.regions[0]]
 					adjustedRegions.append(regionWithInertCode(hostRoutine, [
@@ -978,12 +983,12 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 
 		routines = [routine]
 		hostRoutine = None
-		parallelRegions = None
-		if routine.node.getAttribute("parallelRegionPosition") == "within":
-			parallelRegions = [region for region in routine.regions if isinstance(region, ParallelRegion) and region.template]
-			hostRoutine = generateHostRoutine(routine, parallelRegions)
-		else:
-			hostRoutine = generateHostRoutine(routine)
+		parallelRegions = [region for region in routine.regions if isinstance(region, ParallelRegion) and region.template]
+		if routine.isUsedInHostOnlyContext:
+			if routine.node.getAttribute("parallelRegionPosition") == "within":
+				hostRoutine = generateHostRoutine(routine, parallelRegions)
+			else:
+				hostRoutine = generateHostRoutine(routine)
 		if hostRoutine:
 			routines.append(hostRoutine)
 			routines[0].name = synthesizedDeviceRoutineName(routines[0].name)

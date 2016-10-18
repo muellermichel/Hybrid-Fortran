@@ -47,6 +47,7 @@ class Routine(object):
 		if not type(name) in [str, unicode] or name.strip() == "":
 			raise Exception("no valid name passed when trying to initialize routine")
 		self.name = name
+		self.isUsedInHostOnlyContext = False
 		self._programmerArguments = None
 		self._regions = None
 		if moduleRequiresStrongReference:
@@ -553,17 +554,17 @@ This is not allowed for implementations using %s.\
 
 	def _prepareCallRegions(self):
 		def updateAdjustedCalleeNamesByName(region):
-			adjustCalleeName = region._callee.nameInScope()
 			if hasattr(region._callee, "implementation"):
-				adjustCalleeName = self.implementation.adjustCalleeName(
-					adjustCalleeName,
-					region._callee.implementation,
-					self.implementation,
-					region._callee.node,
-					self.node,
-					region._callee.isCallingKernel
+				adjustedCalleeName = self.implementation.adjustCalleeName(
+					self,
+					region._callee
+					# region._callee.implementation,
+					# self.implementation,
+					# region._callee.node,
+					# self.node,
+					# region._callee.isCallingKernel
 				)
-			self._adjustedCalleeNamesByName[region._callee.name] = adjustCalleeName
+			self._adjustedCalleeNamesByName[region._callee.name] = adjustedCalleeName
 
 		self._adjustedCalleeNamesByName = {}
 		for region in self.regions:

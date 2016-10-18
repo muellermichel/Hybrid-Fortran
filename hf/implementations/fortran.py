@@ -76,6 +76,7 @@ class FortranImplementation(object):
 			return synthesizedHostRoutineName(calleeName)
 		if callee.isUsedInHostOnlyContext \
 		and not "hfk" in calleeName \
+		and caller.implementation.canHandleDeviceData \
 		and callee.implementation.canHandleDeviceData \
 		and callee.implementation.supportsHostOnlyRoutineCopies:
 			#device routines OR routines already converted to kernel callers OR unconverted kernels

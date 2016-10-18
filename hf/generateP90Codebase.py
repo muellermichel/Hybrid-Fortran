@@ -31,11 +31,13 @@ import implementations.fortran
 from io import FileIO
 import os, errno, sys, json, traceback, logging
 
-def setDeviceHandlingFlagsInCallGraph(routine, calleesByCallerName, routinesByName):
+def setDeviceHandlingFlagsInCallGraph(routine, calleesByCallerName, calleesByCalleeName, routinesByName):
 	routine.isUsedInHostOnlyContext = True
 	for callee in calleesByCallerName.get(routine.name, []):
 		routinesByName[callee.name].isUsedInHostOnlyContext = True #duplicate the flag setting for the implementation routines
-		setDeviceHandlingFlagsInCallGraph(callee, calleesByCallerName, routinesByName)
+		setDeviceHandlingFlagsInCallGraph(callee, calleesByCallerName, calleesByCalleeName, routinesByName)
+		for indirectCallee in calleesByCalleeName.get(callee.name, []):
+			setDeviceHandlingFlagsInCallGraph(indirectCallee, calleesByCallerName, calleesByCalleeName, routinesByName)
 
 ##################### MAIN ##############################
 #get all program arguments
@@ -202,6 +204,7 @@ progressIndicatorReset(sys.stderr)
 modulesByName = {}
 routinesByName = {}
 calleesByCallerName = {}
+calleesByCalleeName = {}
 for fileNum, fc in enumerate(fileContents):
 	printProgressIndicator(sys.stderr, fc['fileName'], fileNum + 1, len(fileContents), "CG Analysis")
 	for m in fc['modules']:
@@ -218,12 +221,20 @@ for fileNum, fc in enumerate(fileContents):
 				callees = calleesByCallerName.get(r.name, [])
 				callees.append(callee)
 				calleesByCallerName[r.name] = callees
+
+				callees = calleesByCalleeName.get(callee.name, [])
+				callees.append(callee)
+				calleesByCalleeName[callee.name] = callees
 for r in routinesByName.values():
 	if not hasattr(r, "implementation"):
 		continue
-	if r.implementation.canHandleDeviceData:
+	if r.implementation.canHandleDeviceData and r.node.getAttribute('parallelRegionPosition') in [
+		"within",
+		"inside",
+		"outside"
+	]:
 		continue
-	setDeviceHandlingFlagsInCallGraph(r, calleesByCallerName, routinesByName)
+	setDeviceHandlingFlagsInCallGraph(r, calleesByCallerName, calleesByCalleeName, routinesByName)
 progressIndicatorReset(sys.stderr)
 
 #   Preprocess all modules.

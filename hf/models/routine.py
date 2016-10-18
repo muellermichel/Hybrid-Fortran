@@ -718,6 +718,7 @@ This is not allowed for implementations using %s.\
 		clone._userSpecifiedSymbolNames = copy.copy(self._userSpecifiedSymbolNames)
 		clone.symbolsByName = copy.copy(self.symbolsByName)
 		clone.callees = copy.copy(self.callees)
+		clone.isUsedInHostOnlyContext = self.isUsedInHostOnlyContext
 		return clone
 
 	def clone(self, cloneName):

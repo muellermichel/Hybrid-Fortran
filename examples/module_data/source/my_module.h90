@@ -27,6 +27,19 @@ module my_module
 	public:: cleanup
 
 	integer(4), public, parameter:: rlength = 4
+
+	type my_type
+	  real(rlength), pointer:: r(:, :, :)
+	end type
+
+	@if{architecture(GPU)}
+	type my_type_hfdev
+	  real(rlength), device, pointer:: r(:, :, :)
+	end type
+	@end if
+
+	type(my_type), allocatable:: derived_type_tester(:)
+
 	real(rlength), public, dimension(:, :, :), allocatable :: a, b, c, d, a2, b2, c2, d2, used_in_acc_routine
 	real, public, dimension(:, :, :), allocatable :: a_dyn, b_dyn, c_dyn, d_dyn
 	real, public, dimension(:), allocatable :: host_only_array
@@ -51,6 +64,10 @@ module my_module
 
 	@domainDependant{attribute(host), domName(x,y,z), domSize(NX,NY,NZ), domPP(DOM), accPP(AT)}
 	a, b, c, d, a2, b2, c2, d2, used_in_acc_routine
+	@end domainDependant
+
+	@domainDependant{attribute(host), domName(x,y,z), domSize(nx,ny,nz), domPP(DOM), accPP(AT)}
+	derived_type_tester(1)%r
 	@end domainDependant
 
 	@domainDependant{attribute(host), domName(x,y,z), domSize(nx,ny,nz), domPP(DOM), accPP(AT)}
@@ -85,6 +102,9 @@ contains
 		allocate(to_be_expanded_variable_hfdev(nx,ny))
 		@end if
 
+		allocate(derived_type_tester(1))
+		nullify(derived_type_tester(1)%r)
+
 		host_only_array(:) = 0.0d0
 		host_only_array(2) = 1.0d0
 	end subroutine
@@ -97,8 +117,9 @@ contains
 		deallocate(d_dyn)
 	end subroutine
 
-	subroutine cpu_add()
+	subroutine cpu_add(a)
 		implicit none
+		real(rlength), intent(in), target :: a(nz, nx, ny)
 		integer :: x, y, z
 
 		@domainDependant{attribute(host, autoDom), domPP(DOM_TIGHT_STENCIL), accPP(AT_TIGHT_STENCIL)}
@@ -109,10 +130,16 @@ contains
 		implicitDataArray1
 		@end domainDependant
 
+		@domainDependant{attribute(host), domName(x,y,z), domSize(NX,NY,NZ), domPP(DOM_TIGHT_STENCIL), accPP(AT_TIGHT_STENCIL)}
+		derived_type_tester(1)%r
+		@end domainDependant
+
+		derived_type_tester(1)%r => a
+
 		do y=1,NY
 		do x=1,NX
 		do z=1,NZ
-		  c(z, x, y) = a(z, x, y) + b(z, x, y)
+		  c(z, x, y) = derived_type_tester(1)%r(z, x, y) + b(z, x, y)
 		end do
 		end do
 		end do
@@ -137,12 +164,13 @@ contains
 		@end parallelRegion
 	end subroutine
 
-	subroutine kernel()
+	subroutine kernel(c)
 		implicit none
+		real(rlength), intent(out), target :: c(nx, ny, nz)
 		integer :: z
 		real :: pre_computed_factor
 
-		@domainDependant{attribute(host, autoDom)}
+		@domainDependant{attribute(host), domName(x,y,z), domSize(NX,NY,NZ)}
 		a, b
 		@end domainDependant
 
@@ -150,16 +178,22 @@ contains
 		c
 		@end domainDependant
 
+		@domainDependant{attribute(present), domName(x,y,z), domSize(nx,ny,nz)}
+		derived_type_tester(1)%r
+		@end domainDependant
+
 		@domainDependant{attribute(present, autoDom), domName(myDom), domSize(NZ)}
 		implicitDataArray1
 		@end domainDependant
+
+		derived_type_tester(1)%r => c
 
 		!test whether HF can handle using the host version of an array in the same subroutine as a kernel resides using device data
 		pre_computed_factor = a(1,1,1) + b(1,1,1)
 
 		@parallelRegion{domName(x,y), domSize(NX, NY)}
 		do z=1,nz
-		  c(z) = implicitDataArray1(z) + overspecified_const + pre_computed_factor
+		  derived_type_tester(1)%r(z) = implicitDataArray1(z) + overspecified_const + pre_computed_factor
 		end do
 		@end parallelRegion
 	end subroutine

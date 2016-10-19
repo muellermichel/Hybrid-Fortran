@@ -131,7 +131,7 @@ contains
     implicitDataArray1, c
     @end domainDependant
 
-    call kernel()
+    call kernel(c)
   end subroutine
 
   subroutine data_region_wrapper10()
@@ -251,7 +251,7 @@ program main
   call cleanup()
 
   c(:,:,:) = 0.0d0
-  call cpu_add
+  call cpu_add(a)
   write(0,*) "cpu only complete"
   call assert_values(c, 3.0d0)
   if (implicitDataArray1(1) .ne. 1.0d0) then

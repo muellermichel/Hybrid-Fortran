@@ -923,7 +923,7 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 					continue
 				if not hasattr(region._callee, "implementation"):
 					continue
-				if not region._callee.implementation.supportsHostOnlyRoutineCopies:
+				if region._callee.implementation.onDevice and not region._callee.implementation.supportsHostOnlyRoutineCopies:
 					#--> only generate a shell of this routine
 					adjustedRegions = [hostRoutine.regions[0]]
 					adjustedRegions.append(regionWithInertCode(hostRoutine, [

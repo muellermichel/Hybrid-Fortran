@@ -31,15 +31,23 @@ import implementations.fortran
 from io import FileIO
 import os, errno, sys, json, traceback, logging
 
-def setDeviceHandlingFlagsInCallGraph(routine, calleesByCallerName, calleesByCalleeName, routinesByName):
+def setDeviceHandlingFlagsInCallGraph(routine, calleesByCallerName, calleesByCalleeName, routinesByName, alreadyHandledRoutinesByName):
+	alreadyHandledRoutines = alreadyHandledRoutinesByName.get(routine.name, [])
+	for alreadyHandledRoutine in alreadyHandledRoutines:
+		if routine is alreadyHandledRoutine:
+			return
+	alreadyHandledRoutines.append(routine)
+	alreadyHandledRoutinesByName[routine.name] = alreadyHandledRoutines
 	routine.isUsedInHostOnlyContext = True
+	for calleeRoutineVersion in calleesByCalleeName.get(routine.name, []):
+		calleeRoutineVersion.isUsedInHostOnlyContext = True
 	for callee in calleesByCallerName.get(routine.name, []):
-		routine = routinesByName.get(callee.name)
-		if routine:
-			routine.isUsedInHostOnlyContext = True #duplicate the flag setting for the implementation routines
-		setDeviceHandlingFlagsInCallGraph(callee, calleesByCallerName, calleesByCalleeName, routinesByName)
+		calleeRoutine = routinesByName.get(callee.name)
+		if calleeRoutine:
+			calleeRoutine.isUsedInHostOnlyContext = True #duplicate the flag setting for the implementation routines
+		setDeviceHandlingFlagsInCallGraph(callee, calleesByCallerName, calleesByCalleeName, routinesByName, alreadyHandledRoutinesByName)
 		for indirectCallee in calleesByCalleeName.get(callee.name, []):
-			setDeviceHandlingFlagsInCallGraph(indirectCallee, calleesByCallerName, calleesByCalleeName, routinesByName)
+			setDeviceHandlingFlagsInCallGraph(indirectCallee, calleesByCallerName, calleesByCalleeName, routinesByName, alreadyHandledRoutinesByName)
 
 ##################### MAIN ##############################
 #get all program arguments
@@ -227,7 +235,13 @@ for fileNum, fc in enumerate(fileContents):
 				callees = calleesByCalleeName.get(callee.name, [])
 				callees.append(callee)
 				calleesByCalleeName[callee.name] = callees
-for r in routinesByName.values():
+progressIndicatorReset(sys.stderr)
+
+#   Analyse Callgraph for device handling capabilities
+routines = routinesByName.values()
+alreadyHandledRoutinesByName = {}
+for routineNum, r in enumerate(routines):
+	printProgressIndicator(sys.stderr, r.name, routineNum + 1, len(routines), "CG Device Handling Analysis")
 	if not hasattr(r, "implementation"):
 		continue
 	if r.implementation.canHandleDeviceData and r.node.getAttribute('parallelRegionPosition') in [
@@ -236,7 +250,7 @@ for r in routinesByName.values():
 		"outside"
 	]:
 		continue
-	setDeviceHandlingFlagsInCallGraph(r, calleesByCallerName, calleesByCalleeName, routinesByName)
+	setDeviceHandlingFlagsInCallGraph(r, calleesByCallerName, calleesByCalleeName, routinesByName, alreadyHandledRoutinesByName)
 progressIndicatorReset(sys.stderr)
 
 #   Preprocess all modules.

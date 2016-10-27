@@ -489,7 +489,11 @@ class DeviceDataFortranImplementation(FortranImplementation):
 	def adjustDeclarationForDevice(self, line, dependantSymbols, parentRoutine, regionType, parallelRegionPosition):
 		def declarationStatements(dependantSymbols, declarationDirectives, deviceType):
 			return "\n".join(
-				"%s, %s :: %s" %(declarationDirectives, deviceType, symbol.domainRepresentation(parentRoutine))
+				"%s%s :: %s" %(
+					declarationDirectives,
+					", " + deviceType if deviceType else "",
+					symbol.domainRepresentation(parentRoutine)
+				)
 				for symbol in dependantSymbols
 			)
 
@@ -530,6 +534,16 @@ class DeviceDataFortranImplementation(FortranImplementation):
 		#note: intent == None or "" -> is local array
 		intent = dependantSymbols[0].intent
 
+		#analyse/adjust derived types
+		typeMatch = self.patterns.typeUsagePattern.match(purgedDeclarationDirectives)
+		adjustedDeclarationDirectives = purgedDeclarationDirectives
+		if typeMatch:
+			adjustedDeclarationDirectives = "%stype(%s_hfdev)%s" %(
+				typeMatch.group(1),
+				typeMatch.group(2),
+				typeMatch.group(3)
+			)
+
 		#scalars in kernels ...
 		if parallelRegionPosition == "within" \
 		and len(dependantSymbols[0].domains) == 0:
@@ -541,12 +555,12 @@ class DeviceDataFortranImplementation(FortranImplementation):
 			elif ( \
 				intent not in ["out", "inout"] or not self.assignmentToScalarsInKernelsAllowed \
 			) \
-			and not "character" in purgedDeclarationDirectives:
-				adjustedLine = purgedDeclarationDirectives + ", value :: " + symbolDeclarationStr
+			and not "character" in adjustedDeclarationDirectives:
+				adjustedLine = adjustedDeclarationDirectives + ", value :: " + symbolDeclarationStr
 
 			#... meant for output
 			else:
-				adjustedLine = purgedDeclarationDirectives + ", intent(%s) :: " %(intent) + symbolDeclarationStr
+				adjustedLine = adjustedDeclarationDirectives + ", intent(%s) :: " %(intent) + symbolDeclarationStr
 
 		#arrays...
 		elif len(dependantSymbols[0].domains) > 0:
@@ -554,13 +568,17 @@ class DeviceDataFortranImplementation(FortranImplementation):
 			if alreadyOnDevice == "yes" or (intent in [None, "", "local"] and regionType == RegionType.KERNEL_CALLER_DECLARATION):
 				adjustedLine = declarationStatements(
 					dependantSymbols,
-					purgedDeclarationDirectives if parallelRegionPosition in ["within", "outside"] else declarationDirectives,
+					adjustedDeclarationDirectives if parallelRegionPosition in ["within", "outside"] else declarationDirectives,
 					deviceType
 				)
 
 			#to be transferred
 			elif copyHere == "yes" or regionType in [RegionType.KERNEL_CALLER_DECLARATION, RegionType.MODULE_DECLARATION]:
-				adjustedLine += "\n" + declarationStatements(dependantSymbols, purgedDeclarationDirectives, deviceType)
+				adjustedLine += "\n" + declarationStatements(
+					dependantSymbols,
+					adjustedDeclarationDirectives,
+					deviceType
+				)
 
 		return adjustedLine + "\n"
 

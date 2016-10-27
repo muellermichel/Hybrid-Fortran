@@ -66,8 +66,8 @@ module my_module
 	a, b, c, d, a2, b2, c2, d2, used_in_acc_routine
 	@end domainDependant
 
-	@domainDependant{attribute(host), domName(x,y,z), domSize(nx,ny,nz), domPP(DOM), accPP(AT)}
-	derived_type_tester(1)%r
+	@domainDependant{attribute(host), domName(it1), domSize(1)}
+	derived_type_tester
 	@end domainDependant
 
 	@domainDependant{attribute(host), domName(x,y,z), domSize(nx,ny,nz), domPP(DOM), accPP(AT)}
@@ -105,6 +105,11 @@ contains
 		allocate(derived_type_tester(1))
 		nullify(derived_type_tester(1)%r)
 
+		@if{architecture(GPU)}
+		allocate(derived_type_tester_hfdev(1))
+		nullify(derived_type_tester_hfdev(1)%r)
+		@end if
+
 		host_only_array(:) = 0.0d0
 		host_only_array(2) = 1.0d0
 	end subroutine
@@ -119,7 +124,7 @@ contains
 
 	subroutine cpu_add(a)
 		implicit none
-		real(rlength), intent(in), target :: a(nz, nx, ny)
+		real(rlength), intent(in), target :: a(NZ, NX, NY)
 		integer :: x, y, z
 
 		@domainDependant{attribute(host, autoDom), domPP(DOM_TIGHT_STENCIL), accPP(AT_TIGHT_STENCIL)}
@@ -128,6 +133,10 @@ contains
 
 		@domainDependant{attribute(host, autoDom), domName(myDom), domSize(NZ)}
 		implicitDataArray1
+		@end domainDependant
+
+		@domainDependant{attribute(host, autoDom)}
+		derived_type_tester
 		@end domainDependant
 
 		@domainDependant{attribute(host), domName(x,y,z), domSize(NX,NY,NZ), domPP(DOM_TIGHT_STENCIL), accPP(AT_TIGHT_STENCIL)}
@@ -175,10 +184,10 @@ contains
 		@end domainDependant
 
 		@domainDependant{attribute(present, autoDom)}
-		c
+		c, derived_type_tester
 		@end domainDependant
 
-		@domainDependant{attribute(present), domName(x,y,z), domSize(nx,ny,nz)}
+		@domainDependant{attribute(present), domName(x,y,z), domSize(NX,NY,NZ)}
 		derived_type_tester(1)%r
 		@end domainDependant
 
@@ -193,7 +202,7 @@ contains
 
 		@parallelRegion{domName(x,y), domSize(NX, NY)}
 		do z=1,nz
-		  derived_type_tester(1)%r(z) = implicitDataArray1(z) + overspecified_const + pre_computed_factor
+		  derived_type_tester(1)%r(x,y,z) = implicitDataArray1(z) + overspecified_const + pre_computed_factor
 		end do
 		@end parallelRegion
 	end subroutine

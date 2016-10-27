@@ -52,6 +52,7 @@ class RegExPatterns:
         'interfaceEndPattern': r"^\s*end\s*interface\s+.*",
         'typePattern': r"^\s*type\s*\w+\s*$",
         'typeEndPattern': r"^\s*end\s*type\s*$",
+        'typeUsagePattern': r"(.*?(?:^|\W))type\s*\(\s*(\w+)\s*\)(.*)$",
         'moduleBeginPattern': r'^\s*module\s*(\w*).*',
         'moduleEndPattern': r'^\s*end\s*module.*',
         'earlyReturnPattern': r'^\s*return|@exit(?:\s.*|$)',

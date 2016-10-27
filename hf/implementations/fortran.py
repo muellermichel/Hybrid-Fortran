@@ -577,7 +577,7 @@ class DeviceDataFortranImplementation(FortranImplementation):
 				adjustedLine += "\n" + declarationStatements(
 					dependantSymbols,
 					adjustedDeclarationDirectives,
-					deviceType
+					"managed" if typeMatch else deviceType
 				)
 
 		return adjustedLine + "\n"

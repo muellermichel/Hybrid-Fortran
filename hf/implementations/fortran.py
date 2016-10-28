@@ -934,7 +934,7 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 	def generateRoutines(self, routine):
 		def generateHostRoutine(routine, parallelRegions=[]):
 			hostRoutine = routine.clone(synthesizedHostRoutineName(routine.name))
-			hostRoutine.implementation = FortranImplementation(self.optionFlags, appliesTo="CPU")
+			hostRoutine.implementation = FortranImplementation(self.optionFlags, appliesTo="GPU")
 			hostRoutine.implementation.useKernelPrefixesForDebugPrint = False
 			for region in hostRoutine.regions:
 				if not isinstance(region, CallRegion):
@@ -954,7 +954,7 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 					return hostRoutine
 			if routine.node.getAttribute("parallelRegionPosition") == "within" \
 			and len(parallelRegions) > 0 \
-			and not appliesTo("CPU", parallelRegions[0].template):
+			and not appliesTo("GPU", parallelRegions[0].template):
 				hostRoutine.node.setAttribute("parallelRegionPosition", "")
 			return hostRoutine
 

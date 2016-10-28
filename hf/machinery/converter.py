@@ -484,6 +484,7 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
         specificationStatementMatch = self.patterns.specificationStatementPattern.match(line)
         if not ( \
             line.strip() == "" \
+            or line.strip().startswith("#") \
             or importMatch1 \
             or importMatch2 \
             or importMatch3 \

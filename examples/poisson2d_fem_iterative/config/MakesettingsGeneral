@@ -169,3 +169,11 @@ DEBUG_MODE=false
 # your Makefile will need to expose the tests-targets (see above)           #
 #############################################################################
 TEST_WITH_EVERY_BUILD=false
+
+#############################################################################
+# implementation settings                                                   #
+#############################################################################
+#Host only scheme
+GPU_IMPLEMENTATION_DEBUG_HOST_ONLY=FortranImplementation
+GPU_IMPLEMENTATION_PRODUCTION_HOST_ONLY=FortranImplementation
+GPU_IMPLEMENTATION_EMULATION_HOST_ONLY=FortranImplementation

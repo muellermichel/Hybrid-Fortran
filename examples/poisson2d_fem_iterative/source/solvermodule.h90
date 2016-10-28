@@ -28,8 +28,6 @@ MODULE solvermodule
 #endif
 
 CONTAINS
-
-  @scheme{name(HOST_ONLY)}
   SUBROUTINE l2norm2D(n1, n2, x, output)
     use time_profiling
     use helper_functions
@@ -56,7 +54,6 @@ CONTAINS
 #endif
     call incrementCounter(counter4, time_start)
   END SUBROUTINE l2norm2D
-  @end scheme
 
   SUBROUTINE relax_and_diff(n, u, h, omega)
     integer(4), intent(in) :: n

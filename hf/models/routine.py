@@ -597,7 +597,7 @@ This is not allowed for implementations using %s.\
 		if self._programmerArguments:
 			adjustedArguments = []
 			for argument in self._programmerArguments:
-				symbol = self.symbolsByName[argument]
+				symbol = self.symbolsByName.get(argument)
 				if symbol:
 					adjustedArguments.append(symbol.nameInScope())
 				else:

@@ -235,7 +235,6 @@ MERGEABLE_DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES = {
 #                        There are multiple known dimension sizes for domain i. Cannot insert domain for autoDom symbol densrjd. Please use explicit declaration;
 #                        Debug Print: None; Print of line:
 #                        real(rp):: densrjd(nz)
-	"_isHostSymbol": False,
 	"isCompacted": False,
 	"domPPName": None,
 	"accPPName": None,
@@ -638,11 +637,25 @@ EXAMPLE:\n\
 		self._nameInScope = None
 		self.isUserSpecified = False
 		self.isPresent = False
+		self.isHostSymbol = False
 		self.isToBeTransfered = False
 		self._residingModule = None
 		self.usedTypeParameters = set([])
 		loadAttributesFromObject(MERGEABLE_DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES)
 		loadAttributesFromObject(MERGEABLE_DEFAULT_SYMBOL_INSTANCE_DOMAIN_ATTRIBUTES)
+
+	def clone(self):
+		clone = Symbol(
+			self.name,
+			template=self.template,
+			symbolEntry=self._entryNode,
+			scopeNode=self.routineNode,
+			analysis=self.analysis,
+			parallelRegionTemplates=self.parallelRegionTemplates,
+			globalParallelDomainNames=self.globalParallelDomainNames
+		)
+		clone.merge(self)
+		return clone
 
 	def merge(self, otherSymbol):
 		def getMergedSimpleAttributeValue(attributeName):
@@ -1284,7 +1297,7 @@ Current Domains: %s\n" %(
 			return symbol.nameInScope(), remainder
 
 		if self.declarationPrefix in [None, ""]:
-			raise ScopeError("Cannot generate declaration prefix for %s (from %s)" %(self, self.nameOfScope))
+			return None
 		if purgeList == None:
 			purgeList = ['intent', 'public', 'parameter', 'save']
 		result = self._getPurgedDeclarationPrefix(purgeList)
@@ -1308,6 +1321,8 @@ Current Domains: %s\n" %(
 		if skip_on_missing_declaration and (self.declarationPrefix == None or self.declarationPrefix == ""):
 			return ""
 		declarationPrefix = self.getSanitizedDeclarationPrefix(purgeList)
+		if not declarationPrefix:
+			raise ScopeError("cannot generate declaration for %s" %(self.name))
 		result = "%s %s %s %s" %(
 			declarationPrefix.strip(),
 			name_prefix,

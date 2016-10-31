@@ -282,9 +282,12 @@ class CallRegion(Region):
 			for symbolNum, symbol in enumerate(requiredAdditionalArgumentSymbols):
 				symbolInCurrentContext = parentRoutine.symbolsByName.get(symbol.nameInScope(useDeviceVersionIfAvailable=False))
 				if not symbolInCurrentContext:
-					raise Exception("%s not found in context. All context keys: %s" %(
-						symbol.name,
-						parentRoutine.symbolsByName.keys()
+					symbolInCurrentContext = parentRoutine.symbolsByName.get(symbol.name)
+				if not symbolInCurrentContext:
+					raise Exception("%s not found in context. All context keys: %s; Names in Scope: %s" %(
+						symbol.nameInScope(useDeviceVersionIfAvailable=False),
+						parentRoutine.symbolsByName.keys(),
+						[s.nameInScope(useDeviceVersionIfAvailable=False) for s in parentRoutine.symbolsByName.values()]
 				))
 				hostName = symbolInCurrentContext.nameInScope()
 				text += hostName

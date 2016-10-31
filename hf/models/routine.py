@@ -199,7 +199,7 @@ This is not allowed for implementations using %s.\
 				symbol.nameOfScope = self.name
 			updateSymbolNode(symbol)
 			symbol.updateNameInScope(residingModule=self.parentModule.name)
-			updatedSymbolsByName[symbol.nameInScope(useDeviceVersionIfAvailable=False)] = symbol
+			updatedSymbolsByName[symbol.nameInScope(useDeviceVersionIfAvailable=False)] = symbol.clone()
 		for symbol in updatedSymbolsByName.values():
 			for typeParameterSymbol in symbol.usedTypeParameters:
 				if not self._userSpecifiedSymbolNames:
@@ -263,7 +263,7 @@ This is not allowed for implementations using %s.\
 
 	def _listCompactedSymbolsAndDeclarationPrefixAndOtherSymbols(self, additionalImports):
 		toBeCompacted = []
-		otherImports = []
+		otherSymbols = []
 		declarationPrefix = None
 		purgeList=['intent', 'public', 'save', 'allocatable']
 		for symbol in additionalImports:
@@ -283,7 +283,8 @@ This is not allowed for implementations using %s.\
 			currentDeclarationPrefix = symbol.getSanitizedDeclarationPrefix(purgeList=purgeList)
 
 			# CUDA Fortran supports parameters defined in kernels, at least as of v16.5
-			if declType in [
+			if currentDeclarationPrefix \
+			and declType in [
 				DeclarationType.FOREIGN_MODULE_SCALAR,
 				DeclarationType.LOCAL_MODULE_SCALAR,
 				DeclarationType.OTHER_SCALAR,
@@ -298,11 +299,11 @@ This is not allowed for implementations using %s.\
 				declarationPrefix = currentDeclarationPrefix
 				toBeCompacted.append(symbol)
 			else:
-				otherImports.append(symbol)
+				otherSymbols.append(symbol)
 		arrayDeclarationPrefix = None
 		if len(toBeCompacted) > 0:
 			arrayDeclarationPrefix = toBeCompacted[0].getSanitizedDeclarationPrefix(purgeList=purgeList)
-		return toBeCompacted, arrayDeclarationPrefix, otherImports
+		return toBeCompacted, arrayDeclarationPrefix, otherSymbols
 
 	def _prepareAdditionalContext(self):
 		if not self._moduleNodesByName \
@@ -428,9 +429,11 @@ This is not allowed for implementations using %s.\
 			self._additionalImports = additionalImportsByScopedName.values()
 
 			#finalize context for this routine
-			ourSymbolsToAdd = sorted(
+			ourSymbolsToAdd = sorted([
+				s for s in
 				additionalSubroutineParameters + additionalCompactedSubroutineParameters
-			)
+				if s.declarationPrefix
+			])
 
 			#prepare context in callees
 			compactionDeclarationPrefixByCalleeName = {}
@@ -536,7 +539,10 @@ This is not allowed for implementations using %s.\
 		self._additionalArguments = updateReferences(self._additionalArguments)
 		self._synthesizedSymbols = updateReferences(self._synthesizedSymbols)
 		self._symbolsToUpdate = updateReferences(self._symbolsToUpdate)
-		self.regions[0]._symbolsToAdd = updateReferences(self.regions[0]._symbolsToAdd)
+		self.regions[0]._symbolsToAdd = [
+			s for s in updateReferences(self.regions[0]._symbolsToAdd)
+			if s.declarationPrefix
+		]
 
 		#gather type parameters (quadratic runtime!)
 		allSymbolsInScope = self.symbolsByName.values()
@@ -674,6 +680,9 @@ This is not allowed for implementations using %s.\
 		self._checkReferences(self._synthesizedSymbols)
 		self._checkReferences(self._symbolsToUpdate)
 		self._checkReferences(self.regions[0]._symbolsToAdd)
+		for s in self.regions[0]._symbolsToAdd:
+			if not s.declarationPrefix:
+				raise ScopeError("invalid symbol %s added to %s" %(s.name, self.name))
 		for region in self.regions:
 			self._checkReferences(sum([las[1] for las in region.linesAndSymbols], []))
 
@@ -791,6 +800,7 @@ This is not allowed for implementations using %s.\
 		purgedRoutineElements = []
 		try:
 			self._updateSymbolState()
+			self.checkSymbols()
 			implementedRoutineElements = [self._implementHeader(), self._implementAdditionalImports()]
 			implementedRoutineElements += [region.implemented() for region in self._regions]
 			implementedRoutineElements += [self._implementFooter()]

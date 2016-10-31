@@ -114,6 +114,16 @@ contains
 		host_only_array(2) = 1.0d0
 	end subroutine
 
+	subroutine non_parallel_device_routine()
+		implicit none
+
+		@domainDependant{attribute(present, autoDom)}
+		derived_type_tester
+		@end domainDependant
+
+		allocate(derived_type_tester(1))
+	end subroutine
+
 	subroutine cleanup()
 		implicit none
 		deallocate(a_dyn)
@@ -194,6 +204,9 @@ contains
 		@domainDependant{attribute(present, autoDom), domName(myDom), domSize(NZ)}
 		implicitDataArray1
 		@end domainDependant
+
+		deallocate(derived_type_tester)
+		call non_parallel_device_routine()
 
 		derived_type_tester(1)%r => c
 

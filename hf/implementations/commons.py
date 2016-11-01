@@ -22,6 +22,7 @@ from tools.commons import UsageError
 from tools.metadata import appliesTo, getDomainsWithParallelRegionTemplate, getReductionScalarsByOperator, getTemplate
 from tools.patterns import RegExPatterns
 from models.symbol import DeclarationType
+from models.commons import originalRoutineName
 import logging, re
 
 def arrayCheckConditional(symbol, offsets=None):
@@ -59,12 +60,6 @@ def arrayCheckConditional(symbol, offsets=None):
 		])
 	result += " ) then"
 	return result
-
-def originalRoutineName(routineName):
-	match = RegExPatterns.Instance().routineNamePattern.match(routineName)
-	if not match:
-		return ""
-	return match.group(1)
 
 def synthesizedKernelName(routineName, kernelNumber):
 	return "hfk%i_%s" %(kernelNumber, originalRoutineName(routineName))

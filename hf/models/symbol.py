@@ -27,6 +27,7 @@ from tools.commons import enum, BracketAnalyzer, Singleton, UsageError, \
 from tools.patterns import RegExPatterns
 from tools.analysis import SymbolDependencyAnalyzer, SymbolType
 from machinery.commons import ConversionOptions, parseSpecification, implement
+from models.commons import originalRoutineName
 
 #   Boxes = Symbol States
 #   X -> Transition Texts = Methods being called by parser
@@ -382,7 +383,16 @@ class Symbol(object):
 
 	@property
 	def isArgument(self):
-		return self._isArgumentOverride or (self.analysis and self.analysis.symbolType in [SymbolType.ARGUMENT_WITH_DOMAIN_DEPENDANT_SPEC, SymbolType.ARGUMENT])
+		return self._isArgumentOverride \
+		or ( \
+			self.analysis and self.analysis.symbolType in [SymbolType.ARGUMENT_WITH_DOMAIN_DEPENDANT_SPEC, SymbolType.ARGUMENT] \
+		) \
+		or ( \
+			self.analysis and self.nameOfScope in self.analysis.aliasNamesByRoutineName \
+		) \
+		or ( \
+			self.analysis and originalRoutineName(self.nameOfScope) in self.analysis.aliasNamesByRoutineName \
+		)
 
 	@isArgument.setter
 	def isArgument(self, _isArgumentOverride):

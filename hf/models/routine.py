@@ -178,10 +178,6 @@ This is not allowed for implementations using %s.\
 			symbolsByScopeName[symbol.nameOfScope] = symbol
 			indexByNameAndScopeName[symbol.name] = symbolsByScopeName
 
-		def updateSymbolNode(symbol):
-			if symbol.sourceModule == self.parentModule.name:
-				symbol.routineNode = self.parentModule.node
-
 		#scoped name could have changed through splitting / merging --> update symbolsByName
 		symbolsByNameAndScopeName = {}
 		for symbol in self.symbolsByName.values():
@@ -197,7 +193,6 @@ This is not allowed for implementations using %s.\
 			if not symbol:
 				symbol = symbolsByScopeName[symbolsByScopeName.keys()[0]] #$$$ this needs to be commented
 				symbol.nameOfScope = self.name
-			updateSymbolNode(symbol)
 			if not isinstance(symbol, FrameworkArray):
 				symbol.updateNameInScope(residingModule=self.parentModule.name)
 			updatedSymbolsByName[symbol.nameInScope(useDeviceVersionIfAvailable=False)] = symbol.clone()
@@ -211,7 +206,6 @@ This is not allowed for implementations using %s.\
 				and "integer" in updatedSymbolsByName[typeParameterSymbol.name].declarationPrefix:
 					typeParameterSymbol.isUserSpecified = True
 				typeParameterSymbol.nameOfScope = self.name
-				updateSymbolNode(typeParameterSymbol)
 				typeParameterSymbol.updateNameInScope(residingModule=self.parentModule.name)
 			symbol.usedTypeParameters = set([typeParameter for typeParameter in symbol.usedTypeParameters])
 		self.symbolsByName = updatedSymbolsByName

@@ -463,8 +463,7 @@ class DeviceDataFortranImplementation(FortranImplementation):
 				symbol.isOnDevice = False
 
 			#.. imports / module scope
-			elif symbol.declarationType == DeclarationType.MODULE_ARRAY \
-			and parallelRegionPosition not in ["", None]:
+			elif symbol.declarationType == DeclarationType.MODULE_ARRAY:
 				symbol.isUsingDevicePostfix = True
 				symbol.isOnDevice = True
 

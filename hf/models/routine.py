@@ -22,6 +22,7 @@ import copy, weakref, traceback
 from models.region import RegionType, RoutineSpecificationRegion, ParallelRegion, CallRegion
 from models.symbol import FrameworkArray, DeclarationType, ScopeError, limitLength, uniqueIdentifier
 from machinery.commons import ConversionOptions, updateTypeParameterProperties
+from implementations.commons import originalRoutineName
 from tools.commons import UsageError
 
 def getModuleArraysForCallee(calleeName, symbolAnalysisByRoutineNameAndSymbolName, symbolsByModuleNameAndSymbolName):
@@ -190,6 +191,8 @@ This is not allowed for implementations using %s.\
 		for symbolsByScopeName in symbolsByNameAndScopeName.values():
 			symbol = symbolsByScopeName.get(self.name)
 			if not symbol:
+				symbol = symbolsByScopeName.get(originalRoutineName(self.name))
+			if not symbol:
 				symbol = symbolsByScopeName.get(parentModuleName)
 			if not symbol:
 				symbol = symbolsByScopeName[symbolsByScopeName.keys()[0]] #$$$ this needs to be commented
@@ -211,10 +214,6 @@ This is not allowed for implementations using %s.\
 				updateSymbolNode(typeParameterSymbol)
 				typeParameterSymbol.updateNameInScope(residingModule=self.parentModule.name)
 			symbol.usedTypeParameters = set([typeParameter for typeParameter in symbol.usedTypeParameters])
-		symbolsByOriginalName = dict(
-			(symbol.name, symbol)
-			for symbol in updatedSymbolsByName.values()
-		)
 		self.symbolsByName = updatedSymbolsByName
 
 	def _updateSymbolState(self):

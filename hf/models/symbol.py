@@ -388,10 +388,10 @@ class Symbol(object):
 			self.analysis and self.analysis.symbolType in [SymbolType.ARGUMENT_WITH_DOMAIN_DEPENDANT_SPEC, SymbolType.ARGUMENT] \
 		) \
 		or ( \
-			self.analysis and self.nameOfScope in self.analysis.aliasNamesByRoutineName \
+			self.analysis and self.nameOfScope in self.analysis.argumentIndexByRoutineName \
 		) \
 		or ( \
-			self.analysis and originalRoutineName(self.nameOfScope) in self.analysis.aliasNamesByRoutineName \
+			self.analysis and originalRoutineName(self.nameOfScope) in self.analysis.argumentIndexByRoutineName \
 		)
 
 	@isArgument.setter

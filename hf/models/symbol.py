@@ -217,6 +217,8 @@ def uniqueIdentifier(symbolName, suffix):
 	return (symbolName + "_hfauto_" + suffix).strip()
 
 def deviceVersionIdentifier(symbolName):
+	if "%" in symbolName:
+		return symbolName.strip()
 	return (symbolName + "_hfdev").strip()
 
 MERGEABLE_DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES = {
@@ -290,9 +292,6 @@ class Symbol(object):
 			self.loadTemplate(template)
 		else:
 			self.template = None
-		if (symbolEntry != None or scopeNode != None) \
-		and (symbolEntry == None or scopeNode == None):
-			raise Exception("symbol entry (%s) and scope node (%s) need to be set together for symbol %s" %(symbolEntry, scopeNode, self))
 		if symbolEntry != None:
 			self.isModuleSymbol = scopeNode.tagName == "module"
 			self.loadDomainDependantEntryNodeAttributes(symbolEntry)
@@ -570,7 +569,7 @@ EXAMPLE:\n\
 	@property
 	def uniqueIdentifier(self):
 		if not self.routineNode:
-			raise Exception("routine node needs to be loaded at this point")
+			raise Exception("routine node needs to be loaded at this point; Missing for %s" %(self.name))
 		return uniqueIdentifier(self.name, self.nameOfScope)
 
 	def updateNameInScope(self, forceAutomaticName=False, residingModule=None):
@@ -655,6 +654,24 @@ EXAMPLE:\n\
 			globalParallelDomainNames=self.globalParallelDomainNames
 		)
 		clone.merge(self)
+
+		clone.intent = self.intent
+		clone.isConstant = self.isConstant
+		clone.routineNode = self.routineNode
+		clone.attributes = self.attributes
+		clone.parallelRegionPosition = self.parallelRegionPosition
+		clone._isUsingDevicePostfix = self._isUsingDevicePostfix
+		clone.isOnDevice = self.isOnDevice
+		clone.isModuleSymbol = self.isModuleSymbol
+		clone._isArgumentOverride = self._isArgumentOverride
+		clone._nameOfScopeOverride = self._nameOfScopeOverride
+		clone._nameInScope = self._nameInScope
+		clone.isUserSpecified = self.isUserSpecified
+		clone.isPresent = self.isPresent
+		clone.isHostSymbol = self.isHostSymbol
+		clone.isToBeTransfered = self.isToBeTransfered
+		clone._residingModule = self._residingModule
+		clone.usedTypeParameters = self.usedTypeParameters
 		return clone
 
 	def merge(self, otherSymbol):
@@ -777,12 +794,14 @@ EXAMPLE:\n\
 		elif self.attributes and ("host" in self.attributes) \
 		or otherSymbol.attributes and ("host" in otherSymbol.attributes):
 			domainDependantAttributes.add("host")
-		for attribute in self.attributes:
-			if attribute not in ["present", "host", "transferHere"]:
-				domainDependantAttributes.add(attribute)
-		for attribute in otherSymbol.attributes:
-			if attribute not in ["present", "host", "transferHere"]:
-				domainDependantAttributes.add(attribute)
+		if self.attributes:
+			for attribute in self.attributes:
+				if attribute not in ["present", "host", "transferHere"]:
+					domainDependantAttributes.add(attribute)
+		if otherSymbol.attributes:
+			for attribute in otherSymbol.attributes:
+				if attribute not in ["present", "host", "transferHere"]:
+					domainDependantAttributes.add(attribute)
 		self.attributes = [a for a in domainDependantAttributes]
 		self.setOptionsFromAttributes(self.attributes)
 
@@ -1761,6 +1780,7 @@ class FrameworkArray(Symbol):
 			raise Exception("Currently unsupported non-1D-array specified as framework array")
 		identifier = frameworkArrayName(calleeName)
 		Symbol.__init__(self, identifier)
+		self.calleeName = calleeName
 		self.domains = domains
 		self.isMatched = True
 		self.isOnDevice = isOnDevice
@@ -1769,3 +1789,18 @@ class FrameworkArray(Symbol):
 		self._declarationTypeOverride = DeclarationType.FRAMEWORK_ARRAY
 		self._nameInScope = identifier
 		self.compactedSymbols = None
+		self.attributes = []
+
+	def clone(self):
+		clone = FrameworkArray(
+			self.calleeName,
+			declarationPrefix=self.declarationPrefix,
+			domains=self.domains,
+			isOnDevice=self.isOnDevice
+		)
+		clone.isMatched = self.isMatched
+		clone.isConstant = self.isConstant
+		clone._declarationTypeOverride = self._declarationTypeOverride
+		clone.compactedSymbols = self.compactedSymbols
+		clone.attributes = self.attributes
+		return clone

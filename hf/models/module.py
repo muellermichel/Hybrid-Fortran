@@ -89,7 +89,7 @@ class Module(object):
 			routine._checkParallelRegions()
 
 		for routine in self._routinesForImplementation:
-			routine._updateSymbolReferences()
+			routine._deduplicateAndFinalizeSymbols()
 			routine._prepareCallRegions()
 
 		for routine in self._routinesForImplementation:

@@ -20,7 +20,7 @@
 
 import copy, weakref, traceback
 from models.region import RegionType, RoutineSpecificationRegion, ParallelRegion, CallRegion
-from models.symbol import FrameworkArray, DeclarationType, ScopeError, limitLength
+from models.symbol import FrameworkArray, DeclarationType, ScopeError, limitLength, uniqueIdentifier
 from machinery.commons import ConversionOptions, updateTypeParameterProperties
 from tools.commons import UsageError
 
@@ -38,9 +38,6 @@ def getModuleArraysForCallee(calleeName, symbolAnalysisByRoutineNameAndSymbolNam
 			symbol.analysis = symbolAnalysis
 			moduleSymbols.append(symbol)
 	return moduleSymbols
-
-def uniqueIdentifier(routineName, implementationName):
-	return (routineName + "_hfauto_" + implementationName).strip()
 
 class Routine(object):
 	def __init__(self, name, module, moduleRequiresStrongReference=False):
@@ -174,7 +171,7 @@ This is not allowed for implementations using %s.\
 			if template == None:
 				raise Exception("Invalid parallel region template loaded for %s" %(self.name))
 
-	def _updateSymbolReferences(self):
+	def _deduplicateAndFinalizeSymbols(self):
 		def updateIndex(indexByNameAndScopeName, symbol):
 			symbolsByScopeName = indexByNameAndScopeName.get(symbol.name, {})
 			symbolsByScopeName[symbol.nameOfScope] = symbol
@@ -198,7 +195,8 @@ This is not allowed for implementations using %s.\
 				symbol = symbolsByScopeName[symbolsByScopeName.keys()[0]] #$$$ this needs to be commented
 				symbol.nameOfScope = self.name
 			updateSymbolNode(symbol)
-			symbol.updateNameInScope(residingModule=self.parentModule.name)
+			if not isinstance(symbol, FrameworkArray):
+				symbol.updateNameInScope(residingModule=self.parentModule.name)
 			updatedSymbolsByName[symbol.nameInScope(useDeviceVersionIfAvailable=False)] = symbol.clone()
 		for symbol in updatedSymbolsByName.values():
 			for typeParameterSymbol in symbol.usedTypeParameters:
@@ -213,6 +211,10 @@ This is not allowed for implementations using %s.\
 				updateSymbolNode(typeParameterSymbol)
 				typeParameterSymbol.updateNameInScope(residingModule=self.parentModule.name)
 			symbol.usedTypeParameters = set([typeParameter for typeParameter in symbol.usedTypeParameters])
+		symbolsByOriginalName = dict(
+			(symbol.name, symbol)
+			for symbol in updatedSymbolsByName.values()
+		)
 		self.symbolsByName = updatedSymbolsByName
 
 	def _updateSymbolState(self):
@@ -348,10 +350,11 @@ This is not allowed for implementations using %s.\
 					domains=[("hfauto", str(len(toBeCompacted)))],
 					isOnDevice=True
 				)
+				compactedArray.nameOfScope = self.name
 				compactedArrayList = [compactedArray]
 				additionalCompactedSubroutineParameters = sorted(toBeCompacted)
 				compactedArray.compactedSymbols = additionalCompactedSubroutineParameters
-			additionalSubroutineParameters = sorted(otherImports + compactedArrayList)
+			additionalSubroutineParameters = [s for s in sorted(otherImports + compactedArrayList) if s.declarationPrefix]
 			self._additionalArguments = copy.copy(additionalSubroutineParameters)
 
 			#analyse whether this routine is calling other routines that have a parallel region within
@@ -429,11 +432,7 @@ This is not allowed for implementations using %s.\
 			self._additionalImports = additionalImportsByScopedName.values()
 
 			#finalize context for this routine
-			ourSymbolsToAdd = sorted([
-				s for s in
-				additionalSubroutineParameters + additionalCompactedSubroutineParameters
-				if s.declarationPrefix
-			])
+			ourSymbolsToAdd = additionalSubroutineParameters + additionalCompactedSubroutineParameters
 
 			#prepare context in callees
 			compactionDeclarationPrefixByCalleeName = {}
@@ -461,6 +460,7 @@ This is not allowed for implementations using %s.\
 						domains=[("hfauto", str(len(toBeCompacted)))],
 						isOnDevice=True
 					)
+					compactedArray.nameOfScope = self.name
 					compactedArrayList = [compactedArray]
 					compactedArray.compactedSymbols = toBeCompacted
 					self._synthesizedSymbols.append(compactedArray)
@@ -489,21 +489,34 @@ This is not allowed for implementations using %s.\
 				))
 
 	def _mergeSynthesizedWithExistingSymbols(self):
-		def updateReferences(symbolList):
-			listOfScopedNames = [
-				symbol.nameInScope(useDeviceVersionIfAvailable=False)
-				for symbol in symbolList
-			]
-			updatedSymbolList = []
-			for nameInScope in listOfScopedNames:
-				symbol = self.symbolsByName.get(nameInScope)
-				if not symbol:
+		def updateReferences(inObject):
+			symbolList = None
+			outObject = None
+			if isinstance(inObject, list):
+				symbolList = inObject
+				outObject = []
+			elif isinstance(inObject, dict):
+				symbolList = inObject.values()
+				outObject = {}
+			for symbol in symbolList:
+				nameInScope = symbol.nameInScope(useDeviceVersionIfAvailable=False)
+				matchedSymbol = self.symbolsByName.get(nameInScope)
+				if not matchedSymbol:
+					matchedSymbol = self.symbolsByName.get(symbol.name)
+				if not matchedSymbol:
+					matchedSymbol = self.symbolsByName.get(uniqueIdentifier(symbol.name, symbol.residingModule))
+				if not matchedSymbol:
+					matchedSymbol = self.symbolsByName.get(uniqueIdentifier(symbol.name, symbol.sourceModule))
+				if not matchedSymbol:
 					raise Exception("%s not found in context, cannot update references. All context keys: %s" %(
 						nameInScope,
 						self.symbolsByName.keys()
 					))
-				updatedSymbolList.append(symbol)
-			return updatedSymbolList
+				if isinstance(outObject, list):
+					outObject.append(matchedSymbol)
+				else:
+					outObject[matchedSymbol.nameInScope(useDeviceVersionIfAvailable=False)] = matchedSymbol
+			return outObject
 
 		def updateLinesAndSymbols(region):
 			updatedLinesAndSymbols = []
@@ -527,6 +540,9 @@ This is not allowed for implementations using %s.\
 				for symbol in symbolsOnLine:
 					self.symbolsByName[symbol.nameInScope(useDeviceVersionIfAvailable=False)] = symbol
 
+		#make sure we only have one version of each symbol loaded. use overloading logic
+		self._deduplicateAndFinalizeSymbols()
+
 		#update symbols referenced on specific lines (could be replaced with automatically added ones)
 		for region in self.regions:
 			if hasattr(region, "_subRegions"):
@@ -543,6 +559,10 @@ This is not allowed for implementations using %s.\
 			s for s in updateReferences(self.regions[0]._symbolsToAdd)
 			if s.declarationPrefix
 		]
+		for region in self.regions:
+			if not isinstance(region, CallRegion):
+				continue
+			region._passedInSymbolsByName = updateReferences(region._passedInSymbolsByName)
 
 		#gather type parameters (quadratic runtime!)
 		allSymbolsInScope = self.symbolsByName.values()

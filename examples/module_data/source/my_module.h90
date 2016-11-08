@@ -38,7 +38,7 @@ module my_module
 	end type
 	@end if
 
-	type(my_type), allocatable:: derived_type_tester(:)
+	type(my_type), save, private, allocatable:: derived_type_tester(:) !just testing whether save and private attributes work here
 
 	real(rlength), public, dimension(:, :, :), allocatable :: a, b, c, d, a2, b2, c2, d2, used_in_acc_routine
 	real, public, dimension(:, :, :), allocatable :: a_dyn, b_dyn, c_dyn, d_dyn

@@ -67,7 +67,7 @@ def symbolIsTypeParameterFor(symbol, symbolsToCheck):
                 break
     return symbolsMatched, typeParameterType
 
-def parseSpecification(line):
+def parseSpecification(line, keepComponentsAsList=False):
     def parseDataObjectsAndRemainder(specRightHandSide):
         dataObjects, remainder = splitIntoComponentsAndRemainder(specRightHandSide)
         if len(dataObjects) == 0:
@@ -93,6 +93,8 @@ def parseSpecification(line):
         if len(declarationComponents) == 0 or not patterns.standardTypePattern.match(declarationComponents[0]):
             return None, None, None
         parsedDataObjects, remainder = parseDataObjectsAndRemainder(multiSpecMatch.group(2))
+        if keepComponentsAsList:
+            return declarationComponents, parsedDataObjects, remainder
         return ", ".join(declarationComponents), parsedDataObjects, remainder
 
     doublePrecisionMatch = patterns.doublePrecisionPattern.match(line)
@@ -113,6 +115,8 @@ def parseSpecification(line):
     parsedDataObjects, remainder = parseDataObjectsAndRemainder(remainder)
     if len(parsedDataObjects) != 1:
         raise UsageError("invalid number of data objects specified on this declaration line")
+    if keepComponentsAsList:
+        return declarationComponents, parsedDataObjects, remainder
     return ", ".join(declarationComponents), parsedDataObjects, remainder
 
 def getSymbolAccessStringAndRemainder(

@@ -135,9 +135,9 @@ def dimensionStringFromSpecification(symbolName, specTuple):
 
 def symbolNamesFromSpecificationTuple(specTuple):
 	return tuple([
-        symbolSpec[0]
-        for symbolSpec in specTuple[1]
-    ])
+		symbolSpec[0]
+		for symbolSpec in specTuple[1]
+	])
 
 def rightHandSpecificationFromDataObjectTuple(dataObjectTuple):
 	return "%s(%s)" %(dataObjectTuple[0], dataObjectTuple[1]) \
@@ -255,7 +255,7 @@ MERGEABLE_DEFAULT_SYMBOL_INSTANCE_DOMAIN_ATTRIBUTES = {
 }
 
 class ScopeError(Exception):
-    pass
+	pass
 
 class Symbol(object):
 	def __init__(
@@ -335,6 +335,16 @@ class Symbol(object):
 		if other == None:
 			return False
 		return self.nameInScope() >= other.nameInScope()
+
+	@property
+	def requiresDeferredShaping(self):
+		if not self.domains:
+			return False
+		declarationComponents, _, _ = parseSpecification(
+			self.declarationPrefix + self.name,
+			keepComponentsAsList=True
+		)
+		return "pointer" in declarationComponents if declarationComponents else False
 
 	@property
 	def nameIsGuaranteedUniqueInScope(self):
@@ -1426,6 +1436,7 @@ Please specify the domains and their sizes with domName and domSize attributes i
 			needsAdditionalClosingBracket = True
 		else:
 			result = result + "("
+		requiresDeferredShaping = self.requiresDeferredShaping
 		for i in range(len(self.domains)):
 			if i != 0:
 				result += ","
@@ -1435,7 +1446,7 @@ Please specify the domains and their sizes with domName and domSize attributes i
 					and parentRoutine.node.getAttribute('parallelRegionPosition') not in ['within', 'outside'] \
 				)) \
 				and self.hasUndecidedDomainSizes \
-			or "pointer" in self.declarationPrefix:
+			or requiresDeferredShaping:
 				result += ":"
 			else:
 				(domName, domSize) = self.domains[i]

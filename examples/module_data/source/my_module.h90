@@ -38,7 +38,18 @@ module my_module
 	end type
 	@end if
 
+	type pointer_in_name
+	  real(rlength), pointer:: r(:, :, :)
+	end type
+
+	@if{architecture(GPU)}
+	type pointer_in_name_hfdev
+	  real(rlength), device, pointer:: r(:, :, :)
+	end type
+	@end if
+
 	type(my_type), save, private, allocatable:: derived_type_tester(:) !just testing whether save and private attributes work here
+	type(pointer_in_name), save, private:: derived_type_tester2(1) !static allocated, uses "pointer" in the declaration prefix without being a pointer
 
 	real(rlength), public, dimension(:, :, :), allocatable :: a, b, c, d, a2, b2, c2, d2, used_in_acc_routine
 	real, public, dimension(:, :, :), allocatable :: a_dyn, b_dyn, c_dyn, d_dyn
@@ -67,7 +78,7 @@ module my_module
 	@end domainDependant
 
 	@domainDependant{attribute(host), domName(it1), domSize(1)}
-	derived_type_tester
+	derived_type_tester, derived_type_tester2
 	@end domainDependant
 
 	@domainDependant{attribute(host), domName(x,y,z), domSize(nx,ny,nz), domPP(DOM), accPP(AT)}
@@ -108,6 +119,11 @@ contains
 		@if{architecture(GPU)}
 		allocate(derived_type_tester_hfdev(1))
 		nullify(derived_type_tester_hfdev(1)%r)
+		@end if
+
+		nullify(derived_type_tester2(1)%r)
+		@if{architecture(GPU)}
+		nullify(derived_type_tester2_hfdev(1)%r)
 		@end if
 
 		host_only_array(:) = 0.0d0

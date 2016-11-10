@@ -262,7 +262,26 @@ program main
   c(:,:,:) = 0.0d0
   call data_region_wrapper9()
   write(0,*) "calculation9 complete"
-  call assert_values(c, 4.0d0)
+  test = .TRUE.
+  do y=1,NY
+  do x=1,NX
+  do z=1,NZ
+    if (test .EQ. .TRUE. .AND. c(AT(x,y,z)) /= 3.0d0 + real(z)) then
+      test = .FALSE.
+      fail_x = x
+      fail_y = y
+      fail_z = z
+    end if
+  end do
+  end do
+  end do
+  if (test .EQ. .TRUE.) then
+    write(0,*) "test 9 ok"
+  else
+    write(0,*) "test 9 failed"
+    write(0,*) "fails at", fail_x, fail_y, fail_z, "test_array:", c(fail_x,fail_y,fail_z)
+    stop 2
+  end if
 
   c(:,:,:) = 0.0d0
   d(:,:,:) = 0.0d0

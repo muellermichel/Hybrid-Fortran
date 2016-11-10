@@ -181,7 +181,7 @@ contains
 
 		allocate(implicitDataArray1(NZ))
 		do z=1,NZ
-			implicitDataArray1(z) = 1.0d0
+			implicitDataArray1(z) = real(z)
 		end do
 	end subroutine
 

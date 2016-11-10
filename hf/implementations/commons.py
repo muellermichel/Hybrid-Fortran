@@ -392,9 +392,10 @@ def getRuntimeDebugPrintStatements(kernelName, symbolsByName, calleeRoutineNode,
 		result += "if (hf_debug_print_iterator == 0) then\n"
 
 	result += "write(0,*) '*********** kernel %s finished *************** '\n" %(kernelName)
+	#get all real symbols and all derived type accessors
 	symbolsToPrint = sorted([
 		symbol for symbol in symbolsByName.values()
-		if "real" in symbol.declarationPrefix
+		if "real" in symbol.declarationPrefix or "%" in symbol.name
 	],  key=lambda symbol: symbol.name)
 	offsetsBySymbolName = {}
 	for symbol in symbolsToPrint:

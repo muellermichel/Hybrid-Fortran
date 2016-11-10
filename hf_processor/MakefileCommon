@@ -431,28 +431,28 @@ tests_gpu: ${INSTALL_TARGETS_GPU}
 	${HF_DIR}/hf_bin/runTests.sh "${TEST_TARGET_GPU}" production gpu "${TEST_OUTPUT_FILE_PATTERN_POST}" "${SOURCE_THIS_BEFORE_TESTING}" "${SOURCE_THIS_AFTER_TESTING}" "${ACCURACY_TEST_PARAMETERS_POST}"
 
 ${SRC_DIR_CPU}Makesettings: ${CONFIGDIR}MakesettingsCPU
-	@mkdir -p ${SRC_DIR_CPU} && cp $< $@
+	mkdir -p ${SRC_DIR_CPU} && cp $< $@
 
 ${SRC_DIR_GPU}Makesettings: ${CONFIGDIR}MakesettingsGPU
-	@mkdir -p ${SRC_DIR_GPU} && cp $< $@
+	mkdir -p ${SRC_DIR_GPU} && cp $< $@
 
 ${SRC_DIR_CPU}Makefile: ${CONFIGDIR}Makefile
-	@mkdir -p ${SRC_DIR_CPU} && cp $< $@
+	mkdir -p ${SRC_DIR_CPU} && cp $< $@
 
 ${SRC_DIR_GPU}Makefile: ${CONFIGDIR}Makefile
-	@mkdir -p ${SRC_DIR_CPU} && cp $< $@
+	mkdir -p ${SRC_DIR_GPU} && cp $< $@
 
 ${SRC_DIR_CPU}MakesettingsGeneral: ${CONFIGDIR}MakesettingsGeneral
-	@mkdir -p ${SRC_DIR_CPU} && cp $< $@
+	mkdir -p ${SRC_DIR_CPU} && cp $< $@
 
 ${SRC_DIR_GPU}MakesettingsGeneral: ${CONFIGDIR}MakesettingsGeneral
-	@mkdir -p ${SRC_DIR_CPU} && cp $< $@
+	mkdir -p ${SRC_DIR_CPU} && cp $< $@
 
 additional_configfiles_cpu:
-	@mkdir -p ${SRC_DIR_CPU} && find ${CONFIGDIR} -maxdepth 1 -type d | awk '{if(NR>1)print}' | xargs -n1 -I {} cp -r {} ${SRC_DIR_CPU}
+	mkdir -p ${SRC_DIR_CPU} && find ${CONFIGDIR} -maxdepth 1 -type d | awk '{if(NR>1)print}' | xargs -n1 -I {} cp -r {} ${SRC_DIR_CPU}
 
 additional_configfiles_gpu:
-	@mkdir -p ${SRC_DIR_GPU} && find ${CONFIGDIR} -maxdepth 1 -type d | awk '{if(NR>1)print}' | xargs -n1 -I {} cp -r {} ${SRC_DIR_GPU}
+	mkdir -p ${SRC_DIR_GPU} && find ${CONFIGDIR} -maxdepth 1 -type d | awk '{if(NR>1)print}' | xargs -n1 -I {} cp -r {} ${SRC_DIR_GPU}
 
 ifdef AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH
 ${DIR_CPU}${AUTO_DEPENDENCY_GENERATOR_OUTPUT_PATH}: ${SRC_ALL_CPU} framework_sources_cpu

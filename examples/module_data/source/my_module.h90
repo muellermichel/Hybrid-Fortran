@@ -205,15 +205,19 @@ contains
 		integer :: z
 		real :: pre_computed_factor
 
-		@domainDependant{attribute(host), domName(x,y,z), domSize(NX,NY,NZ)}
+		@domainDependant{attribute(host, autoDom), domPP(DOM), accPP(AT)}
 		a, b
 		@end domainDependant
 
-		@domainDependant{attribute(present, autoDom)}
-		c, derived_type_tester
+		@domainDependant{attribute(present, autoDom), domPP(DOM), accPP(AT)}
+		c
 		@end domainDependant
 
-		@domainDependant{attribute(present), domName(x,y,z), domSize(NX,NY,NZ)}
+		@domainDependant{attribute(present, autoDom)}
+		derived_type_tester
+		@end domainDependant
+
+		@domainDependant{attribute(present), domName(x,y,z), domSize(NX,NY,NZ), domPP(DOM), accPP(AT)}
 		derived_type_tester(1)%r
 		@end domainDependant
 

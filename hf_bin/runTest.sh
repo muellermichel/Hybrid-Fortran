@@ -152,9 +152,11 @@ for i in "${!argStringsArr[@]}"; do
 	if [ -z "$HF_RUN_OVER_SSH" ]; then
 		timingResult=$(./${executable_name} ${argString} 2>./log_lastRun.txt && :)
 		rc=$?
+		sleep 5
 	else
 		timingResult=$(ssh $HF_RUN_OVER_SSH "cd ${working_dir} && ./${executable_name}" ${argString} 2>./log_lastRun.txt && :)
 		rc=$?
+		sleep 5
 	fi
 	if [[ $rc != 0 ]] ; then
 		echo "fail"

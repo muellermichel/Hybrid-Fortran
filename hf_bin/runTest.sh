@@ -134,7 +134,7 @@ for i in "${!argStringsArr[@]}"; do
 		fi
 		if [ -e "${archive_path}" ] && [ ! -e $refPath ]; then
 			if ! $extractionAttempted; then
-				echo "extracting reference data"
+				echo "extracting reference data from ${archive_path}"
 				tar -xzvf "${archive_path}" -C ./ > /dev/null
 				extractionAttempted=true
 			fi

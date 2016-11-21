@@ -34,6 +34,73 @@ contains
 
     call stencil(n, m, nz, a, c, c_start, b)
   end subroutine
+
+  ! Second test - does the pass in still work if we are already in a data region?
+  subroutine stencilPresent(n, m, nz, a, c, c_start, b)
+    implicit none
+    integer(4), intent(in) :: n, m, nz
+    real(8), intent(in), dimension(n,m) :: a
+    real(8), intent(in), dimension(n,m,nz) :: c
+    real(8), intent(in) :: c_start
+    real(8), intent(out), dimension(n,m) :: b
+    integer(4) :: k
+    !don't need to specify the scalars here, HF will find them automatically since a few versions
+    @domainDependant{attribute(autoDom, present)}
+    a, c, b, c_start
+    @end domainDependant
+
+    @parallelRegion{domName(i,j), domSize(n,m), endAt(n-1,m)}
+    b(i,j) = a(i,j) + a(i+1,j) + c_start
+    do k = 2, nz
+      b(i,j) = b(i,j) + c(i,j,k)
+    end do
+    @end parallelRegion
+  end subroutine
+
+  subroutine stencilWrapperWithDataRegion(n, m, nz, a, c, b)
+    implicit none
+    integer(4), intent(in) :: n, m, nz
+    real(8), intent(in), dimension(n,m) :: a
+    real(8), intent(in), dimension(n,m,nz) :: c
+    real(8), intent(out), dimension(n,m) :: b
+    @domainDependant{attribute(autoDom, transferHere)}
+    a, b, c
+    @end domainDependant
+
+    call stencilPresent(n, m, nz, a, c, c(1,1,1), b)
+  end subroutine
+
+  subroutine assert_result(test_array, expected_value, n, m)
+    implicit none
+    integer(4), intent(in) :: n, m
+    real, dimension(n, m), intent(in) :: test_array
+    real(8), intent(in) :: expected_value
+    integer :: fail_x, fail_y, fail_z
+    integer :: x, y, z
+    logical test
+
+    @domainDependant{attribute(host), domName(x,y,z), domSize(NX,NY,NZ), domPP(DOM), accPP(AT)}
+    test_array
+    @end domainDependant
+
+    test = .TRUE.
+    do y=1,m
+    do x=1,n-1
+      if (test .EQ. .TRUE. .AND. test_array(x,y) .NE. expected_value) then
+        test = .FALSE.
+        fail_x = x
+        fail_y = y
+      end if
+    end do
+    end do
+    if (test .EQ. .TRUE.) then
+      write(0,*) "test ok"
+    else
+      write(0,*) "test failed"
+      write(0,*) "fails at", fail_x, fail_y, "test_array:", test_array(fail_x, fail_y)
+      stop 2
+    end if
+  end subroutine
 end module
 
 program main
@@ -52,19 +119,15 @@ program main
   a(:,:) = 1.0d0
   b(:,:) = 0.0d0
   c(:,:,:) = 1.0d0
+
+  !passing in array members from host memory
   call stencilWrapper(n, m, nz, a, c, c(1,1,1), b)
-  do i=1,n-1
-    do j=1,m
-      if (b(i,j) .ne. 5.0d0) then
-        write(6,*) "test failed, i=", i, "j=", j, "b=", b(i,j)
-        deallocate(a)
-        deallocate(b)
-        deallocate(c)
-        stop 2
-      end if
-    end do
-  end do
-  write(6,*) "test ok"
+  call assert_result(b, 5.0d0, n, m)
+
+  !passing in array members from device memory
+  call stencilWrapperWithDataRegion(n, m, nz, a, c, b)
+  call assert_result(b, 5.0d0, n, m)
+
   deallocate(a)
   deallocate(b)
   deallocate(c)

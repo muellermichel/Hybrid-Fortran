@@ -352,9 +352,7 @@ def _checkDeclarationConformity(dependantSymbols):
 	#analyse state of symbols - already declared as on device or not?
 	alreadyOnDevice = "undefined"
 	for symbol in dependantSymbols:
-		if not symbol.domains or len(symbol.domains) == 0:
-			continue
-		elif symbol.isPresent and alreadyOnDevice == "undefined":
+		if symbol.isPresent and alreadyOnDevice == "undefined":
 			alreadyOnDevice = "yes"
 		elif not symbol.isPresent and alreadyOnDevice == "undefined":
 			alreadyOnDevice = "no"
@@ -365,9 +363,7 @@ Symbols vs present attributes:\n%s" %(str([(symbol.name, symbol.isPresent) for s
 			)
 	copyHere = "undefined"
 	for symbol in dependantSymbols:
-		if not symbol.domains or len(symbol.domains) == 0:
-			continue
-		elif symbol.isToBeTransfered and copyHere == "undefined":
+		if symbol.isToBeTransfered and copyHere == "undefined":
 			copyHere = "yes"
 		elif not symbol.isToBeTransfered and copyHere == "undefined":
 			copyHere = "no"
@@ -377,9 +373,7 @@ Symbols vs transferHere attributes:\n%s" %(str([(symbol.name, symbol.transferHer
 			)
 	isOnHost = "undefined"
 	for symbol in dependantSymbols:
-		if not symbol.domains or len(symbol.domains) == 0:
-			continue
-		elif symbol.isHostSymbol and isOnHost == "undefined":
+		if symbol.isHostSymbol and isOnHost == "undefined":
 			isOnHost = "yes"
 		elif not symbol.isHostSymbol and isOnHost == "undefined":
 			isOnHost = "no"
@@ -432,8 +426,8 @@ class DeviceDataFortranImplementation(FortranImplementation):
 		if self.allowsMixedHostAndDeviceCode and symbol.isHostSymbol:
 			return
 
+		#all kernel symbols cannot be transfered
 		if parallelRegionPosition in ["within", "outside"]:
-			symbol.isPresent = True
 			symbol.isToBeTransfered = False
 
 		#passed in scalars in kernels and inside kernels
@@ -444,6 +438,9 @@ class DeviceDataFortranImplementation(FortranImplementation):
 
 		#arrays..
 		elif len(symbol.domains) > 0:
+			#.. in general need to be present if they are used on the device
+			if parallelRegionPosition in ["within", "outside"]:
+				symbol.isPresent = True
 
 			#.. marked as host symbol (which automatically gets deactivated when symbol is set to present!)
 			if symbol.isHostSymbol and regionType == RegionType.MODULE_DECLARATION:
@@ -543,23 +540,37 @@ class DeviceDataFortranImplementation(FortranImplementation):
 				typeMatch.group(3)
 			)
 
-		#scalars in kernels ...
-		if parallelRegionPosition == "within" \
+		#scalars in kernels or marked as present ...
+		if ( \
+			parallelRegionPosition == "within" \
+			or alreadyOnDevice == "yes" \
+		) \
 		and len(dependantSymbols[0].domains) == 0:
 			#... scalar parameters -> leave them alone, CUDA kernels can handle them fine
 			if "parameter" in declarationDirectives:
-				adjustedLine = declarationDirectives + " :: " + symbolDeclarationStr
+				adjustedLine = "%s :: %s" %(
+					declarationDirectives,
+					symbolDeclarationStr
+				)
 
 			#... not meant for output (if we can't do reductions just induce a potential compiler error at this point)
 			elif ( \
 				intent not in ["out", "inout"] or not self.assignmentToScalarsInKernelsAllowed \
 			) \
 			and not "character" in adjustedDeclarationDirectives:
-				adjustedLine = adjustedDeclarationDirectives + ", value :: " + symbolDeclarationStr
+				adjustedLine = "%s%s :: %s" %(
+					adjustedDeclarationDirectives,
+					", device" if alreadyOnDevice == "yes" else ", value",
+					symbolDeclarationStr
+				)
 
 			#... meant for output
 			else:
-				adjustedLine = adjustedDeclarationDirectives + ", intent(%s) :: " %(intent) + symbolDeclarationStr
+				adjustedLine = adjustedDeclarationDirectives + ", %sintent(%s) :: %s" %(
+					"device, " if alreadyOnDevice == "yes" else "",
+					intent,
+					symbolDeclarationStr
+				)
 
 		#arrays...
 		elif len(dependantSymbols[0].domains) > 0:

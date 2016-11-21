@@ -54,8 +54,9 @@ contains
     integer(4), intent(in) :: n, m
     real(8), intent(in), dimension(n,m) :: a
     real(8), intent(out), dimension(n,m) :: b
+
     @domainDependant{attribute(autoDom, present)}
-    a, b, n, m
+    a, b
     @end domainDependant
 
     @parallelRegion{domName(i,j), domSize(n,m), endAt(n-1,m)}

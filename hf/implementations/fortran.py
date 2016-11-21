@@ -546,6 +546,8 @@ class DeviceDataFortranImplementation(FortranImplementation):
 			or alreadyOnDevice == "yes" \
 		) \
 		and len(dependantSymbols[0].domains) == 0:
+			deviceType = alreadyOnDevice == "yes" and intent not in ["", "local", None]
+
 			#... scalar parameters -> leave them alone, CUDA kernels can handle them fine
 			if "parameter" in declarationDirectives:
 				adjustedLine = "%s :: %s" %(
@@ -560,14 +562,14 @@ class DeviceDataFortranImplementation(FortranImplementation):
 			and not "character" in adjustedDeclarationDirectives:
 				adjustedLine = "%s%s :: %s" %(
 					adjustedDeclarationDirectives,
-					", device" if alreadyOnDevice == "yes" else ", value",
+					", device" if deviceType else ", value",
 					symbolDeclarationStr
 				)
 
 			#... meant for output
 			else:
 				adjustedLine = adjustedDeclarationDirectives + ", %sintent(%s) :: %s" %(
-					"device, " if alreadyOnDevice == "yes" else "",
+					"device, " if deviceType else "",
 					intent,
 					symbolDeclarationStr
 				)

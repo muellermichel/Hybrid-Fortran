@@ -224,7 +224,9 @@ This is not allowed for implementations using %s.\
 			for routine in [self] + self.callees:
 				if not hasattr(routine, "usedSymbolNamesInKernels"):
 					continue
-				if symbol._isHostSymbol and symbol.name in routine.usedSymbolNamesInKernels:
+				if symbol._isHostSymbol \
+				and symbol.name in routine.usedSymbolNamesInKernels \
+				and symbol.domains:
 					symbol.isPresent = True
 
 			#some other symbol state resets

@@ -41,17 +41,18 @@ def getModuleArraysForCallee(calleeName, symbolAnalysisByRoutineNameAndSymbolNam
 	return moduleSymbols
 
 class Routine(object):
-	def __init__(self, name, module, moduleRequiresStrongReference=False):
+	def __init__(self, name, moduleName, moduleRequiresStrongReference=False):
 		if not type(name) in [str, unicode] or name.strip() == "":
 			raise Exception("no valid name passed when trying to initialize routine")
 		self.name = name
 		self.isUsedInHostOnlyContext = False
 		self._programmerArguments = None
 		self._regions = None
-		if moduleRequiresStrongReference:
-			self._parentModule = module
-		else:
-			self._parentModule = weakref.ref(module)
+		self.parentModuleName = moduleName
+		# if moduleRequiresStrongReference:
+		# 	self._parentModule = module
+		# else:
+		# 	self._parentModule = weakref.ref(module)
 
 	@property
 	def regions(self):
@@ -61,11 +62,11 @@ class Routine(object):
 	def regions(self, _regions):
 		self._regions = _regions
 
-	@property
-	def parentModule(self):
-		if hasattr(self._parentModule, "createRoutine"):
-			return self._parentModule
-		return self._parentModule()
+	# @property
+	# def parentModule(self):
+	# 	if hasattr(self._parentModule, "createRoutine"):
+	# 		return self._parentModule
+	# 	return self._parentModule()
 
 	@property
 	def programmerArguments(self):
@@ -80,8 +81,8 @@ class Routine(object):
 		return limitLength(self.name)
 
 class AnalyzableRoutine(Routine):
-	def __init__(self, name, module, routineNode, parallelRegionTemplates, implementation, moduleRequiresStrongReference=False):
-		super(AnalyzableRoutine, self).__init__(name, module, moduleRequiresStrongReference)
+	def __init__(self, name, moduleName, routineNode, parallelRegionTemplates, implementation, moduleRequiresStrongReference=False):
+		super(AnalyzableRoutine, self).__init__(name, moduleName, moduleRequiresStrongReference)
 		if not routineNode:
 			raise Exception("no definition passed when trying to initialize routine '%s'" %(name))
 		if not implementation:
@@ -182,7 +183,7 @@ This is not allowed for implementations using %s.\
 		symbolsByNameAndScopeName = {}
 		for symbol in self.symbolsByName.values():
 			updateIndex(symbolsByNameAndScopeName, symbol)
-		parentModuleName = self.parentModule.name
+		parentModuleName = self.parentModuleName
 		updatedSymbolsByName = {}
 		for symbolsByScopeName in symbolsByNameAndScopeName.values():
 			symbol = symbolsByScopeName.get(self.name)
@@ -194,7 +195,7 @@ This is not allowed for implementations using %s.\
 				symbol = symbolsByScopeName[symbolsByScopeName.keys()[0]] #$$$ this needs to be commented
 				symbol.nameOfScope = self.name
 			if not isinstance(symbol, FrameworkArray):
-				symbol.updateNameInScope(residingModule=self.parentModule.name)
+				symbol.updateNameInScope(residingModule=self.parentModuleName)
 			updatedSymbolsByName[symbol.nameInScope(useDeviceVersionIfAvailable=False)] = symbol.clone()
 		for symbol in updatedSymbolsByName.values():
 			for typeParameterSymbol in symbol.usedTypeParameters:
@@ -206,7 +207,7 @@ This is not allowed for implementations using %s.\
 				and "integer" in updatedSymbolsByName[typeParameterSymbol.name].declarationPrefix:
 					typeParameterSymbol.isUserSpecified = True
 				typeParameterSymbol.nameOfScope = self.name
-				typeParameterSymbol.updateNameInScope(residingModule=self.parentModule.name)
+				typeParameterSymbol.updateNameInScope(residingModule=self.parentModuleName)
 			symbol.usedTypeParameters = set([typeParameter for typeParameter in symbol.usedTypeParameters])
 		self.symbolsByName = updatedSymbolsByName
 
@@ -246,7 +247,7 @@ This is not allowed for implementations using %s.\
 			#scoped naming state reset
 			nameInScope = symbol.name
 			if not isinstance(symbol, FrameworkArray):
-				symbol.updateNameInScope(residingModule=self.parentModule.name)
+				symbol.updateNameInScope(residingModule=self.parentModuleName)
 			nameInScope = symbol.nameInScope(useDeviceVersionIfAvailable=False)
 			updatedSymbolsByName[nameInScope] = symbol
 
@@ -302,7 +303,7 @@ This is not allowed for implementations using %s.\
 			arrayDeclarationPrefix = toBeCompacted[0].getSanitizedDeclarationPrefix(purgeList=purgeList)
 		return toBeCompacted, arrayDeclarationPrefix, otherSymbols
 
-	def _prepareAdditionalContext(self):
+	def _prepareAdditionalContext(self, module):
 		if not self._moduleNodesByName \
 		or not self._symbolAnalysisByRoutineNameAndSymbolName \
 		or not self._symbolsByModuleNameAndSymbolName:
@@ -322,6 +323,7 @@ This is not allowed for implementations using %s.\
 			additionalImportsForOurSelves, \
 			additionalDeclarationsForOurselves, \
 			additionalDummiesForOurselves = self.implementation.getAdditionalKernelParameters(
+				calleeModule=module,
 				currRoutine=self,
 				callee=self,
 				moduleNodesByName=self._moduleNodesByName,
@@ -360,20 +362,21 @@ This is not allowed for implementations using %s.\
 				for callee in self.callees:
 					if not isinstance(callee, AnalyzableRoutine):
 						continue
-					if self.parentModule.name != callee.parentModule.name:
+					if self.parentModuleName != callee.parentModuleName:
 						continue
 
 					#the callee routine has all the information about what's going on inside the routine,
 					#, as opposed to only the interface information that is available in callee. this allows
 					#detailed symbol usage analysis
 					adjustedCalleeName = self._adjustedCalleeNamesByName.get(callee.name, callee.name)
-					calleeRoutine = self.parentModule.routinesByName.get(adjustedCalleeName)
+					calleeRoutine = module.routinesByName.get(adjustedCalleeName)
 					if not calleeRoutine:
 						calleeRoutine = callee
 
 					additionalImportsForDeviceCompatibility, \
 					additionalDeclarationsForDeviceCompatibility, \
 					additionalDummies = callee.implementation.getAdditionalKernelParameters(
+						calleeModule=module,
 						currRoutine=self,
 						callee=calleeRoutine,
 						moduleNodesByName=self._moduleNodesByName,
@@ -526,7 +529,7 @@ This is not allowed for implementations using %s.\
 			+ self.regions[0]._symbolsToAdd:
 			nameInScope = symbol.nameInScope(useDeviceVersionIfAvailable=False)
 			if symbol.routineNode:
-				symbol.updateNameInScope(residingModule=self.parentModule.name)
+				symbol.updateNameInScope(residingModule=self.parentModuleName)
 				nameInScope = symbol.nameInScope(useDeviceVersionIfAvailable=False)
 			self.symbolsByName[nameInScope] = symbol
 
@@ -568,7 +571,7 @@ This is not allowed for implementations using %s.\
 		typeParametersByName = {}
 		for symbol in allSymbolsInScope:
 			for typeParameterSymbol in symbol.usedTypeParameters:
-				if typeParameterSymbol.sourceModule == self.parentModule.name:
+				if typeParameterSymbol.sourceModule == self.parentModuleName:
 					continue
 				typeParametersByName[typeParameterSymbol.name] = typeParameterSymbol
 		self.regions[0].loadTypeParameterSymbolsByName(typeParametersByName)
@@ -720,7 +723,7 @@ This is not allowed for implementations using %s.\
 	def createCloneWithMetadata(self, name):
 		clone = AnalyzableRoutine(
 			name,
-			self.parentModule,
+			self.parentModuleName,
 			routineNode=self.node.cloneNode(deep=True),
 			parallelRegionTemplates=copy.copy(self.parallelRegionTemplates),
 			implementation=self.implementation

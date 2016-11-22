@@ -250,7 +250,7 @@ class CallRegion(Region):
 			parallelRegionPosition = self._callee.node.getAttribute("parallelRegionPosition")
 
 
-		isForeignModuleCall = parentRoutine.parentModule.name != self._callee.parentModule.name
+		isForeignModuleCall = parentRoutine.parentModuleName != self._callee.parentModuleName
 		if hasattr(self._callee, "implementation") and parallelRegionPosition == "within" and not isForeignModuleCall:
 			if not self._callee.parallelRegionTemplates \
 			or len(self._callee.parallelRegionTemplates) == 0:
@@ -564,7 +564,7 @@ class RoutineSpecificationRegion(Region):
 					continue
 				sourceName = self._allImports[(sourceModule, nameInScope)]
 				symbol = parentRoutine.symbolsByName.get(sourceName)
-				if symbol != None and symbol.sourceModule == parentRoutine.parentModule.name:
+				if symbol != None and symbol.sourceModule == parentRoutine.parentModuleName:
 					continue
 				if symbol != None:
 					text += getImportLine([symbol], parentRoutine)

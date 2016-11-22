@@ -57,7 +57,7 @@ class Module(object):
 		self._undecidedText += stripped + "\n"
 
 	def createRoutine(self, name, routineNode, parallelRegionTemplates, implementation):
-		routine = AnalyzableRoutine(name, self, routineNode, parallelRegionTemplates, implementation)
+		routine = AnalyzableRoutine(name, self.name, routineNode, parallelRegionTemplates, implementation)
 		if self._undecidedText != "":
 			self._postTextByRoutine[self._lastRoutine.name] = self._undecidedText
 			self._undecidedText = ""
@@ -92,7 +92,7 @@ class Module(object):
 			routine._prepareCallRegions()
 
 		for routine in self._routinesForImplementation:
-			routine._prepareAdditionalContext()
+			routine._prepareAdditionalContext(self)
 
 		for routine in self._routinesForImplementation:
 			routine._mergeSynthesizedWithExistingSymbols()

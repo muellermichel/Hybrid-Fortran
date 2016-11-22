@@ -222,7 +222,7 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
             calleeImplementation = self.implementationForTemplateName(calleeNode.getAttribute('implementationTemplate'))
             self.currCallee = AnalyzableRoutine(
                 self.currCalleeName,
-                sourceModule,
+                sourceModule.name,
                 calleeNode,
                 self.parallelRegionTemplatesByProcName.get(self.currCalleeName),
                 calleeImplementation,
@@ -231,7 +231,7 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
         else:
             self.currCallee = Routine(
                 self.currCalleeName,
-                sourceModule,
+                sourceModule.name,
                 moduleRequiresStrongReference=isinstance(sourceModule, ModuleStub)
             )
         self.currRoutine.loadCall(self.currCallee)

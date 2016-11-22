@@ -22,7 +22,7 @@ import weakref, copy, re
 from tools.commons import enum, UsageError, OrderedDict
 from tools.metadata import getArguments
 from tools.patterns import regexPatterns
-from machinery.commons import ConversionOptions, getSymbolAccessStringAndRemainder, implement, replaceEarlyExits
+from machinery.commons import conversionOptions, getSymbolAccessStringAndRemainder, implement, replaceEarlyExits
 from symbol import DeclarationType, FrameworkArray, frameworkArrayName, limitLength, uniqueIdentifier
 
 RegionType = enum(
@@ -96,7 +96,7 @@ class Region(object):
 		self._routineRef = weakref.ref(_routine)
 
 	def _sanitize(self, text, skipDebugPrint=False):
-		if not ConversionOptions.Instance().debugPrint or skipDebugPrint:
+		if not conversionOptions.debugPrint or skipDebugPrint:
 			return text.strip() + "\n"
 		return "!<--- %s\n%s\n!--->\n" %(
 			type(self),
@@ -541,7 +541,7 @@ class RoutineSpecificationRegion(Region):
 
 		text = ""
 		if len(self._typeParameterSymbolsByName.keys()) > 0 \
-		and ConversionOptions.Instance().debugPrint \
+		and conversionOptions.debugPrint \
 		and not skipDebugPrint:
 			text += "!<----- type parameters --\n"
 		for typeParameterSymbol in self._typeParameterSymbolsByName.values():
@@ -551,7 +551,7 @@ class RoutineSpecificationRegion(Region):
 				continue
 			text += getImportLine([typeParameterSymbol], parentRoutine)
 		if self._allImports:
-			if len(self._allImports.keys()) > 0 and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
+			if len(self._allImports.keys()) > 0 and conversionOptions.debugPrint and not skipDebugPrint:
 				text += "!<----- synthesized imports --\n"
 			for (sourceModule, nameInScope) in self._allImports:
 				if not nameInScope:
@@ -575,19 +575,19 @@ class RoutineSpecificationRegion(Region):
 						if adjustedNameInScope != adjustedSourceName \
 						else "use %s, only: %s" %(sourceModule, adjustedNameInScope)
 					text += importSpecification
-					if ConversionOptions.Instance().debugPrint and not skipDebugPrint:
+					if conversionOptions.debugPrint and not skipDebugPrint:
 						text += " ! resynthesizing user input - no associated HF aware symbol found"
 					text += "\n"
 
-		if textForKeywords != "" and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
+		if textForKeywords != "" and conversionOptions.debugPrint and not skipDebugPrint:
 			text += "!<----- other imports and specs: ------\n"
 		text += textForKeywords
 
-		if textBeforeDeclarations != "" and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
+		if textBeforeDeclarations != "" and conversionOptions.debugPrint and not skipDebugPrint:
 			text += "!<----- before declarations: --\n"
 		text += textBeforeDeclarations
 		if len(declaredSymbolsByScopedName.keys()) > 0:
-			if ConversionOptions.Instance().debugPrint and not skipDebugPrint:
+			if conversionOptions.debugPrint and not skipDebugPrint:
 				text += "!<----- declarations: -------\n"
 			declarations = "\n".join([
 				parentRoutine.implementation.adjustDeclarationForDevice(
@@ -600,11 +600,11 @@ class RoutineSpecificationRegion(Region):
 				for symbol in declaredSymbolsByScopedName.values()
 			]).strip() + "\n"
 			text += declarations
-		if len(self._dataSpecificationLines) > 0 and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
+		if len(self._dataSpecificationLines) > 0 and conversionOptions.debugPrint and not skipDebugPrint:
 			text += "!<----- data specifications: --\n"
 		if len(self._dataSpecificationLines) > 0:
 			text += "\n".join(self._dataSpecificationLines) + "\n"
-		if textAfterDeclarations != "" and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
+		if textAfterDeclarations != "" and conversionOptions.debugPrint and not skipDebugPrint:
 			text += "!<----- after declarations: --\n"
 		text += textAfterDeclarations
 
@@ -616,7 +616,7 @@ class RoutineSpecificationRegion(Region):
 			], [])) + len(self._symbolsToAdd) + len(parentRoutine._packedRealSymbolsByCalleeName.keys())
 		)
 
-		if numberOfAdditionalDeclarations > 0 and ConversionOptions.Instance().debugPrint and not skipDebugPrint:
+		if numberOfAdditionalDeclarations > 0 and conversionOptions.debugPrint and not skipDebugPrint:
 			text += "!<----- auto emul symbols : --\n"
 		defaultPurgeList = ['intent', 'public', 'parameter', 'allocatable', 'save']
 		for symbol in self._symbolsToAdd:

@@ -19,7 +19,7 @@
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
 import re, logging
-from tools.commons import BracketAnalyzer, Singleton, UsageError, findRightMostOccurrenceNotInsideQuotes, \
+from tools.commons import BracketAnalyzer, UsageError, findRightMostOccurrenceNotInsideQuotes, \
     splitIntoComponentsAndRemainder, getComponentNameAndBracketContent, enum
 from tools.patterns import regexPatterns
 
@@ -178,9 +178,10 @@ def replaceEarlyExits(line, implementation, parallelRegionPosition):
         return line
     return line.replace("@exit", implementation.earlyExit(parallelRegionPosition))
 
-@Singleton
 class ConversionOptions(object):
     debugPrint = False
+
+conversionOptions = ConversionOptions()
 
 class FortranRoutineArgumentParser(object):
     arguments = None

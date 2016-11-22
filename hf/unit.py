@@ -541,17 +541,17 @@ class TestPickling(unittest.TestCase):
 		# in order to implement concurrency using multiprocessing,
 		# we want the following to work:
 		#
-		# symbolAfterPickling = pickle.loads(pickle.dumps(symbol))
-		# self.assertEqual(symbolAfterPickling.name, "testSymbol")
-		# self.assertEqual(len(symbolAfterPickling.domains), 3)
-		#
-		# currently this fails with singletons not letting themselves pickle
-		# one idea on how to achieve this is to implement __getstate__, __getstate__
-		# in symbol class.
-		# http://stackoverflow.com/questions/2345944/exclude-objects-field-from-pickling-in-python
-		#
-		# another idea is to rip out the singleton pattern and just replace it with module globals
-
+		symbolAfterPickling = pickle.loads(pickle.dumps(symbol))
+		self.assertEqual(symbolAfterPickling.name, "testSymbol")
+		self.assertEqual(len(symbolAfterPickling.domains), 3)
+		self.assertFalse(
+			symbolAfterPickling._entryNode.ownerDocument \
+			is symbol._entryNode.ownerDocument
+		)
+		self.assertTrue(
+			symbolAfterPickling._entryNode.ownerDocument \
+			is symbolAfterPickling.template.ownerDocument
+		)
 
 if __name__ == '__main__':
 	unittest.main()

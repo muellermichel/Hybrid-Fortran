@@ -27,7 +27,7 @@ from tools.metadata import *
 from tools.commons import UsageError, BracketAnalyzer, stacktrace
 from tools.analysis import SymbolDependencyAnalyzer, getAnalysisForSymbol, getArguments
 from machinery.parser import H90CallGraphAndSymbolDeclarationsParser, getSymbolsByName, currFile, currLineNo
-from machinery.commons import ConversionOptions, parseSpecification
+from machinery.commons import conversionOptions, parseSpecification
 
 def getSymbolsByModuleNameAndSymbolName(cgDoc, moduleNodesByName, symbolAnalysisByRoutineNameAndSymbolName={}):
     symbolsByModuleNameAndSymbolName = {}
@@ -190,7 +190,7 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
                 )
             )
         self.preparedBy = ""
-        if ConversionOptions.Instance().debugPrint:
+        if conversionOptions.debugPrint:
             import inspect
             self.preparedBy = inspect.getouterframes(inspect.currentframe(), 2)[1][3]
         self.prepareLineCalledForCurrentLine = True

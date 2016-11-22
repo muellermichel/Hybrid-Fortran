@@ -53,6 +53,10 @@ class ImmutableDOMNode(object):
         return self.node.tagName
 
     @property
+    def ownerDocument(self):
+        return self.node.ownerDocument
+
+    @property
     def nodeName(self):
         return self.node.nodeName
 

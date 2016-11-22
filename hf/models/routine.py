@@ -22,7 +22,7 @@ import copy, weakref, traceback
 from models.region import RegionType, RoutineSpecificationRegion, ParallelRegion, CallRegion
 from models.symbol import FrameworkArray, DeclarationType, ScopeError, limitLength, uniqueIdentifier
 from models.commons import originalRoutineName
-from machinery.commons import ConversionOptions, updateTypeParameterProperties
+from machinery.commons import conversionOptions, updateTypeParameterProperties
 from tools.commons import UsageError
 
 def getModuleArraysForCallee(calleeName, symbolAnalysisByRoutineNameAndSymbolName, symbolsByModuleNameAndSymbolName):

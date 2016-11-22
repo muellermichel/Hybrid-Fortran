@@ -22,11 +22,11 @@ import re, sys, copy
 import logging
 import pdb
 from tools.metadata import *
-from tools.commons import enum, BracketAnalyzer, Singleton, UsageError, \
+from tools.commons import enum, BracketAnalyzer, UsageError, \
 	splitTextAtLeftMostOccurrence, splitIntoComponentsAndRemainder, getComponentNameAndBracketContent
 from tools.patterns import regexPatterns
 from tools.analysis import SymbolDependencyAnalyzer, SymbolType
-from machinery.commons import ConversionOptions, parseSpecification, implement
+from machinery.commons import conversionOptions, parseSpecification, implement
 from models.commons import originalRoutineName
 
 #   Boxes = Symbol States
@@ -302,7 +302,7 @@ class Symbol(object):
 				self.loadRoutineNodeAttributes(scopeNode, parallelRegionTemplates)
 
 		self.createdBy = ""
-		if ConversionOptions.Instance().debugPrint:
+		if conversionOptions.debugPrint:
 			import inspect
 			self.createdBy = inspect.getouterframes(inspect.currentframe(), 2)[1][3]
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] initialized")

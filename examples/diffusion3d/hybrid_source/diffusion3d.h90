@@ -9,7 +9,7 @@ subroutine diffusion3d_inner(f, fn, coeff_east_west, coeff_north_south, coeff_to
 	real(FLOAT_BYTE_LENGTH), intent(out), dimension(DIM_X, DIM_Y, DIM_Z) :: fn
 	real(FLOAT_BYTE_LENGTH), intent(in) :: coeff_east_west, coeff_north_south, coeff_top_bottom, coeff_center
 	@domainDependant {attribute(autoDom, present)}
-	f, fn, coeff_east_west, coeff_north_south, coeff_top_bottom, coeff_center
+	f, fn
 	@end domainDependant
 
 	@parallelRegion{domName(x, y, z), domSize(DIM_X,DIM_Y,DIM_Z), startAt(HALO_X+1,HALO_Y+1,HALO_Z+1), endAt(DIM_X-HALO_X,DIM_Y-HALO_Y,DIM_Z-HALO_Z)}
@@ -68,7 +68,7 @@ subroutine diffusion3d(f, fn, coeff_east_west, coeff_north_south, coeff_top_bott
 	real(FLOAT_BYTE_LENGTH), intent(in) :: coeff_east_west, coeff_north_south, coeff_top_bottom, coeff_center
 	real(8) :: time_start, time_before_yz, time_before_xz, time_before_xy
 	@domainDependant {attribute(autoDom, present)}
-	f, fn, coeff_east_west, coeff_north_south, coeff_top_bottom, coeff_center
+	f, fn
 	@end domainDependant
 
 	call getTime(time_start)
@@ -107,6 +107,7 @@ subroutine mainloop(f_p, fn_p, kappa, time, dt, dx, dy, dz, numOfStencilsCompute
 	@domainDependant {attribute(autoDom, present)}
 	temp_p
 	@end domainDependant
+
 	@domainDependant {domName(x,y,z), domSize(DIM_X, DIM_Y, DIM_Z), attribute(autoDom, transferHere)}
 	f_p, fn_p
 	@end domainDependant

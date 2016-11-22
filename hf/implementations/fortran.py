@@ -47,7 +47,7 @@ class FortranImplementation(object):
 	canHandleDeviceData = False
 	supportsHostOnlyRoutineCopies = False
 
-	def __init__(self, optionFlags, appliesTo="CPU"):
+	def __init__(self, optionFlags=[], appliesTo="CPU"):
 		self.patterns = regexPatterns
 		self.currDependantSymbols = None
 		self.currParallelRegionTemplateNode = None

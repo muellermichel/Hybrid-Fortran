@@ -18,7 +18,6 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
-import weakref
 from models.routine import AnalyzableRoutine
 
 class Module(object):

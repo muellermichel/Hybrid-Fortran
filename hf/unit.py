@@ -478,12 +478,9 @@ class TestImplementationAlgorithms(unittest.TestCase):
 		)
 
 class TestPickling(unittest.TestCase):
-	def testSymbolPickling(self):
-		from models.symbol import Symbol
-		from tools.metadata import parseString, \
-			getDomainDependantTemplatesAndEntries, \
-			ImmutableDOMDocument
-		import pickle, re
+	def makeDummyCallGraphDocument(self):
+		from tools.metadata import parseString, ImmutableDOMDocument
+		import re
 
 		dummyCallGraphXML = re.sub(r"[\n\t]*", "", """
 			<callGraph>
@@ -496,6 +493,9 @@ class TestPickling(unittest.TestCase):
 						</domainDependants>
 					</routine>
 				</routines>
+				<modules>
+					<module name="foo"/>
+				</modules>
 				<domainDependantTemplates>
 					<domainDependantTemplate id="testTemplateID">
 						<attribute>
@@ -516,10 +516,35 @@ class TestPickling(unittest.TestCase):
 				</domainDependantTemplates>
 			</callGraph>
 		""")
-		cgDoc = ImmutableDOMDocument(parseString(dummyCallGraphXML, immutable=False))
-		_ = pickle.loads(pickle.dumps(cgDoc)) #just test whether pickling doesn't throw an error here
+		return ImmutableDOMDocument(parseString(dummyCallGraphXML, immutable=False))
+
+	def makeDummyModule(self, cgDoc):
+		from models.module import Module
+
+		moduleNode = cgDoc.firstChild.childNodes[1].firstChild
+		self.assertEqual(moduleNode.tagName, "module")
+		return Module(
+			"foo",
+			moduleNode
+		)
+
+	def makeDummyRoutine(self, cgDoc, module):
+		from implementations.fortran import FortranImplementation
 
 		routineNode = cgDoc.firstChild.firstChild.firstChild
+		self.assertEqual(routineNode.tagName, "routine")
+		return module.createRoutine(
+			"bar",
+			routineNode,
+			{},
+			FortranImplementation()
+		)
+
+	def makeDummySymbol(self, cgDoc, module, routine):
+		from models.symbol import Symbol
+		from tools.metadata import getDomainDependantTemplatesAndEntries
+
+		routineNode = routine.node
 		self.assertEqual(routineNode.tagName, "routine")
 
 		templatesAndEntries = getDomainDependantTemplatesAndEntries(cgDoc, routineNode)
@@ -535,12 +560,50 @@ class TestPickling(unittest.TestCase):
 			parallelRegionTemplates=[],
 			globalParallelDomainNames={}
 		)
+		routine.loadSymbolsByName({"testSymbol":symbol})
+		return symbol
+
+	def testCallGraphPickling(self):
+		import pickle
+
+		#just test whether pickling doesn't throw an error here
+		_ = pickle.loads(pickle.dumps(self.makeDummyCallGraphDocument()))
+
+	def testModulePickling(self):
+		import pickle
+
+		cgDoc = self.makeDummyCallGraphDocument()
+		module = self.makeDummyModule(cgDoc)
+
+		# in order to implement concurrency using multiprocessing,
+		# we want the following to work:
+		_ = pickle.loads(pickle.dumps(module))
+
+	def testRoutinePickling(self):
+		import pickle
+
+		cgDoc = self.makeDummyCallGraphDocument()
+		module = self.makeDummyModule(cgDoc)
+		routine = self.makeDummyRoutine(cgDoc, module)
+
+		# in order to implement concurrency using multiprocessing,
+		# we want the following to work:
+		#_ = pickle.loads(pickle.dumps(routine)) #$$$ enable this and fix weakref pickling problem
+
+	def testSymbolPickling(self):
+		import pickle
+
+		cgDoc = self.makeDummyCallGraphDocument()
+		module = self.makeDummyModule(cgDoc)
+		routine = self.makeDummyRoutine(cgDoc, module)
+		symbol = self.makeDummySymbol(cgDoc, module, routine)
 		self.assertEqual(symbol.name, "testSymbol")
 		self.assertEqual(len(symbol.domains), 3)
 
 		# in order to implement concurrency using multiprocessing,
 		# we want the following to work:
-		#
+		#_ = pickle.loads(pickle.dumps(routine)) #$$$ enable this and fix weakref pickling problem
+
 		symbolAfterPickling = pickle.loads(pickle.dumps(symbol))
 		self.assertEqual(symbolAfterPickling.name, "testSymbol")
 		self.assertEqual(len(symbolAfterPickling.domains), 3)

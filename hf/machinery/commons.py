@@ -21,7 +21,7 @@
 import re, logging
 from tools.commons import BracketAnalyzer, Singleton, UsageError, findRightMostOccurrenceNotInsideQuotes, \
     splitIntoComponentsAndRemainder, getComponentNameAndBracketContent, enum
-from tools.patterns import RegExPatterns
+from tools.patterns import regexPatterns
 
 TypeParameter = enum(
     "ValueByteLength",
@@ -29,7 +29,7 @@ TypeParameter = enum(
 )
 
 def getAccessorsAndRemainder(accessorString):
-    symbolAccessString_match = RegExPatterns.Instance().symbolAccessPattern.match(accessorString)
+    symbolAccessString_match = regexPatterns.symbolAccessPattern.match(accessorString)
     if not symbolAccessString_match:
         return [], accessorString
     currBracketAnalyzer = BracketAnalyzer()
@@ -79,7 +79,7 @@ def parseSpecification(line, keepComponentsAsList=False):
             parsedDataObjects.append(getComponentNameAndBracketContent(dataObject))
         return tuple(parsedDataObjects), remainder
 
-    patterns = RegExPatterns.Instance()
+    patterns = regexPatterns
     multiSpecMatch = patterns.multiSpecPattern.match(line)
     declarationComponents, remainder = None, None
     if multiSpecMatch:

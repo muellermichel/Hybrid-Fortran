@@ -18,10 +18,10 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
-from tools.patterns import RegExPatterns
+from tools.patterns import regexPatterns
 
 def originalRoutineName(routineName):
-    match = RegExPatterns.Instance().routineNamePattern.match(routineName)
+    match = regexPatterns.routineNamePattern.match(routineName)
     if not match:
         return ""
     return match.group(1)

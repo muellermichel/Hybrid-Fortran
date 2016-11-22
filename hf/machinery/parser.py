@@ -23,7 +23,7 @@ from tools.metadata import *
 from models.symbol import *
 from tools.commons import UsageError, BracketAnalyzer
 from tools.analysis import SymbolDependencyAnalyzer, getAnalysisForSymbol, getArguments
-from tools.patterns import RegExPatterns
+from tools.patterns import regexPatterns
 from machinery.commons import FortranRoutineArgumentParser, FortranCodeSanitizer, parseSpecification, updateTypeParameterProperties
 
 currFile = None
@@ -48,7 +48,7 @@ class CallGraphParser(object):
     globalParallelDomainNames = {}
 
     def __init__(self):
-        self.patterns = RegExPatterns.Instance()
+        self.patterns = regexPatterns
         self.state = "none"
         self.currCalleeName = None
         self.currArguments = None
@@ -680,7 +680,7 @@ class H90XMLCallGraphGenerator(CallGraphParser):
         addAndGetEntries(self.doc, self.currDomainDependantRelationNode, line)
 
 def getSymbolsByName(cgDoc, parentNode, parallelRegionTemplates=[], currentModuleName=None, currentSymbolsByName={}, symbolAnalysisByRoutineNameAndSymbolName={}, isModuleSymbols=False, globalParallelDomainNames={}):
-    patterns = RegExPatterns.Instance()
+    patterns = regexPatterns
     templatesAndEntries = getDomainDependantTemplatesAndEntries(cgDoc, parentNode)
     symbolsByName = {}
     parentName = parentNode.getAttribute('name')

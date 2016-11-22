@@ -24,7 +24,7 @@ import pdb
 from tools.metadata import *
 from tools.commons import enum, BracketAnalyzer, Singleton, UsageError, \
 	splitTextAtLeftMostOccurrence, splitIntoComponentsAndRemainder, getComponentNameAndBracketContent
-from tools.patterns import RegExPatterns
+from tools.patterns import regexPatterns
 from tools.analysis import SymbolDependencyAnalyzer, SymbolType
 from machinery.commons import ConversionOptions, parseSpecification, implement
 from models.commons import originalRoutineName
@@ -277,7 +277,7 @@ class Symbol(object):
 		if patterns != None:
 			self.patterns = patterns
 		else:
-			self.patterns = RegExPatterns.Instance()
+			self.patterns = regexPatterns
 		self.analysis = analysis
 		self.globalParallelDomainNames = globalParallelDomainNames
 		self.importPattern = self.patterns.get(r'^\s*use\s*(\w*)\s*,\s*only\s*.*?\W\s*' + re.escape(name) + r'(?:\W|$).*')
@@ -578,7 +578,7 @@ EXAMPLE:\n\
 		if "::" not in declarationPrefix:
 			declarationPrefix = declarationPrefix.rstrip() + " ::"
 		if len(purgeList) != 0:
-			patterns = RegExPatterns.Instance()
+			patterns = regexPatterns
 			declarationDirectivesWithoutIntent, _,  symbolDeclarationStr = splitAndPurgeSpecification(
 				declarationPrefix + " " + str(self),
 				purgeList=purgeList
@@ -1188,7 +1188,7 @@ EXAMPLE:\n\
 		self.declarationPrefix = purgeFromDeclarationDirectives(declarationDirectives.rstrip() + " " + "::", ["dimension"])
 
 		#   get and check intent                                      #
-		intentMatch = RegExPatterns.Instance().intentPattern.match(specTuple[0])
+		intentMatch = regexPatterns.intentPattern.match(specTuple[0])
 		newIntent = None
 		if intentMatch and intentMatch.group(1).strip() != "":
 			newIntent = intentMatch.group(1)
@@ -1350,7 +1350,7 @@ Current Domains: %s\n" %(
 			symbolImplementationFunction=nameInScopeImplementationFunction
 		)
 
-	def getDeclarationLine(self, parentRoutine, purgeList=None, patterns=RegExPatterns.Instance(), name_prefix="", useDomainReordering=True, skip_on_missing_declaration=False):
+	def getDeclarationLine(self, parentRoutine, purgeList=None, patterns=regexPatterns, name_prefix="", useDomainReordering=True, skip_on_missing_declaration=False):
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] Decl.Line.Gen: Purge List: %s, Name Prefix: %s, Domain Reordering: %s, Skip on Missing: %s." %(
 			str(purgeList),
 			name_prefix,

@@ -23,7 +23,7 @@ from machinery.commons import updateTypeParameterProperties
 from models.symbol import Symbol, DeclarationType, splitAndPurgeSpecification, uniqueIdentifier
 from models.region import RegionType, ParallelRegion, CallRegion, regionWithInertCode
 from tools.analysis import getAnalysisForSymbol
-from tools.patterns import RegExPatterns
+from tools.patterns import regexPatterns
 from tools.commons import UsageError
 from tools.metadata import getDomainDependantTemplatesAndEntries, appliesTo
 from implementations.commons import *
@@ -48,7 +48,7 @@ class FortranImplementation(object):
 	supportsHostOnlyRoutineCopies = False
 
 	def __init__(self, optionFlags, appliesTo="CPU"):
-		self.patterns = RegExPatterns.Instance()
+		self.patterns = regexPatterns
 		self.currDependantSymbols = None
 		self.currParallelRegionTemplateNode = None
 		self.appliesTo = appliesTo
@@ -977,8 +977,8 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 				if symbols:
 					adjustedSpecLinesAndSymbols.append((line, symbols))
 				else:
-					allImportMatch = RegExPatterns.Instance().importAllPattern.match(line)
-					selectiveImportMatch = RegExPatterns.Instance().importPattern.match(line)
+					allImportMatch = regexPatterns.importAllPattern.match(line)
+					selectiveImportMatch = regexPatterns.importPattern.match(line)
 					if not allImportMatch and not selectiveImportMatch:
 						adjustedSpecLinesAndSymbols.append((line, symbols))
 			kernelRoutine.regions[0]._linesAndSymbols = adjustedSpecLinesAndSymbols

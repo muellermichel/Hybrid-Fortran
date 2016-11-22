@@ -7,8 +7,8 @@ def tupleFromMatch(match):
 
 class TestPatterns(unittest.TestCase):
 	def testImportPatterns(self):
-		from tools.patterns import RegExPatterns
-		patterns = RegExPatterns.Instance()
+		from tools.patterns import regexPatterns
+		patterns = regexPatterns
 		self.assertEqual(
 			tupleFromMatch(patterns.importPattern.match("useme, only: some, distraction")),
 			()
@@ -540,6 +540,7 @@ class TestPickling(unittest.TestCase):
 
 		# in order to implement concurrency using multiprocessing,
 		# we want the following to work:
+		#
 		# symbolAfterPickling = pickle.loads(pickle.dumps(symbol))
 		# self.assertEqual(symbolAfterPickling.name, "testSymbol")
 		# self.assertEqual(len(symbolAfterPickling.domains), 3)

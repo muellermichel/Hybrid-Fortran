@@ -20,9 +20,7 @@
 
 import re
 import logging
-from tools.commons import Singleton
 
-@Singleton
 class RegExPatterns(object):
     attributeRegex = r"\w*\s*(?:\(\s*[\w\,\s\:\+\-\*\/]*\s*(?:\(.*?\))?\s*\))?"
     dynamicPatternsByRegex = None
@@ -89,3 +87,5 @@ class RegExPatterns(object):
             pattern = re.compile(regex, re.IGNORECASE | re.VERBOSE)
             self.dynamicPatternsByRegex[regex] = pattern
         return pattern
+
+regexPatterns = RegExPatterns()

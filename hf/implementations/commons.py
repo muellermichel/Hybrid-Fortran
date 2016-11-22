@@ -20,7 +20,6 @@
 
 from tools.commons import UsageError
 from tools.metadata import appliesTo, getDomainsWithParallelRegionTemplate, getReductionScalarsByOperator, getTemplate
-from tools.patterns import RegExPatterns
 from models.symbol import DeclarationType
 from models.commons import originalRoutineName
 import logging, re
@@ -121,6 +120,7 @@ def getLoopOverSymbolValues(symbol, loopName, innerLoopImplementationFunc):
 
 # $$$ this isn't supported for now
 # def getTracingDeclarationStatements(currRoutineNode, dependantSymbols, patterns, useReorderingByAdditionalSymbolPrefixes={'hf_tracing_temp_':False}):
+#	from tools.patterns import regexPatterns
 # 	tracing_symbols = []
 # 	if len(dependantSymbols) == 0 or currRoutineNode.getAttribute('parallelRegionPosition') == 'outside':
 # 		return "", tracing_symbols

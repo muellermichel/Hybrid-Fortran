@@ -21,7 +21,7 @@
 import weakref, copy, re
 from tools.commons import enum, UsageError, OrderedDict
 from tools.metadata import getArguments
-from tools.patterns import RegExPatterns
+from tools.patterns import regexPatterns
 from machinery.commons import ConversionOptions, getSymbolAccessStringAndRemainder, implement, replaceEarlyExits
 from symbol import DeclarationType, FrameworkArray, frameworkArrayName, limitLength, uniqueIdentifier
 
@@ -40,7 +40,7 @@ def implementSymbolAccessStringAndRemainder(
 	callee=None,
 	useDeviceVersionIfAvailable=True
 ):
-	isPointerAssignment = RegExPatterns.Instance().pointerAssignmentPattern.match(line) != None
+	isPointerAssignment = regexPatterns.pointerAssignmentPattern.match(line) != None
 	try:
 		symbolAccessString, remainder = getSymbolAccessStringAndRemainder(
 			symbol,
@@ -501,8 +501,8 @@ class RoutineSpecificationRegion(Region):
 		)
 		for (line, symbols) in self._linesAndSymbols:
 			if not symbols or len(symbols) == 0:
-				allImportMatch = RegExPatterns.Instance().importAllPattern.match(line)
-				selectiveImportMatch = RegExPatterns.Instance().importPattern.match(line)
+				allImportMatch = regexPatterns.importAllPattern.match(line)
+				selectiveImportMatch = regexPatterns.importPattern.match(line)
 				if allImportMatch:
 					importsFound = True
 				elif selectiveImportMatch:

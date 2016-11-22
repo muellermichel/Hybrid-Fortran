@@ -179,10 +179,10 @@ def replaceEarlyExits(line, implementation, parallelRegionPosition):
     return line.replace("@exit", implementation.earlyExit(parallelRegionPosition))
 
 @Singleton
-class ConversionOptions:
+class ConversionOptions(object):
     debugPrint = False
 
-class FortranRoutineArgumentParser:
+class FortranRoutineArgumentParser(object):
     arguments = None
 
     def __init__(self):
@@ -199,7 +199,7 @@ class FortranRoutineArgumentParser:
         arguments, _ = currBracketAnalyzer.getListOfArgumentsInOpenedBracketsAndRemainder(argumentMatch.group(1))
         self.arguments = arguments
 
-class FortranCodeSanitizer:
+class FortranCodeSanitizer(object):
     def __init__(self):
         self.tabIncreasingPattern = re.compile(r'\s*(?:(?:module|select|do|subroutine|function|program|attributes)|if\W.*?\Wthen)(?:\W|$).*', re.IGNORECASE)
         self.tabDecreasingPattern = re.compile(r'\s*end\s*(?:module|select|do|subroutine|function|program|if)(?:\W|$).*', re.IGNORECASE)

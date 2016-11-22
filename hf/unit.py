@@ -477,5 +477,80 @@ class TestImplementationAlgorithms(unittest.TestCase):
 			"hfd_a"
 		)
 
+class TestPickling(unittest.TestCase):
+	def testSymbolPickling(self):
+		from models.symbol import Symbol
+		from tools.metadata import parseString, \
+			getDomainDependantTemplatesAndEntries, \
+			ImmutableDOMDocument
+		import pickle, re
+
+		dummyCallGraphXML = re.sub(r"[\n\t]*", "", """
+			<callGraph>
+				<routines>
+					<routine module="foo" name="bar" source="foo">
+						<domainDependants>
+							<templateRelation id="testTemplateID">
+								<entry>testSymbol</entry>
+							</templateRelation>
+						</domainDependants>
+					</routine>
+				</routines>
+				<domainDependantTemplates>
+					<domainDependantTemplate id="testTemplateID">
+						<attribute>
+							<entry>present</entry>
+							<entry>autoDom</entry>
+						</attribute>
+						<domName>
+							<entry>x</entry>
+							<entry>y</entry>
+							<entry>k</entry>
+						</domName>
+						<domSize>
+							<entry>nx</entry>
+							<entry>ny</entry>
+							<entry>nz</entry>
+						</domSize>
+					</domainDependantTemplate>
+				</domainDependantTemplates>
+			</callGraph>
+		""")
+		cgDoc = ImmutableDOMDocument(parseString(dummyCallGraphXML, immutable=False))
+		_ = pickle.loads(pickle.dumps(cgDoc)) #just test whether pickling doesn't throw an error here
+
+		routineNode = cgDoc.firstChild.firstChild.firstChild
+		self.assertEqual(routineNode.tagName, "routine")
+
+		templatesAndEntries = getDomainDependantTemplatesAndEntries(cgDoc, routineNode)
+		self.assertEqual(len(templatesAndEntries), 1)
+
+		template, entry = templatesAndEntries[0]
+		symbol = Symbol(
+			"testSymbol",
+			template,
+			symbolEntry=entry,
+			scopeNode=routineNode,
+			analysis=None,
+			parallelRegionTemplates=[],
+			globalParallelDomainNames={}
+		)
+		self.assertEqual(symbol.name, "testSymbol")
+		self.assertEqual(len(symbol.domains), 3)
+
+		# in order to implement concurrency using multiprocessing,
+		# we want the following to work:
+		# symbolAfterPickling = pickle.loads(pickle.dumps(symbol))
+		# self.assertEqual(symbolAfterPickling.name, "testSymbol")
+		# self.assertEqual(len(symbolAfterPickling.domains), 3)
+		#
+		# currently this fails with singletons not letting themselves pickle
+		# one idea on how to achieve this is to implement __getstate__, __getstate__
+		# in symbol class.
+		# http://stackoverflow.com/questions/2345944/exclude-objects-field-from-pickling-in-python
+		#
+		# another idea is to rip out the singleton pattern and just replace it with module globals
+
+
 if __name__ == '__main__':
 	unittest.main()

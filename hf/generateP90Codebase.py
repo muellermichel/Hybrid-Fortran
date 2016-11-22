@@ -18,7 +18,6 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
-from xml.dom.minidom import Document
 from tools.metadata import parseString, ImmutableDOMDocument, getClonedDocument, getParallelDomainNames
 from optparse import OptionParser
 from machinery.parser import H90XMLSymbolDeclarationExtractor, getModuleNodesByName, getParallelRegionData

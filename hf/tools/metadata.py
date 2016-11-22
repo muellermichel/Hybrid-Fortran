@@ -49,6 +49,10 @@ class ImmutableDOMNode(object):
         return self.node.nodeType
 
     @property
+    def tagName(self):
+        return self.node.tagName
+
+    @property
     def nodeName(self):
         return self.node.nodeName
 

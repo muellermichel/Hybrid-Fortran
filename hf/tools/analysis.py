@@ -52,7 +52,7 @@ def getAnalysisForSymbol(symbolAnalysisByRoutineNameAndSymbolName, parentName, s
         return symbolAnalysisPerCallee[0]
     return None
 
-class SymbolAnalysis:
+class SymbolAnalysis(object):
     def __init__(self):
         self.aliasNamesByRoutineName = {}
         self.argumentIndexByRoutineName = {}
@@ -117,7 +117,7 @@ class SymbolAnalysis:
                 )
             )
 
-class SymbolDependencyAnalyzer:
+class SymbolDependencyAnalyzer(object):
     doc = None
     symbols = None
     callGraphEdgesByCallerName = None

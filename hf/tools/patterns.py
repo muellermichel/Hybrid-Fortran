@@ -23,7 +23,7 @@ import logging
 from tools.commons import Singleton
 
 @Singleton
-class RegExPatterns:
+class RegExPatterns(object):
     attributeRegex = r"\w*\s*(?:\(\s*[\w\,\s\:\+\-\*\/]*\s*(?:\(.*?\))?\s*\))?"
     dynamicPatternsByRegex = None
     staticRegexByPatternName = {

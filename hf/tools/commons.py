@@ -401,7 +401,7 @@ def getComponentNameAndBracketContent(component):
         raise Exception("invalid component: %s" %(component))
     return component[:leftBracketIndex].strip(), component[leftBracketIndex+1:rightBracketIndex]
 
-class Singleton:
+class Singleton(object):
     """
     A non-thread-safe helper class to ease implementing singletons.
     This should be used as a decorator -- not a metaclass -- to the
@@ -420,6 +420,14 @@ class Singleton:
 
     def __init__(self, decorated):
         self._decorated = decorated
+
+    def __getstate__(self):
+        """Return state values to be pickled."""
+        return decorated
+
+    def __setstate__(self, state):
+        """Restore state from the unpickled state values."""
+        self._decorated, = state
 
     def Instance(self):
         """

@@ -60,7 +60,7 @@ CONTAINS
     real(RP), intent(inout), dimension(n,n) :: u, h
     real(RP), intent(in)   :: omega
     @domainDependant {attribute(autoDom, present)}
-      n, u, h, omega
+    u, h
     @end domainDependant
 
     @parallelRegion{domName(i,j),domSize(n,n)}
@@ -100,13 +100,15 @@ CONTAINS
     real(DP) :: time_start, time_iteration_start
     !------------------------------------------------------------------------------
     @domainDependant {domName(i,j), domSize(n,m), attribute(autoDom, transferHere)}
-      u_p, h_p
+    u_p, h_p
     @end domainDependant
+
     @domainDependant {attribute(autoDom, transferHere)}
-      f, s
+    f, s
     @end domainDependant
+
     @domainDependant {attribute(autoDom, present)}
-      temp_p
+    temp_p
     @end domainDependant
 
 #ifdef GPU

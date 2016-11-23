@@ -266,22 +266,71 @@ for fileNum, fc in enumerate(fileContents):
 progressIndicatorReset(sys.stderr)
 
 #   Finally, do the conversion based on the prepare content
-codeSanitizer = FortranCodeSanitizer()
-for fileNum, fc in enumerate(fileContents):
+def implement(fileContent, modulesByName, routinesByName):
+	return (fileContent['fileName'], "%s\n%s" %(
+		fileContent['prefix'],
+		"".join([
+			"%s\n\n%s\n" %(
+				m.implemented(modulesByName, routinesByName),
+				fileContent['appendixByModuleName'].get(m.name, "")
+			)
+			for m in fileContent['modules']
+		])
+	))
+
+def sanitize(implementedNameAndContent, sanitizer):
+	fileName, implementedContent = implementedNameAndContent
+	return (
+		fileName,
+		sanitizer.sanitizeLines(implementedContent)
+	)
+
+def writeOut(sanitizedNameAndContent):
+	fileName, content = sanitizedNameAndContent
 	outputPath = os.path.join(
 		os.path.normpath(options.outputDir),
-		os.path.splitext(os.path.basename(fc['fileName']))[0] + ".P90.temp"
+		os.path.splitext(os.path.basename(fileName))[0] + ".P90.temp"
 	)
-	printProgressIndicator(sys.stderr, fc['fileName'], fileNum + 1, len(fileContents), "Implementing as Standard Fortran")
 	outputStream = FileIO(outputPath, mode="wb")
 	try:
-		outputStream.write(codeSanitizer.sanitizeLines(fc['prefix'] + "\n"))
-		for m in fc['modules']:
-			outputStream.write(codeSanitizer.sanitizeLines(m.implemented(modulesByName, routinesByName) + "\n\n"))
-			outputStream.write(codeSanitizer.sanitizeLines(fc['appendixByModuleName'].get(m.name, "") + "\n"))
-	except UsageError as e:
-		logging.error('Error: %s' %(str(e)))
-		sys.exit(1)
+		outputStream.write(content)
 	finally:
 		outputStream.close()
-progressIndicatorReset(sys.stderr)
+
+import functools
+import multiprocessing as mp
+try:
+	codeSanitizer = FortranCodeSanitizer()
+	workerPool = mp.Pool(mp.cpu_count())
+	implementedFileNamesAndContents = workerPool.imap_unordered(
+		functools.partial(implement, modulesByName=modulesByName, routinesByName=routinesByName),
+		fileContents
+	)
+	sanitizedFileNamesAndContents = map(
+		functools.partial(sanitize, sanitizer=codeSanitizer),
+		implementedFileNamesAndContents
+	)
+	_ = map(writeOut, sanitizedFileNamesAndContents)
+except UsageError as e:
+	logging.error('Error: %s' %(str(e)))
+	sys.exit(1)
+
+# codeSanitizer = FortranCodeSanitizer()
+# for fileNum, fc in enumerate(fileContents):
+# 	outputPath = os.path.join(
+# 		os.path.normpath(options.outputDir),
+# 		os.path.splitext(os.path.basename(fc['fileName']))[0] + ".P90.temp"
+# 	)
+# 	printProgressIndicator(sys.stderr, fc['fileName'], fileNum + 1, len(fileContents), "Implementing as Standard Fortran")
+# 	outputStream = FileIO(outputPath, mode="wb")
+# 	try:
+# 		outputStream.write(codeSanitizer.sanitizeLines(fc['prefix'] + "\n"))
+# 		for m in fc['modules']:
+# 			outputStream.write(codeSanitizer.sanitizeLines(m.implemented(modulesByName, routinesByName) + "\n\n"))
+# 			outputStream.write(codeSanitizer.sanitizeLines(fc['appendixByModuleName'].get(m.name, "") + "\n"))
+# 	except UsageError as e:
+# 		logging.error('Error: %s' %(str(e)))
+# 		sys.exit(1)
+# 	finally:
+# 		outputStream.close()
+# progressIndicatorReset(sys.stderr)

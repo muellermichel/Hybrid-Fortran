@@ -19,7 +19,7 @@ subroutine ppush(x,y,x_out,y_out,time,time_factor,dt)
 	real(FLOAT_BYTE_LENGTH), intent(in) :: time, time_factor, dt
 	real(FLOAT_BYTE_LENGTH) :: xt, yt, mpi_xg, mpi_yg, sin_xg, cos_xg, sin_yg, cos_yg, xtdt, ytdt, xg, yg
 	@domainDependant {attribute(autoDom, present)}
-	x, y, x_out, y_out, time, time_factor, dt
+	x, y, x_out, y_out
 	@end domainDependant
 
 	@parallelRegion{domName(j), domSize(N)}

@@ -1055,7 +1055,7 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 				continue
 			kernelName = synthesizedKernelName(routine.name, parallelRegionIndex)
 			kernelRoutine = kernelRoutinesByName[kernelName]
-			callRegion = CallRegion(routine)
+			callRegion = CallRegion()
 			routine.loadCall(kernelRoutine, overrideRegion=callRegion)
 			kernelWrapperRegions.append(callRegion)
 			parallelRegionIndex += 1
@@ -1168,7 +1168,6 @@ end if\n" %(calleeNode.getAttribute('name'))
 
 	def getAdditionalKernelParameters(
 		self,
-		calleeModule,
 		currRoutine,
 		callee,
 		moduleNodesByName,
@@ -1263,7 +1262,8 @@ end if\n" %(calleeNode.getAttribute('name'))
 
 		if callee.node.getAttribute("parallelRegionPosition") != "within" or not callee.parallelRegionTemplates:
 			return [], [], []
-		if not hasattr(calleeModule, "node") or not calleeModule.node:
+		calleeModuleNode = moduleNodesByName.get(callee.parentModuleName)
+		if not calleeModuleNode:
 			raise Exception("calling a kernel %s directly from a foreign module is not supported. Use splitting instead." %(
 				callee.name
 			))
@@ -1274,7 +1274,7 @@ end if\n" %(calleeNode.getAttribute('name'))
 				raise UsageError("illegal argument: %s" %(argument))
 			argumentSymbolNames.append(argumentMatch.group(1))
 		logging.debug("============ loading additional symbols for module %s ===============" %(callee.parentModuleName))
-		moduleImports, moduleDeclarations, additionalDummies = getAdditionalImportsAndDeclarationsForParentScope(calleeModule.node, argumentSymbolNames)
+		moduleImports, moduleDeclarations, additionalDummies = getAdditionalImportsAndDeclarationsForParentScope(calleeModuleNode, argumentSymbolNames)
 		if len(additionalDummies) != 0:
 			raise Exception("dummies are not supposed to be added for module scope symbols: %s; type of first: %i" %(
 				additionalDummies,

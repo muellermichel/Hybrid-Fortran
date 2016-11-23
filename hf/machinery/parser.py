@@ -713,16 +713,6 @@ def getSymbolsByName(cgDoc, parentNode, parallelRegionTemplates=[], currentModul
             typeParameterSymbol.isUserSpecified = False
     return symbolsByName
 
-def getModuleNodesByName(cgDoc):
-    moduleNodesByName = {}
-    modules = cgDoc.getElementsByTagName('module')
-    for module in modules:
-        moduleName = module.getAttribute('name')
-        if not moduleName or moduleName == '':
-            raise Exception("Module without name.")
-        moduleNodesByName[moduleName] = module
-    return moduleNodesByName
-
 def getParallelRegionData(cgDoc):
     parallelRegionTemplateRelationsByProcName = {}
     parallelRegionTemplatesByProcName = {}

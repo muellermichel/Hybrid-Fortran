@@ -18,7 +18,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
-import copy, weakref, traceback
+import copy, traceback
 from models.region import RegionType, RoutineSpecificationRegion, ParallelRegion, CallRegion
 from models.symbol import FrameworkArray, DeclarationType, ScopeError, limitLength, uniqueIdentifier
 from models.commons import originalRoutineName
@@ -49,10 +49,6 @@ class Routine(object):
 		self._programmerArguments = None
 		self._regions = None
 		self.parentModuleName = moduleName
-		# if moduleRequiresStrongReference:
-		# 	self._parentModule = module
-		# else:
-		# 	self._parentModule = weakref.ref(module)
 
 	@property
 	def regions(self):
@@ -61,12 +57,6 @@ class Routine(object):
 	@regions.setter
 	def regions(self, _regions):
 		self._regions = _regions
-
-	# @property
-	# def parentModule(self):
-	# 	if hasattr(self._parentModule, "createRoutine"):
-	# 		return self._parentModule
-	# 	return self._parentModule()
 
 	@property
 	def programmerArguments(self):
@@ -94,7 +84,7 @@ class AnalyzableRoutine(Routine):
 		self.parallelRegionTemplates = parallelRegionTemplates
 		self.symbolsByName = None
 		self.callees = []
-		self._currRegion = RoutineSpecificationRegion(self)
+		self._currRegion = RoutineSpecificationRegion()
 		self._regions = [self._currRegion]
 		self._additionalArguments = None
 		self._additionalImports = None
@@ -323,7 +313,6 @@ This is not allowed for implementations using %s.\
 			additionalImportsForOurSelves, \
 			additionalDeclarationsForOurselves, \
 			additionalDummiesForOurselves = self.implementation.getAdditionalKernelParameters(
-				calleeModule=module,
 				currRoutine=self,
 				callee=self,
 				moduleNodesByName=self._moduleNodesByName,
@@ -376,7 +365,6 @@ This is not allowed for implementations using %s.\
 					additionalImportsForDeviceCompatibility, \
 					additionalDeclarationsForDeviceCompatibility, \
 					additionalDummies = callee.implementation.getAdditionalKernelParameters(
-						calleeModule=module,
 						currRoutine=self,
 						callee=calleeRoutine,
 						moduleNodesByName=self._moduleNodesByName,
@@ -758,7 +746,7 @@ This is not allowed for implementations using %s.\
 	def createRegion(self, regionClassName="Region", oldRegion=None):
 		import models.region
 		regionClass = getattr(models.region, regionClassName)
-		region = regionClass(self)
+		region = regionClass()
 		if isinstance(self._currRegion, ParallelRegion) \
 		and not isinstance(oldRegion, ParallelRegion):
 			self._currRegion.switchToRegion(region)
@@ -769,7 +757,6 @@ This is not allowed for implementations using %s.\
 	def addRegion(self, region):
 		self._regions.append(region)
 		self._currRegion = region
-		region.loadParentRoutine(self)
 
 	def loadSymbolsByName(self, symbolsByName):
 		self.symbolsByName = copy.copy(symbolsByName)
@@ -820,7 +807,7 @@ This is not allowed for implementations using %s.\
 			self._updateSymbolState()
 			self.checkSymbols()
 			implementedRoutineElements = [self._implementHeader(), self._implementAdditionalImports()]
-			implementedRoutineElements += [region.implemented() for region in self._regions]
+			implementedRoutineElements += [region.implemented(parentRoutine=self) for region in self._regions]
 			implementedRoutineElements += [self._implementFooter()]
 			purgedRoutineElements = [
 				(index, text) for index, text in enumerate(implementedRoutineElements)

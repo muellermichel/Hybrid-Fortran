@@ -588,7 +588,7 @@ class TestPickling(unittest.TestCase):
 
 		# in order to implement concurrency using multiprocessing,
 		# we want the following to work:
-		#_ = pickle.loads(pickle.dumps(routine)) #$$$ enable this and fix weakref pickling problem
+		_ = pickle.loads(pickle.dumps(routine))
 
 	def testSymbolPickling(self):
 		import pickle
@@ -602,7 +602,7 @@ class TestPickling(unittest.TestCase):
 
 		# in order to implement concurrency using multiprocessing,
 		# we want the following to work:
-		#_ = pickle.loads(pickle.dumps(routine)) #$$$ enable this and fix weakref pickling problem
+		_ = pickle.loads(pickle.dumps(routine))
 
 		symbolAfterPickling = pickle.loads(pickle.dumps(symbol))
 		self.assertEqual(symbolAfterPickling.name, "testSymbol")

@@ -169,6 +169,16 @@ def getRegionPosition(routineName, routines):
         return 'unspecified'
     return regionPosition
 
+def getModuleNodesByName(cgDoc):
+    moduleNodesByName = {}
+    modules = cgDoc.getElementsByTagName('module')
+    for module in modules:
+        moduleName = module.getAttribute('name')
+        if not moduleName or moduleName == '':
+            raise Exception("Module without name.")
+        moduleNodesByName[moduleName] = module
+    return moduleNodesByName
+
 #TODO: refactor the call lookups in the parser to use this index
 def getCallersByCalleeName(callNodes):
     callersByCalleeName = {}

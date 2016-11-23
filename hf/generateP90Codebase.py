@@ -297,20 +297,34 @@ def writeOut(sanitizedNameAndContent):
 	finally:
 		outputStream.close()
 
-import functools
-import multiprocessing as mp
-try:
+def convertEverything():
+	import math
+	import functools
+	import multiprocessing as mp
 	codeSanitizer = FortranCodeSanitizer()
-	workerPool = mp.Pool(mp.cpu_count())
+	cpu_count = mp.cpu_count()
+	chunkSize = max(math.ceil(float(len(fileContents)) / cpu_count), 1)
+	sys.stderr.write("Starting %i workers, each getting %i sized chunks to convert our %i files\n" %(
+		cpu_count,
+		chunkSize,
+		len(fileContents)
+	))
+	workerPool = mp.Pool(cpu_count)
 	implementedFileNamesAndContents = workerPool.imap_unordered(
 		functools.partial(implement, modulesByName=modulesByName, routinesByName=routinesByName),
-		fileContents
+		fileContents,
+		chunksize=chunkSize
 	)
 	sanitizedFileNamesAndContents = map(
 		functools.partial(sanitize, sanitizer=codeSanitizer),
 		implementedFileNamesAndContents
 	)
 	_ = map(writeOut, sanitizedFileNamesAndContents)
+
+from timeit import timeit
+try:
+	sys.stderr.write("Starting final conversion process\n")
+	sys.stderr.write("Conversion process finished after: {:10.1f} seconds\n".format(timeit(convertEverything, number=1)))
 except UsageError as e:
 	logging.error('Error: %s' %(str(e)))
 	sys.exit(1)

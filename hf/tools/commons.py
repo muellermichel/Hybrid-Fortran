@@ -19,6 +19,7 @@
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
 import os, sys, re, logging, logging.handlers, atexit, traceback
+import collections
 from UserDict import DictMixin
 
 class OrderedDict(dict, DictMixin):
@@ -124,6 +125,30 @@ class OrderedDict(dict, DictMixin):
 
     def __ne__(self, other):
         return not self == other
+
+# Raymond Hettinger's immutable dict from
+# http://stackoverflow.com/questions/9997176/immutable-dictionary-only-use-as-a-key-for-another-dictionary
+class ImmutableDict(collections.Mapping):
+    def __init__(self, somedict):
+        self._dict = dict(somedict)
+        self._hash = None
+
+    def __getitem__(self, key):
+        return self._dict[key]
+
+    def __len__(self):
+        return len(self._dict)
+
+    def __iter__(self):
+        return iter(self._dict)
+
+    def __hash__(self):
+        if self._hash is None:
+            self._hash = hash(frozenset(self._dict.items()))
+        return self._hash
+
+    def __eq__(self, other):
+        return self._dict == other._dict
 
 class UsageError(Exception):
     pass

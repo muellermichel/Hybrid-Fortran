@@ -19,10 +19,13 @@
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
 from xml.dom.minidom import Document, Node, parseString as parseStringUsingMinidom
-from tools.commons import BracketAnalyzer, enum
+from tools.commons import BracketAnalyzer, ImmutableDict, enum
+from functools32 import lru_cache
+from collections import defaultdict
 import uuid
 import re
 import logging
+import copy
 
 domainDependantAttributes = ["autoDom", "present", "transferHere"]
 
@@ -33,11 +36,64 @@ class ParallelRegionDomain(object):
         self.startsAt = startsAt
         self.endsAt = endsAt
 
-class DOMNode(Node):
-    pass
+class CycleFreeDOMNode(object):
+    def __init__(self, minidomNode):
+        self._tagName = minidomNode.tagName
+        self._nodeType = minidomNode.nodeType
+        self._nodeName = minidomNode.nodeName
+        self._nodeValue = minidomNode.nodeValue
+        self._attributes = dict(
+            item for item in minidomNode.attributes.items()
+        )
+        self._childNodes = tuple(
+            CycleFreeDOMNode(cn)
+            for cn in minidomNode.childNodes
+        )
+        childNodesByTagName = defaultdict(list)
+        for cn in self._childNodes:
+            childNodesByTagName[cn.tagName].append(cn)
+        self._childNodesByTagName = ImmutableDict(childNodesByTagName)
 
-class DOMDocument(Document):
-    pass
+    @property
+    def nodeType(self):
+        return self._nodeType
+
+    @property
+    def tagName(self):
+        return self._tagName
+
+    @property
+    def nodeName(self):
+        return self._nodeName
+
+    @property
+    def nodeValue(self):
+        return self._nodeValue
+
+    @property
+    def attributes(self):
+        return self._attributes
+
+    @property
+    def firstChild(self):
+        return self._childNodes[0] if self._childNodes else None
+
+    @property
+    def childNodes(self):
+        return self._childNodes
+
+    @lru_cache
+    def getElementsByTagName(self, name):
+        result = self._childNodesByTagName.get(name, [])
+        for cn in self.childNodes:
+            result += cn.getElementsByTagName(name)
+        return result
+
+    def getAttribute(self, name):
+        return self._attributes.get(name)
+
+    def setAttribute(self, name, value):
+        self._attributes[name] = value
 
 class ImmutableDOMNode(object):
     def __init__(self, node):

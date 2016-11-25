@@ -81,7 +81,7 @@ class Module(object):
 		for routine in self._routinesForImplementation:
 			routine._analyseSymbolUsage()
 
-	def implemented(self, modulesByName, routinesByName):
+	def implemented(self, cgDoc, modulesByName, routinesByName):
 		self.modulesByName = modulesByName
 		self.routinesByName = routinesByName
 
@@ -93,7 +93,7 @@ class Module(object):
 			routine._prepareCallRegions()
 
 		for routine in self._routinesForImplementation:
-			routine._prepareAdditionalContext(self)
+			routine._prepareAdditionalContext(self, cgDoc)
 
 		for routine in self._routinesForImplementation:
 			routine._mergeSynthesizedWithExistingSymbols()

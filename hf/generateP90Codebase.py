@@ -240,14 +240,14 @@ def writeOut(fileName, content):
 	return fileName
 
 #   Finally, do the conversion based on the prepare content
-def implement(fileContent, modulesByName, routinesByName, sanitizer):
+def implement(fileContent, cgDoc, modulesByName, routinesByName, sanitizer):
 	return writeOut(
 		fileContent["fileName"],
 		sanitizer.sanitizeLines("%s\n%s" %(
 			fileContent['prefix'],
 			"".join([
 				"%s\n\n%s\n" %(
-					m.implemented(modulesByName, routinesByName),
+					m.implemented(cgDoc, modulesByName, routinesByName),
 					fileContent['appendixByModuleName'].get(m.name, "")
 				)
 				for m in fileContent['modules']
@@ -255,7 +255,7 @@ def implement(fileContent, modulesByName, routinesByName, sanitizer):
 		))
 	)
 
-def convertEverything(fileContents, modulesByName, routinesByName):
+def convertEverything(fileContents, cgDoc, modulesByName, routinesByName):
 	import math
 	import functools
 	import multiprocessing as mp
@@ -279,7 +279,7 @@ def convertEverything(fileContents, modulesByName, routinesByName):
 	# mapFunc = functools.partial(workerPool.imap_unordered, chunksize=chunkSize)
 	mapFunc = map
 	for fileNum, fileName in enumerate(mapFunc(
-		functools.partial(implement, modulesByName=modulesByName, routinesByName=routinesByName, sanitizer=codeSanitizer),
+		functools.partial(implement, cgDoc=cgDoc, modulesByName=modulesByName, routinesByName=routinesByName, sanitizer=codeSanitizer),
 		fileContents
 	)):
 		printProgressIndicator(sys.stderr, fileName, fileNum + 1, len(fileContents), "Implementing as Standard Fortran")
@@ -357,7 +357,7 @@ def generateCodbase(options):
 	fileContents = makeFileContent(cgDoc, filesInDir, implementationsByTemplateName)
 	modulesByName, routinesByName = makeCallGraphAnalysis(fileContents)
 	prepareImplementation(fileContents)
-	convertEverything(fileContents, modulesByName, routinesByName)
+	convertEverything(fileContents, cgDoc, modulesByName, routinesByName)
 
 	# from timeit import timeit
 	# try:

@@ -37,7 +37,9 @@ class ParallelRegionDomain(object):
         self.endsAt = endsAt
 
 class CycleFreeDOMNode(object):
-    def __init__(self, minidomNode):
+    def __init__(self, minidomNode=None):
+        if minidomNode is None:
+            return
         if not isinstance(minidomNode, xml.dom.minidom.Node):
             raise ValueError("%s needs to be instantiated with a minidom.Node" %(
                 type(self).__name__
@@ -98,6 +100,27 @@ class CycleFreeDOMNode(object):
         for cn in self.childNodes:
             result += cn.getElementsByTagName(name)
         return result
+
+    def cloneNode(self, deep=False):
+        clone = CycleFreeDOMNode()
+        clone._tagName = self._tagName
+        clone._nodeType = self._nodeType
+        clone._nodeName = self._nodeName
+        clone._nodeValue = self._nodeValue
+        clone._attributes = copy.copy(self._attributes)
+        if deep:
+            clone._childNodes = tuple(
+                cn.cloneNode(deep)
+                for cn in self.childNodes
+            )
+            childNodesByTagName = defaultdict(list)
+            for cn in clone._childNodes:
+                childNodesByTagName[cn.tagName].append(cn)
+            clone._childNodesByTagName = ImmutableDict(childNodesByTagName)
+        else:
+            clone._childNodes = tuple(cn for cn in self.childNodes)
+            clone._childNodesByTagName = self._childNodesByTagName
+        return clone
 
     def toxml(self):
         def makeXMLForContent():

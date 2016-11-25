@@ -1170,6 +1170,7 @@ end if\n" %(calleeNode.getAttribute('name'))
 		self,
 		currRoutine,
 		callee,
+		cgDoc,
 		moduleNodesByName,
 		symbolAnalysisByRoutineNameAndSymbolName={},
 	):
@@ -1190,7 +1191,7 @@ end if\n" %(calleeNode.getAttribute('name'))
 			additionalImports = []
 			additionalDeclarations = []
 			additionalDummies = []
-			dependantTemplatesAndEntries = getDomainDependantTemplatesAndEntries(parentNode.ownerDocument, parentNode)
+			dependantTemplatesAndEntries = getDomainDependantTemplatesAndEntries(cgDoc, parentNode)
 			for template, entry in dependantTemplatesAndEntries:
 				dependantName = entry.firstChild.nodeValue
 				if dependantName in argumentSymbolNames:
@@ -1248,7 +1249,7 @@ end if\n" %(calleeNode.getAttribute('name'))
 				or symbol.declarationType == DeclarationType.FOREIGN_MODULE_SCALAR:
 					if symbol.sourceModule != callee.parentModuleName:
 						foreignModuleNode = moduleNodesByName[symbol.sourceModule]
-						symbol.loadImportInformation(parentNode.ownerDocument, foreignModuleNode)
+						symbol.loadImportInformation(cgDoc, foreignModuleNode)
 					logging.debug("import added for %s" %(symbol))
 					additionalImports.append(symbol)
 				elif symbol.declarationType in [

@@ -294,7 +294,7 @@ This is not allowed for implementations using %s.\
 			arrayDeclarationPrefix = toBeCompacted[0].getSanitizedDeclarationPrefix(purgeList=purgeList)
 		return toBeCompacted, arrayDeclarationPrefix, otherSymbols
 
-	def _prepareAdditionalContext(self, module):
+	def _prepareAdditionalContext(self, module, cgDoc):
 		if not self._moduleNodesByName \
 		or not self._symbolAnalysisByRoutineNameAndSymbolName \
 		or not self._symbolsByModuleNameAndSymbolName:
@@ -316,6 +316,7 @@ This is not allowed for implementations using %s.\
 			additionalDummiesForOurselves = self.implementation.getAdditionalKernelParameters(
 				currRoutine=self,
 				callee=self,
+				cgDoc=cgDoc,
 				moduleNodesByName=self._moduleNodesByName,
 				symbolAnalysisByRoutineNameAndSymbolName=self._symbolAnalysisByRoutineNameAndSymbolName
 			)

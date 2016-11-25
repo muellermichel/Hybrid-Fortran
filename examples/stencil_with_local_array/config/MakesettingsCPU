@@ -35,7 +35,7 @@ ARFLAGS=rv
 #############################################################################
 FC=pgf90
 LD=pgf90
-FFLAGS_PRODUCTION= -Minfo=inline,ipa -Mneginfo -I/usr/local/include -r8 -fast -tp=sandybridge
+FFLAGS_PRODUCTION= -Minfo=inline,ipa -Mneginfo -I/usr/local/include -r8 -fast -tp=nehalem
 FFLAGS_DEBUG= -g -Mbounds -Mchkptr -Minfo=accel,inline -Mneginfo -Minform=inform -I/usr/local/include -r8
 LDFLAGS_PRODUCTION= -L/usr/local/lib -lpp
 LDFLAGS_DEBUG= -L/usr/local/lib -lpp

@@ -479,7 +479,7 @@ class TestImplementationAlgorithms(unittest.TestCase):
 
 class TestPickling(unittest.TestCase):
 	def makeDummyCallGraphDocument(self):
-		from tools.metadata import parseString, ImmutableDOMDocument
+		from tools.metadata import parseString
 		import re
 
 		dummyCallGraphXML = re.sub(r"[\n\t]*", "", """
@@ -516,7 +516,7 @@ class TestPickling(unittest.TestCase):
 				</domainDependantTemplates>
 			</callGraph>
 		""")
-		return ImmutableDOMDocument(parseString(dummyCallGraphXML, immutable=False))
+		return parseString(dummyCallGraphXML, immutable=False)
 
 	def makeDummyModule(self, cgDoc):
 		from models.module import Module
@@ -563,11 +563,29 @@ class TestPickling(unittest.TestCase):
 		routine.loadSymbolsByName({"testSymbol":symbol})
 		return symbol
 
+	def testCycleFreeDOMNode(self):
+		from tools.metadata import CycleFreeDOMNode
+		cycleFreeDoc = CycleFreeDOMNode(self.makeDummyCallGraphDocument())
+		self.assertEqual(cycleFreeDoc.firstChild.tagName, "callGraph")
+		self.assertEqual(cycleFreeDoc.firstChild.firstChild.tagName, "routines")
+		self.assertEqual(cycleFreeDoc.firstChild.firstChild.firstChild.tagName, "routine")
+		self.assertEqual(cycleFreeDoc.firstChild.firstChild.firstChild.getAttribute("module"), "foo")
+		self.assertEqual(cycleFreeDoc.firstChild.firstChild.firstChild.getAttribute("name"), "bar")
+
+		domainDependantTemplateNodes = cycleFreeDoc.getElementsByTagName("domainDependantTemplate")
+		self.assertEqual(len(domainDependantTemplateNodes), 1)
+		attributeNodes = domainDependantTemplateNodes[0].getElementsByTagName("attribute")
+		self.assertEqual(len(attributeNodes), 1)
+		self.assertEqual(len(attributeNodes.childNodes), 2)
+		self.assertEqual(attributeNodes.childNodes[1].firstChild.nodeValue, "autoDom")
+
 	def testCallGraphPickling(self):
+		from tools.metadata import CycleFreeDOMNode
 		import pickle
 
 		#just test whether pickling doesn't throw an error here
 		_ = pickle.loads(pickle.dumps(self.makeDummyCallGraphDocument()))
+		_ = pickle.loads(pickle.dumps(CycleFreeDOMNode(self.makeDummyCallGraphDocument())))
 
 	def testModulePickling(self):
 		import pickle

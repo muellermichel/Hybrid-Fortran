@@ -22,6 +22,7 @@ from xml.dom.minidom import Document, Node, parseString as parseStringUsingMinid
 from tools.commons import BracketAnalyzer, ImmutableDict, enum
 from functools32 import lru_cache
 from collections import defaultdict
+import xml.dom.minidom
 import uuid
 import re
 import logging
@@ -38,13 +39,19 @@ class ParallelRegionDomain(object):
 
 class CycleFreeDOMNode(object):
     def __init__(self, minidomNode):
-        self._tagName = minidomNode.tagName
+        if not isinstance(minidomNode, xml.dom.minidom.Node):
+            raise ValueError("%s needs to be instantiated with a minidom.Node" %(
+                type(self).__name__
+            ))
+        self._tagName = minidomNode.tagName \
+            if hasattr(minidomNode, "tagName") else None
         self._nodeType = minidomNode.nodeType
         self._nodeName = minidomNode.nodeName
         self._nodeValue = minidomNode.nodeValue
         self._attributes = dict(
-            item for item in minidomNode.attributes.items()
-        )
+            item
+            for item in minidomNode.attributes.items()
+        ) if minidomNode.attributes else {}
         self._childNodes = tuple(
             CycleFreeDOMNode(cn)
             for cn in minidomNode.childNodes

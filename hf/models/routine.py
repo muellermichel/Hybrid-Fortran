@@ -24,6 +24,7 @@ from models.symbol import FrameworkArray, DeclarationType, ScopeError, limitLeng
 from models.commons import originalRoutineName
 from machinery.commons import conversionOptions, updateTypeParameterProperties
 from tools.commons import UsageError
+from tools.metadata import makeCycleFree
 
 def getModuleArraysForCallee(calleeName, symbolAnalysisByRoutineNameAndSymbolName, symbolsByModuleNameAndSymbolName):
 	moduleSymbols = []
@@ -80,7 +81,7 @@ class AnalyzableRoutine(Routine):
 		self.name = name
 		self.implementation = implementation
 		self.sisterRoutine = None
-		self.node = routineNode
+		self.node = makeCycleFree(routineNode)
 		self.parallelRegionTemplates = parallelRegionTemplates
 		self.symbolsByName = None
 		self.callees = []

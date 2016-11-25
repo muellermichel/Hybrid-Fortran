@@ -276,10 +276,11 @@ def convertEverything(fileContents, modulesByName, routinesByName):
 		chunkSize,
 		len(fileContents)
 	))
-	for fileNum, fileName in enumerate(workerPool.imap_unordered(
+	# mapFunc = functools.partial(workerPool.imap_unordered, chunksize=chunkSize)
+	mapFunc = map
+	for fileNum, fileName in enumerate(mapFunc(
 		functools.partial(implement, modulesByName=modulesByName, routinesByName=routinesByName, sanitizer=codeSanitizer),
-		fileContents,
-		chunksize=chunkSize
+		fileContents
 	)):
 		printProgressIndicator(sys.stderr, fileName, fileNum + 1, len(fileContents), "Implementing as Standard Fortran")
 	progressIndicatorReset(sys.stderr)

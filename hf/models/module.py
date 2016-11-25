@@ -19,11 +19,12 @@
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
 from models.routine import AnalyzableRoutine
+from tools.metadata import makeCycleFree
 
 class Module(object):
 	def __init__(self, name, moduleNode):
 		self.name = name
-		self.node = moduleNode
+		self.node = makeCycleFree(moduleNode)
 		self._lastRoutine = None
 		self._routinesByNameAndImplementationClass = {}
 		self._postTextByRoutine = {}

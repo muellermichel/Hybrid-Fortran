@@ -288,7 +288,7 @@ class Symbol(object):
 		self.initLevel = Init.NOTHING_LOADED
 		self.routineNode = None
 		self.declarationSuffix = None
-		self._entryNode = symbolEntry
+		self._entryNode = makeCycleFree(symbolEntry)
 		if template != None:
 			self.loadTemplate(template)
 		else:
@@ -837,7 +837,7 @@ EXAMPLE:\n\
 					self.initLevel
 				)
 			)
-		self.template = template
+		self.template = makeCycleFree(template)
 		self.attributes = getAttributes(self.template)
 		self.setOptionsFromAttributes(self.attributes)
 		self.initLevel = max(self.initLevel, Init.TEMPLATE_LOADED)
@@ -1111,7 +1111,7 @@ EXAMPLE:\n\
 				%(str(self))
 			)
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] +++++++++ LOADING MODULE NODE ++++++++++ ")
-		self.routineNode = moduleNode #MMU 2015-11-18: $$$ This needs to be commented or rethought
+		self.routineNode = makeCycleFree(moduleNode) #MMU 2015-11-18: $$$ This needs to be commented or rethought
 		self.loadTemplateAttributes()
 		self.updateNameInScope()
 		self.initLevel = max(self.initLevel, Init.ROUTINENODE_ATTRIBUTES_LOADED)
@@ -1124,7 +1124,7 @@ EXAMPLE:\n\
 				%(str(self))
 			)
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] +++++++++ LOADING ROUTINE NODE ++++++++++ ")
-		self.routineNode = routineNode
+		self.routineNode = makeCycleFree(routineNode)
 		#get and check parallelRegionPosition
 		routineName = self.nameOfScope
 		if not routineName:

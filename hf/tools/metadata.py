@@ -19,8 +19,7 @@
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
 from xml.dom.minidom import Document, Node, parseString as parseStringUsingMinidom
-from tools.commons import BracketAnalyzer, ImmutableDict, enum
-from functools32 import lru_cache
+from tools.commons import BracketAnalyzer, ImmutableDict, enum, lru_cache
 from collections import defaultdict
 import xml.dom.minidom
 import uuid
@@ -43,6 +42,10 @@ class CycleFreeDOMNode(object):
             raise ValueError("%s needs to be instantiated with a minidom.Node" %(
                 type(self).__name__
             ))
+        if minidomNode.nodeValue and minidomNode.childNodes:
+            raise ValueError(
+                "both nodeValue and childNodes in same node are not supported"
+            )
         self._tagName = minidomNode.tagName \
             if hasattr(minidomNode, "tagName") else None
         self._nodeType = minidomNode.nodeType
@@ -89,18 +92,49 @@ class CycleFreeDOMNode(object):
     def childNodes(self):
         return self._childNodes
 
-    @lru_cache
+    @lru_cache(maxsize = 100)
     def getElementsByTagName(self, name):
         result = self._childNodesByTagName.get(name, [])
         for cn in self.childNodes:
             result += cn.getElementsByTagName(name)
         return result
 
+    def toxml(self):
+        def makeXMLForContent():
+            return self.nodeValue or "".join([
+                cn.toxml() for cn in self.childNodes
+            ])
+
+        if not self.tagName:
+            return makeXMLForContent()
+        return "<%s%s>%s</%s>" %(
+            self.tagName,
+            " " + ", ".join([
+                "%s=\"%s\"" %(k,v)
+                for k,v in self.attributes.items()
+            ]) if any(self.attributes) else "",
+            makeXMLForContent(),
+            self.tagName
+        )
+
     def getAttribute(self, name):
-        return self._attributes.get(name)
+        return self._attributes.get(name, "")
 
     def setAttribute(self, name, value):
         self._attributes[name] = value
+
+def makeCycleFree(node):
+    if node is None:
+        return node
+    if isinstance(node, CycleFreeDOMNode):
+        return node
+    if isinstance(node, xml.dom.minidom.Node):
+        return CycleFreeDOMNode(node)
+    if isinstance(node, ImmutableDOMNode):
+        return CycleFreeDOMNode(node.node)
+    raise ValueError(
+        "cannot make %s cycle free - unrecognized type" %(node)
+    )
 
 class ImmutableDOMNode(object):
     def __init__(self, node):

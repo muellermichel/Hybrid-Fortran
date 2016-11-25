@@ -18,7 +18,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
-from tools.metadata import parseString, ImmutableDOMDocument, getClonedDocument, getParallelDomainNames
+from tools.metadata import parseString, makeCycleFree, ImmutableDOMDocument, getClonedDocument, getParallelDomainNames
 from optparse import OptionParser
 from machinery.parser import H90XMLSymbolDeclarationExtractor, getModuleNodesByName, getParallelRegionData
 from machinery.converter import H90toF90Converter, getSymbolsByRoutineNameAndSymbolName, getSymbolsByModuleNameAndSymbolName
@@ -29,6 +29,7 @@ from tools.analysis import SymbolDependencyAnalyzer
 import implementations.fortran
 from io import FileIO
 import os, errno, sys, json, traceback, logging
+import functools
 
 def print_cycles(objects, outstream=sys.stdout, show_progress=False):
 	"""
@@ -257,7 +258,6 @@ def implement(fileContent, cgDoc, modulesByName, routinesByName, sanitizer):
 
 def convertEverything(fileContents, cgDoc, modulesByName, routinesByName):
 	import math
-	import functools
 	import multiprocessing as mp
 	codeSanitizer = FortranCodeSanitizer()
 	cpu_count = min(mp.cpu_count(), len(fileContents))
@@ -265,7 +265,7 @@ def convertEverything(fileContents, cgDoc, modulesByName, routinesByName):
 	chunkSize = max(math.ceil(float(len(fileContents)) / cpu_count), 1)
 	workerPool = mp.Pool(cpu_count)
 	import pickle
-	sys.setrecursionlimit(10000) #pickle fails without this line
+	# sys.setrecursionlimit(10000) #pickle fails without this line
 	# for fc in fileContents:
 	# 	sys.stderr.write("checking %s\n" %(fc["fileName"]))
 	# 	# print_cycles([implement] + modulesByName.values() + routinesByName.values() + fileContents)
@@ -276,8 +276,9 @@ def convertEverything(fileContents, cgDoc, modulesByName, routinesByName):
 		chunkSize,
 		len(fileContents)
 	))
+	mapFunc = workerPool.map
 	# mapFunc = functools.partial(workerPool.imap_unordered, chunksize=chunkSize)
-	mapFunc = map
+	# mapFunc = map
 	for fileNum, fileName in enumerate(mapFunc(
 		functools.partial(implement, cgDoc=cgDoc, modulesByName=modulesByName, routinesByName=routinesByName, sanitizer=codeSanitizer),
 		fileContents
@@ -354,18 +355,21 @@ def generateCodbase(options):
 		printProgressIndicator(sys.stderr, fileInDir, fileNum + 1, len(filesInDir), "Symbol parsing, including imports")
 	progressIndicatorReset(sys.stderr)
 
-	fileContents = makeFileContent(cgDoc, filesInDir, implementationsByTemplateName)
+	cycleFreeDoc = makeCycleFree(cgDoc)
+	fileContents = makeFileContent(cycleFreeDoc, filesInDir, implementationsByTemplateName)
 	modulesByName, routinesByName = makeCallGraphAnalysis(fileContents)
 	prepareImplementation(fileContents)
-	convertEverything(fileContents, cgDoc, modulesByName, routinesByName)
 
-	# from timeit import timeit
-	# try:
-	# 	sys.stderr.write("Starting final conversion process\n")
-	# 	sys.stderr.write("Conversion process finished after: {:10.1f} seconds\n".format(timeit(convertEverything, number=1)))
-	# except UsageError as e:
-	# 	logging.error('Error: %s' %(str(e)))
-	# 	sys.exit(1)
+	# convertEverything(fileContents, cycleFreeDoc, modulesByName, routinesByName)
+
+	from timeit import timeit
+	try:
+		funcToMeasure = functools.partial(convertEverything, fileContents, cycleFreeDoc, modulesByName, routinesByName)
+		sys.stderr.write("Starting final conversion process\n")
+		sys.stderr.write("Conversion process finished after: {:10.1f} seconds\n".format(timeit(funcToMeasure, number=1)))
+	except UsageError as e:
+		logging.error('Error: %s' %(str(e)))
+		sys.exit(1)
 
 ##################### MAIN ##############################
 #get all program arguments

@@ -153,7 +153,11 @@ def makeCycleFree(node):
         return node
     if isinstance(node, xml.dom.minidom.Node):
         return CycleFreeDOMNode(node)
-    if isinstance(node, ImmutableDOMNode):
+    if isinstance(node, ImmutableDOMNode) \
+    and isinstance(node.node, CycleFreeDOMNode):
+        return node.node
+    if isinstance(node, ImmutableDOMNode) \
+    and isinstance(node.node, xml.dom.minidom.Node):
         return CycleFreeDOMNode(node.node)
     raise ValueError(
         "cannot make %s cycle free - unrecognized type" %(node)

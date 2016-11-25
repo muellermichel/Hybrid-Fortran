@@ -369,6 +369,7 @@ This is not allowed for implementations using %s.\
 					additionalDummies = callee.implementation.getAdditionalKernelParameters(
 						currRoutine=self,
 						callee=calleeRoutine,
+						cgDoc=cgDoc,
 						moduleNodesByName=self._moduleNodesByName,
 						symbolAnalysisByRoutineNameAndSymbolName=self._symbolAnalysisByRoutineNameAndSymbolName
 					)

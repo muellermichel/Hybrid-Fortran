@@ -150,6 +150,7 @@ class FortranImplementation(object):
 		self,
 		currRoutine,
 		callee,
+		cgDoc,
 		moduleNodesByName,
 		symbolAnalysisByRoutineNameAndSymbolName={},
 	):

@@ -61,6 +61,30 @@ class CycleFreeDOMNode(object):
             CycleFreeDOMNode(cn)
             for cn in minidomNode.childNodes
         )
+        self._setChildNodesByTagName()
+
+    def __getstate__(self):
+        return (
+            self._tagName,
+            self._nodeType,
+            self._nodeName,
+            self._nodeValue,
+            self._attributes,
+            self._childNodes
+        )
+
+    def __setstate__(self, state):
+        (
+            self._tagName,
+            self._nodeType,
+            self._nodeName,
+            self._nodeValue,
+            self._attributes,
+            self._childNodes
+        ) = state
+        self._setChildNodesByTagName()
+
+    def _setChildNodesByTagName(self):
         childNodesByTagName = defaultdict(list)
         for cn in self._childNodes:
             childNodesByTagName[cn.tagName].append(cn)
@@ -113,10 +137,7 @@ class CycleFreeDOMNode(object):
                 cn.cloneNode(deep)
                 for cn in self.childNodes
             )
-            childNodesByTagName = defaultdict(list)
-            for cn in clone._childNodes:
-                childNodesByTagName[cn.tagName].append(cn)
-            clone._childNodesByTagName = ImmutableDict(childNodesByTagName)
+            clone._setChildNodesByTagName()
         else:
             clone._childNodes = tuple(cn for cn in self.childNodes)
             clone._childNodesByTagName = self._childNodesByTagName

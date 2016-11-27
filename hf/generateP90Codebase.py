@@ -258,13 +258,22 @@ def implement(fileContent, cgDoc, modulesByName, routinesByName, sanitizer):
 
 def convertEverything(fileContents, cgDoc, modulesByName, routinesByName):
 	import math
+	# import pathos.multiprocessing as mp
 	import multiprocessing as mp
 	codeSanitizer = FortranCodeSanitizer()
 	cpu_count = min(mp.cpu_count(), len(fileContents))
 	# cpu_count = 1
 	chunkSize = max(math.ceil(float(len(fileContents)) / cpu_count), 1)
 	workerPool = mp.Pool(cpu_count)
-	import pickle
+	import pickle, cPickle
+	from functools import partial
+	from timeit import timeit
+
+	sys.stderr.write("cgDoc toXML: {:10.1f} seconds\n".format(timeit(cgDoc.toxml, number=10)))
+	sys.stderr.write("cPickle dumps 10x: {:10.1f} seconds\n".format(timeit(functools.partial(cPickle.dumps,fileContents[0]), number=10)))
+	sys.stderr.write("cPickle dumps 10x highest protocol: {:10.1f} seconds\n".format(timeit(functools.partial(cPickle.dumps,fileContents[0],protocol=pickle.HIGHEST_PROTOCOL), number=10)))
+	sys.stderr.write("pickle dumps 10x: {:10.1f} seconds\n".format(timeit(functools.partial(pickle.dumps,fileContents[0]), number=10)))
+
 	# sys.setrecursionlimit(10000) #pickle fails without this line
 	# for fc in fileContents:
 	# 	sys.stderr.write("checking %s\n" %(fc["fileName"]))
@@ -276,8 +285,8 @@ def convertEverything(fileContents, cgDoc, modulesByName, routinesByName):
 		chunkSize,
 		len(fileContents)
 	))
-	mapFunc = workerPool.map
-	# mapFunc = functools.partial(workerPool.imap_unordered, chunksize=chunkSize)
+	# mapFunc = workerPool.map
+	mapFunc = functools.partial(workerPool.imap_unordered, chunksize=chunkSize)
 	# mapFunc = map
 	for fileNum, fileName in enumerate(mapFunc(
 		functools.partial(implement, cgDoc=cgDoc, modulesByName=modulesByName, routinesByName=routinesByName, sanitizer=codeSanitizer),

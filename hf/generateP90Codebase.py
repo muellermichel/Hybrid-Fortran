@@ -269,10 +269,15 @@ def convertEverything(fileContents, cgDoc, modulesByName, routinesByName):
 	from functools import partial
 	from timeit import timeit
 
-	sys.stderr.write("cgDoc toXML: {:10.1f} seconds\n".format(timeit(cgDoc.toxml, number=10)))
+	#~0.34 seconds once for ASUCA
+	sys.stderr.write("cgDoc toXML 10x: {:10.1f} seconds\n".format(timeit(cgDoc.toxml, number=10)))
+
+	#best: ~30 seconds to serialize all the file contents:
 	sys.stderr.write("cPickle dumps 10x: {:10.1f} seconds\n".format(timeit(functools.partial(cPickle.dumps,fileContents[0]), number=10)))
 	sys.stderr.write("cPickle dumps 10x highest protocol: {:10.1f} seconds\n".format(timeit(functools.partial(cPickle.dumps,fileContents[0],protocol=pickle.HIGHEST_PROTOCOL), number=10)))
 	sys.stderr.write("pickle dumps 10x: {:10.1f} seconds\n".format(timeit(functools.partial(pickle.dumps,fileContents[0]), number=10)))
+
+	#---> dump to xml then reinitialize all datastructures
 
 	# sys.setrecursionlimit(10000) #pickle fails without this line
 	# for fc in fileContents:

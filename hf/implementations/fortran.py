@@ -1079,7 +1079,7 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 			if len(components) == 1:
 				return components[0]
 			if len(components) == 2:
-				return "%s - %s + 1" %(components[1], components[0])
+				return "%s - (%s) + 1" %(components[1], components[0])
 			raise Exception("invalid domain size component specification: %s" %(components))
 
 		result = super(CUDAFortranImplementation, self).kernelCallPreparation(parallelRegionTemplate, calleeNode)

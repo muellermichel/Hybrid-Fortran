@@ -65,6 +65,15 @@ contains
   end subroutine
   @end scheme
 
+  subroutine implicit_host_routine_with_data_intrinsic(b)
+    real, dimension(DOM(NX, NY, NZ)), intent(inout) :: b
+    real(8) :: arrayWithData(4,1)
+    data(arrayWithData(ii, 1), ii = 1, 4) / 2.0, 2.0, 2.0, 2.0 /
+
+    b(AT(1,1,1)) = arrayWithData(1,1)
+    b(AT(1,1,4)) = arrayWithData(4,1)
+  end subroutine
+
   subroutine device_add(a, b, result)
     implicit none
     real, intent(in) :: a, b
@@ -160,6 +169,7 @@ program main
   host_only_array(:) = 1.0d0
   a(:,:,:) = 1.0d0
   b(:,:,:) = 2.0d0
+  call implicit_host_routine_with_data_intrinsic(b)
   c(:,:,:) = 0.0d0
   d(:,:,:) = 1.0d0
   e(:,:,:) = 0.0d0

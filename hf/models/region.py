@@ -409,6 +409,7 @@ class RoutineSpecificationRegion(Region):
 			self._currAdditionalCompactedSubroutineParameters,
 			self._allImports
 		)
+		clone._dataSpecificationLines = copy.copy(self._dataSpecificationLines)
 		clone._typeParameterSymbolsByName = copy.copy(self._typeParameterSymbolsByName)
 		return clone
 

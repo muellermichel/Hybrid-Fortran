@@ -121,7 +121,7 @@ class FortranImplementation(object):
 			return ""
 		result = ""
 		if 'DEBUG_PRINT' in self.optionFlags:
-			result += getRuntimeDebugPrintStatements(
+			result += generateRuntimeDebugPrintStatements(
 				calleeRoutineNode.getAttribute("name"),
 				symbolsByName,
 				calleeRoutineNode,
@@ -211,30 +211,13 @@ class FortranImplementation(object):
 				result += ' outerParallelLoop' + str(self._currKernelNumber)
 			result += '\n'
 
-		numSkippedParallelRegions = 0
 		if not skipDebugPrint and 'DEBUG_PRINT' in self.optionFlags and self.allowsMixedHostAndDeviceCode:
-			activeParallelRegion = None
-			for region in routine.regions:
-				if isinstance(region, ParallelRegion):
-					if numSkippedParallelRegions == self._currKernelNumber:
-						activeParallelRegion = region
-						break
-					else:
-						numSkippedParallelRegions += 1
-			if activeParallelRegion == None:
-				raise Exception("cannot find active parallel region")
-			activeSymbolsByName = dict(
-				(symbol.name, symbol)
-				for symbol in routine.symbolsByName.values()
-				if symbol.name in activeParallelRegion.usedSymbolNames
-			)
-			result += getRuntimeDebugPrintStatements(
-				synthesizedKernelName(routine.name, self._currKernelNumber) \
-					if self.useKernelPrefixesForDebugPrint else routine.name,
-				activeSymbolsByName,
-				routine.node,
+			result += getDebugPrintStatements(
+				routine,
 				parallelRegionTemplate,
-				useOpenACC=self.useOpenACCForDebugPrintStatements
+				self._currKernelNumber,
+				self.useKernelPrefixesForDebugPrint,
+				self.useOpenACCForDebugPrintStatements
 			)
 		self._currKernelNumber += 1
 		return result
@@ -345,8 +328,21 @@ class OpenMPFortranImplementation(FortranImplementation):
 		return openMPLines + FortranImplementation.parallelRegionBegin(self, dependantSymbols, parallelRegionTemplate)
 
 	def parallelRegionEnd(self, parallelRegionTemplate, routine, skipDebugPrint=False):
-		openMPLines = "\n!$OMP END PARALLEL DO\n"
-		return FortranImplementation.parallelRegionEnd(self, parallelRegionTemplate, routine, skipDebugPrint) + openMPLines
+		additionalStatements = "\n!$OMP END PARALLEL DO\n"
+		debugStatements = ""
+		if not skipDebugPrint and 'DEBUG_PRINT' in self.optionFlags:
+			debugStatements = getDebugPrintStatements(
+				routine,
+				parallelRegionTemplate,
+				self._currKernelNumber,
+				self.useKernelPrefixesForDebugPrint,
+				self.useOpenACCForDebugPrintStatements
+			)
+		return super(OpenMPFortranImplementation, self).parallelRegionEnd(
+			parallelRegionTemplate,
+			routine,
+			skipDebugPrint=True
+		) + additionalStatements + debugStatements
 
 def _checkDeclarationConformity(dependantSymbols):
 	#analyse state of symbols - already declared as on device or not?
@@ -722,6 +718,7 @@ end subroutine
 		return ""
 
 	def declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates):
+		self._currKernelNumber = 0
 		self.currRoutineNode = currRoutineNode
 		self.currParallelRegionTemplates = currParallelRegionTemplates
 		result = ""
@@ -785,26 +782,20 @@ end subroutine
 		# for symbol in self.currDependantSymbols:
 		# 	if symbol.declarationType == DeclarationType.LOCAL_ARRAY:
 		# 		additionalStatements += "!$acc update host(%s)\n" %(symbol.name)
-		result = super(PGIOpenACCFortranImplementation, self).parallelRegionEnd(
+		debugStatements = ""
+		if not skipDebugPrint and 'DEBUG_PRINT' in self.optionFlags:
+			debugStatements = getDebugPrintStatements(
+				routine,
+				parallelRegionTemplate,
+				self._currKernelNumber,
+				self.useKernelPrefixesForDebugPrint,
+				self.useOpenACCForDebugPrintStatements
+			)
+		return super(PGIOpenACCFortranImplementation, self).parallelRegionEnd(
 			parallelRegionTemplate,
 			routine,
 			skipDebugPrint=True
-		) + additionalStatements
-		if not skipDebugPrint and 'DEBUG_PRINT' in self.optionFlags and self.allowsMixedHostAndDeviceCode:
-			activeSymbolsByName = dict(
-				(symbol.name, symbol)
-				for symbol in routine.symbolsByName.values()
-				if symbol.name in routine.usedSymbolNamesInKernels
-			)
-			result += getRuntimeDebugPrintStatements(
-				synthesizedKernelName(routine.name, self._currKernelNumber),
-				activeSymbolsByName,
-				routine.node,
-				parallelRegionTemplate,
-				useOpenACC=self.useOpenACCForDebugPrintStatements
-			)
-		self._currKernelNumber += 1
-		return result
+		) + additionalStatements + debugStatements
 
 	#MMU: we first need a branch analysis on the subroutine to do this
 	# def subroutinePostfix(self, routineNode):

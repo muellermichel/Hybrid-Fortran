@@ -21,6 +21,7 @@
 from tools.commons import UsageError
 from tools.metadata import appliesTo, getDomainsWithParallelRegionTemplate, getReductionScalarsByOperator, getTemplate
 from models.symbol import DeclarationType
+from models.region import ParallelRegion
 from models.commons import originalRoutineName
 import logging, re
 
@@ -95,6 +96,119 @@ def getImportStatements(symbolsOrModuleName, forceHostVersion=False):
 	if result != "":
 		result += "\n"
 	return result
+
+def generateRuntimeDebugPrintStatements(kernelName, symbolsByName, calleeRoutineNode, parallelRegionNode, useOpenACC=True):
+	def wrap_in_acc_pp(string, symbol):
+		accPP = symbol.accPP()[0]
+		if accPP == "":
+			return string
+		return accPP + "(" + string + ")"
+
+	result = ""
+	if calleeRoutineNode.getAttribute('parallelRegionPosition') == 'outside':
+		result += "#ifndef GPU\n"
+		result += "if (hf_debug_print_iterator == 0) then\n"
+
+	result += "write(0,*) '*********** kernel %s finished *************** '\n" %(kernelName)
+	#get all real symbols and all derived type accessors
+	symbolsToPrint = sorted([
+		symbol for symbol in symbolsByName.values()
+		if "real" in symbol.declarationPrefix or "%" in symbol.name
+	],  key=lambda symbol: symbol.name)
+	offsetsBySymbolName = {}
+	for symbol in symbolsToPrint:
+		offsets = []
+		for domain in symbol.domains:
+			offsets.append(getDebugOffsetString(domain, offsets))
+		offsetsBySymbolName[symbol.name] = offsets
+	symbolClauses = [
+		symbol.accessRepresentation(
+			[],
+			["%s:%s" %(offset, offset) for offset in offsetsBySymbolName[symbol.name]],
+			parallelRegionNode
+		)
+		for symbol in symbolsToPrint
+		if len(symbol.domains) > 0
+	]
+	#michel 2016-3-11: we've switched to device pointers
+	# if useOpenACC:
+	# 	result += "#ifdef GPU\n"
+	# 	result += "!$acc update host(%s)\n" %(", ".join(symbolClauses)) if len(symbolsToPrint) > 0 else ""
+	# 	result += "#endif\n"
+	for symbol in symbolsToPrint:
+		if symbol.declarationType == DeclarationType.LOCAL_SCALAR:
+			continue #cannot guarantee that these types of symbols are initialized at this point
+		offsets = offsetsBySymbolName[symbol.name]
+		if len(symbol.domains) > 0:
+			result += arrayCheckConditional(symbol, offsets) + "\n"
+		result += "hf_output_temp = %s\n" %(symbol.accessRepresentation([], offsetsBySymbolName[symbol.name], parallelRegionNode))
+		#michel 2013-4-18: the Fortran-style memcopy as used right now in the above line creates a runtime error immediately
+		#                  if we'd like to catch such errors ourselves, we need to use the cuda API memcopy calls - however we
+		#                  then also need information about the symbol size, which isn't available in the current implementation
+		#                  (we currently look at the typedef just as a string).
+		# result = result + "cuErrorMemcopy = cudaGetLastError()\n" \
+		#     "if(cuErrorMemcopy .NE. cudaSuccess) then\n"\
+		#         "\twrite(0, *) 'CUDA error when attempting to copy value from %s:', cudaGetErrorString(cuErrorMemcopy)\n" \
+		#         "stop 1\n" \
+		#     "end if\n" %(symbol.name)
+		if len(offsets) > 0:
+			domainsStr = "(',"
+			formStr = "'(A,"
+			for i in range(len(offsets)):
+				if i != 0:
+					domainsStr = domainsStr + ",', ',"
+					formStr = formStr + ",A,"
+				domainsStr = domainsStr + str(offsets[i])
+				formStr = formStr + "I3"
+			formStr = formStr + ",A,E19.11)'"
+			domainsStr = domainsStr + ",'):"
+		else:
+			formStr = "'(A,E16.8)'"
+			domainsStr = "scalar"
+		result += "write(0,%s) '%s@%s', hf_output_temp\n" %(formStr, symbol.name, domainsStr)
+		if len(symbol.domains) > 0:
+			result += "end if\n"
+	result += "write(0,*) '**********************************************'\n"
+	result += "write(0,*) ''\n"
+	if calleeRoutineNode.getAttribute('parallelRegionPosition') == 'outside':
+		result += "end if\n"
+		result += "#endif\n"
+	return result
+
+def getDebugPrintStatements(
+	routine,
+	parallelRegionTemplate,
+	kernelNumber,
+	useKernelPrefixesForDebugPrint=True,
+	useOpenACCForDebugPrintStatements=False
+):
+	activeParallelRegion = None
+	numSkippedParallelRegions = 0
+	for region in routine.regions:
+		if isinstance(region, ParallelRegion):
+			if numSkippedParallelRegions == kernelNumber:
+				activeParallelRegion = region
+				break
+			else:
+				numSkippedParallelRegions += 1
+	if activeParallelRegion == None:
+		raise Exception("cannot find active parallel region for kernel number %i in regions %s" %(
+			kernelNumber,
+			[str(type(r)) for r in routine.regions]
+		))
+	activeSymbolsByName = dict(
+		(symbol.name, symbol)
+		for symbol in routine.symbolsByName.values()
+		if symbol.name in activeParallelRegion.usedSymbolNames
+	)
+	return generateRuntimeDebugPrintStatements(
+		synthesizedKernelName(routine.name, kernelNumber) \
+			if useKernelPrefixesForDebugPrint else routine.name,
+		activeSymbolsByName,
+		routine.node,
+		parallelRegionTemplate,
+		useOpenACC=useOpenACCForDebugPrintStatements
+	)
 
 def getReductionClause(parallelRegionTemplate):
 	reductionScalarsByOperator = getReductionScalarsByOperator(parallelRegionTemplate)
@@ -378,81 +492,3 @@ def getDebugOffsetString(domainTuple, previousOffsets):
 		# - else we'd be always showing the diagonal of quadratic matrices.
 		offset += "_2"
 	return offset
-
-def getRuntimeDebugPrintStatements(kernelName, symbolsByName, calleeRoutineNode, parallelRegionNode, useOpenACC=True):
-	def wrap_in_acc_pp(string, symbol):
-		accPP = symbol.accPP()[0]
-		if accPP == "":
-			return string
-		return accPP + "(" + string + ")"
-
-	result = ""
-	if calleeRoutineNode.getAttribute('parallelRegionPosition') == 'outside':
-		result += "#ifndef GPU\n"
-		result += "if (hf_debug_print_iterator == 0) then\n"
-
-	result += "write(0,*) '*********** kernel %s finished *************** '\n" %(kernelName)
-	#get all real symbols and all derived type accessors
-	symbolsToPrint = sorted([
-		symbol for symbol in symbolsByName.values()
-		if "real" in symbol.declarationPrefix or "%" in symbol.name
-	],  key=lambda symbol: symbol.name)
-	offsetsBySymbolName = {}
-	for symbol in symbolsToPrint:
-		offsets = []
-		for domain in symbol.domains:
-			offsets.append(getDebugOffsetString(domain, offsets))
-		offsetsBySymbolName[symbol.name] = offsets
-	symbolClauses = [
-		symbol.accessRepresentation(
-			[],
-			["%s:%s" %(offset, offset) for offset in offsetsBySymbolName[symbol.name]],
-			parallelRegionNode
-		)
-		for symbol in symbolsToPrint
-		if len(symbol.domains) > 0
-	]
-	#michel 2016-3-11: we've switched to device pointers
-	# if useOpenACC:
-	# 	result += "#ifdef GPU\n"
-	# 	result += "!$acc update host(%s)\n" %(", ".join(symbolClauses)) if len(symbolsToPrint) > 0 else ""
-	# 	result += "#endif\n"
-	for symbol in symbolsToPrint:
-		if symbol.declarationType == DeclarationType.LOCAL_SCALAR:
-			continue #cannot guarantee that these types of symbols are initialized at this point
-		offsets = offsetsBySymbolName[symbol.name]
-		if len(symbol.domains) > 0:
-			result += arrayCheckConditional(symbol, offsets) + "\n"
-		result += "hf_output_temp = %s\n" %(symbol.accessRepresentation([], offsetsBySymbolName[symbol.name], parallelRegionNode))
-		#michel 2013-4-18: the Fortran-style memcopy as used right now in the above line creates a runtime error immediately
-		#                  if we'd like to catch such errors ourselves, we need to use the cuda API memcopy calls - however we
-		#                  then also need information about the symbol size, which isn't available in the current implementation
-		#                  (we currently look at the typedef just as a string).
-		# result = result + "cuErrorMemcopy = cudaGetLastError()\n" \
-		#     "if(cuErrorMemcopy .NE. cudaSuccess) then\n"\
-		#         "\twrite(0, *) 'CUDA error when attempting to copy value from %s:', cudaGetErrorString(cuErrorMemcopy)\n" \
-		#         "stop 1\n" \
-		#     "end if\n" %(symbol.name)
-		if len(offsets) > 0:
-			domainsStr = "(',"
-			formStr = "'(A,"
-			for i in range(len(offsets)):
-				if i != 0:
-					domainsStr = domainsStr + ",', ',"
-					formStr = formStr + ",A,"
-				domainsStr = domainsStr + str(offsets[i])
-				formStr = formStr + "I3"
-			formStr = formStr + ",A,E19.11)'"
-			domainsStr = domainsStr + ",'):"
-		else:
-			formStr = "'(A,E16.8)'"
-			domainsStr = "scalar"
-		result += "write(0,%s) '%s@%s', hf_output_temp\n" %(formStr, symbol.name, domainsStr)
-		if len(symbol.domains) > 0:
-			result += "end if\n"
-	result += "write(0,*) '**********************************************'\n"
-	result += "write(0,*) ''\n"
-	if calleeRoutineNode.getAttribute('parallelRegionPosition') == 'outside':
-		result += "end if\n"
-		result += "#endif\n"
-	return result

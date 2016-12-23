@@ -171,7 +171,7 @@ def splitAndPurgeSpecification(line, purgeList=['intent']):
 	symbolDeclarationStr += " " + specTuple[2] if specTuple[2] else ""
 	return purgeFromDeclarationDirectives(declarationDirectives, purgeList), declarationDirectives, symbolDeclarationStr
 
-def getReorderedDomainsAccordingToDeclaration(domains, dimensionSizesInDeclaration, purgeUndeclared=False):
+def getReorderedDomainsAccordingToDeclaration(domains, dimensionSizesInDeclaration):
 	def getNextUnusedIndexForDimensionSize(domainSize, dimensionSizesInDeclaration, usedIndices):
 		index_candidate = None
 		startAt = 0
@@ -192,14 +192,9 @@ def getReorderedDomainsAccordingToDeclaration(domains, dimensionSizesInDeclarati
 		return domains
 	if len(domains) == 0:
 		return domains
-	if len(domains) != len(dimensionSizesInDeclaration) and not purgeUndeclared:
+	if len(domains) != len(dimensionSizesInDeclaration):
 		return domains
-	# if purgeUndeclared:
-	#     newDomains = []
-	#     for (domainName, domainSize) in domains:
-	#         if domainSize in dimensionSizesInDeclaration:
-	#             newDomains.append((domainName, domainSize))
-	#     domains = newDomains
+
 	reorderedDomains = [0] * len(domains)
 	usedIndices = []
 	fallBackToCurrentOrder = False
@@ -959,7 +954,7 @@ EXAMPLE:\n\
 			raise Exception("symbol %s is in declaration loaded state, but dimensions are not initialized" %(self.name))
 		logging.debug("domain integrity checked for symbol %s" %(self))
 
-	def loadTemplateAttributes(self, parallelRegionTemplates=[]):
+	def loadTemplateAttributes(self, parallelRegionTemplates=[], implementation=None):
 		if self.initLevel < Init.TEMPLATE_LOADED:
 			raise Exception(
 				"Cannot load template attributes for %s at init level %s" %(
@@ -971,7 +966,7 @@ EXAMPLE:\n\
 		declarationPrefixFromTemplate = getDeclarationPrefix(self.template)
 		self.loadDeclarationPrefixFromString(declarationPrefixFromTemplate)
 		self.loadDomains(templateDomains, parallelRegionTemplates)
-		self.adjustDomainsToKernelPosition()
+		self.adjustDomainsToKernelPosition(implementation)
 		logging.debug(
 			"[" + str(self) + ".init " + str(self.initLevel) + "] Domains loaded from callgraph information for symbol %s. Parallel active: %s. Parallel Inactive: %s. Declaration Prefix: %s. templateDomains: %s declarationPrefix: %s. Parallel Regions: %i\n" %(
 				str(self),
@@ -1118,7 +1113,7 @@ EXAMPLE:\n\
 		self.checkIntegrityOfDomains()
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] symbol attributes loaded from module node. Domains at this point: %s. Init Level: %s" %(str(self.domains), str(self.initLevel)))
 
-	def loadRoutineNodeAttributes(self, routineNode, parallelRegionTemplates):
+	def loadRoutineNodeAttributes(self, routineNode, parallelRegionTemplates, implementation=None):
 		if self.initLevel < Init.DEPENDANT_ENTRYNODE_ATTRIBUTES_LOADED:
 			raise Exception("Symbol %s's routine node attributes are loaded without loading the entry node attributes first."
 				%(str(self))
@@ -1130,27 +1125,76 @@ EXAMPLE:\n\
 		if not routineName:
 			raise Exception("Routine node without name: %s" %(routineNode.toxml()))
 		self.parallelRegionTemplates = parallelRegionTemplates if parallelRegionTemplates else []
-		self.loadTemplateAttributes(parallelRegionTemplates if parallelRegionTemplates else [])
+		self.loadTemplateAttributes(parallelRegionTemplates if parallelRegionTemplates else [], implementation)
 		self.updateNameInScope()
 		self.initLevel = max(self.initLevel, Init.ROUTINENODE_ATTRIBUTES_LOADED)
 		self.checkIntegrityOfDomains()
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] routine node attributes loaded for symbol %s. Domains at this point: %s" %(self.name, str(self.domains)))
 
-	def adjustDomainsToKernelPosition(self):
+	def adjustDomainsToKernelPosition(self, implementation=None):
 		if self.parallelRegionPosition in [None, ""] and self.declaredDimensionSizes != None:
+			#no parallel region active in this scope and we have a declaration -> reset to that
 			self.domains = [
 				("HF_GENERIC_PARALLEL_INACTIVE_DIM", domSize) for domSize in self.declaredDimensionSizes
 			]
 		elif self.parallelRegionPosition in [None, "", "outside"]:
-			#kernel domains that have been added
+			#inside a parallel region or no parallel region (and a missing declaration)
+			#--> reset to either declaration or passed in kernel domains
 			self.domains = [
 				(domName, domSize) for (domName, domSize) in self.domains
 				if not domName in self._kernelDomainNames or ( \
 					self.declaredDimensionSizes and domSize in self.declaredDimensionSizes \
 				)
 			]
+
 		if self.parallelRegionPosition in [None, "", "outside"]:
+			#inside a parallel region or no parallel region
+			#reset the kernel inactive domain sizes to contain all domains
 			self._kernelInactiveDomainSizes = [s for (_, s) in self.domains]
+
+		if implementation and not implementation.onDevice \
+		and not "%" in self.name \
+		and self.parallelRegionPosition != "inside" \
+		and (self.parallelRegionPosition != "within" or self.intent not in ["in", "out", "inout"]):
+			#we only want local device kernel symbols to get privatized using the kernel domain extension facility
+			#here we are not on the device
+
+			#however there are special cases that we need to exclude from this cleanup.
+			#example: symbols that are declared with ":" sizes, either in module or routine
+			# -> do not throw away this information, we can't decide what to keep, so skip cleanup
+			#
+			#another edge case is derived type members, for which the declaration parser currently doesn't really work,
+			#so we have to completely rely on @domainDependant template information that may not be thrown away
+			# -> we catch this with the "%" in self.name condition above.
+			#
+			#note: this cleanup is only done for performance optimisations where possible anyways
+			currentKnownDomainSizes = [ds for (_, ds) in self.domains]
+			declaredDimensionSizes = self.declaredDimensionSizes if self.declaredDimensionSizes != None else []
+			declaredDomainsCanBeMatched = all([ds in currentKnownDomainSizes for ds in declaredDimensionSizes])
+
+			if declaredDomainsCanBeMatched:
+				#--> make _kernelDomainNames consistent by removing domains not in declaration
+				updatedKernelDomainNames = []
+				for dn in self._kernelDomainNames:
+					dsizes = self._knownKernelDomainSizesByName.get(dn, [])
+					for ds in dsizes:
+						if ds in self.declaredDimensionSizes:
+							updatedKernelDomainNames.append(dn)
+							break
+				self._kernelDomainNames = updatedKernelDomainNames
+
+				#--> get rid of domains that are not in declaration
+				self.domains = [
+					(domName, domSize) for (domName, domSize) in self.domains
+					if domSize in self.declaredDimensionSizes
+				]
+				self._templateDomains = [
+					(domName, domSize) for (domName, domSize) in self._templateDomains
+					if domSize in self.declaredDimensionSizes
+				]
+				return
+
+		# reset domains to kernel / kernelInactive datastructures so everything is consistent
 		self.domains = [
 			(domName, domSize) for (domName, domSize) in self.domains
 			if domName in self.kernelDomainNames \

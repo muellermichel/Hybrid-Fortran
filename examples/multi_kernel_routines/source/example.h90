@@ -59,7 +59,7 @@ contains
 
     @parallelRegion{appliesTo(GPU), domName(x,y), domSize(NX, NY)}
     do z=1,NZ
-      d(z) = a(z) * b(z)
+      d(z) = a(z) + b(z)
     end do
     @end parallelRegion
   end subroutine
@@ -83,9 +83,10 @@ contains
     integer :: z, z_end
     real, parameter :: my_parameter = 1.0d0
     real :: temp
+    real :: temp2(NZ)
 
     @domainDependant{attribute(present), domName(x,y,z), domSize(NX,NY,NZ), domPP(DOM), accPP(AT)}
-    a, b, c, d
+    a, b, c, d, temp2
     @end domainDependant
 
     z_end = NZ
@@ -93,13 +94,14 @@ contains
     @parallelRegion{appliesTo(GPU), domName(x,y), domSize(NX, NY)}
     do z=1,z_end
       temp = a(z) + b(z)
+      temp2(z) = b(z)
       c(z) = temp + my_parameter
     end do
     @end parallelRegion
 
     @parallelRegion{appliesTo(GPU), domName(x,y), domSize(NX, NY)}
     do z=1,NZ
-      d(z) = a(z) * b(z)
+      d(z) = a(z) + temp2(z)
     end do
     @end parallelRegion
   end subroutine
@@ -143,10 +145,77 @@ contains
     call mult(a, b, d(x,y,:))
   end subroutine
 
+  subroutine tight_inline_kernels(a, b, c, d)
+    real, dimension(NZ), intent(in) :: a, b
+    real, dimension(NZ), intent(out) :: c, d
+    integer :: z, z_end
+    real, parameter :: my_parameter = 1.0d0
+    real :: temp
+    real :: temp2(NZ)
+
+    @domainDependant{attribute(transferHere), domName(x,y,z), domSize(NX,NY,NZ), domPP(DOM), accPP(AT)}
+    a, b, c, d
+    @end domainDependant
+
+    @domainDependant{attribute(present), domName(x,y,z), domSize(NX,NY,NZ), domPP(DOM), accPP(AT)}
+    temp2
+    @end domainDependant
+
+    z_end = NZ
+
+    @parallelRegion{domName(x,y), domSize(NX, NY)}
+    do z=1,z_end
+      temp = a(z) + b(z)
+      temp2(z) = b(z)
+      c(z) = temp + my_parameter
+    end do
+    @end parallelRegion
+
+    @parallelRegion{domName(x,y), domSize(NX, NY)}
+    do z=1,NZ
+      d(z) = a(z) + temp2(z)
+    end do
+    @end parallelRegion
+  end subroutine
+
+  subroutine tight_inline_kernels2(a, b, c, d)
+    real, dimension(NZ), intent(in) :: a, b
+    real, dimension(NZ), intent(out) :: c, d
+    integer :: z, z_end
+    real, parameter :: my_parameter = 1.0d0
+    real :: temp
+    real :: temp2(NZ)
+
+    @domainDependant{attribute(transferHere, autoDom), domName(x,y), domSize(NX,NY), domPP(DOM), accPP(AT)}
+    a, b, c, d
+    @end domainDependant
+
+    @domainDependant{attribute(present, autoDom), domName(x,y), domSize(NX,NY), domPP(DOM), accPP(AT)}
+    temp2
+    @end domainDependant
+
+    z_end = NZ
+
+    @parallelRegion{domName(x,y), domSize(NX, NY)}
+    do z=1,z_end
+      temp = a(z) + b(z)
+      temp2(z) = b(z)
+      c(z) = temp + my_parameter
+    end do
+    @end parallelRegion
+
+    @parallelRegion{domName(x,y), domSize(NX, NY)}
+    do z=1,NZ
+      d(z) = a(z) + temp2(z)
+    end do
+    @end parallelRegion
+  end subroutine
+
   subroutine assert_values(test_array, expected_value)
     implicit none
     real, dimension(NX, NY, NZ), intent(in) :: test_array
     real(8), intent(in) :: expected_value
+    real(8) :: expected_value_fail, curr_expected_value
     integer :: fail_x, fail_y, fail_z
     integer :: x, y, z
     logical test
@@ -156,10 +225,14 @@ contains
     @end domainDependant
 
     test = .TRUE.
+    expected_value_fail = 0.0d0
+    curr_expected_value = 0.0d0
     do y=1,NY
     do x=1,NX
     do z=1,NZ
-      if (test .EQ. .TRUE. .AND. test_array(x,y,z) .NE. expected_value) then
+      curr_expected_value = expected_value + real(x + y + z)
+      if (test .EQ. .TRUE. .AND. test_array(x,y,z) .NE. curr_expected_value) then
+        expected_value_fail = curr_expected_value
         test = .FALSE.
         fail_x = x
         fail_y = y
@@ -173,6 +246,7 @@ contains
     else
       write(0,*) "test failed"
       write(0,*) "fails at", fail_x, fail_y, fail_z, "test_array:", test_array(fail_x,fail_y,fail_z)
+      write(0,*) "expected:", expected_value_fail
       stop 2
     end if
   end subroutine
@@ -186,29 +260,51 @@ program main
   logical test
 
   a(:,:,:) = 1.0d0
-  b(:,:,:) = 2.0d0
+  b(:,:,:) = 0.0d0
   c(:,:,:) = 0.0d0
   d(:,:,:) = 0.0d0
   test = .TRUE.
 
+  do y=1,NY
+  do x=1,NX
+  do z=1,NZ
+    b(AT(x,y,z)) = 2.0d0 + real(x + y + z)
+  end do
+  end do
+  end do
+
   call wrapper_separate_kernels(a, b, c, d)
   write(6,*) "calculation separate complete"
   call assert_values(c, 3.0d0)
-  call assert_values(d, 2.0d0)
+  call assert_values(d, 3.0d0)
 
   c(:,:,:) = 0.0d0
   d(:,:,:) = 0.0d0
   call wrapper_inline_kernels(a, b, c, d)
   write(6,*) "calculation inline complete"
   call assert_values(c, 4.0d0)
-  call assert_values(d, 2.0d0)
+  call assert_values(d, 3.0d0)
+
+  c(:,:,:) = 0.0d0
+  d(:,:,:) = 0.0d0
+  call tight_inline_kernels(a, b, c, d)
+  write(6,*) "calculation tight w/ explicit domain dependants complete"
+  call assert_values(c, 4.0d0)
+  call assert_values(d, 3.0d0)
+
+  c(:,:,:) = 0.0d0
+  d(:,:,:) = 0.0d0
+  call tight_inline_kernels2(a, b, c, d)
+  write(6,*) "calculation tight w/ autoDom domain dependants complete"
+  call assert_values(c, 4.0d0)
+  call assert_values(d, 3.0d0)
 
   c(:,:,:) = 0.0d0
   d(:,:,:) = 0.0d0
   call wrapper_mixed_kernels(a, b, c, d)
   write(6,*) "calculation mixed complete"
   call assert_values(c, 3.0d0)
-  call assert_values(d, 2.0d0)
+  call assert_values(d, 3.0d0)
 
   stop
 end program main

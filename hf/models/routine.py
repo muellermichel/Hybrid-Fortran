@@ -224,7 +224,7 @@ This is not allowed for implementations using %s.\
 			symbol.parallelRegionPosition = self.node.getAttribute("parallelRegionPosition")
 			symbol.isCompacted = False
 			if not isinstance(symbol, FrameworkArray):
-				symbol.loadRoutineNodeAttributes(self.node, self.parallelRegionTemplates, self.implementation)
+				symbol.loadRoutineNodeAttributes(self.node, self.parallelRegionTemplates, self)
 
 			#implementation specific device state reset
 			self.implementation.updateSymbolDeviceState(

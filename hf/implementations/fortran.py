@@ -324,7 +324,7 @@ class OpenMPFortranImplementation(FortranImplementation):
 
 	def parallelRegionBegin(self, dependantSymbols, parallelRegionTemplate):
 		openMPLines = "!$OMP PARALLEL DO DEFAULT(firstprivate) %s " %(getReductionClause(parallelRegionTemplate).upper())
-		sharedSymbols = [s for s in dependantSymbols if s.domains and s.kernelDomainNames]
+		sharedSymbols = [s for s in dependantSymbols if s.domains]
 		openMPLines += "SHARED(%s)\n" %(', '.join([
 			s.nameInScope() for s in sharedSymbols
 		])) if sharedSymbols else "\n"

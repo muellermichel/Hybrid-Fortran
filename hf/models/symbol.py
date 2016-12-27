@@ -954,7 +954,7 @@ EXAMPLE:\n\
 			raise Exception("symbol %s is in declaration loaded state, but dimensions are not initialized" %(self.name))
 		logging.debug("domain integrity checked for symbol %s" %(self))
 
-	def loadTemplateAttributes(self, parallelRegionTemplates=[], implementation=None):
+	def loadTemplateAttributes(self, parallelRegionTemplates=[], routine=None):
 		if self.initLevel < Init.TEMPLATE_LOADED:
 			raise Exception(
 				"Cannot load template attributes for %s at init level %s" %(
@@ -966,7 +966,7 @@ EXAMPLE:\n\
 		declarationPrefixFromTemplate = getDeclarationPrefix(self.template)
 		self.loadDeclarationPrefixFromString(declarationPrefixFromTemplate)
 		self.loadDomains(templateDomains, parallelRegionTemplates)
-		self.adjustDomainsToKernelPosition(implementation)
+		self.adjustDomainsToKernelPosition(routine)
 		logging.debug(
 			"[" + str(self) + ".init " + str(self.initLevel) + "] Domains loaded from callgraph information for symbol %s. Parallel active: %s. Parallel Inactive: %s. Declaration Prefix: %s. templateDomains: %s declarationPrefix: %s. Parallel Regions: %i\n" %(
 				str(self),
@@ -1113,7 +1113,7 @@ EXAMPLE:\n\
 		self.checkIntegrityOfDomains()
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] symbol attributes loaded from module node. Domains at this point: %s. Init Level: %s" %(str(self.domains), str(self.initLevel)))
 
-	def loadRoutineNodeAttributes(self, routineNode, parallelRegionTemplates, implementation=None):
+	def loadRoutineNodeAttributes(self, routineNode, parallelRegionTemplates, routine=None):
 		if self.initLevel < Init.DEPENDANT_ENTRYNODE_ATTRIBUTES_LOADED:
 			raise Exception("Symbol %s's routine node attributes are loaded without loading the entry node attributes first."
 				%(str(self))
@@ -1125,13 +1125,13 @@ EXAMPLE:\n\
 		if not routineName:
 			raise Exception("Routine node without name: %s" %(routineNode.toxml()))
 		self.parallelRegionTemplates = parallelRegionTemplates if parallelRegionTemplates else []
-		self.loadTemplateAttributes(parallelRegionTemplates if parallelRegionTemplates else [], implementation)
+		self.loadTemplateAttributes(parallelRegionTemplates if parallelRegionTemplates else [], routine)
 		self.updateNameInScope()
 		self.initLevel = max(self.initLevel, Init.ROUTINENODE_ATTRIBUTES_LOADED)
 		self.checkIntegrityOfDomains()
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] routine node attributes loaded for symbol %s. Domains at this point: %s" %(self.name, str(self.domains)))
 
-	def adjustDomainsToKernelPosition(self, implementation=None):
+	def adjustDomainsToKernelPosition(self, routine=None):
 		if self.parallelRegionPosition in [None, ""] and self.declaredDimensionSizes != None:
 			#no parallel region active in this scope and we have a declaration -> reset to that
 			self.domains = [
@@ -1152,10 +1152,13 @@ EXAMPLE:\n\
 			#reset the kernel inactive domain sizes to contain all domains
 			self._kernelInactiveDomainSizes = [s for (_, s) in self.domains]
 
-		if implementation and not implementation.onDevice \
+		if routine and hasattr(routine, "implementation") and not routine.implementation.onDevice \
 		and not "%" in self.name \
 		and self.parallelRegionPosition != "inside" \
-		and (self.parallelRegionPosition != "within" or self.intent not in ["in", "out", "inout"]):
+		and (self.parallelRegionPosition != "within" or ( \
+			(not routine.parallelRegionTemplates or len(routine.parallelRegionTemplates) == 1) \
+			and self.intent not in ["in", "out", "inout"] \
+		)):
 			#we only want local device kernel symbols to get privatized using the kernel domain extension facility
 			#here we are not on the device
 

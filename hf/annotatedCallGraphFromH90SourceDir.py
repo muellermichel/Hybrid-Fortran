@@ -77,3 +77,4 @@ if (options.pretty):
 	sys.stdout.write(doc.toprettyxml())
 else:
 	sys.stdout.write(doc.toxml())
+sys.stdout.flush()

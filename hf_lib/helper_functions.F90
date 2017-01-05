@@ -40,7 +40,7 @@ public :: write2DToFile
 public :: write3DToFile
 public :: write3DToFile_n3StartsAt
 public :: printElapsedTime, getElapsedTime, getTime
-public :: printHeading
+public :: init_hf
 
 ! interface isNaN
 ! 	module procedure isNaN_real4, isNaN_real8
@@ -80,26 +80,61 @@ contains
 		nextGenericFileNumber = 0
 	end subroutine
 
-	subroutine printHeading()
+	subroutine init_hf()
+#ifdef USE_MPI
+		use mpi
+#endif
 #ifdef GPU
 		use cudafor
+#endif
+#ifdef _OPENACC
+		use openacc
+#endif
 		implicit none
 
 		integer(4) :: istat
+#ifdef USE_MPI
+		integer(4) :: localRank, globalRank
+		character (len=10) :: localRankStr
+#endif
+#ifdef GPU
+		integer(4) :: deviceCount, deviceID
     	type (cudaDeviceProp) :: prop
-#else
-		implicit none
+#endif
+
+#ifdef USE_MPI
+		call mpi_comm_rank( mpi_comm_world, globalRank, istat )
+		call get_environment_variable('MV2_COMM_WORLD_LOCAL_RANK', localRankStr)
+      	read(localRankStr,'(i10)') localRank
+#ifdef GPU
+		istat = cudaGetDeviceCount( deviceCount )
+
+		deviceID = modulo(localRank, deviceCount)
+		istat = cudaSetDevice(deviceID)
+#ifdef _OPENACC
+		call acc_set_device_num(deviceID, acc_device_nvidia)
+#endif
+#endif
 #endif
 
 		write (0,*) "**************************************************************"
 		write (0,*) "  H Y B R I D  F O R T R A N "
 		write (0,*) "                                                              "
+
+#ifdef USE_MPI
+		write(0, *) "Using MPI"
+		write(0, *) "Local Rank ", localRank
+		write(0, *) "Global Rank ", globalRank
+#endif
 #ifdef GPU
 			istat = cudaGetDeviceProperties(prop, 0)
 			write(0, *) "  GPU Implementation"
 			write(0, *) "  Running on ", trim(prop%name)
 			write(0, *) "  Global Memory available (MiB):", prop%totalGlobalMem / 1024**2
 			write(0, *) "  ECC status:", prop%ECCEnabled
+
+			istat = cudaGetDevice( deviceID )
+			write(0, *) "  Device ID:", deviceID
 #else
 			write(0, *) "  CPU Implementation"
 #endif

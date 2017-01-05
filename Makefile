@@ -27,7 +27,7 @@ TEMPLATEDIR=${HF_DIR}/hf_template/
 EXAMPLEDIR=${HF_DIR}/example/
 EXAMPLEDIR_SOURCE=${EXAMPLEDIR}source/
 
-TEST_PROJECTS=examples/demo examples/5D_parallel_vector examples/simple_stencil examples/stencil_with_local_array examples/stencil_with_passed_in_scalar_from_array examples/hybrid_device_and_host_routines examples/module_data examples/multi_kernel_routines examples/branches_around_parallel_regions examples/array_accessor_functions examples/early_returns examples/mixed_implementations examples/strides examples/poisson2d_fem_iterative examples/diffusion3d examples/particle examples/midaco_solver
+TEST_PROJECTS=examples/demo examples/mpi_multi_gpu_scatter examples/5D_parallel_vector examples/simple_stencil examples/stencil_with_local_array examples/stencil_with_passed_in_scalar_from_array examples/hybrid_device_and_host_routines examples/module_data examples/multi_kernel_routines examples/branches_around_parallel_regions examples/array_accessor_functions examples/early_returns examples/mixed_implementations examples/strides examples/poisson2d_fem_iterative examples/diffusion3d examples/particle examples/midaco_solver
 ADDITIONAL_TEST_PROJECTS=pp examples/tracing examples/simple_weather
 
 TEST_TARGETS=$(addprefix test_,$(TEST_PROJECTS))

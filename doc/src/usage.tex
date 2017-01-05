@@ -52,6 +52,13 @@ The following files displayed in figure \ref{figure:hybridCUDAComponentsAndInfoF
  \item[make graphs] creates the graphical callgraph representations in the \linebreak\verb|path-to-project/build/callgraphs/| directory.
 \end{description}
 
+\section{MPI and GPU Awareness}
+Hybrid Fortran currently only supports MVAPICH2. In order to let Hybrid Fortran know at compile time that you're using MPI, define the USE_MPI flag in your precompiler flags (using \verb|PFLAGS= -DUSE_MPI| in \verb|MakesettingsCPU| and \verb|MakesettingsGPU|). If you'd like to use any other MPI version, please either contact the project maintainer or have a look at the subroutine \verb|init_hf| in \verb|${HF_DIR}/hf_lib/helper_functions.F90| and create your own version of this setup code using compatible MPI library calls. \newline
+\newline
+Using \verb|call init_hf| at the beginning of your program (and importing it with \verb|use helper_functions, only: init_hf|) will assign \verb|modulo(nodeRank, deviceCount)| as the currently used device ID. Setting up MPI run such that you get one process for each GPU on each node will then enable you to get each GPU used in your calculation. \newline
+\newline
+You will however have to make sure that the MPI communication is seeing the correct data - either use GPU aware MPI or only pass host data in your MPI communication.
+
 \section{Test Interface} \label{sec:testSystem}
 \textbf{Hybrid Fortran} comes with an automated test system that - once set up - is intended to find errors in your code as much as possible, each time a build completes. This includes
 \begin{itemize}
@@ -133,7 +140,7 @@ nx 2 ny 3
  \item Run \verb|./test/example/example_cpu; ./test/example/example_gpu|. This should execute and validate both versions.
  \item Review the example source files located in \verb|./source| and get a feel for the Hybrid Fortran directive syntax. Notice the \verb|storage_order.F90| file which is used as a central point for specifying the data storage orders. Please refer to the documentation for details.
  \item Review the preprocessed source files located in \verb|./build/cpu/source| and \verb|./build/gpu/source|. Notice the OpenMP and CUDA code that has been inserted into the example codebase. These files are important for debugging as well as when you want to do manual performance optimizations (but you should usually never change anything there, since it will get overwritten with the next preprocessor run).
- \item Review the config files located in \verb|./config|. The most important file for integrating your own codebase will be \verb|./config/Makefile|. This file specifies the dependency tree for your source files. Please note that \verb|vpath|'s are not necessary, the Hybrid Fortran build system will find your source files automatically, as long as you use the source directory specified in \verb|./config/MakesettingsGeneral| as the root of your sources (i.e. you may place your sources in an arbitrarily deep subdirectory structure). The \verb|MakesettingsCPU| and \verb|MakesettingsGPU| are used to define the compilers and compiler flags. You may use any CPU compiler, however only \verb|pgf90| is currently supported for CUDA compilation.
+ \item Review the config files located in \verb|./config|. The most important file for integrating your own codebase will be \verb|./config/Makefile|. This file specifies the dependency tree for your source files. Please note that \verb|vpath|'s are not necessary, the Hybrid Fortran build system will find your source files automatically, as long as you use the source directory specified in \verb|./config/MakesettingsGeneral| as the root of your sources (i.e. you may place your sources in an arbitrarily deep subdirectory structure). The \verb|MakesettingsCPU| and \verb|MakesettingsGPU| are used to define the compilers and compiler flags. You may use any CPU compiler, however only \verb|pgf90| is currently supported for CUDA compilation. See the provided examples for suitable compiler flags.
  \item Run \verb|make clean; make DEBUG=1; make install| in your example project directory. This replaces the previously compiled executables with debug mode executables.
  \item The CPU version can be debugged with a compatible debugger.
  \item Run \verb|./test/example/example_gpu| and notice how this executable now prints debug information for every input and output at a specific data point after every kernel run. You can change the data point in \verb|storage_order.F90|.

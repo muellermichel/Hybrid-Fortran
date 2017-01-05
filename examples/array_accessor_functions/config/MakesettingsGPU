@@ -54,6 +54,8 @@ LDFLAGS= -acc -Minfo=accel,inline,ipa -Mneginfo -Mcuda=cc2x,cc3x -ta=nvidia,cc2x
 endif
 endif
 
+PGFLAGS= -D_OPENACC
+
 
 
 

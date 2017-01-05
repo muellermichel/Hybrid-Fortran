@@ -48,9 +48,9 @@ define debugecho
 endef
 
 # WARNING: The following settings need to be repeated in MakefileCommon
-PFLAGS=
+PFLAGS_POST= ${PFLAGS}
 ifdef GPU_BUILD
-PFLAGS= -DGPU
+PFLAGS_POST= -DGPU ${PFLAGS}
 endif
 
 SRC_PP=$(wildcard ./*.P90)
@@ -101,31 +101,31 @@ ${USER_LIB}: $(OBJ)
 .DELETE_ON_ERROR:
 %.f90: %.P90
 	$(call blueecho,"..........preprocessing $< in $(CURDIR)")
-	@set -o pipefail; < $< sed "s/\/\//¢/g" | gcc -E -w ${PFLAGS} - | tr "\`" '\n' | sed "s/¢/\/\//g" | sed '/^#/ d' > $@
+	set -o pipefail; < $< sed "s/\/\//¢/g" | gcc -E -w ${PFLAGS_POST} - | tr "\`" '\n' | sed "s/¢/\/\//g" | sed '/^#/ d' > $@
 
 %.o: %.F90
 	$(call blueecho,"..........compiling $< in $(CURDIR)")
-	$(FC) $(FFLAGS) $(PFLAGS) -c $< -o $@
+	$(FC) $(FFLAGS) $(PFLAGS_POST) -c $< -o $@
 
 %.o: %.f90
 	$(call blueecho,"..........compiling $< in $(CURDIR)")
-	$(FC) $(FFLAGS) $(PFLAGS) -c $< -o $@
+	$(FC) $(FFLAGS) $(PFLAGS_POST) -c $< -o $@
 
 %.o: %.F
 	$(call blueecho,"..........compiling $< in $(CURDIR)")
-	$(FC) $(FFLAGS) $(PFLAGS) -c $< -o $@
+	$(FC) $(FFLAGS) $(PFLAGS_POST) -c $< -o $@
 
 %.o: %.f
 	$(call blueecho,"..........compiling $< in $(CURDIR)")
-	$(FC) $(FFLAGS) $(PFLAGS) -c $< -o $@
+	$(FC) $(FFLAGS) $(PFLAGS_POST) -c $< -o $@
 
 %.o: %.c
 	$(call blueecho,"..........compiling $< in $(CURDIR)")
-	$(CC) $(CFLAGS) $(PFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) $(PFLAGS_POST) -c $< -o $@
 
 %.o: %.cu
 	$(call blueecho,"..........compiling $< in $(CURDIR)")
-	$(CUDAC) $(CUDAFLAGS) $(PFLAGS) -c $< -o $@
+	$(CUDAC) $(CUDAFLAGS) $(PFLAGS_POST) -c $< -o $@
 
 helper_functions.o: storage_order.F90
 helper_functions_gpu.o: storage_order.F90

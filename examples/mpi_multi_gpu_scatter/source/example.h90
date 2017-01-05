@@ -1,0 +1,196 @@
+module example
+contains
+
+  subroutine data_region(a, b, c, d, sum_c, sum_d)
+    implicit none
+    real, dimension(NX, NY, NZ), intent(in) :: a, b
+    real, dimension(NX, NY, NZ), intent(out) :: c, d
+    real, intent(out) :: sum_c, sum_d
+
+    @domainDependant{attribute(autoDom,transferHere)}
+    a, b, c, d
+    @end domainDependant
+
+    call run(a, b, c, d)
+    call reduce_to_sum(c, sum_c)
+    call reduce_to_sum(d, sum_d)
+  end subroutine
+
+  subroutine run(a, b, c, d)
+    implicit none
+    real, dimension(NX, NY, NZ), intent(in) :: a, b
+    real, dimension(NX, NY, NZ), intent(out) :: c, d
+
+    @domainDependant{attribute(autoDom,present)}
+    a, b, c, d
+    @end domainDependant
+
+    @parallelRegion{appliesTo(CPU), domName(x,y), domSize(NX, NY)}
+    call add(a, b, c)
+    call mult(a, b, d)
+    @end parallelRegion
+
+  end subroutine
+
+  subroutine add(a, b, c)
+    implicit none
+    real, dimension(NZ), intent(in) :: a, b
+    real, dimension(NZ), intent(out) :: c
+    integer :: z
+
+    @domainDependant{attribute(autoDom, present), domName(x,y), domSize(NX,NY)}
+    a, b, c
+    @end domainDependant
+
+    @parallelRegion{appliesTo(GPU), domName(x,y), domSize(NX, NY)}
+    do z=1,NZ
+      c(z) = a(z) + b(z)
+    end do
+    @end parallelRegion
+  end subroutine
+
+  subroutine mult(a, b, d)
+    implicit none
+    real, dimension(NZ), intent(in) :: a, b
+    real, dimension(NZ), intent(out) :: d
+    integer :: z
+
+    @domainDependant{attribute(autoDom, present), domName(x,y), domSize(NX,NY)}
+    a, b, d
+    @end domainDependant
+
+    @parallelRegion{appliesTo(GPU), domName(x,y), domSize(NX, NY)}
+    do z=1,NZ
+      d(z) = a(z) * b(z)
+    end do
+    @end parallelRegion
+  end subroutine
+
+  @scheme{name(REDUCTION_SUPPORT)}
+  subroutine reduce_to_sum(a, result)
+    implicit none
+    real, dimension(NZ), intent(in) :: a
+    real, intent(out) :: result
+    integer :: z
+
+    @domainDependant{attribute(autoDom, present), domName(x,y), domSize(NX,NY)}
+    a
+    @end domainDependant
+
+    result = 0.0d0
+
+    @parallelRegion{domName(x,y), domSize(NX, NY), reduction(+:result)}
+    do z=1,NZ
+      result = result + a(z)
+    end do
+    @end parallelRegion
+  end subroutine
+  @end scheme
+
+end module example
+
+program main
+  use mpi
+  use example
+  use helper_functions, only: init_hf
+#ifdef GPU
+  use cudafor
+  use openacc
+#endif
+  implicit none
+  real, dimension(DOM(NX, NY, NZ)) :: a, b, c, d
+  real :: sum_c, sum_d, expected_sum
+  character (len=10) :: local_rank_str
+  integer :: x, y, z
+  integer :: fail_x, fail_y, fail_z
+  integer :: ierr, num_procs, rank, local_rank, device_id
+  logical :: test, testSum
+
+  ! This example is not doing any sharing of the results / inputs,
+  ! but we want to test whether it will run on different GPUs.
+  ! To do that it is required to call hf_init and use PFLAGS like in the provided Makesettings
+  call MPI_Init ( ierr )
+
+  ! Check whether MPI is set up to have two processes
+  call MPI_Comm_size ( MPI_COMM_WORLD, num_procs, ierr )
+  if (num_procs /= 2) then
+    write(6,*) "something is wrong with the MPI initialisation - num of procs: ", num_procs
+    stop 2
+  else
+    write(6,*) "num of procs: ", num_procs
+  end if
+
+  ! Choose device in case of GPU compilation
+  call init_hf
+
+  ! Check whether we are getting the correct device ID in CUDA and OpenACC
+  call get_environment_variable('MV2_COMM_WORLD_LOCAL_RANK', local_rank_str)
+  read(local_rank_str,'(i10)') local_rank
+#ifdef GPU
+  ierr = cudaGetDevice(device_id)
+  if (device_id /= local_rank) then
+    write(6,*) "something is wrong with the CUDA initialisation - device id:", device_id, "local rank:", local_rank
+    stop 2
+  else
+    write(6,*) "device id:", device_id, "local rank:", local_rank
+  end if
+  device_id = acc_get_device_num(acc_device_nvidia)
+  if (device_id /= local_rank) then
+    write(6,*) "something is wrong with the OpenACC initialisation - device id:", device_id, "local rank:", local_rank
+    stop 2
+  else
+    write(6,*) "device id:", device_id, "local rank:", local_rank
+  end if
+#endif
+
+  a(:,:,:) = 1.0d0
+  b(:,:,:) = 2.0d0
+  c(:,:,:) = 0.0d0
+  d(:,:,:) = 0.0d0
+  test = .TRUE.
+  testSum = .TRUE.
+
+  call data_region(a, b, c, d, sum_c, sum_d)
+  write(6,*) "calculation complete"
+
+  do y=1,NY
+  do x=1,NX
+  do z=1,NZ
+    if (test .EQ. .TRUE. .AND. c(AT(x,y,z)) /= 3.0d0) then
+      test = .FALSE.
+      fail_x = x
+      fail_y = y
+      fail_z = z
+    end if
+    if (test .EQ. .TRUE. .AND. d(AT(x,y,z)) /= 2.0d0) then
+      test = .FALSE.
+      fail_x = x
+      fail_y = y
+      fail_z = z
+    end if
+  end do
+  end do
+  end do
+
+  expected_sum = 3.0d0 * NX * NY * NZ
+  if ( abs(sum_c - expected_sum) > 1E-5 ) then
+    write(6,*) "sum c failed: ", sum_c, "; expected: ", expected_sum
+    testSum = .FALSE.
+  end if
+
+  expected_sum = 2.0d0 * NX * NY * NZ
+  if ( abs(sum_d - expected_sum) > 1E-5 ) then
+    write(6,*) "sum d failed: ", sum_d, "; expected: ", expected_sum
+    testSum = .FALSE.
+  end if
+
+  if (test .EQ. .TRUE. .AND. testSum .EQ. .TRUE.) then
+    write(6,*) "test ok"
+  else
+    write(6,*) "test failed"
+    write(6,*) "fails at", fail_x, fail_y, fail_z, "C:", c(AT(fail_x,fail_y,fail_z)), "D:", d(AT(fail_x,fail_y,fail_z))
+    stop 2
+  end if
+
+  stop
+end program main

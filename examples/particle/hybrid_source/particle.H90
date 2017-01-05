@@ -129,7 +129,7 @@ program main
 	integer(4), parameter :: filehandle_y_initial = 31
 	integer(4) :: i
 
-	call printHeading()
+	call init_hf()
 	Lx = 512
 	Ly = 512
 	dt = 1.0d0/100.0d0

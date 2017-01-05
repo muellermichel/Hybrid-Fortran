@@ -127,7 +127,7 @@ contains
 		write(0, *) "Global Rank ", globalRank
 #endif
 #ifdef GPU
-			istat = cudaGetDeviceProperties(prop, 0)
+			istat = cudaGetDeviceProperties(prop, deviceID)
 			write(0, *) "  GPU Implementation"
 			write(0, *) "  Running on ", trim(prop%name)
 			write(0, *) "  Global Memory available (MiB):", prop%totalGlobalMem / 1024**2

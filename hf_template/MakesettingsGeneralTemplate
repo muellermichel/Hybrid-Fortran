@@ -118,6 +118,13 @@ TESTDIR=./test
 # using 'FRAMEWORK_DIRS' as well as your main Makefile using 'FRAMEWORK_MAKEFILE'.
 HYBRID_LIBRARY_FILENAME_POSTFIX=pp
 
+# !New in Version 1.0
+# In CUDA 8.0 there is a strange linker behavior where it needs the object files in order of their dependencies, otherwise you get nvlink errors.
+# Define the list of objects for your library below in the correct order (surround with double quotes).
+# $HF_DIR/hf_bin/fort_depend is a little helper tool that prints a list of dependencies in a hybrid fortran build source folder in the correct order.
+# You can use this tool and then copy the list manually here to work around this issue.
+# LIBRARY_OBJECTS=""
+
 # !New in Version 0.93
 #OPTIONAL, can be used to specify the script that is responsible for generating automatic Make dependencies (in case you use such a script). This script needs to take a list of all source filenames to analyse as its arguments.
 AUTO_DEPENDENCY_GENERATOR_SCRIPT=

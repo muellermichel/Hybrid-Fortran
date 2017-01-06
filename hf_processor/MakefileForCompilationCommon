@@ -76,6 +76,8 @@ OBJ=$(filter-out $(EXECUTABLES_O),$(OBJ_PRE2))
 $(warning $(OBJ))
 
 USER_LIB=lib${HYBRID_LIBRARY_FILENAME_POSTFIX}.a
+LIBRARY_OBJECTS?="${OBJ}"
+LIBRARY_OBJECTS_POST=$(subst ",,${LIBRARY_OBJECTS})
 
 VPATH=$OBJDIR
 
@@ -89,9 +91,9 @@ all: ${EXECUTABLES_OUT} ${USER_LIB}
 	@echo .........linking $< in $(CURDIR)
 	$(LD) -o ../$@ $< $(LDFLAGS) -L./ >${DEBUG_OUTPUT}
 
-${USER_LIB}: $(OBJ)
-	@echo .........building user library ${USER_LIB} from $(OBJ)
-	$(AR) $(ARFLAGS) $@ $(OBJ)
+${USER_LIB}: $(LIBRARY_OBJECTS_POST)
+	@echo .........building user library ${USER_LIB} from $(LIBRARY_OBJECTS_POST)
+	$(AR) $(ARFLAGS) $@ $(LIBRARY_OBJECTS_POST)
 
 # we first preprocess with pgcc so we get concatenation / stringification.
 # since this only works with files that don't have the F90 prefix, we use P90 here.

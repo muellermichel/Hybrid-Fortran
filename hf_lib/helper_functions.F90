@@ -92,53 +92,65 @@ contains
 #endif
 		implicit none
 
-		integer(4) :: istat
+		integer(4) :: istat, imt
 #ifdef USE_MPI
-		integer(4) :: localRank, globalRank
+		integer(4) :: localRank, globalRank, resultLen
 		character (len=10) :: localRankStr
+		character (len=30) :: echoPath
+		character (len=MPI_MAX_PROCESSOR_NAME) :: hostname
 #endif
 #ifdef GPU
 		integer(4) :: deviceCount, deviceID
     	type (cudaDeviceProp) :: prop
 #endif
 
+		imt = 0
 #ifdef USE_MPI
 		call mpi_comm_rank( mpi_comm_world, globalRank, istat )
 		call get_environment_variable('MV2_COMM_WORLD_LOCAL_RANK', localRankStr)
       	read(localRankStr,'(i10)') localRank
+      	call mpi_get_processor_name(hostname, resultLen, istat)
+      	write(echoPath, '(A,I0.3,A)') './hf_output_proc', globalRank, '.txt'
+      	imt = 100 + globalRank
+      	open(imt, file = echoPath, status = 'replace')
 #ifdef GPU
 		istat = cudaGetDeviceCount( deviceCount )
 
 		deviceID = modulo(localRank, deviceCount)
 		istat = cudaSetDevice(deviceID)
 #ifdef _OPENACC
+		!do *not* use acc_init. It doesn't work on multi-GPU nodes together with CUDA Fortran for me
 		call acc_set_device_num(deviceID, acc_device_nvidia)
 #endif
 #endif
 #endif
 
-		write (0,*) "**************************************************************"
-		write (0,*) "  H Y B R I D  F O R T R A N "
-		write (0,*) "                                                              "
+		write(imt,*) "**************************************************************"
+		write(imt,*) "  H Y B R I D  F O R T R A N "
+		write(imt,*) "                                                              "
 
 #ifdef USE_MPI
-		write(0, *) "Using MPI"
-		write(0, *) "Local Rank ", localRank
-		write(0, *) "Global Rank ", globalRank
+		write(imt, *) "Using MPI"
+		write(imt, *) "Local Rank ", localRank
+		write(imt, *) "Global Rank ", globalRank
+		write(imt, *) "Hostname ", trim(hostname)
 #endif
 #ifdef GPU
 			istat = cudaGetDeviceProperties(prop, deviceID)
-			write(0, *) "  GPU Implementation"
-			write(0, *) "  Running on ", trim(prop%name)
-			write(0, *) "  Global Memory available (MiB):", prop%totalGlobalMem / 1024**2
-			write(0, *) "  ECC status:", prop%ECCEnabled
+			write(imt, *) "  GPU Implementation"
+			write(imt, *) "  Running on ", trim(prop%name)
+			write(imt, *) "  Global Memory available (MiB):", prop%totalGlobalMem / 1024**2
+			write(imt, *) "  ECC status:", prop%ECCEnabled
 
 			istat = cudaGetDevice( deviceID )
-			write(0, *) "  Device ID:", deviceID
+			write(imt, *) "  Device ID:", deviceID
 #else
-			write(0, *) "  CPU Implementation"
+			write(imt, *) "  CPU Implementation"
 #endif
-		write (0,*) "**************************************************************"
+		write (imt,*) "**************************************************************"
+#ifdef USE_MPI
+		close(imt)
+#endif
 	end subroutine
 
 	function getDirectory(path) result(output)

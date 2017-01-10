@@ -46,7 +46,7 @@ FC=pgf90
 CC=pgcc
 LD=pgf90
 FFLAGS_PRODUCTION= -Mmpi=mvapich1 -Minfo=inline,ipa -Mneginfo -O3
-FFLAGS_DEBUG= -g -Mbounds -Mchkptr -Minfo=accel,inline -Mneginfo -Minform=inform
+FFLAGS_DEBUG= -g -Mmpi=mvapich1 -Mbounds -Mchkptr -Minfo=accel,inline -Mneginfo -Minform=inform
 LDFLAGS_PRODUCTION= -Mmpi=mpich -l${HYBRID_LIBRARY_FILENAME_POSTFIX}
 LDFLAGS_DEBUG= -Mmpi=mpich -l${HYBRID_LIBRARY_FILENAME_POSTFIX}
 

@@ -92,30 +92,27 @@ contains
 #endif
 		implicit none
 
-		integer(4) :: istat, imt
+		integer(4) :: istat, imt, waitingSince
 #ifdef USE_MPI
-		integer(4) :: localRank, globalRank, resultLen
+		integer(4) :: localRank, globalRank, resultLen, numProcs
 		character (len=10) :: localRankStr
 		character (len=30) :: echoPath
 		character (len=MPI_MAX_PROCESSOR_NAME) :: hostname
 #endif
 #ifdef GPU
 		integer(4) :: deviceCount, deviceID
-    	type (cudaDeviceProp) :: prop
+		type (cudaDeviceProp) :: prop
 #endif
 
 		imt = 0
 #ifdef USE_MPI
 		call mpi_comm_rank( mpi_comm_world, globalRank, istat )
 		call get_environment_variable('MV2_COMM_WORLD_LOCAL_RANK', localRankStr)
-      	read(localRankStr,'(i10)') localRank
-      	call mpi_get_processor_name(hostname, resultLen, istat)
-      	write(echoPath, '(A,I0.3,A)') './hf_output_proc', globalRank, '.txt'
-      	imt = 100 + globalRank
-      	open(imt, file = echoPath, status = 'replace')
+		read(localRankStr,'(i10)') localRank
+		call mpi_get_processor_name(hostname, resultLen, istat)
+		call mpi_comm_size(mpi_comm_world, numProcs, istat)
 #ifdef GPU
 		istat = cudaGetDeviceCount( deviceCount )
-
 		deviceID = modulo(localRank, deviceCount)
 		istat = cudaSetDevice(deviceID)
 #ifdef _OPENACC
@@ -123,34 +120,60 @@ contains
 		call acc_set_device_num(deviceID, acc_device_nvidia)
 #endif
 #endif
+#else
+		globalRank = 0
 #endif
-
-		write(imt,*) "**************************************************************"
-		write(imt,*) "  H Y B R I D  F O R T R A N "
-		write(imt,*) "                                                              "
 
 #ifdef USE_MPI
-		write(imt, *) "Using MPI"
-		write(imt, *) "Local Rank ", localRank
-		write(imt, *) "Global Rank ", globalRank
-		write(imt, *) "Hostname ", trim(hostname)
+		call mpi_barrier(mpi_comm_world, istat)
 #endif
+		if (globalRank == 0) then
+			write(imt,*) "**************************************************************"
+			write(imt,*) "  H Y B R I D  F O R T R A N "
+			write(imt,*) "                                                              "
 #ifdef GPU
-			istat = cudaGetDeviceProperties(prop, deviceID)
 			write(imt, *) "  GPU Implementation"
-			write(imt, *) "  Running on ", trim(prop%name)
-			write(imt, *) "  Global Memory available (MiB):", prop%totalGlobalMem / 1024**2
-			write(imt, *) "  ECC status:", prop%ECCEnabled
-
-			istat = cudaGetDevice( deviceID )
-			write(imt, *) "  Device ID:", deviceID
 #else
 			write(imt, *) "  CPU Implementation"
 #endif
-		write (imt,*) "**************************************************************"
 #ifdef USE_MPI
-		close(imt)
+			write(imt, *) "  Using MPI"
 #endif
+			write(imt, *) " "
+			write(imt, *) " "
+		end if
+
+#ifdef USE_MPI
+		waitingSince = 0
+		do while (waitingSince < globalRank)
+			call mpi_barrier(mpi_comm_world, istat)
+			waitingSince = waitingSince + 1
+		end do
+		write(imt, '(A,I0.4,A)') "RANK ", globalRank, ": "
+		write(imt, *) "  Local Rank ", localRank
+		write(imt, *) "  Hostname ", trim(hostname)
+#endif
+#ifdef GPU
+		istat = cudaGetDeviceProperties(prop, deviceID)
+		write(imt, *) "  Running on ", trim(prop%name)
+		write(imt, *) "  Global Memory available (MiB):", prop%totalGlobalMem / 1024**2
+		write(imt, *) "  ECC status:", prop%ECCEnabled
+
+		istat = cudaGetDevice( deviceID )
+		write(imt, *) "  Device ID:", deviceID
+#endif
+#ifdef USE_MPI
+		write(imt, *) " "
+		waitingSince = 0
+		do while (waitingSince < numProcs - globalRank - 1)
+			call mpi_barrier(mpi_comm_world, istat)
+			waitingSince = waitingSince + 1
+		end do
+		call mpi_barrier(mpi_comm_world, istat)
+#endif
+		if (globalRank == 0) then
+			write (imt,*) "**************************************************************"
+		end if
 	end subroutine
 
 	function getDirectory(path) result(output)
@@ -183,7 +206,7 @@ contains
 		do mt=99,-1,-1
 		  inquire(unit = mt, exist = flag_exist, opened = flag_opened)
 		  if (flag_exist .and. (.not. flag_opened)) then
-		    exit
+			exit
 		  end if
 		end do
 

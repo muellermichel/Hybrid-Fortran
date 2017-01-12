@@ -19,7 +19,11 @@
 # along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
 from tools.commons import UsageError
-from tools.metadata import appliesTo, getDomainsWithParallelRegionTemplate, getReductionScalarsByOperator, getTemplate
+from tools.metadata import appliesTo, \
+	getDomainsWithParallelRegionTemplate, \
+	getReductionScalarsByOperator, \
+	getTemplate, \
+	getIterators
 from models.symbol import DeclarationType
 from models.region import ParallelRegion
 from models.commons import originalRoutineName
@@ -429,17 +433,7 @@ def getVectorSizePPNames(parallelRegionTemplate):
 
 def getIteratorDeclaration(currRoutineNode, currParallelRegionTemplates, architectures):
 	result = ""
-	iteratorsByName = {}
-	if not currParallelRegionTemplates or not currRoutineNode.getAttribute('parallelRegionPosition') == 'within':
-		return result
-	for template in currParallelRegionTemplates:
-		if not appliesTo(architectures, template):
-			continue
-		iteratorsByName.update(dict(
-			(iterator, None)
-			for iterator in [domain.name for domain in getDomainsWithParallelRegionTemplate(template)]
-		))
-	iterators = iteratorsByName.keys()
+	iterators = getIterators(currRoutineNode, currParallelRegionTemplates, architectures)
 	if len(iterators) == 0:
 		return result
 	result += "integer(4) :: "

@@ -92,9 +92,9 @@ contains
 #endif
 		implicit none
 
-		integer(4) :: istat, imt, waitingSince
+		integer(4) :: istat, imt, waitingSince, globalRank
 #ifdef USE_MPI
-		integer(4) :: localRank, globalRank, resultLen, numProcs
+		integer(4) :: localRank, resultLen, numProcs
 		character (len=10) :: localRankStr
 		character (len=30) :: echoPath
 		character (len=MPI_MAX_PROCESSOR_NAME) :: hostname

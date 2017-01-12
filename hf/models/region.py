@@ -20,9 +20,12 @@
 
 import copy, re
 from tools.commons import enum, UsageError, OrderedDict
-from tools.metadata import getArguments
+from tools.metadata import getArguments, getIterators
 from tools.patterns import regexPatterns
-from machinery.commons import conversionOptions, getSymbolAccessStringAndRemainder, implement, replaceEarlyExits
+from machinery.commons import conversionOptions, \
+	getSymbolAccessStringAndRemainder, \
+	implement, \
+	replaceEarlyExits
 from symbol import DeclarationType, FrameworkArray, frameworkArrayName, limitLength, uniqueIdentifier
 
 RegionType = enum(
@@ -467,6 +470,11 @@ class RoutineSpecificationRegion(Region):
 			(symbol.nameInScope(), symbol)
 			for symbol in self._symbolsToAdd
 		)
+		iterators = set(getIterators(
+			parentRoutine.node,
+			parentRoutine.parallelRegionTemplates,
+			parentRoutine.implementation.architecture
+		))
 		for (line, symbols) in self._linesAndSymbols:
 			if not symbols or len(symbols) == 0:
 				allImportMatch = regexPatterns.importAllPattern.match(line)
@@ -487,6 +495,8 @@ class RoutineSpecificationRegion(Region):
 					continue
 				if symbol.isCompacted:
 					continue #compacted symbols are handled as part of symbolsToAdd
+				if symbol.name in iterators:
+					continue #will be added to declarations by implementation class
 				specTuple = symbol.getSpecificationTuple(line)
 				if specTuple[0]:
 					declaredSymbolsByScopedName[symbol.nameInScope(useDeviceVersionIfAvailable=False)] = symbol

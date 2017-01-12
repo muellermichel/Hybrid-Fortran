@@ -594,6 +594,23 @@ def getDomainsWithParallelRegionTemplate(parallelRegionTemplate):
         ))
     return domains
 
+def getIterators(currRoutineNode, currParallelRegionTemplates, architectures):
+    iteratorsByName = {}
+    if not currParallelRegionTemplates \
+    or not currRoutineNode.getAttribute('parallelRegionPosition') == 'within':
+        return []
+    for template in currParallelRegionTemplates:
+        if not appliesTo(architectures, template):
+            continue
+        iteratorsByName.update(dict(
+            (iterator, None)
+            for iterator in [
+                domain.name
+                for domain in getDomainsWithParallelRegionTemplate(template)
+            ]
+        ))
+    return iteratorsByName.keys()
+
 def getParallelDomainNames(cgDoc):
     parallelDomainNames = {}
     for t in regionTemplatesByID(cgDoc, 'parallelRegionTemplate').values():
@@ -611,7 +628,7 @@ def appliesTo(appliesToTests, parallelRegionTemplate):
 
     for entry in entries:
         for appliesToTest in appliesToTests:
-            if entry.firstChild.nodeValue == appliesToTest:
+            if entry.firstChild.nodeValue.lower() == appliesToTest.lower():
                 return True
     return False
 

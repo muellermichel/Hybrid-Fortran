@@ -129,6 +129,10 @@ contains
 #endif
 #endif
 #else
+#ifdef GPU
+		deviceID = 0
+		deviceCount = 1
+#endif
 		globalRank = 0
 		localSize = 1
 #endif

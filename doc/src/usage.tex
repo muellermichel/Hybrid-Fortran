@@ -53,7 +53,7 @@ The following files displayed in figure \ref{figure:hybridCUDAComponentsAndInfoF
 \end{description}
 
 \section{MPI and GPU Awareness}
-Hybrid Fortran currently only supports MVAPICH2. In order to let Hybrid Fortran know at compile time that you're using MPI, define the USE_MPI flag in your precompiler flags (using \verb|PFLAGS= -DUSE_MPI| in \verb|MakesettingsCPU| and \verb|MakesettingsGPU|). If you'd like to use any other MPI version, please either contact the project maintainer or have a look at the subroutine \verb|init_hf| in \verb|${HF_DIR}/hf_lib/helper_functions.F90| and create your own version of this setup code using compatible MPI library calls. \newline
+Hybrid Fortran currently only supports OpenMPI. In order to let Hybrid Fortran know at compile time that you're using MPI, define the USE_MPI flag in your precompiler flags (using \verb|PFLAGS= -DUSE_MPI| in \verb|MakesettingsCPU| and \verb|MakesettingsGPU|). If you'd like to use any other MPI version, please either contact the project maintainer or have a look at the subroutine \verb|init_hf| in \verb|${HF_DIR}/hf_lib/helper_functions.F90| and create your own version of this setup code using compatible MPI library calls. \newline
 \newline
 Using \verb|call init_hf| at the beginning of your program (and importing it with \verb|use helper_functions, only: init_hf|) will assign \verb|modulo(nodeRank, deviceCount)| as the currently used device ID. Setting up MPI run such that you get one process for each GPU on each node will then enable you to get each GPU used in your calculation. \newline
 \newline

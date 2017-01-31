@@ -90,12 +90,15 @@ contains
 #ifdef _OPENACC
 		use openacc
 #endif
+#ifdef _OPENMP
+		use omp_lib
+#endif
 		implicit none
 
-		integer(4) :: istat, imt, waitingSince, globalRank
+		integer(4) :: istat, imt, waitingSince, globalRank, localSize
 #ifdef USE_MPI
 		integer(4) :: localRank, resultLen, numProcs
-		character (len=10) :: localRankStr
+		character (len=10) :: localRankStr, localSizeStr
 		character (len=30) :: echoPath
 		character (len=MPI_MAX_PROCESSOR_NAME) :: hostname
 #endif
@@ -103,12 +106,17 @@ contains
 		integer(4) :: deviceCount, deviceID
 		type (cudaDeviceProp) :: prop
 #endif
+#ifdef _OPENMP
+		integer(4) :: numThreads
+#endif
 
 		imt = 0
 #ifdef USE_MPI
 		call mpi_comm_rank( mpi_comm_world, globalRank, istat )
-		call get_environment_variable('MV2_COMM_WORLD_LOCAL_RANK', localRankStr)
+		call get_environment_variable('OMPI_COMM_WORLD_LOCAL_RANK', localRankStr)
 		read(localRankStr,'(i10)') localRank
+		call get_environment_variable('OMPI_COMM_WORLD_LOCAL_SIZE', localSizeStr)
+		read(localSizeStr,'(i10)') localSize
 		call mpi_get_processor_name(hostname, resultLen, istat)
 		call mpi_comm_size(mpi_comm_world, numProcs, istat)
 #ifdef GPU
@@ -122,6 +130,13 @@ contains
 #endif
 #else
 		globalRank = 0
+		localSize = 1
+#endif
+
+#ifdef _OPENMP
+		!adjust number of threads by dividing by local number of MPI processes
+		numThreads = omp_get_max_threads()
+		call omp_set_num_threads(numThreads/localSize)
 #endif
 
 #ifdef USE_MPI
@@ -138,6 +153,9 @@ contains
 #endif
 #ifdef USE_MPI
 			write(imt, *) "  Using MPI"
+#endif
+#ifdef _OPENMP
+			write(imt, *) "  Using OpenMP"
 #endif
 			write(imt, *) " "
 			write(imt, *) " "
@@ -161,6 +179,9 @@ contains
 
 		istat = cudaGetDevice( deviceID )
 		write(imt, *) "  Device ID:", deviceID
+#endif
+#ifdef _OPENMP
+		write(imt, *) "  Number of CPU Threads:", omp_get_max_threads()
 #endif
 #ifdef USE_MPI
 		write(imt, *) " "

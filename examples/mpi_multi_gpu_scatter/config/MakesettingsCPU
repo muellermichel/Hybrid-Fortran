@@ -45,10 +45,10 @@ endif
 FC=pgf90
 CC=pgcc
 LD=pgf90
-FFLAGS_PRODUCTION= -Mmpi=mvapich1 -Minfo=inline,ipa -Mneginfo -O3
-FFLAGS_DEBUG= -g -Mmpi=mvapich1 -Mbounds -Mchkptr -Minfo=accel,inline -Mneginfo -Minform=inform
-LDFLAGS_PRODUCTION= -Mmpi=mpich -l${HYBRID_LIBRARY_FILENAME_POSTFIX}
-LDFLAGS_DEBUG= -Mmpi=mpich -l${HYBRID_LIBRARY_FILENAME_POSTFIX}
+FFLAGS_PRODUCTION= -mp -Minfo=inline,ipa -Mneginfo -O3 -I${MPIDIR}/include -I${MPIDIR}/lib
+FFLAGS_DEBUG= -g -Mbounds -Mchkptr -Minfo=accel,inline -Mneginfo -Minform=inform -I${MPIDIR}/include -I${MPIDIR}/lib
+LDFLAGS_PRODUCTION= -mp -l${HYBRID_LIBRARY_FILENAME_POSTFIX} -L${MPIDIR}/lib -lmpi_f90
+LDFLAGS_DEBUG= -l${HYBRID_LIBRARY_FILENAME_POSTFIX} -L${MPIDIR}/lib -lmpi_f90
 
 #############################################################################
 # uncomment these settings to use pgf90 for host code                       #
@@ -95,4 +95,4 @@ LDFLAGS=${LDFLAGS_PRODUCTION}
 endif
 
 CFLAGS=${FFLAGS}
-PFLAGS= -DUSE_MPI
+PFLAGS= -DUSE_MPI -D_OPENMP

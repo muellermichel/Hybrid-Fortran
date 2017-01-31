@@ -167,7 +167,8 @@ Wrapping your subroutines in \verb|@scheme{SCHEME_NAME} .... @end scheme| is giv
  \end{enumerate}
 
  Please note: When using the OpenACC implementation you should also put the following line in \verb|MakesettingsGPU|:
- \verb|PGFLAGS= -D_OPENACC|. Furthermore, the \verb|-acc| compiler flag should be used for PGI.
+ \verb|PGFLAGS= -D_OPENACC|. Furthermore, the \verb|-acc| compiler flag should be used for PGI. When using the OpenMP implementation you should also put the following line in \verb|MakesettingsGPU|:
+ \verb|PGFLAGS= -D_OPENMP|. Furthermore, the \verb|-mp| compiler flag should be used for PGI. You may also use other OpenMP capable compilers.
 
  This separation of concerns allows different implementations to be passed in and used, thus enabling portability to different hardware platforms as well as flexibility during development and testing. The implementation class can be chosen using the \verb|MakesettingsGeneral| file in your project's config folder (see also sec. \ref{sub:userDefined}). Table \ref{table:backendImplementationComparison} gives you an overview over the capabilities of each implementation. Adding your own implementation class is as easy as implementing the class in the file \verb|hf/FortranImplementation.py|, using any of the provided classes as a base class and specifying your class name in \verb|MakesettingsGeneral|. For a more detailed look at how to do this, please see also sec. \ref{sub:switchImplementation}.
 

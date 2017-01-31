@@ -432,17 +432,13 @@ def getVectorSizePPNames(parallelRegionTemplate):
 	return ["CUDA_BLOCKSIZE_X" + template_prefix, "CUDA_BLOCKSIZE_Y" + template_prefix, "CUDA_BLOCKSIZE_Z" + template_prefix]
 
 def getIteratorDeclaration(currRoutineNode, currParallelRegionTemplates, architectures):
-	result = ""
 	iterators = getIterators(currRoutineNode, currParallelRegionTemplates, architectures)
 	if len(iterators) == 0:
-		return result
-	result += "integer(4) :: "
-	for index, iterator in enumerate(iterators):
-		if index != 0:
-			result = result + ", "
-		result = result + iterator
-	result += "\n"
-	return result
+		return ""
+
+	#we add value here so it's compatible with iterators that are passed in from the host routine
+	#(but then overwritten by kernel setup)
+	return "integer(4), value :: %s\n" %(", ".join(iterators))
 
 def getCUDAErrorHandling(calleeRoutineNode, errorVariable="cuerror", stopImmediately=True):
 	name = calleeRoutineNode.getAttribute('name')

@@ -108,7 +108,8 @@ program main
 
   ! This example is not doing any sharing of the results / inputs,
   ! but we want to test whether it will run on different GPUs.
-  ! To do that it is required to call hf_init and use PFLAGS like in the provided Makesettings
+  ! To do that it is required to call init_hf and use PFLAGS like in the provided Makesettings
+  ! It is required to set up MPI before Hybrid Fortran in this case
   call MPI_Init ( ierr )
 
   ! Check whether MPI is set up to have two processes
@@ -124,7 +125,7 @@ program main
   call init_hf
 
   ! Check whether we are getting the correct device ID in CUDA and OpenACC
-  call get_environment_variable('MV2_COMM_WORLD_LOCAL_RANK', local_rank_str)
+  call get_environment_variable('OMPI_COMM_WORLD_LOCAL_RANK', local_rank_str)
   read(local_rank_str,'(i10)') local_rank
 #ifdef GPU
   ierr = cudaGetDevice(device_id)
@@ -152,6 +153,8 @@ program main
 
   call data_region(a, b, c, d, sum_c, sum_d)
   write(6,*) "calculation complete"
+
+  call mpi_finalize( ierr )
 
   do y=1,NY
   do x=1,NX

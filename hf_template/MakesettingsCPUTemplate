@@ -45,7 +45,7 @@ endif
 FC=pgf90
 CC=pgcc
 LD=pgf90
-FFLAGS_PRODUCTION= -Minfo=inline,ipa -Mneginfo -O3
+FFLAGS_PRODUCTION= -Minfo=inline,ipa -Mneginfo -O3 -mp
 FFLAGS_DEBUG= -g -Mbounds -Mchkptr -Minfo=accel,inline -Mneginfo -Minform=inform
 LDFLAGS_PRODUCTION= -l${HYBRID_LIBRARY_FILENAME_POSTFIX}
 LDFLAGS_DEBUG= -l${HYBRID_LIBRARY_FILENAME_POSTFIX}

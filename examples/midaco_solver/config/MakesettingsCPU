@@ -34,7 +34,7 @@ ARFLAGS=rv
 #############################################################################
 FC=pgf90
 LD=pgf90
-FFLAGS_PRODUCTION= -Minfo=inline,ipa -Mneginfo
+FFLAGS_PRODUCTION= -Minfo=inline,ipa -Mneginfo -mp
 FFLAGS_DEBUG= -g -mp -Mbounds -Mchkptr -Minfo=accel,inline -Mneginfo -Minform=inform
 LDFLAGS_PRODUCTION= -lpp
 LDFLAGS_DEBUG= -lpp

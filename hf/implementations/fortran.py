@@ -222,8 +222,8 @@ class FortranImplementation(object):
 		self._currKernelNumber += 1
 		return result
 
-	def declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates):
-		self.currRoutineNode = currRoutineNode
+	def declarationEnd(self, dependantSymbols, routine):
+		self.currRoutineNode = routine.node
 		self._currKernelNumber = 0
 		result = ""
 		if 'DEBUG_PRINT' in self.optionFlags:
@@ -232,9 +232,9 @@ class FortranImplementation(object):
 			result += "integer(4), save :: hf_debug_print_iterator = 0\n"
 			result += "#endif\n"
 			self.debugPrintIteratorDeclared = True
-			# if currRoutineNode.getAttribute('parallelRegionPosition') != 'inside':
+			# if routine.node.getAttribute('parallelRegionPosition') != 'inside':
 			#     result += "#endif\n"
-		return result + getIteratorDeclaration(currRoutineNode, currParallelRegionTemplates, [self.appliesTo, ""])
+		return result + getIteratorDeclaration(routine, [self.appliesTo, ""])
 
 	def subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, isSubroutineEnd):
 		result = ""
@@ -279,17 +279,17 @@ class TraceGeneratingFortranImplementation(FortranImplementation):
 		self.currRoutineNode = routineNode
 		return FortranImplementation.subroutinePrefix(self, routineNode)
 
-	def declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates):
-		super_result = FortranImplementation.declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates)
-		result, tracedSymbols = getTracingDeclarationStatements(currRoutineNode, dependantSymbols, self.patterns)
+	def declarationEnd(self, dependantSymbols, routine):
+		super_result = FortranImplementation.declarationEnd(self, dependantSymbols, routine)
+		result, tracedSymbols = getTracingDeclarationStatements(routine.node, dependantSymbols, self.patterns)
 		self.currentTracedSymbols = tracedSymbols
 		logging.info("...In subroutine %s: Symbols declared for tracing: %s" %(
-				currRoutineNode.getAttribute('name'),
+				routine.node.getAttribute('name'),
 				[symbol.name for symbol in tracedSymbols],
 			)
 		)
 		return result + super_result + getTracingStatements(
-			self.currRoutineNode,
+			self.routine.node,
 			self.currModuleName,
 			[symbol for symbol in self.currentTracedSymbols if symbol.intent in ['in', 'inout']],
 			getWriteTraceFunc('begin'),
@@ -324,7 +324,7 @@ class OpenMPFortranImplementation(FortranImplementation):
 
 	def parallelRegionBegin(self, dependantSymbols, parallelRegionTemplate):
 		openMPLines = "!$OMP PARALLEL DO DEFAULT(firstprivate) %s " %(getReductionClause(parallelRegionTemplate).upper())
-		sharedSymbols = [s for s in dependantSymbols if s.domains]
+		sharedSymbols = [s for s in dependantSymbols if s.domains and not "%" in s.nameInScope()]
 		openMPLines += "SHARED(%s)\n" %(', '.join([
 			s.nameInScope() for s in sharedSymbols
 		])) if sharedSymbols else "\n"
@@ -593,7 +593,7 @@ class DeviceDataFortranImplementation(FortranImplementation):
 
 		return adjustedLine + "\n"
 
-	def declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates):
+	def declarationEnd(self, dependantSymbols, routine):
 		self._currKernelNumber = 0
 		deviceInitStatements = ""
 		for symbol in dependantSymbols:
@@ -604,12 +604,12 @@ class DeviceDataFortranImplementation(FortranImplementation):
 			if symbol.isPresent:
 				continue
 			dimSizes = [dimSize for _, dimSize in symbol.domains]
-			if (routineIsKernelCaller or symbol.isToBeTransfered) and symbol.hasUndecidedDomainSizes:
+			if (routine.isCallingKernel or symbol.isToBeTransfered) and symbol.hasUndecidedDomainSizes:
 				if not ":" in dimSizes:
 					if not symbol.isToBeTransfered:
 						logging.info("Generating implicit device data allocation for %s in %s" %(
 							symbol.name,
-							currRoutineNode.getAttribute("name")
+							routine.node.getAttribute("name")
 						))
 					deviceInitStatements += arrayCheckConditional(symbol) + "\n"
 					try:
@@ -618,16 +618,16 @@ class DeviceDataFortranImplementation(FortranImplementation):
 						raise Exception("Cannot allocate symbol %s (domains %s) here. Routine is kernel caller: %s, symbol to be transferred: %s" %(
 							symbol.name,
 							symbol.domains,
-							routineIsKernelCaller,
+							routine.isCallingKernel,
 							symbol.isToBeTransfered
 						))
 					deviceInitStatements += "end if\n"
 			if (symbol.intent in ["in", "inout"] or symbol.declarationType == DeclarationType.MODULE_ARRAY) \
-			and (routineIsKernelCaller or symbol.isToBeTransfered):
+			and (routine.isCallingKernel or symbol.isToBeTransfered):
 				if not ":" in dimSizes:
 					logging.info("Generating device data transfer for %s in %s" %(
 						symbol.name,
-						currRoutineNode.getAttribute("name")
+						routine.node.getAttribute("name")
 					))
 					deviceInitStatements += arrayCheckConditional(symbol) + "\n"
 					symbol.isUsingDevicePostfix = False
@@ -636,10 +636,10 @@ class DeviceDataFortranImplementation(FortranImplementation):
 					deviceStr = symbol.selectAllRepresentation()
 					deviceInitStatements += deviceStr + " = " + originalStr + "\n"
 					deviceInitStatements += "end if\n"
-			elif (routineIsKernelCaller or symbol.isToBeTransfered):
+			elif (routine.isCallingKernel or symbol.isToBeTransfered):
 				logging.info("Setting device data to 0 for %s in %s" %(
 					symbol.name,
-					currRoutineNode.getAttribute("name")
+					routine.node.getAttribute("name")
 				))
 				deviceInitStatements += symbol.selectAllRepresentation() + " = 0\n"
 		return deviceInitStatements
@@ -720,19 +720,17 @@ end subroutine
 		# return "!$acc update host(%s)\n" %(symbolInCaller.name)
 		return ""
 
-	def declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates):
+	def declarationEnd(self, dependantSymbols, routine):
 		self._currKernelNumber = 0
-		self.currRoutineNode = currRoutineNode
-		self.currParallelRegionTemplates = currParallelRegionTemplates
+		self.currRoutineNode = routine.node
+		self.currParallelRegionTemplates = routine.parallelRegionTemplates
 		result = ""
 		if 'DEBUG_PRINT' in self.optionFlags:
 			result += "real(8) :: hf_output_temp\n"
-		result += getIteratorDeclaration(currRoutineNode, currParallelRegionTemplates, ["GPU"])
+		result += getIteratorDeclaration(routine, ["GPU"])
 		result += super(PGIOpenACCFortranImplementation, self).declarationEnd(
 			dependantSymbols,
-			routineIsKernelCaller,
-			currRoutineNode,
-			currParallelRegionTemplates
+			routine
 		)
 		result += self.declarationEndPrintStatements()
 		return result
@@ -857,8 +855,8 @@ class TraceCheckingOpenACCFortranImplementation(DebugPGIOpenACCFortranImplementa
 		self.currRoutineNode = routineNode
 		return DebugPGIOpenACCFortranImplementation.subroutinePrefix(self, routineNode)
 
-	def declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates):
-		openACCDeclarations = DebugPGIOpenACCFortranImplementation.declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates)
+	def declarationEnd(self, dependantSymbols, routine):
+		openACCDeclarations = DebugPGIOpenACCFortranImplementation.declarationEnd(self, dependantSymbols, routine)
 		result = "integer(4) :: hf_tracing_imt, hf_tracing_ierr\n"
 		result += "real(8) :: hf_tracing_error\n"
 		result += "real(8) :: hf_mean_ref\n"
@@ -866,7 +864,7 @@ class TraceCheckingOpenACCFortranImplementation(DebugPGIOpenACCFortranImplementa
 		result += "integer(8) :: hf_num_of_elements\n"
 		result += "logical :: hf_tracing_error_found\n"
 		tracing_declarations, tracedSymbols = getTracingDeclarationStatements(
-			currRoutineNode,
+			routine.node,
 			dependantSymbols,
 			self.patterns,
 			useReorderingByAdditionalSymbolPrefixes={'hf_tracing_temp_':False, 'hf_tracing_comparison_':False}
@@ -889,7 +887,7 @@ class TraceCheckingOpenACCFortranImplementation(DebugPGIOpenACCFortranImplementa
 		#     result += "stop 2\n"
 		#     result += "end if\n"
 
-		return getIteratorDeclaration(currRoutineNode, currParallelRegionTemplates, ["GPU"]) + result
+		return getIteratorDeclaration(routine, ["GPU"]) + result
 
 	def subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, isSubroutineEnd):
 		if not isSubroutineEnd:
@@ -1349,23 +1347,21 @@ end if\n" %(calleeNode.getAttribute('name'))
 	def parallelRegionEnd(self, parallelRegionTemplate, routine, skipDebugPrint=False):
 		return ""
 
-	def declarationEnd(self, dependantSymbols, routineIsKernelCaller, currRoutineNode, currParallelRegionTemplates):
-		self.currRoutineNode = currRoutineNode
+	def declarationEnd(self, dependantSymbols, routine):
+		self.currRoutineNode = routine.node
 		result = ""
 		if 'DEBUG_PRINT' in self.optionFlags:
 			result += "real(8) :: hf_output_temp\n"
-		result += getIteratorDeclaration(currRoutineNode, currParallelRegionTemplates, ["GPU"])
+		result += getIteratorDeclaration(routine, ["GPU"])
 
-		if routineIsKernelCaller:
+		if routine.isCallingKernel:
 			result += "type(dim3) :: cugrid, cublock\n"
 			result += "integer(4) :: cugridSizeX, cugridSizeY, cugridSizeZ, cuerror, cuErrorMemcopy\n"
 
 		result += self.declarationEndPrintStatements()
 		result += super(CUDAFortranImplementation, self).declarationEnd(
 			dependantSymbols,
-			routineIsKernelCaller,
-			currRoutineNode,
-			currParallelRegionTemplates
+			routine
 		)
 		return result
 

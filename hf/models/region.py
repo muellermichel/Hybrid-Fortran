@@ -688,9 +688,7 @@ class RoutineSpecificationRegion(Region):
 				s for s in parentRoutine.symbolsByName.values() + parentRoutine.additionalImports
 				if s.isToBeTransfered or s.name in parentRoutine.usedSymbolNames
 			],
-			parentRoutine.isCallingKernel,
-			parentRoutine.node,
-			parentRoutine.parallelRegionTemplates
+			parentRoutine
 		)
 		if len(declarationEndText) > 0:
 			text += "!<----- impl. specific decl end : --\n"

@@ -34,7 +34,7 @@ ARFLAGS=rv
 #############################################################################
 FC=pgf90
 LD=pgf90
-FFLAGS_PRODUCTION= -Minfo=inline,ipa -Mneginfo -I/usr/local/include -fast -tp=sandybridge -mp
+FFLAGS_PRODUCTION= -Minfo=inline,ipa -Mneginfo -I/usr/local/include  -mp
 FFLAGS_DEBUG= -g -Kieee -Mbounds -Mchkptr -Minfo=accel,inline -Mneginfo -Minform=inform -I/usr/local/include
 LDFLAGS_PRODUCTION= -L/usr/local/lib -l${HYBRID_LIBRARY_FILENAME_POSTFIX}
 LDFLAGS_DEBUG= -L/usr/local/lib -l${HYBRID_LIBRARY_FILENAME_POSTFIX}

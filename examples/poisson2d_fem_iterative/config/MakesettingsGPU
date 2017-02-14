@@ -52,7 +52,7 @@ else
 #############################################################################
 # production settings                                                       #
 #############################################################################
-FFLAGS= -DGPU -Mcuda=cc3x -ta=nvidia,cc3x -Minline=levels:5,reshape ‑Mipa=inline,reshape -Minfo=accel,inline,ipa -Mneginfo -Minform=inform -I/usr/local/include -r8 -fast -tp=sandybridge
+FFLAGS= -DGPU -Mcuda=cc3x -ta=nvidia,cc3x -Minline=levels:5,reshape ‑Mipa=inline,reshape -Minfo=accel,inline,ipa -Mneginfo -Minform=inform -I/usr/local/include -r8
 LDFLAGS= -Mcuda=cc3x -ta=nvidia,cc3x -Mipa=inline,reshape -lcublas -L/usr/local/lib -Minfo=accel,inline -Mneginfo -lpp
 
 endif

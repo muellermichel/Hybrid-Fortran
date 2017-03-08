@@ -204,6 +204,8 @@ def checkIntegrity(tup):
 			return index, val
 		if math.isinf(val):
 			return index, val
+	mean_or_one = sum(tup) / len(tup) if len(tup) > 0 else 1.0
+	print "mean: %e" %(mean_or_one)
 	return -1, -1
 
 def getEndianFormatString(options, numOfBytesPerValue, fileUsedForAutomaticDetection):
@@ -264,6 +266,8 @@ def run_accuracy_test_for_datfile(options, eps, epsSingle):
 			except(Exception), e:
 				sys.stderr.write("Error reading record %i from %s: %s\n" %(i, str(options.inFile), e))
 				sys.exit(1)
+			if not unpackedRef and not unpacked:
+				break
 
 			if options.verbose and unpacked != None and unpackedRef != None:
 				sys.stderr.write("Processing record %i: %i values unpacked for record, %i values unpacked for reference.\n" %(i, len(unpacked), len(unpackedRef)))
@@ -305,6 +309,9 @@ def run_accuracy_test_for_datfile(options, eps, epsSingle):
 				if firstErr != -1 or err > eps:
 					errorState=True
 					passedStr = "1st err val: %s; ref: %s; max err val: %s; ref: %s; FAIL" %(firstErrVal, expectedVal, maxErrVal, maxErrExpectedVal)
+			else:
+				err, firstErr, maxErr, passedStr = 0, 0, 0, "no ref"
+
 			sys.stderr.write("%s, rec %i (len%i): RMSE: %e; 1st err idx: %i; max err idx: %i; %s\n" %(
 				options.inFile,
 				i,

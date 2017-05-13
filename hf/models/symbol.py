@@ -1155,10 +1155,13 @@ EXAMPLE:\n\
 		if routine and hasattr(routine, "implementation") and not routine.implementation.onDevice \
 		and not "%" in self.name \
 		and self.parallelRegionPosition != "inside" \
-		and (self.parallelRegionPosition != "within" or ( \
-			(not routine.parallelRegionTemplates or len(routine.parallelRegionTemplates) == 1) \
-			and self.intent not in ["in", "out", "inout"] \
-		)):
+		and ( \
+			self.parallelRegionPosition != "within" \
+			or ( \
+				(not routine.parallelRegionTemplates or routine.usedSymbolNamesInKernels.get(self.name, 0) <= 1) \
+				and self.intent not in ["in", "out", "inout"] \
+			) \
+		):
 			#we only want local device kernel symbols to get privatized using the kernel domain extension facility
 			#here we are not on the device
 

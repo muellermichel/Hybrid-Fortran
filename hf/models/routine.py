@@ -642,18 +642,25 @@ This is not allowed for implementations using %s.\
 		) + "end subroutine\n"
 
 	def _analyseSymbolUsage(self):
+		def addUsage(index, symbolName, skipIncrementation=False):
+			usageNumber = index.get(symbolName, 1) if skipIncrementation else index.get(symbolName, 0) + 1
+			index[symbolName] = usageNumber
+
+		self.usedSymbolNames = {}
+		self.usedSymbolNamesInKernels = {}
+
 		for region in self._regions:
 			for symbolName in region.usedSymbolNames:
-				self.usedSymbolNames[symbolName] = None
+				addUsage(self.usedSymbolNames, symbolName)
 				if isinstance(region, ParallelRegion):
-					self.usedSymbolNamesInKernels[symbolName] = None
+					addUsage(self.usedSymbolNamesInKernels, symbolName)
 		if self._additionalArguments:
 			for symbol in self._additionalArguments:
 				if not isinstance(symbol, FrameworkArray):
 					continue
 				for compactedSymbol in symbol.compactedSymbols:
 					if compactedSymbol.name in self.usedSymbolNames:
-						self.usedSymbolNames[symbol.name] = None
+						addUsage(self.usedSymbolNames, symbol.name, skipIncrementation=True)
 		for symbolName in copy.copy(self.usedSymbolNames.keys()):
 			usedSymbol = self.symbolsByName.get(symbolName)
 			if not usedSymbol:
@@ -661,7 +668,7 @@ This is not allowed for implementations using %s.\
 			for typeParameter in usedSymbol.usedTypeParameters:
 				if not typeParameter.isDimensionParameter:
 					continue #non-dimension typeparameters are handled separately in spec. region
-				self.usedSymbolNames[typeParameter.name] = None
+				addUsage(self.usedSymbolNames, typeParameter.name, skipIncrementation=True)
 
 		#$$$ this is a quick fix for missing scope, because some type parameters
 		# don't get loaded correctly. Check adv_calcflxz_1d as a testcase.
@@ -679,7 +686,7 @@ This is not allowed for implementations using %s.\
 				continue #don't include general module scalars here - programmer has to add those in each routine manually
 			if not "integer" in symbol.declarationPrefix:
 				continue #we only want dimension parameters; note: adv_calcflxz_1d doesn't recognise some of them as dimension params, so this is a workaround.
-			self.usedSymbolNames[symbol.name] = None
+			addUsage(self.usedSymbolNames, symbol.name, skipIncrementation=True)
 
 	def checkSymbols(self):
 		self._checkReferences(self._additionalArguments)

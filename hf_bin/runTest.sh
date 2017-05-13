@@ -147,8 +147,13 @@ for i in "${!argStringsArr[@]}"; do
 
 	remoteCallPrefix=""
 
-	echo -n "calling ${executable_name} ( with parameters ${argString} ) for ${configuration_name} ,"
-	chmod +x ./${executable_name}
+	echo -n "calling ${executable_name} in $(pwd) ( with parameters ${argString} ) for ${configuration_name} ,"
+	chmod +x ./${executable_name} && :
+	rc=$?
+	if [[ $rc != 0 ]] ; then
+		"error when trying to chmod ${executable_name} in $(pwd)"
+		exit $rc
+	fi
 	if [ -z "$HF_RUN_OVER_SSH" ]; then
 		timingResult=$(./${executable_name} ${argString} 2>./log_lastRun.txt && :)
 		rc=$?

@@ -114,8 +114,14 @@ contains
 #ifdef USE_MPI
 		call mpi_comm_rank( mpi_comm_world, globalRank, istat )
 		call get_environment_variable('OMPI_COMM_WORLD_LOCAL_RANK', localRankStr)
+		if (len(trim(localRankStr)) == 0) then
+			call get_environment_variable('MV2_COMM_WORLD_LOCAL_RANK', localRankStr)
+		end if
 		read(localRankStr,'(i10)') localRank
 		call get_environment_variable('OMPI_COMM_WORLD_LOCAL_SIZE', localSizeStr)
+		if (len(trim(localSizeStr)) == 0) then
+			call get_environment_variable('MV2_COMM_WORLD_LOCAL_SIZE', localSizeStr)
+		end if
 		read(localSizeStr,'(i10)') localSize
 		call mpi_get_processor_name(hostname, resultLen, istat)
 		call mpi_comm_size(mpi_comm_world, numProcs, istat)

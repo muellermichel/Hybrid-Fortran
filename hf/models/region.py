@@ -77,7 +77,7 @@ class Region(object):
 
 	@property
 	def usedSymbolNames(self):
-		return [symbol.name for symbol in sum([symbols for (_, symbols) in self._linesAndSymbols], [])]
+		return set([symbol.name for symbol in sum([symbols for (_, symbols) in self._linesAndSymbols], [])])
 
 	@property
 	def linesAndSymbols(self):
@@ -168,8 +168,8 @@ class CallRegion(Region):
 		] if hasattr(self._callee, "_additionalArguments") and self._callee._additionalArguments else []
 
 		return super(CallRegion, self).usedSymbolNames \
-			+ [a.split("(")[0].strip() for a in self._callee.programmerArguments] \
-			+ [s.name for s in compactedSymbols + additionalArgumentSymbols]
+			| set([a.split("(")[0].strip() for a in self._callee.programmerArguments]) \
+			| set([s.name for s in compactedSymbols + additionalArgumentSymbols])
 
 	def _adjustedArguments(self, arguments, parentRoutine, parentRegion=None):
 		def adjustArgument(argument, parallelRegionTemplate, iterators):
@@ -325,10 +325,10 @@ class ParallelRegion(Region):
 
 	@property
 	def usedSymbolNames(self):
-		return sum([
-			region.usedSymbolNames
+		return set(sum([
+			list(region.usedSymbolNames)
 			for region in self._subRegions
-		], [])
+		], []))
 
 	def switchToRegion(self, region):
 		self._currRegion = region
@@ -401,7 +401,7 @@ class RoutineSpecificationRegion(Region):
 		result = []
 		for symbol in sum([symbols for _, symbols in self._linesAndSymbols], []):
 			result += [tp.name for tp in symbol.usedTypeParameters if tp.isDimensionParameter]
-		return result
+		return set(result)
 
 	def clone(self):
 		clone = super(RoutineSpecificationRegion, self).clone()

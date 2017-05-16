@@ -364,6 +364,7 @@ class ParallelRegion(Region):
 		routineHasKernels = parentRoutine.node.getAttribute('parallelRegionPosition') == 'within'
 		if routineHasKernels and self._activeTemplate:
 			text += parentRoutine.implementation.parallelRegionBegin(
+				parentRoutine,
 				[s for s in parentRoutine.symbolsByName.values() if s.name in self.usedSymbolNames],
 				self._activeTemplate
 			).strip() + "\n"

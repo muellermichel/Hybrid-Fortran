@@ -186,7 +186,7 @@ class FortranImplementation(object):
 		self._currKernelNumber += 1
 		return result
 
-	def parallelRegionBegin(self, dependantSymbols, parallelRegionTemplate):
+	def parallelRegionBegin(self, routine, dependantSymbols, parallelRegionTemplate):
 		domains = getDomainsWithParallelRegionTemplate(parallelRegionTemplate)
 		regionStr = ''
 		for pos in range(len(domains)-1,-1,-1): #use inverted order (optimization of accesses for fortran storage order)
@@ -322,13 +322,21 @@ class OpenMPFortranImplementation(FortranImplementation):
 	def __init__(self, optionFlags):
 		FortranImplementation.__init__(self, optionFlags)
 
-	def parallelRegionBegin(self, dependantSymbols, parallelRegionTemplate):
+	def parallelRegionBegin(self, routine, dependantSymbols, parallelRegionTemplate):
 		openMPLines = "!$OMP PARALLEL DO DEFAULT(firstprivate) %s " %(getReductionClause(parallelRegionTemplate).upper())
-		sharedSymbols = [s for s in dependantSymbols if s.domains and not "%" in s.nameInScope()]
+		sharedSymbols = [
+			s for s in dependantSymbols
+			if s.domains \
+			and ( \
+				s.kernelDomainNames \
+				or s.declarationType in [DeclarationType.MODULE_ARRAY, DeclarationType.MODULE_ARRAY_PASSED_IN_AS_ARGUMENT] \
+				or not s.allowsDeletingDomainExtensionFor(routine) \
+			)
+		]
 		openMPLines += "SHARED(%s)\n" %(', '.join([
 			s.nameInScope() for s in sharedSymbols
 		])) if sharedSymbols else "\n"
-		return openMPLines + FortranImplementation.parallelRegionBegin(self, dependantSymbols, parallelRegionTemplate)
+		return openMPLines + FortranImplementation.parallelRegionBegin(self, routine, dependantSymbols, parallelRegionTemplate)
 
 	def parallelRegionEnd(self, parallelRegionTemplate, routine, skipDebugPrint=False):
 		additionalStatements = "\n!$OMP END PARALLEL DO\n"
@@ -743,7 +751,7 @@ end subroutine
 	def loopPreparation(self):
 		return "!$acc loop seq"
 
-	def parallelRegionBegin(self, dependantSymbols, parallelRegionTemplate):
+	def parallelRegionBegin(self, routine, dependantSymbols, parallelRegionTemplate):
 		regionStr = ""
 		#$$$ may need to be replaced with CUDA Fortran style manual update
 		# for symbol in self.currDependantSymbols:
@@ -1338,7 +1346,7 @@ end if\n" %(calleeNode.getAttribute('name'))
 		result += ") then\nreturn\nend if\n"
 		return result
 
-	def parallelRegionBegin(self, dependantSymbols, parallelRegionTemplate):
+	def parallelRegionBegin(self, routine, dependantSymbols, parallelRegionTemplate):
 		domains = getDomainsWithParallelRegionTemplate(parallelRegionTemplate)
 		regionStr = self.iteratorDefinitionBeforeParallelRegion(domains)
 		regionStr += self.safetyOutsideRegion(domains)
@@ -1405,7 +1413,7 @@ class DebugEmulatedCUDAFortranImplementation(DebugCUDAFortranImplementation):
 	def __init__(self, optionFlags):
 		DebugCUDAFortranImplementation.__init__(self, optionFlags)
 
-	def parallelRegionBegin(self, dependantSymbols, parallelRegionTemplate):
+	def parallelRegionBegin(self, routine, dependantSymbols, parallelRegionTemplate):
 		domains = getDomainsWithParallelRegionTemplate(parallelRegionTemplate)
 		regionStr = self.iteratorDefinitionBeforeParallelRegion(domains)
 		routineName = self.currRoutineNode.getAttribute('name')

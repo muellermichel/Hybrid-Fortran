@@ -1131,6 +1131,39 @@ EXAMPLE:\n\
 		self.checkIntegrityOfDomains()
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] routine node attributes loaded for symbol %s. Domains at this point: %s" %(self.name, str(self.domains)))
 
+	def allowsDeletingDomainExtensionFor(self, routine):
+		#we only want local device kernel symbols to get privatized using the kernel domain extension facility
+		#here we are not on the device
+
+		#however there are special cases that we need to exclude from this cleanup.
+		#example: symbols that are declared with ":" sizes, either in module or routine
+		# -> do not throw away this information, we can't decide what to keep, so skip cleanup
+		#
+		#another edge case is derived type members, for which the declaration parser currently doesn't really work,
+		#so we have to completely rely on @domainDependant template information that may not be thrown away
+		# -> we catch this with the "%" in self.name condition.
+
+		if not ( \
+			routine \
+			and hasattr(routine, "implementation") \
+			and not routine.implementation.onDevice \
+			and not "%" in self.name \
+			and self.parallelRegionPosition != "inside" \
+			and ( \
+				self.parallelRegionPosition != "within" \
+				or ( \
+					(not routine.parallelRegionTemplates or routine.usedSymbolNamesInKernels.get(self.name, 0) <= 1) \
+					and self.intent not in ["in", "out", "inout"] \
+				) \
+			) \
+		):
+			return False
+
+		currentKnownDomainSizes = [ds for (_, ds) in self.domains]
+		declaredDimensionSizes = self.declaredDimensionSizes if self.declaredDimensionSizes != None else []
+		declaredDomainsCanBeMatched = all([ds in currentKnownDomainSizes for ds in declaredDimensionSizes])
+		return declaredDomainsCanBeMatched
+
 	def adjustDomainsToKernelPosition(self, routine=None):
 		if self.parallelRegionPosition in [None, ""] and self.declaredDimensionSizes != None:
 			#no parallel region active in this scope and we have a declaration -> reset to that
@@ -1152,53 +1185,27 @@ EXAMPLE:\n\
 			#reset the kernel inactive domain sizes to contain all domains
 			self._kernelInactiveDomainSizes = [s for (_, s) in self.domains]
 
-		if routine and hasattr(routine, "implementation") and not routine.implementation.onDevice \
-		and not "%" in self.name \
-		and self.parallelRegionPosition != "inside" \
-		and ( \
-			self.parallelRegionPosition != "within" \
-			or ( \
-				(not routine.parallelRegionTemplates or routine.usedSymbolNamesInKernels.get(self.name, 0) <= 1) \
-				and self.intent not in ["in", "out", "inout"] \
-			) \
-		):
-			#we only want local device kernel symbols to get privatized using the kernel domain extension facility
-			#here we are not on the device
+		if self.allowsDeletingDomainExtensionFor(routine):
+			#--> make _kernelDomainNames consistent by removing domains not in declaration
+			updatedKernelDomainNames = []
+			for dn in self._kernelDomainNames:
+				dsizes = self._knownKernelDomainSizesByName.get(dn, [])
+				for ds in dsizes:
+					if ds in self.declaredDimensionSizes:
+						updatedKernelDomainNames.append(dn)
+						break
+			self._kernelDomainNames = updatedKernelDomainNames
 
-			#however there are special cases that we need to exclude from this cleanup.
-			#example: symbols that are declared with ":" sizes, either in module or routine
-			# -> do not throw away this information, we can't decide what to keep, so skip cleanup
-			#
-			#another edge case is derived type members, for which the declaration parser currently doesn't really work,
-			#so we have to completely rely on @domainDependant template information that may not be thrown away
-			# -> we catch this with the "%" in self.name condition above.
-			#
-			#note: this cleanup is only done for performance optimisations where possible anyways
-			currentKnownDomainSizes = [ds for (_, ds) in self.domains]
-			declaredDimensionSizes = self.declaredDimensionSizes if self.declaredDimensionSizes != None else []
-			declaredDomainsCanBeMatched = all([ds in currentKnownDomainSizes for ds in declaredDimensionSizes])
-
-			if declaredDomainsCanBeMatched:
-				#--> make _kernelDomainNames consistent by removing domains not in declaration
-				updatedKernelDomainNames = []
-				for dn in self._kernelDomainNames:
-					dsizes = self._knownKernelDomainSizesByName.get(dn, [])
-					for ds in dsizes:
-						if ds in self.declaredDimensionSizes:
-							updatedKernelDomainNames.append(dn)
-							break
-				self._kernelDomainNames = updatedKernelDomainNames
-
-				#--> get rid of domains that are not in declaration
-				self.domains = [
-					(domName, domSize) for (domName, domSize) in self.domains
-					if domSize in self.declaredDimensionSizes
-				]
-				self._templateDomains = [
-					(domName, domSize) for (domName, domSize) in self._templateDomains
-					if domSize in self.declaredDimensionSizes
-				]
-				return
+			#--> get rid of domains that are not in declaration
+			self.domains = [
+				(domName, domSize) for (domName, domSize) in self.domains
+				if domSize in self.declaredDimensionSizes
+			]
+			self._templateDomains = [
+				(domName, domSize) for (domName, domSize) in self._templateDomains
+				if domSize in self.declaredDimensionSizes
+			]
+			return
 
 		# reset domains to kernel / kernelInactive datastructures so everything is consistent
 		self.domains = [

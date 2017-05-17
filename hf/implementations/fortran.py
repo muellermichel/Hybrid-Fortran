@@ -327,6 +327,7 @@ class OpenMPFortranImplementation(FortranImplementation):
 		sharedSymbols = [
 			s for s in dependantSymbols
 			if s.domains \
+			and not "%" in s.name \
 			and ( \
 				s.kernelDomainNames \
 				or s.declarationType in [DeclarationType.MODULE_ARRAY, DeclarationType.MODULE_ARRAY_PASSED_IN_AS_ARGUMENT] \

@@ -233,12 +233,14 @@ MERGEABLE_DEFAULT_SYMBOL_INSTANCE_ATTRIBUTES = {
 #                        There are multiple known dimension sizes for domain i. Cannot insert domain for autoDom symbol densrjd. Please use explicit declaration;
 #                        Debug Print: None; Print of line:
 #                        real(rp):: densrjd(nz)
+	"isExtendDomOnDevice": False,
 	"isCompacted": False,
 	"domPPName": None,
 	"accPPName": None,
 	"analysis": None,
 	"_declarationTypeOverride": None,
-	"_templateDomains": None
+	"_templateDomains": None,
+	"declarationLine": None
 }
 
 MERGEABLE_DEFAULT_SYMBOL_INSTANCE_DOMAIN_ATTRIBUTES = {
@@ -793,6 +795,10 @@ EXAMPLE:\n\
 			else:
 				setattr(self, domainAttributeName, getMergedCollection(domainAttributeName))
 
+		#inherit extendDom attribute from other symbol
+		if self.isAutoDom and otherSymbol.isExtendDomOnDevice:
+			self.isExtendDomOnDevice = True
+
 		#reload domains for autoDom symbols when the other Symbol had explicitely set ones
 		#- generic merge doesn't work correctly in that case
 		if self.isAutoDom and not otherSymbol.isAutoDom and self.parallelRegionTemplates:
@@ -847,6 +853,8 @@ EXAMPLE:\n\
 			self.isHostSymbol = True
 		if "transferhere" in attributesLower:
 			self.isToBeTransfered = True
+		if "extenddomondevice" in attributesLower:
+			self.isExtendDomOnDevice = True
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] attributes set")
 
 	def storeDomainDependantEntryNodeAttributes(self, overloadEntryNode=None):
@@ -873,6 +881,8 @@ EXAMPLE:\n\
 					[dimSize for _, dimSize in self.domains]
 				)
 			)
+		if self.declarationLine:
+			domainDependantEntryNode.setAttribute("declarationLine", self.declarationLine)
 
 	def loadDomainDependantEntryNodeAttributes(self, domainDependantEntryNode, warnOnOverwrite=True):
 		logging.debug("[" + self.name + ".init " + str(self.initLevel) + "] +++++++++ LOADING DOMAIN DEPENDANT NODE ++++++++++ ")
@@ -1148,9 +1158,10 @@ EXAMPLE:\n\
 			and hasattr(routine, "implementation") \
 			and not routine.implementation.onDevice \
 			and not "%" in self.name \
-			and self.parallelRegionPosition != "inside" \
+			and (self.parallelRegionPosition != "inside" or self.isExtendDomOnDevice) \
 			and ( \
 				self.parallelRegionPosition != "within" \
+				or self.isExtendDomOnDevice \
 				or ( \
 					(not routine.parallelRegionTemplates or routine.usedSymbolNamesInKernels.get(self.name, 0) <= 1) \
 					and self.intent not in ["in", "out", "inout"] \
@@ -1233,7 +1244,7 @@ EXAMPLE:\n\
 		self.nameOfScope = currParentName
 		self.isDeclaredExplicitely = True
 
-		declarationLine = "%s :: %s %s" %(
+		self.declarationLine = "%s :: %s %s" %(
 			specTuple[0],
 			", ".join([
 				rightHandSpecificationFromDataObjectTuple(doTuple)
@@ -1258,7 +1269,7 @@ EXAMPLE:\n\
 
 		#   check whether the symbol has undecided domains
 		dimensionStr = dimensionStringFromSpecification(self.name, specTuple)
-		self.hasUndecidedDomainSizes = self.pointerOrAllocatablePattern.match(declarationLine) != None and ":" in dimensionStr
+		self.hasUndecidedDomainSizes = self.pointerOrAllocatablePattern.match(self.declarationLine) != None and ":" in dimensionStr
 
 		#   look at declaration of symbol and get its                 #
 		#   dimensions.                                               #

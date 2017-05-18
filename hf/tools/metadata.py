@@ -24,7 +24,7 @@ import uuid
 import re
 import logging
 
-domainDependantAttributes = ["autoDom", "present", "transferHere"]
+domainDependantAttributes = ["autoDom", "present", "transferHere", "extendDomOnDevice"]
 
 class ParallelRegionDomain(object):
     def __init__(self, name, size, startsAt=None, endsAt=None):
@@ -355,9 +355,15 @@ def firstDuplicateChild(parent, newNode, cgDoc=None, ignoreIDs=True):
 def getAttributesDomainsDeclarationPrefixAndMacroNames(moduleTemplate, procedureTemplate):
     attributesModule = getAttributes(moduleTemplate)
     attributesProcedure = getAttributes(procedureTemplate)
-    finalAttributes = []
+    finalAttributes = [] #$$$ this should be a set
     domainsFromTemplate = []
-    if "autoDom" in attributesModule and "autoDom" in attributesProcedure:
+    if "extendDomOnDevice" in attributesProcedure:
+        finalAttributes.append("extendDomOnDevice")
+        domainsFromTemplate = getDomNameAndSize(procedureTemplate)
+    elif "extendDomOnDevice" in attributesModule and "autoDom" in attributesProcedure:
+        finalAttributes.append("extendDomOnDevice")
+        domainsFromTemplate = getDomNameAndSize(moduleTemplate)
+    elif "autoDom" in attributesModule and "autoDom" in attributesProcedure:
         finalAttributes.append("autoDom")
         domainsFromTemplate = getDomNameAndSize(procedureTemplate)
     elif not "autoDom" in attributesProcedure:
@@ -365,8 +371,9 @@ def getAttributesDomainsDeclarationPrefixAndMacroNames(moduleTemplate, procedure
     elif not "autoDom" in attributesModule:
         domainsFromTemplate = getDomNameAndSize(moduleTemplate)
     for attribute in domainDependantAttributes:
-        if attribute == "autoDom":
+        if attribute in ["autoDom", "extendDomOnDevice"]:
             continue
+        #$$$ at this point we should probably also add the attributesModule
         if attribute in attributesProcedure:
             finalAttributes.append(attribute)
 

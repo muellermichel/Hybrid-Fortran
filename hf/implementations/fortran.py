@@ -330,7 +330,7 @@ class OpenMPFortranImplementation(FortranImplementation):
 			and not "%" in s.name \
 			and ( \
 				s.kernelDomainNames \
-				or s.declarationType in [DeclarationType.MODULE_ARRAY, DeclarationType.MODULE_ARRAY_PASSED_IN_AS_ARGUMENT] \
+				or (not s.isExtendDomOnDevice and s.declarationType in [DeclarationType.MODULE_ARRAY, DeclarationType.MODULE_ARRAY_PASSED_IN_AS_ARGUMENT]) \
 				or not s.allowsDeletingDomainExtensionFor(routine) \
 			)
 		]

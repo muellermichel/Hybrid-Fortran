@@ -34,49 +34,49 @@ contains
     call getTime(t_start_diffusion)
     diffusion_velocity = 0.13d0
 
-    @parallelRegion{domName(i,j), domSize(nx,ny), startAt(1,1), endAt(nx,ny)}
+    @parallelRegion{domName(i,j), domSize(nx,ny), startAt(1,1), endAt(nx,ny)} ! nx * ny * (nz-2) * 10 FLOP
     do k = 2, nz-1
         thermal_energy_updated(i,j,k) = (1.0d0 - 6 * diffusion_velocity) * thermal_energy(i,j,k) + diffusion_velocity * ( &
                                           & thermal_energy(i-1,j,k) + thermal_energy(i+1,j,k) + &
                                           & thermal_energy(i,j-1,k) + thermal_energy(i,j+1,k) + &
                                           & thermal_energy(i,j,k-1) + thermal_energy(i,j,k+1) &
-                                      & )
+                                      & ) !10FLOP
     end do
     @end parallelRegion
 
     call getTime(t_start_boundary)
     !surface and planetary boundary layer: Don't diffuse from above floor and ceiling
-    @parallelRegion{domName(i,j), domSize(nx,ny)}
+    @parallelRegion{domName(i,j), domSize(nx,ny)} ! nx * ny * 18 FLOP
     thermal_energy_updated(i,j,1) = (1.0d0 - 5 * diffusion_velocity) * thermal_energy(i,j,1) + diffusion_velocity * ( &
                                       & thermal_energy(i-1,j,1) + thermal_energy(i+1,j,1) + &
                                       & thermal_energy(i,j-1,1) + thermal_energy(i,j+1,1) + &
                                       & thermal_energy(i,j,2) &
-                                  & )
+                                  & ) !9FLOP
     thermal_energy_updated(i,j,nz) = (1.0d0 - 5 * diffusion_velocity) * thermal_energy(i,j,nz) + diffusion_velocity * ( &
                                       & thermal_energy(i-1,j,nz) + thermal_energy(i+1,j,nz) + &
                                       & thermal_energy(i,j-1,nz) + thermal_energy(i,j+1,nz) + &
                                       & thermal_energy(i,j,nz-1) &
-                                  & )
+                                  & ) !9FLOP
     @end parallelRegion
 
     !cyclic diffusion: halos I-K
-    @parallelRegion{domName(i,k), domSize(0:nx+1,nz), startAt(0,1), endAt(nx+1,nz)}
+    @parallelRegion{domName(i,k), domSize(0:nx+1,nz), startAt(0,1), endAt(nx+1,nz)} ! (nx + 2) * nz * 12 FLOP
     thermal_energy_updated(i,0,k) = (1.0d0 - 2 * diffusion_velocity) * thermal_energy(i,0,k) + diffusion_velocity * ( &
                                       & thermal_energy(i,1,k) + thermal_energy(i,ny+1,k) &
-                                  & )
+                                  & ) !6FLOP
     thermal_energy_updated(i,ny+1,k) = (1.0d0 - 2 * diffusion_velocity) * thermal_energy(i,ny+1,k) + diffusion_velocity * ( &
                                       & thermal_energy(i,ny,k) + thermal_energy(i,0,k) &
-                                  & )
+                                  & ) !6FLOP
     @end parallelRegion
 
     !cyclic diffusion: halos J-K
-    @parallelRegion{domName(j,k), domSize(0:ny+1,nz), startAt(0,1), endAt(ny+1,nz)}
+    @parallelRegion{domName(j,k), domSize(0:ny+1,nz), startAt(0,1), endAt(ny+1,nz)} ! (ny + 2) * nz * 12 FLOP
     thermal_energy_updated(0,j,k) = (1.0d0 - 2 * diffusion_velocity) * thermal_energy(0,j,k) + diffusion_velocity * ( &
                                       & thermal_energy(1,j,k) + thermal_energy(nx+1,j,k) &
-                                  & )
+                                  & ) !6FLOP
     thermal_energy_updated(nx+1,j,k) = (1.0d0 - 2 * diffusion_velocity) * thermal_energy(nx+1,j,k) + diffusion_velocity * ( &
                                       & thermal_energy(nx,j,k) + thermal_energy(0,j,k) &
-                                  & )
+                                  & ) !6FLOP
     @end parallelRegion
     call incrementCounter(counter4, t_start_boundary)
 

@@ -18,32 +18,12 @@
 module simple_weather
   use iso_c_binding
   implicit none
-  real(8), pointer, dimension(:,:,:) :: thermal_energy, thermal_energy_c, thermal_energy_updated, thermal_energy_current
+  real(8), pointer, dimension(:,:,:) :: thermal_energy_c, thermal_energy_updated, thermal_energy_current
   real(8), allocatable, target, dimension(:,:) :: surface_thermal_energy, planetary_thermal_energy
   real(8) :: t_start_output_cycle, t_start_output_cycle_w_io
 
-!   interface
-!     subroutine print_slice(thermal_energy, slice_k, nx, ny, nz) bind(C, name="print_slice")
-!       use iso_c_binding,only: c_int, c_double
-
-!       integer(c_int),value :: nx, ny, nz, slice_k
-!       real(c_double), dimension(0:nx+1,0:ny+1,nz) :: thermal_energy
-!     end subroutine print_slice
-!     subroutine diffuse_c(runtime_total_s, runtime_boundary_s, thermal_energy_updated, thermal_energy, nx, ny, nz) bind(C, name="diffuse_c")
-!       use iso_c_binding,only: c_int, c_double
-
-!       real(c_double) :: runtime_total_s, runtime_boundary_s
-!       integer(c_int),value :: nx, ny, nz
-!       real(c_double), dimension(0:nx+1,0:ny+1,nz) :: thermal_energy_updated, thermal_energy
-
-!       @domainDependant {attribute(autoDom, host)}
-!       thermal_energy_updated, thermal_energy
-!       @end domainDependant
-!     end subroutine diffuse_c
-!   end interface
-
-  @domainDependant{attribute(autoDom,host), domName(i,j,k), domSize(0:nx+1,0:ny+1,nz)}
-  thermal_energy, thermal_energy_c, thermal_energy_updated, thermal_energy_current
+  @domainDependant{attribute(autoDom,host), domName(i,j,k), domSize(0:nx+1,0:ny+1,nz), accPP(AT), domPP(DOM)}
+  thermal_energy_c, thermal_energy_updated, thermal_energy_current
   @end domainDependant
 
   @domainDependant{attribute(autoDom,host), domName(i,j), domSize(0:nx+1,0:ny+1)}
@@ -58,7 +38,6 @@ module simple_weather
     integer(4) :: i, j, k
 
     call initialize_domains(nx_in,ny_in,nz_in)
-    allocate(thermal_energy(0:nx+1,0:ny+1,nz))
     allocate(thermal_energy_c(0:nx+1,0:ny+1,nz))
     allocate(thermal_energy_updated(0:nx+1,0:ny+1,nz))
     allocate(thermal_energy_current(0:nx+1,0:ny+1,nz))
@@ -66,15 +45,15 @@ module simple_weather
     allocate(planetary_thermal_energy(0:nx+1,0:ny+1))
 
     !initialize to 0K with a 300K cube in the middle
-    thermal_energy(:,:,:) = 0.0d0
+    thermal_energy_current(:,:,:) = 0.0d0
     do k=max(floor(nz/4.0d0),1),ceiling(3.0d0*nz/4.0d0)
       do j=floor(ny/4.0d0),ceiling(3.0d0*ny/4.0d0)
         do i=floor(nx/4.0d0),ceiling(3.0d0*nx/4.0d0)
-          thermal_energy(i,j,k) = 300.0d0
+          thermal_energy_current(i,j,k) = 300.0d0
         end do
       end do
     end do
-    thermal_energy_c(:,:,:) = thermal_energy(:,:,:)
+    thermal_energy_c(:,:,:) = thermal_energy_current(:,:,:)
     thermal_energy_updated(:,:,:) = 0.0d0
     planetary_thermal_energy(:,:) = 200.0d0
     surface_thermal_energy(:,:) = 330.d0
@@ -169,7 +148,7 @@ module simple_weather
     real(8), intent(in) :: time
 
     @if {architecture(GPU)}
-    thermal_energy_current(:,:,:) = thermal_energy_current_d(:,:,:)
+    thermal_energy_current(:,:,:) = thermal_energy_current_hfdev(:,:,:)
     @end if
 
     call write_data(thermal_energy_current, "thermal_energy", time)
@@ -185,7 +164,7 @@ module simple_weather
     real(8), intent(in) :: time
     character(len=256) :: path
     integer(4) :: i, j, k
-    @domainDependant {attribute(autoDom, host)}
+    @domainDependant {attribute(autoDom, host), accPP(AT), domPP(DOM)}
     output_data
     @end domainDependant
 
@@ -216,7 +195,7 @@ module simple_weather
     use commons, only: nx, ny, nz
 
     write(6,*) "cleaning up..."
-    deallocate(thermal_energy)
+    deallocate(thermal_energy_current)
     deallocate(thermal_energy_c)
     deallocate(thermal_energy_updated)
     deallocate(surface_thermal_energy)
@@ -279,7 +258,7 @@ program main
 !   call simulate(thermal_energy_c, 0.0d0, end_time, timestep, output_timestep, .true.)
 !   !check the c version only with GPU order (ordering is wrong with the CPU version)
 !   #ifdef GPU
-!   call check(thermal_energy_c, thermal_energy)
+!   call check(thermal_energy_c, thermal_energy_current)
 !   write(6,*) "cuda version checks out"
 !   #endif
 

@@ -50,7 +50,7 @@ contains
     radiation_intensity = 0.1d0
 
     @parallelRegion{appliesTo(GPU), domName(i,j), domSize(0:nx+1,0:ny+1), startAt(0,0), endAt(nx+1,ny+1)}
-    do k=1,nz
+    do k=1,nz ! nz FLOP
         thermal_energy(k) = thermal_energy(k) + radiation_intensity
     end do
     @end parallelRegion
@@ -70,8 +70,8 @@ contains
     transfer_velocity = 0.01d0
 
     @parallelRegion{appliesTo(GPU), domName(i,j), domSize(0:nx+1,0:ny+1), startAt(0,0), endAt(nx+1,ny+1)}
-    energy_transfer_air_to_boundary = transfer_velocity * (thermal_energy(boundary_level) - boundary_thermal_energy)
-    thermal_energy(boundary_level) = thermal_energy(boundary_level) - energy_transfer_air_to_boundary
+    energy_transfer_air_to_boundary = transfer_velocity * (thermal_energy(boundary_level) - boundary_thermal_energy) !2FLOP
+    thermal_energy(boundary_level) = thermal_energy(boundary_level) - energy_transfer_air_to_boundary !2FLOP
     @end parallelRegion
   end subroutine
 end module

@@ -4,6 +4,7 @@ from tools.commons import findLeftMostOccurrenceNotInsideQuotes, setupDeferredLo
 
 openMPLinePattern = re.compile(r'\s*\!\$OMP.*', re.IGNORECASE)
 openACCLinePattern = re.compile(r'\s*\!\$ACC.*', re.IGNORECASE)
+pgiPragmaLinePattern = re.compile(r'\s*\!PGI.*', re.IGNORECASE)
 emptyLinePattern = re.compile(r'(.*?)(?:[\n\r\f\v]+[ \t]*)+(.*)', re.DOTALL)
 multiLineContinuationPattern = re.compile(r'(.*?)\s*\&\s+(?:\!?\$?(?:OMP|ACC)?\&?)?\s*(.*)', re.DOTALL | re.IGNORECASE)
 
@@ -17,7 +18,7 @@ def pre_sanitize_fortran():
 	#first pass: strip out commented code (otherwise we could get in trouble when removing line continuations, if there are comments in between)
 	noComments = ""
 	for line in fileInputObject:
-		if openMPLinePattern.match(line) or openACCLinePattern.match(line):
+		if openMPLinePattern.match(line) or openACCLinePattern.match(line) or pgiPragmaLinePattern.match(line):
 			noComments += line
 			continue
 		commentIndex = findLeftMostOccurrenceNotInsideQuotes("!", line)

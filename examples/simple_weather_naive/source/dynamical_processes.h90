@@ -1,0 +1,82 @@
+! Copyright (C) 2016 Michel Müller, Tokyo Institute of Technology
+
+! This file is part of Hybrid Fortran.
+
+! Hybrid Fortran is free software: you can redistribute it and/or modify
+! it under the terms of the GNU Lesser General Public License as published by
+! the Free Software Foundation, either version 3 of the License, or
+! (at your option) any later version.
+
+! Hybrid Fortran is distributed in the hope that it will be useful,
+! but WITHOUT ANY WARRANTY; without even the implied warranty of
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+! GNU Lesser General Public License for more details.
+
+! You should have received a copy of the GNU Lesser General Public License
+! along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
+
+module dynamical_processes
+implicit none
+contains
+  subroutine diffuse(thermal_energy_updated, thermal_energy)
+    use commons, only: nx, ny, nz
+    use time_profiling
+    use helper_functions, only: getTime
+    real(8), intent(out), dimension(0:nx+1,0:ny+1,nz) :: thermal_energy_updated
+    real(8), intent(in), dimension(0:nx+1,0:ny+1,nz) :: thermal_energy
+    real(8) :: diffusion_velocity
+    real(8) :: t_start_diffusion, t_start_boundary
+    integer(4) :: k
+
+    call getTime(t_start_diffusion)
+    diffusion_velocity = 0.13d0
+
+    @parallelRegion{domName(i,j), domSize(nx,ny)} ! nx * ny * (nz-2) * 10 FLOP
+    do k = 2, nz-1
+        thermal_energy_updated(i,j,k) = (1.0d0 - 6 * diffusion_velocity) * thermal_energy(i,j,k) + diffusion_velocity * ( &
+                                          & thermal_energy(i-1,j,k) + thermal_energy(i+1,j,k) + &
+                                          & thermal_energy(i,j-1,k) + thermal_energy(i,j+1,k) + &
+                                          & thermal_energy(i,j,k-1) + thermal_energy(i,j,k+1) &
+                                      & ) !10FLOP
+    end do
+    @end parallelRegion
+
+    call getTime(t_start_boundary)
+    !surface and planetary boundary layer: Don't diffuse from above floor and ceiling
+    @parallelRegion{domName(i,j), domSize(nx,ny)} ! nx * ny * 18 FLOP
+    thermal_energy_updated(i,j,1) = (1.0d0 - 5 * diffusion_velocity) * thermal_energy(i,j,1) + diffusion_velocity * ( &
+                                      & thermal_energy(i-1,j,1) + thermal_energy(i+1,j,1) + &
+                                      & thermal_energy(i,j-1,1) + thermal_energy(i,j+1,1) + &
+                                      & thermal_energy(i,j,2) &
+                                  & ) !9FLOP
+    thermal_energy_updated(i,j,nz) = (1.0d0 - 5 * diffusion_velocity) * thermal_energy(i,j,nz) + diffusion_velocity * ( &
+                                      & thermal_energy(i-1,j,nz) + thermal_energy(i+1,j,nz) + &
+                                      & thermal_energy(i,j-1,nz) + thermal_energy(i,j+1,nz) + &
+                                      & thermal_energy(i,j,nz-1) &
+                                  & ) !9FLOP
+    @end parallelRegion
+
+    !cyclic diffusion: halos I-K
+    @parallelRegion{domName(i,k), domSize(0:nx+1,nz), startAt(0,1), endAt(nx+1,nz)} ! (nx + 2) * nz * 12 FLOP
+    thermal_energy_updated(i,0,k) = (1.0d0 - 2 * diffusion_velocity) * thermal_energy(i,0,k) + diffusion_velocity * ( &
+                                      & thermal_energy(i,1,k) + thermal_energy(i,ny+1,k) &
+                                  & ) !6FLOP
+    thermal_energy_updated(i,ny+1,k) = (1.0d0 - 2 * diffusion_velocity) * thermal_energy(i,ny+1,k) + diffusion_velocity * ( &
+                                      & thermal_energy(i,ny,k) + thermal_energy(i,0,k) &
+                                  & ) !6FLOP
+    @end parallelRegion
+
+    !cyclic diffusion: halos J-K
+    @parallelRegion{domName(j,k), domSize(0:ny+1,nz), startAt(0,1), endAt(ny+1,nz)} ! (ny + 2) * nz * 12 FLOP
+    thermal_energy_updated(0,j,k) = (1.0d0 - 2 * diffusion_velocity) * thermal_energy(0,j,k) + diffusion_velocity * ( &
+                                      & thermal_energy(1,j,k) + thermal_energy(nx+1,j,k) &
+                                  & ) !6FLOP
+    thermal_energy_updated(nx+1,j,k) = (1.0d0 - 2 * diffusion_velocity) * thermal_energy(nx+1,j,k) + diffusion_velocity * ( &
+                                      & thermal_energy(nx,j,k) + thermal_energy(0,j,k) &
+                                  & ) !6FLOP
+    @end parallelRegion
+    call incrementCounter(counter4, t_start_boundary)
+
+    call incrementCounter(counter1, t_start_diffusion)
+  end subroutine
+end module

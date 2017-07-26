@@ -1,0 +1,268 @@
+! Copyright (C) 2016 Michel Müller, Tokyo Institute of Technology
+
+! This file is part of Hybrid Fortran.
+
+! Hybrid Fortran is free software: you can redistribute it and/or modify
+! it under the terms of the GNU Lesser General Public License as published by
+! the Free Software Foundation, either version 3 of the License, or
+! (at your option) any later version.
+
+! Hybrid Fortran is distributed in the hope that it will be useful,
+! but WITHOUT ANY WARRANTY; without even the implied warranty of
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+! GNU Lesser General Public License for more details.
+
+! You should have received a copy of the GNU Lesser General Public License
+! along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
+
+module simple_weather
+  use iso_c_binding
+  implicit none
+  real(8), pointer, dimension(:,:,:) :: thermal_energy_c, thermal_energy_updated, thermal_energy_current
+  real(8), allocatable, target, dimension(:,:) :: surface_thermal_energy, planetary_thermal_energy
+  real(8) :: t_start_output_cycle, t_start_output_cycle_w_io
+
+  @domainDependant{attribute(autoDom,host), domName(i,j,k), domSize(0:nx+1,0:ny+1,nz), accPP(AT), domPP(DOM)}
+  thermal_energy_c, thermal_energy_updated, thermal_energy_current
+  @end domainDependant
+
+  @domainDependant{attribute(autoDom,host), domName(i,j), domSize(0:nx+1,0:ny+1)}
+  surface_thermal_energy, planetary_thermal_energy
+  @end domainDependant
+  contains
+
+  subroutine initialize(nx_in,ny_in,nz_in)
+    use commons, only: nx, ny, nz, initialize_domains
+    use time_profiling
+    integer(4), intent(in) :: nx_in, ny_in, nz_in
+    integer(4) :: i, j, k
+
+    call initialize_domains(nx_in,ny_in,nz_in)
+    allocate(thermal_energy_c(0:nx+1,0:ny+1,nz))
+    allocate(thermal_energy_updated(0:nx+1,0:ny+1,nz))
+    allocate(thermal_energy_current(0:nx+1,0:ny+1,nz))
+    allocate(surface_thermal_energy(0:nx+1,0:ny+1))
+    allocate(planetary_thermal_energy(0:nx+1,0:ny+1))
+
+    !initialize to 0K with a 300K cube in the middle
+    thermal_energy_current(:,:,:) = 0.0d0
+    do k=max(floor(nz/4.0d0),1),ceiling(3.0d0*nz/4.0d0)
+      do j=floor(ny/4.0d0),ceiling(3.0d0*ny/4.0d0)
+        do i=floor(nx/4.0d0),ceiling(3.0d0*nx/4.0d0)
+          thermal_energy_current(i,j,k) = 300.0d0
+        end do
+      end do
+    end do
+    thermal_energy_c(:,:,:) = thermal_energy_current(:,:,:)
+    thermal_energy_updated(:,:,:) = 0.0d0
+    planetary_thermal_energy(:,:) = 200.0d0
+    surface_thermal_energy(:,:) = 330.d0
+  end subroutine
+
+  subroutine simulate(start_time, end_time, timestep, output_timestep, use_c)
+    use commons, only: nx, ny, nz
+    use dynamical_processes, only: diffuse
+    use physical_processes, only: run_physics
+    use time_profiling
+    use helper_functions, only: getTime
+    real(8), intent(in) :: start_time, end_time, timestep, output_timestep
+    logical, intent (in) :: use_c
+    real(8), pointer, dimension(0:nx+1,0:ny+1,nz) :: thermal_energy_temp
+    real(8) :: time, curr_elapsed_runtime_diffusion, curr_elapsed_runtime_boundary
+    ! @domainDependant {attribute(autoDom, transferHere)}
+    ! thermal_energy_current, thermal_energy_updated, surface_thermal_energy, planetary_thermal_energy
+    ! @end domainDependant
+
+    ! @domainDependant {attribute(autoDom, host)}
+    ! thermal_energy_temp
+    ! @end domainDependant
+
+    time = start_time
+    call time_profiling_ini()
+    call getTime(t_start_output_cycle)
+    call getTime(t_start_output_cycle_w_io)
+    do while (.true.)
+      if (modulo(time + 0.001d0, output_timestep) < 0.01d0) then
+        call write_all_data(time)
+      end if
+      call run_physics(thermal_energy_current, surface_thermal_energy, planetary_thermal_energy)
+      if (use_c) then
+! #ifdef GPU
+!         !$acc data present(thermal_energy_current,thermal_energy_updated)
+! #else
+!         !$acc data copyin(thermal_energy_current) copy(thermal_energy_updated)
+! #endif
+!         !$acc host_data use_device(thermal_energy_current,thermal_energy_updated)
+!         call diffuse_c(curr_elapsed_runtime_diffusion, curr_elapsed_runtime_boundary, thermal_energy_updated, thermal_energy_current, nx, ny, nz)
+!         call incrementCounterWithElapsed(counter4, curr_elapsed_runtime_boundary)
+!         call incrementCounterWithElapsed(counter1, curr_elapsed_runtime_diffusion)
+!         !$acc end host_data
+!         !$acc end data
+      else
+        call diffuse(thermal_energy_updated, thermal_energy_current)
+      end if
+
+      thermal_energy_temp => thermal_energy_updated
+      thermal_energy_updated => thermal_energy_current
+      thermal_energy_current => thermal_energy_temp
+
+      time = time + timestep
+      if (time > end_time) then
+        return
+      end if
+    end do
+  end subroutine
+
+  subroutine check(current, reference)
+    use commons, only: nx, ny, nz
+    real(8), dimension(0:nx+1,0:ny+1,nz), intent(in) :: current, reference
+    integer(4) :: i, j, k, num_of_errors
+    real(8) :: error
+    @domainDependant {attribute(autoDom, host)}
+    current, reference
+    @end domainDependant
+
+    num_of_errors = 0
+    do j = 0, ny+1
+      do i = 0, nx+1
+        do k = 1, nz
+          if (abs(reference(i,j,k) > 1E-10)) then
+            error = abs(current(i,j,k) - reference(i,j,k))/abs(reference(i,j,k))
+          else
+            error = abs(current(i,j,k) - reference(i,j,k))
+          end if
+          if (error > 1E-10) then
+            write(6,*) "delta > tol. error: ", error, ", curr:", current(i,j,k), ", ref:", reference(i,j,k), "i: ", i, "j: ", j, "k: ", k
+            num_of_errors = num_of_errors + 1
+          end if
+          if (num_of_errors .gt. 4) then
+            stop 2
+          end if
+        end do
+      end do
+    end do
+
+  end subroutine check
+
+  subroutine write_all_data(time)
+    real(8), intent(in) :: time
+
+    @if {architecture(GPU)}
+    thermal_energy_current(:,:,:) = thermal_energy_current_hfdev(:,:,:)
+    @end if
+
+    call write_data(thermal_energy_current, "thermal_energy", time)
+  end subroutine write_all_data
+
+  subroutine write_data(output_data, prefix, time)
+    use commons, only: nx, ny, nz
+    use time_profiling
+    use helper_functions, only: writeToFile, getTime
+    real(8), dimension(0:nx+1,0:ny+1,nz), intent(in) :: output_data
+    real(8), dimension(0:nx+1,0:ny+1,nz) :: output_data_ijk
+    character(len=*), intent(in) :: prefix
+    real(8), intent(in) :: time
+    character(len=256) :: path
+    integer(4) :: i, j, k
+    @domainDependant {attribute(autoDom, host), accPP(AT), domPP(DOM)}
+    output_data
+    @end domainDependant
+
+    write(6,*) "total diffusion time used: ", counter1
+    write(6,*) "total diffusion boundary time used: ", counter4
+    write(6,*) "total physics time used: ", counter2
+    call time_profiling_ini()
+    call incrementCounter(counter_timestep, t_start_output_cycle)
+
+    write(6,*) "writing data at t=", time
+    do k = 1, nz
+      do j = 0, ny+1
+        do i = 0, nx+1
+          output_data_ijk(i,j,k) = output_data(i,j,k)
+        end do
+      end do
+    end do
+    write(6,*) "bounds: ", nx, ny, nz
+    write(path, '(A,A,A,F0.1,A)') './out/', trim(prefix), '_', time, '.dat'
+    call writeToFile(path, output_data_ijk)
+
+    call incrementCounter(counter3, t_start_output_cycle_w_io)
+    write(6,*) "total output cycle time used w/ IO: ", counter3
+    write(6,*) "total output cycle time used w/o IO: ", counter_timestep
+  end subroutine
+
+  subroutine cleanup()
+    use commons, only: nx, ny, nz
+
+    write(6,*) "cleaning up..."
+    deallocate(thermal_energy_current)
+    deallocate(thermal_energy_c)
+    deallocate(thermal_energy_updated)
+    deallocate(surface_thermal_energy)
+    deallocate(planetary_thermal_energy)
+  end subroutine
+
+  subroutine testrun_cuda_kernels()
+    real(8), allocatable, dimension(:,:,:) :: test_data, updated_test_data
+    integer(4) :: nx, ny, nz
+    real(8) :: curr_elapsed_runtime_diffusion, curr_elapsed_runtime_boundary
+
+    nx = 1
+    ny = 1
+    nz = 3
+    allocate(test_data(nz,0:nx+1,0:ny+1))
+    allocate(updated_test_data(nz,0:nx+1,0:ny+1))
+    test_data(:,:,:) = 0.0d0
+    updated_test_data(:,:,:) = 0.0d0
+!     !$acc data copyin(test_data) copy(updated_test_data)
+!     !$acc host_data use_device(test_data,updated_test_data)
+!     call diffuse_c(curr_elapsed_runtime_diffusion, curr_elapsed_runtime_boundary, updated_test_data, test_data, nx, ny, nz)
+!     !$acc end host_data
+!     !$acc end data
+  end subroutine
+end module
+
+program main
+  use simple_weather
+  use M_kracken
+  @if {architecture(GPU)}
+  use openacc
+  @end if
+  implicit none
+  integer(4) :: nx, ny, nz
+  real(8) :: end_time, timestep, output_timestep
+
+  call kracken('cmd', "-nx 200 -ny 200 -nz 200 -te 100.0d0 -ts 0.1d0 -tso 10.0d0")
+  nx = iget('cmd_nx')
+  ny = iget('cmd_ny')
+  nz = iget('cmd_nz')
+  end_time = rget('cmd_te')
+  timestep = rget('cmd_ts')
+  output_timestep = rget('cmd_tso')
+
+  @if {architecture(GPU)}
+  call acc_init( acc_device_nvidia )
+  @end if
+
+!   call testrun_cuda_kernels
+!   write(6,*) "test done"
+
+  write(6,'(A,I0,A,I0,A,I0)') "Initializing with nx: ", nx, " ny: ", ny, " nz: ", nz
+  call initialize(nx, ny, nz)
+  write(6,'(A,F0.1,A,F0.1,A,F0.1)') "Starting simulation. End Time: ", end_time, " Timestep: ", timestep, " Output Timestep: ", output_timestep
+  write(6,*) "================== Hybrid Fortran Version =================="
+  call simulate(0.0d0, end_time, timestep, output_timestep, .false.)
+
+!   thermal_energy_updated(:,:,:) = 0.0d0
+!   write(6,*) "================== CUDA C Version =================="
+!   call simulate(thermal_energy_c, 0.0d0, end_time, timestep, output_timestep, .true.)
+!   !check the c version only with GPU order (ordering is wrong with the CPU version)
+!   #ifdef GPU
+!   call check(thermal_energy_c, thermal_energy_current)
+!   write(6,*) "cuda version checks out"
+!   #endif
+
+  call cleanup
+  write(6,*) "stopping..."
+  stop
+end program main

@@ -1,0 +1,77 @@
+! Copyright (C) 2016 Michel Müller, Tokyo Institute of Technology
+
+! This file is part of Hybrid Fortran.
+
+! Hybrid Fortran is free software: you can redistribute it and/or modify
+! it under the terms of the GNU Lesser General Public License as published by
+! the Free Software Foundation, either version 3 of the License, or
+! (at your option) any later version.
+
+! Hybrid Fortran is distributed in the hope that it will be useful,
+! but WITHOUT ANY WARRANTY; without even the implied warranty of
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+! GNU Lesser General Public License for more details.
+
+! You should have received a copy of the GNU Lesser General Public License
+! along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
+
+module physical_processes
+implicit none
+contains
+  subroutine run_physics(thermal_energy, surface_thermal_energy, planetary_thermal_energy)
+    use commons, only: nx, ny, nz
+    use time_profiling
+    use helper_functions, only: getTime
+    real(8), intent(inout), dimension(0:nx+1,0:ny+1,nz) :: thermal_energy
+    real(8), intent(in), dimension(0:nx+1,0:ny+1) :: surface_thermal_energy, planetary_thermal_energy
+    real(8) :: t_start_physics
+    ! @domainDependant{attribute(autoDom, present)}
+    ! thermal_energy, surface_thermal_energy, planetary_thermal_energy
+    ! @end domainDependant
+
+    call getTime(t_start_physics)
+    @parallelRegion{appliesTo(CPU), domName(i,j), domSize(0:nx+1,0:ny+1), startAt(0,0), endAt(nx+1,ny+1)}
+    call radiate(thermal_energy)
+    call exchange_heat_with_boundary(thermal_energy, surface_thermal_energy, 1)
+    call exchange_heat_with_boundary(thermal_energy, planetary_thermal_energy, nz)
+    @end parallelRegion
+    call incrementCounter(counter2, t_start_physics)
+  end subroutine
+
+  subroutine radiate(thermal_energy)
+    use commons, only: nx, ny, nz
+    real(8), intent(inout), dimension(nz) :: thermal_energy
+    integer(4) :: k
+    real(8) :: radiation_intensity
+    @domainDependant{attribute(autoDom), domName(i,j), domSize(0:nx+1,0:ny+1)}
+    thermal_energy
+    @end domainDependant
+
+    radiation_intensity = 0.1d0
+
+    @parallelRegion{appliesTo(GPU), domName(i,j), domSize(0:nx+1,0:ny+1), startAt(0,0), endAt(nx+1,ny+1)}
+    do k=1,nz ! nz FLOP
+        thermal_energy(k) = thermal_energy(k) + radiation_intensity
+    end do
+    @end parallelRegion
+  end subroutine
+
+  subroutine exchange_heat_with_boundary(thermal_energy, boundary_thermal_energy, boundary_level)
+    use commons, only: nx, ny, nz
+    real(8), intent(inout), dimension(nz) :: thermal_energy
+    real(8), intent(in) :: boundary_thermal_energy
+    integer(4), intent(in) :: boundary_level
+    integer(4) :: k
+    real(8) :: energy_transfer_air_to_boundary, transfer_velocity
+    @domainDependant{attribute(autoDom), domName(i,j), domSize(0:nx+1,0:ny+1)}
+    thermal_energy, boundary_thermal_energy
+    @end domainDependant
+
+    transfer_velocity = 0.01d0
+
+    @parallelRegion{appliesTo(GPU), domName(i,j), domSize(0:nx+1,0:ny+1), startAt(0,0), endAt(nx+1,ny+1)}
+    energy_transfer_air_to_boundary = transfer_velocity * (thermal_energy(boundary_level) - boundary_thermal_energy) !2FLOP
+    thermal_energy(boundary_level) = thermal_energy(boundary_level) - energy_transfer_air_to_boundary !2FLOP
+    @end parallelRegion
+  end subroutine
+end module

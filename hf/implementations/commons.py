@@ -24,6 +24,7 @@ from tools.metadata import appliesTo, \
 	getReductionScalarsByOperator, \
 	getTemplate, \
 	getIterators
+from tools.statistics import statistics, Counters
 from models.symbol import DeclarationType
 from models.region import ParallelRegion
 from models.commons import originalRoutineName
@@ -435,6 +436,12 @@ def getIteratorDeclaration(routine, architectures):
 	iterators = getIterators(routine.node, routine.parallelRegionTemplates, architectures)
 	if len(iterators) == 0:
 		return ""
+	if "cpu" not in architectures and "CPU" not in architectures:
+		for template in routine.parallelRegionTemplates:
+			if appliesTo(["CPU"], template):
+				break
+		else:
+			statistics.addToCounter(Counters.ADDED_WITHOUT_HF, routine.parentModuleName, loc=len(iterators))
 	if iterators[0] in routine._programmerArguments:
 		#we add value here so it's compatible with iterators that are passed in from the host routine
 		#(but then overwritten by kernel setup)

@@ -22,14 +22,20 @@ module time_profiling
 	real(8) :: counter_timestep, counter_rad_sw_wrapper, counter_rad_sw, counter_rad_sw_main, counter_rad_lw
 	real(8) :: counter1, counter2, counter3, counter4, counter5
 	real(8) :: counter_sf_flx, counter_pbl_mym, counter_pbl_coupler, counter_rad, counter_mainloop
-	public :: counter_timestep, counter_rad_sw_wrapper, counter_rad_sw, counter_rad_sw_main, counter_rad_lw
+
+	real(8), allocatable :: counters(:), counters_ref(:)
+
+	public :: counters, counter_timestep, counter_rad_sw_wrapper, counter_rad_sw, counter_rad_sw_main, counter_rad_lw
 	public :: counter1, counter2, counter3, counter4, counter5
 	public :: counter_sf_flx, counter_pbl_mym, counter_pbl_coupler, counter_rad, counter_mainloop
-	public :: incrementCounter, time_profiling_ini, incrementCounterWithElapsed
-
+	public :: incrementCounter, time_profiling_ini, incrementCounterWithElapsed, setNumberedCounterReference, incrementNumberedCounter
 contains
 	subroutine time_profiling_ini()
 		use helper_functions
+
+		integer(4), parameter :: num_counters = 1000
+		integer(4) :: i
+
 		counter_rad_sw_wrapper = 0.0d0
 		counter_rad_sw = 0.0d0
 		counter_rad_sw_main = 0.0d0
@@ -45,7 +51,12 @@ contains
 		counter3 = 0.0d0
 		counter4 = 0.0d0
 		counter5 = 0.0d0
-	end subroutine time_profiling_ini
+
+		allocate(counters(num_counters))
+		allocate(counters_ref(num_counters))
+		counters(:) = 0.0d0
+		counters_ref(:) = 0.0d0
+	end subroutine
 
 	subroutine incrementCounter(prof_counter, start_time)
 		use helper_functions
@@ -56,7 +67,24 @@ contains
 		real(8) :: elapsed
 		call getElapsedTime(start_time, elapsed)
 		prof_counter = prof_counter + elapsed
-	end subroutine incrementCounter
+	end subroutine
+
+	subroutine setNumberedCounterReference(counter_num)
+		use helper_functions
+		implicit none
+		integer(4), intent(in) :: counter_num
+		call getTime(counters_ref(counter_num))
+	end subroutine
+
+	subroutine incrementNumberedCounter(counter_num)
+		use helper_functions
+		implicit none
+
+		integer(4), intent(in) :: counter_num
+		real(8) :: elapsed
+		call getElapsedTime(counters_ref(counter_num), elapsed)
+		counters(counter_num) = counters(counter_num) + elapsed
+	end subroutine
 
 	subroutine incrementCounterWithElapsed(prof_counter, elapsed_time)
 		use helper_functions
@@ -65,6 +93,6 @@ contains
 		real(8), intent(inout) :: prof_counter
 		real(8), intent(in) :: elapsed_time
 		prof_counter = prof_counter + elapsed_time
-	end subroutine incrementCounterWithElapsed
+	end subroutine
 
 end module time_profiling

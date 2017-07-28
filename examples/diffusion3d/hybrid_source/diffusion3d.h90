@@ -1,6 +1,11 @@
 #include "../source/storage.h"
 #define M_PI 3.14159265358979323846d0
 
+#define T_INNER 1
+#define T_YZ 2
+#define T_XZ 3
+#define T_XY 4
+
 module diffusion
 contains
 subroutine diffusion3d_inner(f, fn, coeff_east_west, coeff_north_south, coeff_top_bottom, coeff_center)
@@ -66,26 +71,25 @@ subroutine diffusion3d(f, fn, coeff_east_west, coeff_north_south, coeff_top_bott
 	real(FLOAT_BYTE_LENGTH), intent(in), dimension(DIM_X, DIM_Y, DIM_Z) :: f
 	real(FLOAT_BYTE_LENGTH), intent(out), dimension(DIM_X, DIM_Y, DIM_Z) :: fn
 	real(FLOAT_BYTE_LENGTH), intent(in) :: coeff_east_west, coeff_north_south, coeff_top_bottom, coeff_center
-	real(8) :: time_start, time_before_yz, time_before_xz, time_before_xy
 	@domainDependant {attribute(autoDom, present)}
 	f, fn
 	@end domainDependant
 
-	call getTime(time_start)
+	call setNumberedCounterReference(T_INNER)
 	call diffusion3d_inner(f, fn, coeff_east_west, coeff_north_south, coeff_top_bottom, coeff_center)
-	call incrementCounter(counter1, time_start)
+	call incrementNumberedCounter(T_INNER)
 
-	call getTime(time_before_yz)
+	call setNumberedCounterReference(T_YZ)
 	call wallBoundaryYZ(fn)
-	call incrementCounter(counter2, time_before_yz)
+	call incrementNumberedCounter(T_YZ)
 
-	call getTime(time_before_xz)
+	call setNumberedCounterReference(T_XZ)
 	call wallBoundaryXZ(fn)
-	call incrementCounter(counter3, time_before_xz)
+	call incrementNumberedCounter(T_XZ)
 
-	call getTime(time_before_xy)
+	call setNumberedCounterReference(T_XY)
 	call wallBoundaryXY(fn)
-	call incrementCounter(counter4, time_before_xy)
+	call incrementNumberedCounter(T_XY)
 end subroutine
 
 subroutine mainloop(f_p, fn_p, kappa, time, dt, dx, dy, dz, numOfStencilsComputed)
@@ -233,7 +237,7 @@ program main
   	call mainloop(f, fn, kappa, time, dt, dx, dy, dz, numOfStencilsComputed)
   	call incrementCounter(counter5, time_start)
   	write(0, "(A,F13.5,A)") "Performance= ", real(numOfStencilsComputed)/counter5*1E-06, "[million stencils/s]"
-  	write(6, "(E13.5,A,E13.5,A,E13.5,A,E13.5,A,E13.5,A,E13.5)") counter_timestep, ",", counter1, ",", counter2, ",", counter3, ",", counter4, ",", counter5
+  	write(6, "(E13.5,A,E13.5,A,E13.5,A,E13.5,A,E13.5)") counter_timestep, ",", counters(T_INNER), ",", counters(T_YZ), ",", counters(T_XZ), ",", counters(T_XY)
   	error = accuracy(f,kappa,time,dx,dy,dz);
 	write(0,*) "Root Mean Square Error: ", error
 	if (error > 1E-04) then

@@ -26,6 +26,7 @@ from tools.analysis import getAnalysisForSymbol
 from tools.patterns import regexPatterns
 from tools.commons import UsageError
 from tools.metadata import getDomainDependantTemplatesAndEntries, appliesTo
+from tools.statistics import statistics, Counters
 from implementations.commons import *
 
 class FortranImplementation(object):
@@ -166,7 +167,7 @@ class FortranImplementation(object):
 	def safetyOutsideRegion(self, domains):
 		return ""
 
-	def loopPreparation(self):
+	def loopPreparation(self, routine):
 		return ""
 
 	def declarationEndPrintStatements(self):
@@ -323,6 +324,10 @@ class OpenMPFortranImplementation(FortranImplementation):
 		FortranImplementation.__init__(self, optionFlags)
 
 	def parallelRegionBegin(self, routine, dependantSymbols, parallelRegionTemplate):
+		statistics.addToCounter(
+			Counters.ADDED_WITHOUT_HF,
+			routine.parentModuleName,
+		)
 		openMPLines = "!$OMP PARALLEL DO DEFAULT(firstprivate) %s " %(getReductionClause(parallelRegionTemplate).upper())
 		sharedSymbols = [
 			s for s in dependantSymbols
@@ -340,6 +345,10 @@ class OpenMPFortranImplementation(FortranImplementation):
 		return openMPLines + FortranImplementation.parallelRegionBegin(self, routine, dependantSymbols, parallelRegionTemplate)
 
 	def parallelRegionEnd(self, parallelRegionTemplate, routine, skipDebugPrint=False):
+		statistics.addToCounter(
+			Counters.ADDED_WITHOUT_HF,
+			routine.parentModuleName,
+		)
 		additionalStatements = "\n!$OMP END PARALLEL DO\n"
 		debugStatements = ""
 		if not skipDebugPrint and 'DEBUG_PRINT' in self.optionFlags:
@@ -654,6 +663,9 @@ class DeviceDataFortranImplementation(FortranImplementation):
 		return deviceInitStatements
 
 	def subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, isSubroutineEnd):
+		if not isSubroutineEnd:
+			statistics.addToCounter(Counters.ADDED_WITHOUT_HF, self.currRoutine.parentModuleName)
+
 		deviceInitStatements = ""
 		for symbol in dependantSymbols:
 			if not symbol.domains or len(symbol.domains) == 0:
@@ -687,6 +699,7 @@ class PGIOpenACCFortranImplementation(DeviceDataFortranImplementation):
 
 	def __init__(self, optionFlags):
 		super(PGIOpenACCFortranImplementation, self).__init__(optionFlags)
+		self.currRoutine = None
 		self.currRoutineNode = None
 		self.createDeclaration = "create"
 		self.currParallelRegionTemplates = None
@@ -732,6 +745,7 @@ end subroutine
 	def declarationEnd(self, dependantSymbols, routine):
 		self._currKernelNumber = 0
 		self.currRoutineNode = routine.node
+		self.currRoutine = routine
 		self.currParallelRegionTemplates = routine.parallelRegionTemplates
 		result = ""
 		if 'DEBUG_PRINT' in self.optionFlags:
@@ -749,10 +763,12 @@ end subroutine
 			return []
 		return [domain.name for domain in getDomainsWithParallelRegionTemplate(parallelRegionTemplate)]
 
-	def loopPreparation(self):
+	def loopPreparation(self, routine):
+		statistics.addToCounter(Counters.ADDED_WITHOUT_HF, routine.parentModuleName)
 		return "!$acc loop seq"
 
 	def parallelRegionBegin(self, routine, dependantSymbols, parallelRegionTemplate):
+		statistics.addToCounter(Counters.ADDED_WITHOUT_HF, routine.parentModuleName)
 		regionStr = ""
 		#$$$ may need to be replaced with CUDA Fortran style manual update
 		# for symbol in self.currDependantSymbols:
@@ -770,6 +786,7 @@ end subroutine
 		if len(domains) > 3 or len(domains) < 1:
 			raise UsageError("Invalid number of parallel domains in parallel region definition.")
 		for pos in range(len(domains)-1,-1,-1): #use inverted order (optimization of accesses for fortran storage order)
+			statistics.addToCounter(Counters.ADDED_WITHOUT_HF, routine.parentModuleName)
 			regionStr += "!$acc loop independent vector(%s) " %(vectorSizePPNames[pos])
 			# reduction clause is broken in 15.3. better to let the compiler figure it out.
 			# if pos == len(domains)-1:
@@ -787,6 +804,7 @@ end subroutine
 		return regionStr
 
 	def parallelRegionEnd(self, parallelRegionTemplate, routine, skipDebugPrint=False):
+		statistics.addToCounter(Counters.ADDED_WITHOUT_HF, routine.parentModuleName)
 		additionalStatements = "\n!$acc end kernels\n"
 		#$$$ may need to be replaced with CUDA Fortran style manual update
 		# for symbol in self.currDependantSymbols:
@@ -817,6 +835,7 @@ end subroutine
 	def subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, isSubroutineEnd):
 		if isSubroutineEnd:
 			self.currRoutineNode = None
+			self.currRoutine = None
 			self.currRoutineHasDataDeclarations = False
 			self.currParallelRegionTemplates = None
 		return super(PGIOpenACCFortranImplementation, self).subroutineExitPoint(

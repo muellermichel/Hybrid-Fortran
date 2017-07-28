@@ -26,6 +26,7 @@ from machinery.commons import conversionOptions, FortranCodeSanitizer
 from tools.commons import UsageError, openFile, getDataFromFile, setupDeferredLogging, printProgressIndicator, progressIndicatorReset
 from tools.filesystem import dirEntries
 from tools.analysis import SymbolDependencyAnalyzer
+from tools.statistics import statistics
 import implementations.fortran
 from io import FileIO
 import os, errno, sys, json, traceback, logging
@@ -90,6 +91,7 @@ if (not options.implementation):
 
 conversionOptions.debugPrint = options.debug
 filesInDir = dirEntries(str(options.sourceDir), True, 'h90')
+statistics.reset()
 
 try:
 	os.mkdir(options.outputDir)
@@ -285,3 +287,5 @@ for fileNum, fc in enumerate(fileContents):
 	finally:
 		outputStream.close()
 progressIndicatorReset(sys.stderr)
+
+logging.info(statistics)

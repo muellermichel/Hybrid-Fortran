@@ -33,5 +33,5 @@ helper_functions_gpu.o: helper_functions.o
 # ADD YOUR DEPENDENCIES BELOW THIS LINE
 # -------->
 
-example.o: helper_functions.o time_profiling.o secondary.o ${USER_LIB}
+example.o: helper_functions.o time_profiling.o ${USER_LIB}
 

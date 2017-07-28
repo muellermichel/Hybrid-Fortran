@@ -20,8 +20,9 @@
 
 import copy, re
 from tools.commons import enum, UsageError, OrderedDict
-from tools.metadata import getArguments, getIterators
+from tools.metadata import getArguments, getIterators, appliesTo, getDomainsWithParallelRegionTemplate
 from tools.patterns import regexPatterns
+from tools.statistics import statistics, Counters
 from machinery.commons import conversionOptions, \
 	getSymbolAccessStringAndRemainder, \
 	implement, \
@@ -133,7 +134,8 @@ class Region(object):
 				implementSymbolAccessStringAndRemainder,
 				iterators,
 				parallelRegionTemplate,
-				useDeviceVersionIfAvailable=parentRoutine.implementation.onDevice
+				useDeviceVersionIfAvailable=parentRoutine.implementation.onDevice,
+				routine=parentRoutine
 			)
 			for (line, symbols) in self._linesAndSymbols
 		])
@@ -180,7 +182,8 @@ class CallRegion(Region):
 				iterators,
 				parallelRegionTemplate,
 				self._callee,
-				useDeviceVersionIfAvailable=parentRoutine.implementation.onDevice
+				useDeviceVersionIfAvailable=parentRoutine.implementation.onDevice,
+				routine=parentRoutine
 			)
 		if not hasattr(self._callee, "implementation"):
 			return arguments
@@ -359,6 +362,18 @@ class ParallelRegion(Region):
 		return None
 
 	def implemented(self, parentRoutine, parentRegion=None, skipDebugPrint=False):
+		statistics.addToCounter(
+			Counters.ADDED_FOR_HF,
+			parentRoutine.parentModuleName,
+			loc=2
+		) #@parallelRegion and @end parallelRegion directives
+		if self._activeTemplate and appliesTo(["CPU"], self._activeTemplate):
+			statistics.addToCounter(
+				Counters.DELETED_FOR_HF,
+				parentRoutine.parentModuleName,
+				loc=2 * len(getDomainsWithParallelRegionTemplate(self._activeTemplate))
+			) #the deleted do-loops
+
 		text = ""
 		hasAtExits = None
 		routineHasKernels = parentRoutine.node.getAttribute('parallelRegionPosition') == 'within'
@@ -369,6 +384,12 @@ class ParallelRegion(Region):
 				self._activeTemplate
 			).strip() + "\n"
 		else:
+			if parentRoutine.implementation.onDevice:
+				statistics.addToCounter(
+					Counters.DELETED_WITHOUT_HF,
+					parentRoutine.parentModuleName,
+					loc=4
+				) #CPU parallel region applied to GPU -> deleting the coarse grained do-loops even without HF; we assume 2 parallel domains here
 			hasAtExits = "@exit" in self
 			if hasAtExits:
 				text += parentRoutine.implementation.parallelRegionStubBegin()

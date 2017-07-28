@@ -22,6 +22,7 @@ import re, logging
 from tools.commons import BracketAnalyzer, UsageError, findRightMostOccurrenceNotInsideQuotes, \
     splitIntoComponentsAndRemainder, getComponentNameAndBracketContent, enum
 from tools.patterns import regexPatterns
+from tools.statistics import statistics, Counters
 
 TypeParameter = enum(
     "ValueByteLength",
@@ -141,7 +142,7 @@ def getSymbolAccessStringAndRemainder(
     )
     return symbolAccessString, remainder
 
-def implement(line, symbols, symbolImplementationFunction, iterators=[], parallelRegionTemplate=None, callee=None, useDeviceVersionIfAvailable=True):
+def implement(line, symbols, symbolImplementationFunction, iterators=[], parallelRegionTemplate=None, callee=None, useDeviceVersionIfAvailable=True, routine=None):
     adjustedLine = line
     for symbol in symbols:
         lineSections = []
@@ -171,6 +172,14 @@ def implement(line, symbols, symbolImplementationFunction, iterators=[], paralle
         lineSections.append(work)
         #rebuild adjusted line - next symbol starts adjustment anew
         adjustedLine = "".join(lineSections).strip()
+    if routine:
+        comparisonNew = adjustedLine.replace(" ", "").replace("_hfdev", "")
+        comparisonOld = line.strip().replace(" ", "")
+        if comparisonOld != comparisonNew:
+            # logging.info("adj: " + comparisonNew + "; old: " + comparisonOld)
+            statistics.addToCounter(Counters.CHANGE_FOR_ORDERING, routine.parentModuleName)
+        else:
+            statistics.addToCounter(Counters.UNCHANGED, routine.parentModuleName)
     return adjustedLine
 
 def replaceEarlyExits(line, implementation, parallelRegionPosition):

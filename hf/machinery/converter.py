@@ -26,6 +26,7 @@ from models.region import RegionType, RoutineSpecificationRegion
 from tools.metadata import *
 from tools.commons import UsageError, BracketAnalyzer, stacktrace
 from tools.analysis import SymbolDependencyAnalyzer, getAnalysisForSymbol, getArguments
+from tools.statistics import statistics, Counters
 from machinery.parser import H90CallGraphAndSymbolDeclarationsParser, getSymbolsByName, currFile, currLineNo
 from machinery.commons import conversionOptions, parseSpecification
 
@@ -377,10 +378,12 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
     def processDomainDependantMatch(self, domainDependantMatch):
         super(H90toF90Converter, self).processDomainDependantMatch(domainDependantMatch)
         self.prepareLine("", "")
+        statistics.addToCounter(Counters.ADDED_FOR_HF, self.currModuleName)
 
     def processDomainDependantEndMatch(self, domainDependantEndMatch):
         super(H90toF90Converter, self).processDomainDependantEndMatch(domainDependantEndMatch)
         self.prepareLine("", "")
+        statistics.addToCounter(Counters.ADDED_FOR_HF, self.currModuleName)
 
     def processContainsMatch(self, containsMatch):
         super(H90toF90Converter, self).processContainsMatch(containsMatch)
@@ -612,7 +615,7 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
         whileLoopMatch = self.patterns.whileLoopPattern.match(line)
         loopMatch = self.patterns.loopPattern.match(line)
         if whileLoopMatch == None and loopMatch != None:
-            adjustedLine += self.implementation.loopPreparation().strip() + '\n'
+            adjustedLine += self.implementation.loopPreparation(self.currRoutine).strip() + '\n'
         adjustedLine += line
         self.analyseSymbolInformationOnCurrentLine(line, isInSubroutineBody=True)
         self.prepareLine(adjustedLine, self.tab_insideSub)
@@ -621,11 +624,13 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
         super(H90toF90Converter, self).processInsideDomainDependantRegionState(line)
         if self.state == "inside_domainDependantRegion":
             self.prepareLine("", "")
+            statistics.addToCounter(Counters.ADDED_FOR_HF, self.currModuleName)
 
     def processInsideModuleDomainDependantRegionState(self, line):
         super(H90toF90Converter, self).processInsideModuleDomainDependantRegionState(line)
         if self.state == "inside_moduleDomainDependantRegion":
             self.prepareLine("", "")
+            statistics.addToCounter(Counters.ADDED_FOR_HF, self.currModuleName)
 
     def processInsideBranch(self, line):
         super(H90toF90Converter, self).processInsideBranch(line)
@@ -639,6 +644,10 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
     def processLine(self, line):
         self.currentLineNeedsPurge = False
         self.prepareLineCalledForCurrentLine = False
+        statistics.addToCounter(
+            Counters.ALL,
+            self.currModuleName if self.currModuleName else "main"
+        )
         super(H90toF90Converter, self).processLine(line)
         if not self.prepareLineCalledForCurrentLine:
             raise Exception(
@@ -647,9 +656,6 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
                     self.stateBeforeBranch
                 )
             )
-
-    def processFile(self, fileName):
-        super(H90toF90Converter, self).processFile(fileName)
 
     def prepareFileContent(self, fileName):
         self.processFile(fileName)

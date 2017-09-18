@@ -600,6 +600,11 @@ class RoutineSpecificationRegion(Region):
 				for symbol in declaredSymbolsByScopedName.values()
 			]).strip() + "\n"
 			text += declarations
+			if re.match(r'DOM\w*\(', declarations):
+				statistics.addToCounter(
+					Counters.CHANGE_FOR_ORDERING,
+					parentRoutine.parentModuleName
+				)
 		if len(self._dataSpecificationLines) > 0 and conversionOptions.debugPrint and not skipDebugPrint:
 			text += "!<----- data specifications: --\n"
 		if len(self._dataSpecificationLines) > 0:

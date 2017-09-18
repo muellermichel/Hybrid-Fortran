@@ -201,11 +201,14 @@ aliasNamesByRoutineName = None
 if options.symbolName:
 	aliasNamesByRoutineName = analyzer.getAliasNamesByRoutineName(options.symbolName, options.symbolGraphRootRoutine)
 
+routine_positions_by_name = {}
+
 for sourceName in sourceClustersByName.keys():
 	source = sourceClustersByName[sourceName]
 	for routine in routinesBySourceDict[sourceName]:
 		routineName = routine.getAttribute("name")
 		regionPosition = getRegionPosition(routineName, routines)
+		routine_positions_by_name[routineName] = regionPosition
 		symbolAnalysis = []
 		if analysis != None:
 			for symbolName in analysis.get(routineName, {}).keys():
@@ -241,6 +244,8 @@ for (caller, callee) in edges.keys():
 		penwidth=graphPenWidth
 	)
 	graph.add_edge(edge)
+
+import json; print json.dumps(routine_positions_by_name)
 
 legend = pydot.Cluster(graph_name = 'Legend', label = 'Legend', penwidth=moduleClusterPenwidth)
 exampleSymbolAnalysis1 = SymbolAnalysis()

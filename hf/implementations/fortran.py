@@ -663,7 +663,7 @@ class DeviceDataFortranImplementation(FortranImplementation):
 		return deviceInitStatements
 
 	def subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, isSubroutineEnd):
-		if not isSubroutineEnd:
+		if not isSubroutineEnd and hasattr(self, "currRoutine"):
 			statistics.addToCounter(Counters.ADDED_WITHOUT_HF, self.currRoutine.parentModuleName)
 
 		deviceInitStatements = ""

@@ -1,0 +1,80 @@
+# Copyright (C) 2016 Michel Müller, Tokyo Institute of Technology
+
+# This file is part of Hybrid Fortran.
+
+# Hybrid Fortran is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# Hybrid Fortran is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU Lesser General Public License for more details.
+
+# You should have received a copy of the GNU Lesser General Public License
+# along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
+
+#--------------------------------------------------------#
+#-- GNU Make settings for GPU compilation ---------------#
+#-- created:   2012-9-3 ---------------------------------#
+#-- author:    Michel Müller ----------------------------#
+#-- place:     Tokyo Institute of Technology ------------#
+#--------------------------------------------------------#
+
+#############################################################################
+# Important notes                                                           #
+# 1) If you want to use device capabilities <3.0, please add the            #
+#    DO_NOT_TOUCH_GPU_CACHE_SETTINGS flag in MakesettingsGeneral            #
+#############################################################################
+
+#############################################################################
+# compiler and linker choice                                                #
+#############################################################################
+FC=pgf90
+CC=pgcc
+LD=pgf90
+
+#############################################################################
+# CUDA                                                                      #
+#############################################################################
+CUDAC = nvcc
+ifdef DEBUG
+CUDAFLAGS = -G -arch compute_30
+else
+CUDAFLAGS = -O3 -arch compute_30
+endif
+
+ifdef EMULATED
+#############################################################################
+# emulation mode settings                                                   #
+#############################################################################
+#EMULATED in Fortran-only code as well as device execution in mixed C/Fortran code works fine.
+#Notes:
+# 1) EMULATED mode does not work together with calling CUDA Fortran files from C - it always throws segmentation fault
+#when accessing any memory in a kernel, even if that memory has been set separately in Fortran. For some reason it seems to mess with the
+#subroutine specification memory layout, so it passes in dimensions for arrays as the value of by-value-inputs for example.
+# 2) EMULATED mode does not work together with cublas (therefore it cannot be used in this example)
+FFLAGS= -DGPU -Mcuda=emu -g
+LDFLAGS= -Mcuda=emu -Minfo=accel,inline -Mneginfo -l${HYBRID_LIBRARY_FILENAME_POSTFIX}
+
+else
+ifdef DEBUG
+#############################################################################
+# debug settings                                                            #
+#############################################################################
+FFLAGS= -g -DGPU -Mcuda=cc3x -ta=nvidia,cc3x,keepgpu,keepbin -Minfo=accel,inline,ipa -Mneginfo -Minform=inform
+LDFLAGS= -g -Mcuda=cc3x -ta=nvidia,cc3x -Minfo=accel,inline -Mneginfo -l${HYBRID_LIBRARY_FILENAME_POSTFIX}
+
+else
+#############################################################################
+# production settings                                                       #
+#############################################################################
+FFLAGS= -DGPU -Mcuda=cc3x -fast -ta=nvidia,cc3x -Minfo=accel,inline,ipa -Mneginfo
+LDFLAGS= -Mcuda=cc3x -fast -ta=nvidia,cc3x -Minfo=accel,inline -Mneginfo -l${HYBRID_LIBRARY_FILENAME_POSTFIX}
+
+endif
+endif
+
+CFLAGS=${FFLAGS}
+PGFLAGS= -D_OPENACC

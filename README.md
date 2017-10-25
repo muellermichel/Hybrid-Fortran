@@ -184,6 +184,7 @@ Documentation
 
 Published Materials
 -------------------
+* [Paper "Hybrid Fortran: High Productivity GPU Porting Framework Applied to Japanese Weather Prediction Model", accepted for WACCPD 2017](http://arxiv.org/abs/1710.08616)
 * [Background Story (as mentioned/published in HPC Today, Inside HPC, HPCwire)](http://typhooncomputing.com/?p=416)
 * [Poster SC14](http://sc14.supercomputing.org/sites/all/themes/sc14/files/archive/tech_poster/tech_poster_pages/post134.html)
 * [Talk GTC 2014 (Voice + Slides)](http://on-demand.gputechconf.com/gtc/2014/video/S4352-asuca-on-gpu-hybrid-port-japanese-weather-model.mp4)

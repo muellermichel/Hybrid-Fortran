@@ -64,7 +64,7 @@ def addGlobalParallelDomainNames(symbols, globalParallelDomainNames):
     for symbol in symbols:
         symbol.globalParallelDomainNames = globalParallelDomainNames
 
-class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
+class ApplicationModelGenerator(H90CallGraphAndSymbolDeclarationsParser):
     currentLineNeedsPurge = False
     tab_insideSub = "\t\t"
     tab_outsideSub = "\t"
@@ -80,7 +80,7 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
         symbolsByRoutineNameAndSymbolName=None,
         globalParallelDomainNames={}
     ):
-        super(H90toF90Converter, self).__init__(
+        super(ApplicationModelGenerator, self).__init__(
             cgDoc,
             moduleNodesByName=moduleNodesByName,
             parallelRegionData=parallelRegionData,
@@ -207,7 +207,7 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
         )
 
     def processCallMatch(self, subProcCallMatch):
-        super(H90toF90Converter, self).processCallMatch(subProcCallMatch)
+        super(ApplicationModelGenerator, self).processCallMatch(subProcCallMatch)
         sourceModuleByNameInScope = {}
         for (sourceModule, nameInScope) in self.currModuleImportsDict.keys() + self.currRoutineImportsDict.keys():
             sourceModuleByNameInScope[nameInScope] = sourceModule
@@ -260,20 +260,20 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
         return adjustedLine
 
     def processTemplateMatch(self, templateMatch):
-        super(H90toF90Converter, self).processTemplateMatch(templateMatch)
+        super(ApplicationModelGenerator, self).processTemplateMatch(templateMatch)
         self.prepareLine("","")
 
     def processTemplateEndMatch(self, templateEndMatch):
-        super(H90toF90Converter, self).processTemplateEndMatch(templateEndMatch)
+        super(ApplicationModelGenerator, self).processTemplateEndMatch(templateEndMatch)
         self.prepareLine("","")
 
     def processBranchMatch(self, branchMatch):
-        super(H90toF90Converter, self).processBranchMatch(branchMatch)
+        super(ApplicationModelGenerator, self).processBranchMatch(branchMatch)
         self.prepareLine("","")
         self.currentLineNeedsPurge = True
 
     def processModuleBeginMatch(self, moduleBeginMatch):
-        super(H90toF90Converter, self).processModuleBeginMatch(moduleBeginMatch)
+        super(ApplicationModelGenerator, self).processModuleBeginMatch(moduleBeginMatch)
         self.implementation.processModuleBegin(self.currModuleName)
         self.currModule = Module(
             self.currModuleName,
@@ -287,10 +287,10 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
         self.lastModuleName = self.currModule.name
         self.currModule = None
         self.implementation.processModuleEnd()
-        super(H90toF90Converter, self).processModuleEndMatch(moduleEndMatch)
+        super(ApplicationModelGenerator, self).processModuleEndMatch(moduleEndMatch)
 
     def processProcBeginMatch(self, subProcBeginMatch):
-        super(H90toF90Converter, self).processProcBeginMatch(subProcBeginMatch)
+        super(ApplicationModelGenerator, self).processProcBeginMatch(subProcBeginMatch)
         self.currRoutine = self.currModule.createRoutine(
             self.currSubprocName,
             self.routineNodesByProcName.get(self.currSubprocName),
@@ -322,10 +322,10 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
         self.currSubroutineImplementationNeedsToBeCommented = False
         self.currRoutine.finalize()
         self.currRoutine = None
-        super(H90toF90Converter, self).processProcEndMatch(subProcEndMatch)
+        super(ApplicationModelGenerator, self).processProcEndMatch(subProcEndMatch)
 
     def processParallelRegionMatch(self, parallelRegionMatch):
-        super(H90toF90Converter, self).processParallelRegionMatch(parallelRegionMatch)
+        super(ApplicationModelGenerator, self).processParallelRegionMatch(parallelRegionMatch)
         logging.debug(
             "...parallel region starts on line %i with active symbols %s" %(self.lineNo, str(self.currSymbolsByName.values())),
             extra={"hfLineNo":currLineNo, "hfFile":currFile}
@@ -366,7 +366,7 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
         self.prepareLine("", self.tab_insideSub)
 
     def processParallelRegionEndMatch(self, parallelRegionEndMatch):
-        super(H90toF90Converter, self).processParallelRegionEndMatch(parallelRegionEndMatch)
+        super(ApplicationModelGenerator, self).processParallelRegionEndMatch(parallelRegionEndMatch)
         self.prepareLine("", self.tab_insideSub)
         self.switchToNewRegion(oldRegion=self.currParallelRegion)
         self.currParallelRegion = None
@@ -375,15 +375,15 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
         self.currParallelRegionRelationNode = None
 
     def processDomainDependantMatch(self, domainDependantMatch):
-        super(H90toF90Converter, self).processDomainDependantMatch(domainDependantMatch)
+        super(ApplicationModelGenerator, self).processDomainDependantMatch(domainDependantMatch)
         self.prepareLine("", "")
 
     def processDomainDependantEndMatch(self, domainDependantEndMatch):
-        super(H90toF90Converter, self).processDomainDependantEndMatch(domainDependantEndMatch)
+        super(ApplicationModelGenerator, self).processDomainDependantEndMatch(domainDependantEndMatch)
         self.prepareLine("", "")
 
     def processContainsMatch(self, containsMatch):
-        super(H90toF90Converter, self).processContainsMatch(containsMatch)
+        super(ApplicationModelGenerator, self).processContainsMatch(containsMatch)
         self.prepareLine(containsMatch.group(0), self.tab_outsideSub)
 
     def processDataStatementMatch(self, dataStatementMatch):
@@ -393,27 +393,27 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
         self.prepareLine("", "")
 
     def processInterfaceMatch(self, interfaceMatch):
-        super(H90toF90Converter, self).processInterfaceMatch(interfaceMatch)
+        super(ApplicationModelGenerator, self).processInterfaceMatch(interfaceMatch)
         self.prepareLine(interfaceMatch.group(0), self.tab_outsideSub)
 
     def processInterfaceEndMatch(self, interfaceEndMatch):
-        super(H90toF90Converter, self).processInterfaceEndMatch(interfaceEndMatch)
+        super(ApplicationModelGenerator, self).processInterfaceEndMatch(interfaceEndMatch)
         self.prepareLine(interfaceEndMatch.group(0), self.tab_outsideSub)
 
     def processTypeMatch(self, typeMatch):
-        super(H90toF90Converter, self).processTypeMatch(typeMatch)
+        super(ApplicationModelGenerator, self).processTypeMatch(typeMatch)
         self.prepareLine(typeMatch.group(0), self.tab_outsideSub)
 
     def processTypeEndMatch(self, typeEndMatch):
-        super(H90toF90Converter, self).processTypeEndMatch(typeEndMatch)
+        super(ApplicationModelGenerator, self).processTypeEndMatch(typeEndMatch)
         self.prepareLine(typeEndMatch.group(0), self.tab_outsideSub)
 
     def processNoMatch(self, line):
-        super(H90toF90Converter, self).processNoMatch(line)
+        super(ApplicationModelGenerator, self).processNoMatch(line)
         self.prepareLine(line, "")
 
     def processInsideModuleState(self, line):
-        super(H90toF90Converter, self).processInsideModuleState(line)
+        super(ApplicationModelGenerator, self).processInsideModuleState(line)
         if self.state not in ['inside_module', 'inside_branch'] \
         or (self.state == 'inside_branch' and self.stateBeforeBranch != 'inside_module'):
             return
@@ -618,28 +618,28 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
         self.prepareLine(adjustedLine, self.tab_insideSub)
 
     def processInsideDomainDependantRegionState(self, line):
-        super(H90toF90Converter, self).processInsideDomainDependantRegionState(line)
+        super(ApplicationModelGenerator, self).processInsideDomainDependantRegionState(line)
         if self.state == "inside_domainDependantRegion":
             self.prepareLine("", "")
 
     def processInsideModuleDomainDependantRegionState(self, line):
-        super(H90toF90Converter, self).processInsideModuleDomainDependantRegionState(line)
+        super(ApplicationModelGenerator, self).processInsideModuleDomainDependantRegionState(line)
         if self.state == "inside_moduleDomainDependantRegion":
             self.prepareLine("", "")
 
     def processInsideBranch(self, line):
-        super(H90toF90Converter, self).processInsideBranch(line)
+        super(ApplicationModelGenerator, self).processInsideBranch(line)
         if self.state != "inside_branch":
             self.prepareLine("", "")
 
     def processInsideIgnore(self, line):
-        super(H90toF90Converter, self).processInsideIgnore(line)
+        super(ApplicationModelGenerator, self).processInsideIgnore(line)
         self.prepareLine("", "")
 
     def processLine(self, line):
         self.currentLineNeedsPurge = False
         self.prepareLineCalledForCurrentLine = False
-        super(H90toF90Converter, self).processLine(line)
+        super(ApplicationModelGenerator, self).processLine(line)
         if not self.prepareLineCalledForCurrentLine:
             raise Exception(
                 "Line has never been prepared - there is an error in the transpiler logic. Please contact the Hybrid Fortran maintainers. Parser state: %s; before branch: %s" %(
@@ -649,7 +649,7 @@ class H90toF90Converter(H90CallGraphAndSymbolDeclarationsParser):
             )
 
     def processFile(self, fileName):
-        super(H90toF90Converter, self).processFile(fileName)
+        super(ApplicationModelGenerator, self).processFile(fileName)
 
     def prepareFileContent(self, fileName):
         self.processFile(fileName)

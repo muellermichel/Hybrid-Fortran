@@ -21,7 +21,7 @@
 from tools.metadata import parseString, ImmutableDOMDocument, getClonedDocument, getParallelDomainNames
 from optparse import OptionParser
 from machinery.parser import H90XMLSymbolDeclarationExtractor, getModuleNodesByName, getParallelRegionData
-from machinery.converter import H90toF90Converter, getSymbolsByRoutineNameAndSymbolName, getSymbolsByModuleNameAndSymbolName
+from machinery.converter import ApplicationModelGenerator, getSymbolsByRoutineNameAndSymbolName, getSymbolsByModuleNameAndSymbolName
 from machinery.commons import conversionOptions, FortranCodeSanitizer
 from tools.commons import UsageError, openFile, getDataFromFile, setupDeferredLogging, printProgressIndicator, progressIndicatorReset
 from tools.filesystem import dirEntries
@@ -114,7 +114,7 @@ except ValueError as e:
 except Exception as e:
 	logging.critical('Could not interpret implementation parameter as json file to read. Trying to use it as an implementation name directly')
 	implementationNamesByTemplateName = {'default':options.implementation}
-logging.debug('Initializing H90toF90Converter with the following implementations: %s' %(json.dumps(implementationNamesByTemplateName)))
+logging.debug('Initializing ApplicationModelGenerator with the following implementations: %s' %(json.dumps(implementationNamesByTemplateName)))
 implementationsByTemplateName = dict(
 	(templateName, getattr(implementations.fortran, implementationNamesByTemplateName[templateName])(optionFlags))
 	for templateName in implementationNamesByTemplateName.keys()
@@ -189,11 +189,11 @@ except Exception as e:
 	sys.exit(1)
 
 #   Prepare the content for all files based on all the information above.
-fileContents = []
+sourceModels = []
 for fileNum, fileInDir in enumerate(filesInDir):
 	printProgressIndicator(sys.stderr, fileInDir, fileNum + 1, len(filesInDir), "Preparing File Content")
 	try:
-		converter = H90toF90Converter(
+		converter = ApplicationModelGenerator(
 			ImmutableDOMDocument(cgDoc), #using our immutable version we can speed up ALL THE THINGS through caching
 			implementationsByTemplateName,
 			moduleNodesByName,
@@ -203,7 +203,7 @@ for fileNum, fileInDir in enumerate(filesInDir):
 			symbolsByRoutineNameAndSymbolName,
 			parallelDomainNames
 		)
-		fileContents.append(converter.prepareFileContent(fileInDir))
+		sourceModels.append(converter.prepareFileContent(fileInDir))
 	except UsageError as e:
 		logging.error('Error: %s' %(str(e)))
 		sys.exit(1)
@@ -214,8 +214,8 @@ modulesByName = {}
 routinesByName = {}
 calleesByCallerName = {}
 calleesByCalleeName = {}
-for fileNum, fc in enumerate(fileContents):
-	printProgressIndicator(sys.stderr, fc['fileName'], fileNum + 1, len(fileContents), "CG Analysis")
+for fileNum, fc in enumerate(sourceModels):
+	printProgressIndicator(sys.stderr, fc['fileName'], fileNum + 1, len(sourceModels), "CG Analysis")
 	for m in fc['modules']:
 		if modulesByName.get(m.name) != None:
 			logging.error("Error: Multiple modules with name %s found" %(m.name))
@@ -255,8 +255,8 @@ progressIndicatorReset(sys.stderr)
 #   Preprocess all modules.
 #   Routines will be split according to architecture.
 #   Symbol usage will be analysed so this info is available globally.
-for fileNum, fc in enumerate(fileContents):
-	printProgressIndicator(sys.stderr, fc['fileName'], fileNum + 1, len(fileContents), "Prepare Modules for Implementation")
+for fileNum, fc in enumerate(sourceModels):
+	printProgressIndicator(sys.stderr, fc['fileName'], fileNum + 1, len(sourceModels), "Prepare Modules for Implementation")
 	try:
 		for m in fc['modules']:
 			m.prepareForImplementation()
@@ -267,12 +267,12 @@ progressIndicatorReset(sys.stderr)
 
 #   Finally, do the conversion based on the prepare content
 codeSanitizer = FortranCodeSanitizer()
-for fileNum, fc in enumerate(fileContents):
+for fileNum, fc in enumerate(sourceModels):
 	outputPath = os.path.join(
 		os.path.normpath(options.outputDir),
 		os.path.splitext(os.path.basename(fc['fileName']))[0] + ".P90.temp"
 	)
-	printProgressIndicator(sys.stderr, fc['fileName'], fileNum + 1, len(fileContents), "Implementing as Standard Fortran")
+	printProgressIndicator(sys.stderr, fc['fileName'], fileNum + 1, len(sourceModels), "Implementing as Standard Fortran")
 	outputStream = FileIO(outputPath, mode="wb")
 	try:
 		outputStream.write(codeSanitizer.sanitizeLines(fc['prefix'] + "\n"))

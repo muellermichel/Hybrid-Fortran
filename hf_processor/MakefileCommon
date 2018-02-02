@@ -113,7 +113,7 @@ SRC_DIR_CPU=${DIR_CPU}${SRC_DIR_COMMON}/
 SRC_DIR_GPU=${DIR_GPU}${SRC_DIR_COMMON}/
 SRC_DIR_HFPP=$(shell pwd)/${BASEDIR_POST}/hf_preprocessed/
 
-SRC_F90_PRE='$(shell find ${SRC_DIR_COMMON} -type f -name '*.f90' -o -name '*.f')'
+SRC_F90_PRE='$(shell find ${SRC_DIR_COMMON} -type f -name '*.f90' -o -name '*.f' -o -name '*.inc')'
 SRC_F90=$(shell python ${HF_PYTHON_DIR}filterExceptions.py --paths ${SRC_F90_PRE} --exceptions ${EXCEPTIONS})
 SRC_F90PP_PRE='$(shell find ${SRC_DIR_COMMON} -type f -name '*.F90' -o -name '*.F')'
 SRC_F90PP=$(shell python ${HF_PYTHON_DIR}filterExceptions.py --paths ${SRC_F90PP_PRE} --exceptions ${EXCEPTIONS})
@@ -548,6 +548,10 @@ ${SRC_DIR_CPU}%.F: %.F
 	@echo ...copying file into $@ >${DEBUG_OUTPUT}
 	@mkdir -p ${SRC_DIR_CPU} && cp -fp $< $@
 
+${SRC_DIR_CPU}%.inc: %.inc
+	@echo ...copying file into $@ >${DEBUG_OUTPUT}
+	@mkdir -p ${SRC_DIR_CPU} && cp -fp $< $@
+
 ${SRC_DIR_CPU}%.c: %.c
 	@echo ...copying file into $@ >${DEBUG_OUTPUT}
 	@mkdir -p ${SRC_DIR_CPU} && cp -fp $< $@
@@ -573,6 +577,10 @@ ${SRC_DIR_GPU}%.f: %.f
 	@mkdir -p ${SRC_DIR_GPU} && cp -fp $< $@
 
 ${SRC_DIR_GPU}%.F: %.F
+	@echo ...copying file into $@ >${DEBUG_OUTPUT}
+	@mkdir -p ${SRC_DIR_GPU} && cp -fp $< $@
+
+${SRC_DIR_GPU}%.inc: %.inc
 	@echo ...copying file into $@ >${DEBUG_OUTPUT}
 	@mkdir -p ${SRC_DIR_GPU} && cp -fp $< $@
 

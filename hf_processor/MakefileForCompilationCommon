@@ -81,7 +81,7 @@ LIBRARY_OBJECTS_POST=$(subst ",,${LIBRARY_OBJECTS})
 
 VPATH=$OBJDIR
 
-.SUFFIXES: .out .o .il .F90 .f90 .F .f .P90 .c .cu
+.SUFFIXES: .out .o .il .F90 .f90 .F .f .P90 .c .cu .inc
 
 .PRECIOUS: %.f90
 
@@ -128,6 +128,8 @@ ${USER_LIB}: $(LIBRARY_OBJECTS_POST)
 %.o: %.cu
 	$(call blueecho,"..........compiling $< in $(CURDIR)")
 	$(CUDAC) $(CUDAFLAGS) $(PFLAGS_POST) -c $< -o $@
+
+%.inc:
 
 helper_functions.o: storage_order.F90
 helper_functions_gpu.o: storage_order.F90

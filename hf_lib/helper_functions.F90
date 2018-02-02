@@ -104,6 +104,7 @@ contains
 #endif
 #ifdef GPU
 		integer(4) :: deviceCount, deviceID
+		integer(4), parameter, dimension(4) :: deviceIDs4 = (/0,2,1,3/)
 		type (cudaDeviceProp) :: prop
 #endif
 #ifdef _OPENMP
@@ -127,7 +128,11 @@ contains
 		call mpi_comm_size(mpi_comm_world, numProcs, istat)
 #ifdef GPU
 		istat = cudaGetDeviceCount( deviceCount )
-		deviceID = modulo(localRank, deviceCount)
+		if (deviceCount == 4) then
+			deviceID = deviceIDs4(localRank + 1)
+		else
+			deviceID = modulo(localRank, deviceCount)
+		end if
 		istat = cudaSetDevice(deviceID)
 #ifdef _OPENACC
 		!do *not* use acc_init. It doesn't work on multi-GPU nodes together with CUDA Fortran for me
@@ -186,6 +191,7 @@ contains
 		write(imt, *) "  Running on ", trim(prop%name)
 		write(imt, *) "  Global Memory available (MiB):", prop%totalGlobalMem / 1024**2
 		write(imt, *) "  ECC status:", prop%ECCEnabled
+		write(imt, *) "  Device count:", deviceCount
 
 		istat = cudaGetDevice( deviceID )
 		write(imt, *) "  Device ID:", deviceID

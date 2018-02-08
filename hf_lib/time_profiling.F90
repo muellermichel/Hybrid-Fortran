@@ -1,4 +1,4 @@
-! Copyright (C) 2016 Michel Müller, Tokyo Institute of Technology
+! Copyright (C) 2018 Michel Müller, Tokyo Institute of Technology
 
 ! This file is part of Hybrid Fortran.
 
@@ -15,6 +15,12 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
+#ifndef CTIME
+#ifdef _OPENMP
+#define USE_OPENMP 1
+#endif
+#endif
+
 module time_profiling
 	implicit none
 	private
@@ -26,10 +32,10 @@ module time_profiling
 	public :: counter1, counter2, counter3, counter4, counter5
 	public :: counter_sf_flx, counter_pbl_mym, counter_pbl_coupler, counter_rad, counter_mainloop
 	public :: incrementCounter, time_profiling_ini, incrementCounterWithElapsed
+	public :: getTime_CTIME_OR_OPENMP, getElapsedTime_CTIME_OR_OPENMP
 
 contains
 	subroutine time_profiling_ini()
-		use helper_functions
 		counter_rad_sw_wrapper = 0.0d0
 		counter_rad_sw = 0.0d0
 		counter_rad_sw_main = 0.0d0
@@ -48,18 +54,16 @@ contains
 	end subroutine time_profiling_ini
 
 	subroutine incrementCounter(prof_counter, start_time)
-		use helper_functions
 		implicit none
 
 		real(8), intent(inout) :: prof_counter
 		real(8), intent(in) :: start_time
 		real(8) :: elapsed
-		call getElapsedTime(start_time, elapsed)
+		call getElapsedTime_CTIME_OR_OPENMP(start_time, elapsed)
 		prof_counter = prof_counter + elapsed
 	end subroutine incrementCounter
 
 	subroutine incrementCounterWithElapsed(prof_counter, elapsed_time)
-		use helper_functions
 		implicit none
 
 		real(8), intent(inout) :: prof_counter
@@ -67,4 +71,34 @@ contains
 		prof_counter = prof_counter + elapsed_time
 	end subroutine incrementCounterWithElapsed
 
+	subroutine getTime_CTIME_OR_OPENMP(time)
+#ifdef USE_OPENMP
+		use omp_lib
+#endif
+		implicit none
+		real(8), intent(out) :: time
+#ifdef USE_OPENMP
+		time = OMP_get_wtime()
+#else
+		call cpu_time(time)
+#endif
+	end subroutine getTime_CTIME_OR_OPENMP
+
+	!2012-6-5 michel: take a starttime and return an elapsedtime
+	subroutine getElapsedTime_CTIME_OR_OPENMP(startTime, elapsedTime)
+#ifdef USE_OPENMP
+		use omp_lib
+#endif
+		implicit none
+		real(8), intent(in) :: startTime
+		real(8), intent(out) :: elapsedTime
+		real(8) endTime
+
+#ifdef USE_OPENMP
+		endTime = OMP_get_wtime()
+#else
+		call cpu_time(endTime)
+#endif
+		elapsedTime = endTime - startTime
+	end subroutine getElapsedTime_CTIME_OR_OPENMP
 end module time_profiling

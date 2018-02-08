@@ -1,4 +1,4 @@
-! Copyright (C) 2016 Michel Müller, Tokyo Institute of Technology
+! Copyright (C) 2018 Michel Müller, Tokyo Institute of Technology
 
 ! This file is part of Hybrid Fortran.
 
@@ -16,12 +16,6 @@
 ! along with Hybrid Fortran. If not, see <http://www.gnu.org/licenses/>.
 
 #include "storage_order.F90"
-
-#ifndef CTIME
-#ifdef _OPENMP
-#define USE_OPENMP 1
-#endif
-#endif
 
 module helper_functions
 use iso_c_binding
@@ -553,50 +547,25 @@ contains
 		close(imt)
 	end subroutine
 
-! 	logical function isNaN_real8(number)
-! 		implicit none
-! 		real(8) number
-! 		isNaN_real8 = isnand(number)
-! 		return
-! 	end function
-
-! 	logical function isNaN_real4(number)
-! 		implicit none
-! 		real(4) number
-! 		isNaN_real4 = isnanf(number)
-! 		return
-! 	end function
-
 	subroutine getTime(time)
-#ifdef USE_OPENMP
-		use omp_lib
-#endif
-		real(8), intent(out) :: time
-#ifdef USE_OPENMP
-		time = OMP_get_wtime()
-#else
-		call cpu_time(time)
-#endif
-	end subroutine getTime
+	use time_profiling
+	implicit none
 
-	!2012-6-5 michel: take a starttime and return an elapsedtime
-	subroutine getElapsedTime(startTime, elapsedTime)
-#ifdef USE_OPENMP
-		use omp_lib
-#endif
-		real(8), intent(in) :: startTime
-		real(8), intent(out) :: elapsedTime
-		real(8) endTime
+	real(8), intent(out) :: time
 
-#ifdef USE_OPENMP
-		endTime = OMP_get_wtime()
-#else
-		call cpu_time(endTime)
-#endif
-		elapsedTime = endTime - startTime
+	call getTime_CTIME_OR_OPENMP(time)
 	end subroutine
 
-	!2012-6-5 michel: take a starttime and return an elapsedtime
+	subroutine getElapsedTime(startTime, elapsedTime)
+	use time_profiling
+	implicit none
+
+	real(8), intent(in) :: startTime
+	real(8), intent(out) :: elapsedTime
+
+	call getElapsedTime_CTIME_OR_OPENMP(startTime, elapsedTime)
+	end subroutine
+
 	subroutine printElapsedTime(startTime, prefix)
 		real(8), intent(in) :: startTime
 		character(len=*), intent(in) :: prefix

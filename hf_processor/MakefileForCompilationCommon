@@ -1,4 +1,4 @@
-# Copyright (C) 2016 Michel Müller, Tokyo Institute of Technology
+# Copyright (C) 2018 Michel Müller, Tokyo Institute of Technology
 
 # This file is part of Hybrid Fortran.
 
@@ -55,6 +55,7 @@ endif
 
 SRC_PP=$(wildcard ./*.P90)
 SRC_FORT=$(wildcard ./*.f90)
+SRC_FORT_PPSTD=$(wildcard ./*.F90)
 SRC_FORT_FIXED=$(wildcard ./*.f)
 SRC_PP_FIXED=$(wildcard ./*.F)
 SRC_C=$(wildcard ./*.c)
@@ -66,11 +67,12 @@ EXECUTABLES_O=$(patsubst %,%.o,${EXECUTABLES_POST})
 
 OBJ_PP=$(SRC_PP:.P90=.o)
 OBJ_FORT90=$(filter-out $(OBJ_PP),$(SRC_FORT:.f90=.o))
+OBJ_FORT90_PPSTD=$(filter-out $(OBJ_PP),$(SRC_FORT_PPSTD:.F90=.o))
 OBJ_FORT_FIXED=$(SRC_FORT_FIXED:.f=.o)
 OBJ_PP_FIXED=$(SRC_PP_FIXED:.F=.o)
 OBJ_C=$(SRC_C:.c=.o)
 OBJ_CU=$(SRC_CU:.cu=.o)
-OBJ_PRE1=${OBJ_PP} ${OBJ_FORT90} ${OBJ_FORT_FIXED} ${OBJ_PP_FIXED} ${OBJ_C} ${OBJ_CU}
+OBJ_PRE1=${OBJ_PP} ${OBJ_FORT90} ${OBJ_FORT_FIXED} ${OBJ_PP_FIXED} ${OBJ_C} ${OBJ_CU} ${OBJ_FORT90_PPSTD}
 OBJ_PRE2=$(patsubst ./%,%,${OBJ_PRE1})
 OBJ=$(filter-out $(EXECUTABLES_O),$(OBJ_PRE2))
 $(warning $(OBJ))

@@ -323,7 +323,10 @@ class OpenMPFortranImplementation(FortranImplementation):
 		FortranImplementation.__init__(self, optionFlags)
 
 	def parallelRegionBegin(self, routine, dependantSymbols, parallelRegionTemplate):
-		openMPLines = "!$OMP PARALLEL DO DEFAULT(firstprivate) %s " %(getReductionClause(parallelRegionTemplate).upper())
+		openMPLines = "!$OMP PARALLEL DO SIMD DEFAULT(firstprivate) COLLAPSE(%i) %s " %(
+			len(getDomainsWithParallelRegionTemplate(parallelRegionTemplate)),
+			getReductionClause(parallelRegionTemplate).upper()
+		)
 		sharedSymbols = [
 			s for s in dependantSymbols
 			if s.domains \
@@ -340,7 +343,7 @@ class OpenMPFortranImplementation(FortranImplementation):
 		return openMPLines + FortranImplementation.parallelRegionBegin(self, routine, dependantSymbols, parallelRegionTemplate)
 
 	def parallelRegionEnd(self, parallelRegionTemplate, routine, skipDebugPrint=False):
-		additionalStatements = "\n!$OMP END PARALLEL DO\n"
+		additionalStatements = "\n!$OMP END PARALLEL DO SIMD\n"
 		debugStatements = ""
 		if not skipDebugPrint and 'DEBUG_PRINT' in self.optionFlags:
 			debugStatements = getDebugPrintStatements(

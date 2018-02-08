@@ -277,8 +277,7 @@ class FortranCodeSanitizer(object):
                         "The following line could not be broken up for Fortran compatibility - no suitable spaces found: %s (remainder: %s)\n" %(
                             currLine,
                             remainder
-                        ),
-                        extra={"hfLineNo":currLineNo, "hfFile":currFile}
+                        )
                     )
                     break
                 previousLineLength = len(remainder)

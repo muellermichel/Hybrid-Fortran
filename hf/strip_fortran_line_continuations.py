@@ -6,7 +6,7 @@ openMPLinePattern = re.compile(r'\s*\!\$OMP.*', re.IGNORECASE)
 openACCLinePattern = re.compile(r'\s*\!\$ACC.*', re.IGNORECASE)
 pgiPragmaLinePattern = re.compile(r'\s*\!PGI.*', re.IGNORECASE)
 emptyLinePattern = re.compile(r'(.*?)(?:[\n\r\f\v]+[ \t]*)+(.*)', re.DOTALL)
-multiLineContinuationPattern = re.compile(r'(.*?)\s*\&\s+(?:\!?\$?(?:OMP|ACC)?\&?)?\s*(.*)', re.DOTALL | re.IGNORECASE)
+multiLineContinuationPattern = re.compile(r'(.*?)\s*\&\s+(?:(?:\!\$(?:OMP|ACC)\&?)|\&)?\s*(.*)', re.DOTALL | re.IGNORECASE)
 
 fileInputObject = None
 if len(sys.argv) > 1:

@@ -596,7 +596,7 @@ ${SRC_DIR_GPU}%.cu: %.cu
 
 ${SRC_DIR_HFPP}%.h90: %.h90
 	@echo ...........preparing file for HF parsing: $<
-	@mkdir -p ${SRC_DIR_HFPP} && python ${HF_PYTHON_DIR}strip_fortran_line_continuations.py $< > $@
+	@mkdir -p ${SRC_DIR_HFPP} && python ${HF_PYTHON_DIR}process_includes.py $< | python ${HF_PYTHON_DIR}strip_fortran_line_continuations.py > $@
 
 define generate_p90_rules
 $(4): ${SRC_H90TGT_HFPP} $(2)implementationNamesByTemplate ${CG_DIR}$(3)
@@ -613,4 +613,4 @@ $(eval $(call generate_p90_rules,${SRC_DIR_GPU},${DIR_GPU},${GPU_CALLGRAPH_FILE}
 
 ${SRC_DIR_HFPP}%.h90: %.H90
 	@echo ...........preprocessing and preparing file for HF parsing: $<
-	mkdir -p ${SRC_DIR_HFPP} && cd $(dir $<) && set -o pipefail && < $(notdir $<) sed "s/\/\//¢/g" | gcc -E -w ${PFLAGS} - | tr "\`" '\n' | sed "s/¢/\/\//g" | python ${HF_PYTHON_DIR}strip_fortran_line_continuations.py > $@
+	mkdir -p ${SRC_DIR_HFPP} && cd $(dir $<) && set -o pipefail && < $(notdir $<) sed "s/\/\//¢/g" | gcc -E -w ${PFLAGS} - | tr "\`" '\n' | sed "s/¢/\/\//g" | python ${HF_PYTHON_DIR}process_includes.py ${SRC_DIR_HFPP} | python ${HF_PYTHON_DIR}strip_fortran_line_continuations.py > $@

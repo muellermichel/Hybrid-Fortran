@@ -1395,7 +1395,7 @@ Current Domains: %s\n" %(
 		if self.declarationPrefix in [None, ""]:
 			return None
 		if purgeList == None:
-			purgeList = ['intent', 'public', 'parameter', 'save']
+			purgeList = ['intent', 'public', 'private', 'parameter', 'save']
 		result = self._getPurgedDeclarationPrefix(purgeList)
 		kindMatch = self.patterns.declarationKindPattern.match(result)
 		if kindMatch:

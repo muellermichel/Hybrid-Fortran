@@ -582,7 +582,9 @@ class RoutineSpecificationRegion(Region):
 		if len(self._dataSpecificationLines) > 0 and conversionOptions.debugPrint and not skipDebugPrint:
 			text += "!<----- data specifications: --\n"
 		if len(self._dataSpecificationLines) > 0:
-			text += "\n".join(self._dataSpecificationLines) + "\n"
+			text += "\n".join(
+				parentRoutine.implementation.adjustDataSpecificationLines(self._dataSpecificationLines, parentRoutine)
+			) + "\n"
 		if textAfterDeclarations != "" and conversionOptions.debugPrint and not skipDebugPrint:
 			text += "!<----- after declarations: --\n"
 		text += textAfterDeclarations

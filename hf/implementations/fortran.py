@@ -91,6 +91,9 @@ class FortranImplementation(object):
 			return ""
 		return line
 
+	def adjustDataSpecificationLines(self, dataSpecLines, routine):
+		return dataSpecLines
+
 	def earlyExit(self, parallelRegionPosition):
 		return "exit outerParallelLoop" + str(self._currKernelNumber)
 
@@ -946,6 +949,11 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 
 	def earlyExit(self, parallelRegionPosition):
 		return "return"
+
+	def adjustDataSpecificationLines(self, dataSpecLines, routine):
+		if routine.node.getAttribute("parallelRegionPosition") == "inside":
+			return dataSpecLines
+		return []
 
 	def generateRoutines(self, routine):
 		def generateHostRoutine(routine, parallelRegions=[]):

@@ -1286,12 +1286,7 @@ end if\n" %(calleeNode.getAttribute('name'))
 				raise UsageError("illegal argument: %s" %(argument))
 			argumentSymbolNames.append(argumentMatch.group(1))
 		logging.debug("============ loading additional symbols for module %s ===============" %(callee.parentModuleName))
-		moduleImports, moduleDeclarations, additionalDummies = getAdditionalImportsAndDeclarationsForParentScope(calleeModuleNode, argumentSymbolNames)
-		if len(additionalDummies) != 0:
-			raise Exception("dummies are not supposed to be added for module scope symbols: %s; type of first: %i" %(
-				additionalDummies,
-				additionalDummies[0].declarationType
-			))
+		moduleImports, moduleDeclarations, _ = getAdditionalImportsAndDeclarationsForParentScope(calleeModuleNode, argumentSymbolNames)
 		indexedModuleSymbols = (
 			indexSymbolsByNameInScope(moduleImports),
 			indexSymbolsByNameInScope(moduleDeclarations)

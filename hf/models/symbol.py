@@ -1628,6 +1628,9 @@ Please specify the domains and their sizes with domName and domSize attributes i
 				for idx, it in enumerate(iterators)
 			]
 
+		if (callee or isPointerAssignment) and ":" in accessors and not all([acc == ":" for acc in accessors]):
+			raise Exception("slice is requested for %s in callee or pointer assignment - this is not supported" %(self.name))
+
 		#returning early for symbols that we know should be handled without any accessors
 		if isPointerAssignment \
 		or (len(self.domains) == 0 and len(accessors) == 0) \
@@ -1680,7 +1683,7 @@ Please specify the domains and their sizes with domName and domSize attributes i
 
 				# the following code does not work and lead to an error for NICAM
 				# e.g. you can have arrays with two domains, one of which is parallel, accessed in a 2D parallel region
-				# 
+				#
 				# if len(parallelIteratorsAndIndices) > 0 \
 				# and len(parallelIteratorsAndIndices) == len(self.kernelDomainNames) \
 				# and len(parallelDomainAccessorsWithIndices) != len(self.kernelDomainNames):

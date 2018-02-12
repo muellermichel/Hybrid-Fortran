@@ -909,6 +909,13 @@ EXAMPLE:\n\
 			for dimensionSize in self.declaredDimensionSizes:
 				if not type(dimensionSize) in [str, unicode] or dimensionSize == "":
 					raise Exception("Invalid definition of dimension size in symbol %s: %s" %(self.name, dimensionSize))
+			if len(self.declaredDimensionSizes) == len(self.domains):
+				loadedDimensionSizes = set(s for _, s in self.domains)
+				for dimensionSize in self.declaredDimensionSizes:
+					if not dimensionSize in loadedDimensionSizes:
+						raise Exception("Symbol %s: user declared dimension sizes %s were falsely overwritten with %s" %(
+							self.name, self.declaredDimensionSizes, loadedDimensionSizes
+						))
 		for domain in self.domains:
 			if not isinstance(domain, tuple):
 				raise Exception("Invalid definition of domain in symbol %s: %s" %(self.name, str(domain)))
@@ -1191,7 +1198,7 @@ EXAMPLE:\n\
 			for dn in self._kernelDomainNames:
 				dsizes = self._knownKernelDomainSizesByName.get(dn, [])
 				for ds in dsizes:
-					if ds in self.declaredDimensionSizes:
+					if self.declaredDimensionSizes and ds in self.declaredDimensionSizes:
 						updatedKernelDomainNames.append(dn)
 						break
 			self._kernelDomainNames = updatedKernelDomainNames
@@ -1199,11 +1206,11 @@ EXAMPLE:\n\
 			#--> get rid of domains that are not in declaration
 			self.domains = [
 				(domName, domSize) for (domName, domSize) in self.domains
-				if domSize in self.declaredDimensionSizes
+				if self.declaredDimensionSizes and domSize in self.declaredDimensionSizes
 			]
 			self._templateDomains = [
 				(domName, domSize) for (domName, domSize) in self._templateDomains
-				if domSize in self.declaredDimensionSizes
+				if self.declaredDimensionSizes and domSize in self.declaredDimensionSizes
 			]
 			return
 
@@ -1670,11 +1677,15 @@ Please specify the domains and their sizes with domName and domSize attributes i
 					matchedAccessor = matchIteratorListForAccessor(kernelDomainNames, a)
 					if matchedAccessor:
 						parallelDomainAccessorsWithIndices.append((a,idx))
-				if len(parallelIteratorsAndIndices) > 0 \
-				and len(parallelIteratorsAndIndices) == len(self.kernelDomainNames) \
-				and len(parallelDomainAccessorsWithIndices) != len(self.kernelDomainNames):
-					#either no match or something is fishy with the matched accessors - use what's handed down from routine.
-					parallelDomainAccessorsWithIndices = parallelIteratorsAndIndices
+
+				# the following code does not work and lead to an error for NICAM
+				# e.g. you can have arrays with two domains, one of which is parallel, accessed in a 2D parallel region
+				# 
+				# if len(parallelIteratorsAndIndices) > 0 \
+				# and len(parallelIteratorsAndIndices) == len(self.kernelDomainNames) \
+				# and len(parallelDomainAccessorsWithIndices) != len(self.kernelDomainNames):
+				# 	#either no match or something is fishy with the matched accessors - use what's handed down from routine.
+				# 	parallelDomainAccessorsWithIndices = parallelIteratorsAndIndices
 
 				#adjust for some specific use cases
 				if callee and hasattr(callee, "node") and callee.node.getAttribute("parallelRegionPosition") != "outside":

@@ -32,3 +32,4 @@ examples/poisson2d_fem_iterative/input.dat
 examples/particle/test/*
 CPU_IMPLEMENTATION_*
 GPU_IMPLEMENTATION_*
+sftp-config.json

@@ -912,6 +912,8 @@ EXAMPLE:\n\
 			if len(self.declaredDimensionSizes) == len(self.domains):
 				loadedDimensionSizes = set(s for _, s in self.domains)
 				for dimensionSize in self.declaredDimensionSizes:
+					if dimensionSize == ":":
+						continue
 					if not dimensionSize in loadedDimensionSizes:
 						raise Exception("Symbol %s: user declared dimension sizes %s were falsely overwritten with %s" %(
 							self.name, self.declaredDimensionSizes, loadedDimensionSizes

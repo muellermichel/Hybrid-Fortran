@@ -85,6 +85,9 @@ class Module(object):
 		self.routinesByName = routinesByName
 
 		for routine in self._routinesForImplementation:
+			routine.implementation.processModuleBegin(self.name)
+
+		for routine in self._routinesForImplementation:
 			routine._checkParallelRegions()
 
 		for routine in self._routinesForImplementation:
@@ -116,6 +119,10 @@ class Module(object):
 			text + "\n" for text in implementedModuleElements
 			if text != ""
 		]
+
+		for routine in self._routinesForImplementation:
+			routine.implementation.processModuleEnd()
+			
 		return '\n'.join([text for text in purgedModuleElements])
 
 class ModuleStub(Module):

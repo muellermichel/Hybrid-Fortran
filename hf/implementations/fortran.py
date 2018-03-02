@@ -37,6 +37,7 @@ class FortranImplementation(object):
 	currParallelRegionTemplateNode = None
 	debugPrintIteratorDeclared = False
 	currRoutineNode = None
+	currModuleName = None
 	useOpenACCForDebugPrintStatements = True
 	supportsArbitraryDataAccessesOutsideOfKernels = True
 	supportsNativeMemsetsOutsideOfKernels = True
@@ -176,10 +177,10 @@ class FortranImplementation(object):
 		return ""
 
 	def processModuleBegin(self, moduleName):
-		pass
+		self.currModuleName = moduleName
 
 	def processModuleEnd(self):
-		pass
+		self.currModuleName = None
 
 	def parallelRegionStubBegin(self):
 		return "outerParallelLoop%i: do\n" %(self._currKernelNumber)
@@ -272,12 +273,6 @@ class TraceGeneratingFortranImplementation(FortranImplementation):
 
 	def additionalIncludes(self):
 		return "use helper_functions\n"
-
-	def processModuleBegin(self, moduleName):
-		self.currModuleName = moduleName
-
-	def processModuleEnd(self):
-		self.currModuleName = None
 
 	def subroutinePrefix(self, routineNode):
 		self.currRoutineNode = routineNode
@@ -860,12 +855,6 @@ class TraceCheckingOpenACCFortranImplementation(DebugPGIOpenACCFortranImplementa
 
 	def additionalIncludes(self):
 		return DebugPGIOpenACCFortranImplementation.additionalIncludes(self) + "use helper_functions\nuse cudafor\n"
-
-	def processModuleBegin(self, moduleName):
-		self.currModuleName = moduleName
-
-	def processModuleEnd(self):
-		self.currModuleName = None
 
 	def subroutinePrefix(self, routineNode):
 		self.currRoutineNode = routineNode

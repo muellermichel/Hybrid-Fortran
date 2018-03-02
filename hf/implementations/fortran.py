@@ -420,20 +420,18 @@ Symbols vs host attributes:\n%s" %(str([(symbol.name, symbol.isHostSymbol) for s
 
 class DeviceDataFortranImplementation(FortranImplementation):
 	canHandleDeviceData = True
+	usesDuplicatesAsHostRoutines = True
 
 	def updateSymbolDeviceState(self, symbol, symbolNamesUsedInKernel, regionType, parallelRegionPosition, postTransfer=False):
-		logging.debug("device state of symbol %s BEFORE update:\nisOnDevice: %s; isUsingDevicePostfix: %s" %(
+		logging.debug("device state of symbol %s in scope %s BEFORE update:\nisOnDevice: %s; isUsingDevicePostfix: %s" %(
 			symbol.name,
+			symbol.nameOfScope,
 			symbol.isOnDevice,
 			symbol.isUsingDevicePostfix
 		))
 
 		#packed symbols -> leave them alone
 		if symbol.isCompacted:
-			return
-
-		#symbol explicitely marked for host, which is allowed in this implementation - leave it alone
-		if self.allowsMixedHostAndDeviceCode and symbol.isHostSymbol:
 			return
 
 		#all kernel symbols cannot be transfered
@@ -486,8 +484,9 @@ class DeviceDataFortranImplementation(FortranImplementation):
 				symbol.isUsingDevicePostfix = postTransfer
 				symbol.isOnDevice = postTransfer
 
-		logging.debug("device state of symbol %s AFTER update:\nisOnDevice: %s; isUsingDevicePostfix: %s" %(
+		logging.debug("device state of symbol %s in scope %s AFTER update:\nisOnDevice: %s; isUsingDevicePostfix: %s" %(
 			symbol.name,
+			symbol.nameOfScope,
 			symbol.isOnDevice,
 			symbol.isUsingDevicePostfix
 		))
@@ -681,6 +680,46 @@ class DeviceDataFortranImplementation(FortranImplementation):
 					deviceInitStatements += "deallocate(%s)\n" %(symbol.nameInScope())
 					deviceInitStatements += "end if\n"
 		return deviceInitStatements + FortranImplementation.subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, isSubroutineEnd)
+
+	def generateRoutines(self, routine):
+		def generateHostRoutine(routine, parallelRegions=[]):
+			hostRoutine = routine.clone(synthesizedHostRoutineName(routine.name))
+			hostRoutine.implementation = FortranImplementation(self.optionFlags, appliesTo="GPU")
+			hostRoutine.implementation.useKernelPrefixesForDebugPrint = False
+			for region in hostRoutine.regions:
+				if not isinstance(region, CallRegion):
+					continue
+				if not hasattr(region._callee, "implementation"):
+					continue
+				if region._callee.implementation.onDevice and not region._callee.implementation.supportsHostOnlyRoutineCopies:
+					#--> only generate a shell of this routine
+					adjustedRegions = [hostRoutine.regions[0]]
+					adjustedRegions.append(regionWithInertCode(hostRoutine, [
+						"write(0, *) 'Error: %s does not have a callable host version - aborting'\n" %(hostRoutine.name),
+						"stop 2\n"
+					]))
+					hostRoutine.regions = adjustedRegions
+					hostRoutine.node.setAttribute("parallelRegionPosition", "")
+					hostRoutine.parallelRegionTemplates = []
+					return hostRoutine
+			if routine.node.getAttribute("parallelRegionPosition") == "within" \
+			and len(parallelRegions) > 0 \
+			and not appliesTo("GPU", parallelRegions[0].template):
+				hostRoutine.node.setAttribute("parallelRegionPosition", "")
+			return hostRoutine
+
+		routines = [routine]
+		hostRoutine = None
+		parallelRegions = [region for region in routine.regions if isinstance(region, ParallelRegion) and region.template]
+		if routine.isUsedInHostOnlyContext:
+			if routine.node.getAttribute("parallelRegionPosition") == "within":
+				hostRoutine = generateHostRoutine(routine, parallelRegions)
+			else:
+				hostRoutine = generateHostRoutine(routine)
+		if hostRoutine:
+			routines.append(hostRoutine)
+			routines[0].name = synthesizedDeviceRoutineName(routines[0].name)
+		return routines
 
 class PGIOpenACCFortranImplementation(DeviceDataFortranImplementation):
 	architecture = ["openacc", "gpu", "nvd", "nvidia"]
@@ -929,7 +968,6 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 	supportsArbitraryDataAccessesOutsideOfKernels = False
 	supportsNativeMemsetsOutsideOfKernels = True
 	supportsNativeModuleImportsWithinKernels = False
-	usesDuplicatesAsHostRoutines = True
 	allowsMixedHostAndDeviceCode = False
 	supportsHostOnlyRoutineCopies = True
 
@@ -946,32 +984,6 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 		return []
 
 	def generateRoutines(self, routine):
-		def generateHostRoutine(routine, parallelRegions=[]):
-			hostRoutine = routine.clone(synthesizedHostRoutineName(routine.name))
-			hostRoutine.implementation = FortranImplementation(self.optionFlags, appliesTo="GPU")
-			hostRoutine.implementation.useKernelPrefixesForDebugPrint = False
-			for region in hostRoutine.regions:
-				if not isinstance(region, CallRegion):
-					continue
-				if not hasattr(region._callee, "implementation"):
-					continue
-				if region._callee.implementation.onDevice and not region._callee.implementation.supportsHostOnlyRoutineCopies:
-					#--> only generate a shell of this routine
-					adjustedRegions = [hostRoutine.regions[0]]
-					adjustedRegions.append(regionWithInertCode(hostRoutine, [
-						"write(0, *) 'Error: %s does not have a callable host version - aborting'\n" %(hostRoutine.name),
-						"stop 2\n"
-					]))
-					hostRoutine.regions = adjustedRegions
-					hostRoutine.node.setAttribute("parallelRegionPosition", "")
-					hostRoutine.parallelRegionTemplates = []
-					return hostRoutine
-			if routine.node.getAttribute("parallelRegionPosition") == "within" \
-			and len(parallelRegions) > 0 \
-			and not appliesTo("GPU", parallelRegions[0].template):
-				hostRoutine.node.setAttribute("parallelRegionPosition", "")
-			return hostRoutine
-
 		def adjustImportsForKernelRoutine(kernelRoutine):
 			#filter out routine imports except keep imports of device routines
 			adjustedSpecLinesAndSymbols = []
@@ -1018,18 +1030,7 @@ class CUDAFortranImplementation(DeviceDataFortranImplementation):
 					adjustedImports[(sourceModule, nameInScope)] = kernelRoutine._allImports[(sourceModule, nameInScope)]
 				kernelRoutine._allImports = adjustedImports
 
-		routines = [routine]
-		hostRoutine = None
-		parallelRegions = [region for region in routine.regions if isinstance(region, ParallelRegion) and region.template]
-		if routine.isUsedInHostOnlyContext:
-			if routine.node.getAttribute("parallelRegionPosition") == "within":
-				hostRoutine = generateHostRoutine(routine, parallelRegions)
-			else:
-				hostRoutine = generateHostRoutine(routine)
-		if hostRoutine:
-			routines.append(hostRoutine)
-			routines[0].name = synthesizedDeviceRoutineName(routines[0].name)
-
+		routines = super(CUDAFortranImplementation, self).generateRoutines(routine)
 		if routine.node.getAttribute("parallelRegionPosition") != "within":
 			return routines
 
@@ -1308,9 +1309,6 @@ end if\n" %(calleeNode.getAttribute('name'))
 			return "attributes(device)"
 		else:
 			raise UsageError("invalid parallel region position defined for this routine: %s" %(parallelRegionPosition))
-
-	def subroutineCallInvocationPrefix(self, subroutineName, parallelRegionTemplate):
-		return 'call %s' %(subroutineName)
 
 	def subroutineExitPoint(self, dependantSymbols, routineIsKernelCaller, isSubroutineEnd):
 		if isSubroutineEnd:

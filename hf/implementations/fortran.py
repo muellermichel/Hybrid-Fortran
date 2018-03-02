@@ -266,6 +266,7 @@ class TraceGeneratingFortranImplementation(FortranImplementation):
 	earlyReturnCounter = 0
 
 	def __init__(self, optionFlags):
+		FortranImplementation.__init__(self, optionFlags)
 		self.currentTracedSymbols = []
 		self.earlyReturnCounter = 0
 
@@ -284,7 +285,7 @@ class TraceGeneratingFortranImplementation(FortranImplementation):
 
 	def declarationEnd(self, dependantSymbols, routine):
 		super_result = FortranImplementation.declarationEnd(self, dependantSymbols, routine)
-		result, tracedSymbols = getTracingDeclarationStatements(routine.node, dependantSymbols, self.patterns)
+		result, tracedSymbols = getTracingDeclarationStatements(routine, dependantSymbols, self.patterns)
 		self.currentTracedSymbols = tracedSymbols
 		logging.info("...In subroutine %s: Symbols declared for tracing: %s" %(
 				routine.node.getAttribute('name'),
@@ -292,7 +293,7 @@ class TraceGeneratingFortranImplementation(FortranImplementation):
 			)
 		)
 		return result + super_result + getTracingStatements(
-			self.routine.node,
+			routine.node,
 			self.currModuleName,
 			[symbol for symbol in self.currentTracedSymbols if symbol.intent in ['in', 'inout']],
 			getWriteTraceFunc('begin'),
@@ -879,7 +880,7 @@ class TraceCheckingOpenACCFortranImplementation(DebugPGIOpenACCFortranImplementa
 		result += "integer(8) :: hf_num_of_elements\n"
 		result += "logical :: hf_tracing_error_found\n"
 		tracing_declarations, tracedSymbols = getTracingDeclarationStatements(
-			routine.node,
+			routine,
 			dependantSymbols,
 			self.patterns,
 			useReorderingByAdditionalSymbolPrefixes={'hf_tracing_temp_':False, 'hf_tracing_comparison_':False}

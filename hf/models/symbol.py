@@ -1428,7 +1428,7 @@ Current Domains: %s\n" %(
 		declarationPrefix = self.getSanitizedDeclarationPrefix(purgeList)
 		if not declarationPrefix:
 			raise ScopeError("cannot generate declaration for %s" %(self.name))
-		result = "%s %s %s %s" %(
+		result = "%s %s%s %s" %(
 			declarationPrefix.strip(),
 			name_prefix,
 			self.domainRepresentation(parentRoutine, useDomainReordering),

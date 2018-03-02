@@ -236,45 +236,45 @@ def getLoopOverSymbolValues(symbol, loopName, innerLoopImplementationFunc):
 		result += " hf_tracing_outer_%s\n" %(loopName)
 	return result
 
-# $$$ this isn't supported for now
-# def getTracingDeclarationStatements(currRoutineNode, dependantSymbols, patterns, useReorderingByAdditionalSymbolPrefixes={'hf_tracing_temp_':False}):
-#	from tools.patterns import regexPatterns
-# 	tracing_symbols = []
-# 	if len(dependantSymbols) == 0 or currRoutineNode.getAttribute('parallelRegionPosition') == 'outside':
-# 		return "", tracing_symbols
+def getTracingDeclarationStatements(routine, dependantSymbols, patterns, useReorderingByAdditionalSymbolPrefixes={'hf_tracing_temp_':False}):
+	from tools.patterns import regexPatterns
+	tracing_symbols = []
+	if len(dependantSymbols) == 0 or routine.node.getAttribute('parallelRegionPosition') == 'outside':
+		return "", tracing_symbols
 
-# 	result = "integer(8), save :: hf_tracing_counter = 0\n"
-# 	result += "integer(4) :: hf_error_printed_counter\n"
-# 	result += "character(len=256) :: hf_tracing_current_path\n"
-# 	max_num_of_domains_for_symbols = 0
-# 	for symbol in dependantSymbols:
-# 		if len(symbol.domains) == 0:
-# 		# or 'allocatable' in symbol.declarationPrefix \
-# 		# or symbol.intent not in ['in', 'inout', 'out'] \
-# 		# or symbol.isOnDevice and currRoutineNode.getAttribute('parallelRegionPosition') == 'inside':
-# 			continue
-# 		if len(symbol.domains) > max_num_of_domains_for_symbols:
-# 			max_num_of_domains_for_symbols = len(symbol.domains)
-# 		for prefix in useReorderingByAdditionalSymbolPrefixes.keys():
-# 			current_declaration_line = symbol.getDeclarationLine(
-# 				purgeList=['intent', 'public', 'allocatable', 'target'],
-# 				name_prefix=prefix,
-# 				use_domain_reordering=useReorderingByAdditionalSymbolPrefixes[prefix],
-# 				skip_on_missing_declaration=True
-# 			)
-# 			if current_declaration_line == "":
-# 				break
-# 			result += current_declaration_line + '\n'
-# 		else:
-# 			tracing_symbols.append(symbol)
+	result = "integer(8), save :: hf_tracing_counter = 0\n"
+	result += "integer(4) :: hf_error_printed_counter\n"
+	result += "character(len=256) :: hf_tracing_current_path\n"
+	max_num_of_domains_for_symbols = 0
+	for symbol in dependantSymbols:
+		if len(symbol.domains) == 0:
+		# or 'allocatable' in symbol.declarationPrefix \
+		# or symbol.intent not in ['in', 'inout', 'out'] \
+		# or symbol.isOnDevice and routine.node.getAttribute('parallelRegionPosition') == 'inside':
+			continue
+		if len(symbol.domains) > max_num_of_domains_for_symbols:
+			max_num_of_domains_for_symbols = len(symbol.domains)
+		for prefix in useReorderingByAdditionalSymbolPrefixes.keys():
+			current_declaration_line = symbol.getDeclarationLine(
+				routine,
+				purgeList=['intent', 'public', 'private', 'allocatable', 'target'],
+				name_prefix=prefix,
+				useDomainReordering=useReorderingByAdditionalSymbolPrefixes[prefix],
+				skip_on_missing_declaration=True
+			)
+			if current_declaration_line == "":
+				break
+			result += current_declaration_line + '\n'
+		else:
+			tracing_symbols.append(symbol)
 
-# 	if max_num_of_domains_for_symbols > 0:
-# 		result += "integer(4) :: %s\n" %(
-# 			', '.join(
-# 				["hf_tracing_enum%i" %(domainNum) for domainNum in range(1,max_num_of_domains_for_symbols+1)]
-# 			)
-# 		)
-# 	return result, tracing_symbols
+	if max_num_of_domains_for_symbols > 0:
+		result += "integer(4) :: %s\n" %(
+			', '.join(
+				["hf_tracing_enum%i" %(domainNum) for domainNum in range(1,max_num_of_domains_for_symbols+1)]
+			)
+		)
+	return result, tracing_symbols
 
 number_of_traces = 200
 def getTracingStatements(currRoutineNode, currModuleName, tracingSymbols, traceHandlingFunc, increment_tracing_counter=True, loop_name_postfix=''):
@@ -282,15 +282,15 @@ def getTracingStatements(currRoutineNode, currModuleName, tracingSymbols, traceH
 		return "hf_tracing_temp_%s = %s\n" %(
 			symbol.accessRepresentation(
 				parallelIterators=[],
-				offsets=["hf_tracing_enum%i" %(domainNum) for domainNum in range(1,len(symbol.domains)+1)],
+				accessors=["hf_tracing_enum%i" %(domainNum) for domainNum in range(1,len(symbol.domains)+1)],
 				parallelRegionNode=None,
-				use_domain_reordering=False
+				useDomainReordering=False
 			),
 			symbol.accessRepresentation(
 				parallelIterators=[],
-				offsets=["hf_tracing_enum%i" %(domainNum) for domainNum in range(1,len(symbol.domains)+1)],
+				accessors=["hf_tracing_enum%i" %(domainNum) for domainNum in range(1,len(symbol.domains)+1)],
 				parallelRegionNode=None,
-				use_domain_reordering=True
+				useDomainReordering=True
 			)
 		)
 
@@ -303,9 +303,9 @@ def getTracingStatements(currRoutineNode, currModuleName, tracingSymbols, traceH
 			result += "hf_tracing_temp_%s = 0\n" %(
 				symbol.accessRepresentation(
 					parallelIterators=[],
-					offsets=[":" for _ in range(len(symbol.domains))],
+					accessors=[":" for _ in range(len(symbol.domains))],
 					parallelRegionNode=None,
-					use_domain_reordering=False
+					useDomainReordering=False
 				)
 			)
 			if symbol.isOnDevice:
@@ -338,9 +338,9 @@ def getCompareToTraceFunc(abortSubroutineOnError=True, loop_name_postfix='', beg
 	def printSomeErrors(symbol):
 		accessor = symbol.accessRepresentation(
 			parallelIterators=[],
-			offsets=["hf_tracing_enum%i" %(domainNum) for domainNum in range(1,len(symbol.domains)+1)],
+			accessors=["hf_tracing_enum%i" %(domainNum) for domainNum in range(1,len(symbol.domains)+1)],
 			parallelRegionNode=None,
-			use_domain_reordering=False
+			useDomainReordering=False
 		)
 		result = ""
 		result += "if ( ( abs( hf_tracing_comparison_%s - hf_tracing_temp_%s ) / hf_tracing_comparison_%s ) .gt. 1E-9) then \n" %(accessor, accessor, accessor)
